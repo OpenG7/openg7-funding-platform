@@ -1,0 +1,69 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+  margin-block: 1rem;
+}
+.secondary-actions {
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel);
+}
+summary {
+  cursor: pointer;
+  min-height: var(--admin-control-height);
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
+  font-weight: var(--admin-control-weight);
+  overflow-wrap: anywhere;
+}
+summary:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.secondary-actions-body {
+  @apply tw:flex tw:flex-col tw:items-start tw:gap-3 tw:min-w-0;
+  padding: 0 1rem 1rem;
+}
+.absence,
+label,
+textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.absence > summary {
+  padding-inline: 0;
+}
+p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+label {
+  @apply tw:flex tw:flex-col tw:gap-2;
+  margin-block: 1rem;
+}
+textarea {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  font: inherit;
+  resize: vertical;
+}
+.check {
+  @apply tw:flex-row tw:items-start;
+  min-height: var(--admin-control-height);
+}
+.check input {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  min-height: 1.1rem;
+}
+.admin-button {
+  max-width: 100%;
+  white-space: normal;
+}

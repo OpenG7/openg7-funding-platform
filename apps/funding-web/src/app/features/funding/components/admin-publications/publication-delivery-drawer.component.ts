@@ -24,6 +24,7 @@ import { AdminPublicationNavigationService } from '../../services/admin-publicat
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import type { PublicationDeliveryController } from './publication-delivery-controller.js';
+import { PublicationDeliverySecondaryActionsComponent } from './publication-delivery-secondary-actions.component.js';
 
 /** Delivery review organism; its controller retains the exact displayed decision. */
 @Component({
@@ -36,7 +37,8 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
     TranslatePipe,
     AdminDrawerComponent,
     AdminAutomaticPreparationDirective,
-    FundingModerationActionsComponent
+    FundingModerationActionsComponent,
+    PublicationDeliverySecondaryActionsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './publication-delivery-drawer.component.html',
@@ -57,6 +59,9 @@ export class PublicationDeliveryDrawerComponent {
     viewChild<ElementRef<HTMLElement>>('previewPanel');
   private readonly previewToggle =
     viewChild<ElementRef<HTMLButtonElement>>('previewToggle');
+  private readonly reviewAuthorization = viewChild<ElementRef<HTMLElement>>(
+    'reviewAuthorization'
+  );
   private readonly localPreview = viewChild<ElementRef<HTMLDetailsElement>>(
     'localPreviewDetails'
   );
@@ -144,6 +149,40 @@ export class PublicationDeliveryDrawerComponent {
     return this.canWrite() && controller.editing()
       ? controller.edit.publicationFormat
       : controller.selected()?.publicationFormat;
+  }
+
+  returnToReview(): void {
+    const controller = this.controller();
+    const selected = controller.selected();
+    const session = this.admin.sessionGeneration();
+    if (
+      !this.canWrite() ||
+      !selected ||
+      controller.busy() ||
+      controller.dirty()
+    )
+      return;
+    controller.editing.set(false);
+    afterNextRender(
+      () => {
+        if (
+          this.controller() !== controller ||
+          controller.selected() !== selected ||
+          this.admin.sessionGeneration() !== session ||
+          controller.editing() ||
+          controller.busy() ||
+          this.previewExpanded() ||
+          !this.canWrite()
+        )
+          return;
+        const target =
+          this.reviewAuthorization()?.nativeElement ??
+          this.previewPanel()?.nativeElement;
+        target?.focus({ preventScroll: true });
+        target?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      },
+      { injector: this.injector }
+    );
   }
 
   togglePreview(): void {

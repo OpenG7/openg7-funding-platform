@@ -3007,7 +3007,8 @@
         "previewHeading": "Content preview",
         "expandPreview": "Enlarge preview",
         "reducePreview": "Reduce preview",
-        "footerHelp": "Saving keeps a draft. Authorizing delivery remains a separate decision."
+        "footerHelp": "Saving keeps a draft. Authorizing delivery remains a separate decision.",
+        "backToReview": "Return to review"
       },
       "approvalHelp": "Any change revokes the previous authorization. Check the account, text, image and time above.",
       "collectionHelp": "LinkedIn collection: review every JPEG in the displayed order. One photo per sponsor, with 2 to 10 participants. Each photo retains its rights and its credit in the text.",
@@ -3126,7 +3127,8 @@
       "sponsorReview": "Sponsors to approve with this publication",
       "sponsorReviewHelp": "Accepting also approves these sponsors. Their website profiles remain private until a separate visibility decision.",
       "combinedApproval": "I approve these sponsors, this exact content and delivery to this destination at this time.",
-      "missingPresentation": "Add or approve a presentation photo in the sponsor record."
+      "missingPresentation": "Add or approve a presentation photo in the sponsor record.",
+      "otherActions": "Other actions"
     },
     "pilotage": {
       "appearance": "Appearance",
