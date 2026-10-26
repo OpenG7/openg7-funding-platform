@@ -6,6 +6,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 
 interface Context {
   setup(
@@ -104,10 +105,16 @@ export function registerPublicationContentReviewTests(context: Context): void {
           (await new AxeBuilder({ page }).include('dialog[open]').analyze())
             .violations
         ).toEqual([]);
-        await page.screenshot({
-          path: testInfo.outputPath(`content-review-${language}-${width}.png`),
-          animations: 'disabled'
-        });
+        await capturePublicationReview(
+          page,
+          testInfo,
+          `content-review-${language}-${width}`,
+          {
+            language,
+            viewport: { width, height: 864 },
+            access: 'fixture-with-write-controls'
+          }
+        );
         await dialog
           .getByRole('button', { name: saveName, exact: true })
           .click();
@@ -396,12 +403,16 @@ export function registerPublicationContentReviewTests(context: Context): void {
             (element) => element.scrollWidth <= element.clientWidth + 1
           )
         ).toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(
-            `review-preview-${language}-${viewport.width}.png`
-          ),
-          animations: 'disabled'
-        });
+        await capturePublicationReview(
+          page,
+          testInfo,
+          `review-preview-${language}-${viewport.width}`,
+          {
+            language,
+            viewport,
+            access: 'fixture-with-write-controls'
+          }
+        );
 
         await expand.click();
         await expect(expand).toBeFocused();

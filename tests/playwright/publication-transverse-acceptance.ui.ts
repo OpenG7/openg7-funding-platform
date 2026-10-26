@@ -7,6 +7,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 import {
   adminController,
   installAdminController
@@ -128,7 +129,8 @@ async function capture(
   testInfo: TestInfo,
   name: string,
   dialog: Locator,
-  action: Locator
+  action: Locator,
+  language: string
 ) {
   const measurements = await dialog.evaluate((element) => {
     const bounds = element.getBoundingClientRect();
@@ -173,10 +175,10 @@ async function capture(
     path: measurementPath,
     contentType: 'application/json'
   });
-  await page.screenshot({
-    path: testInfo.outputPath(`${name}.png`),
-    fullPage: false,
-    animations: 'disabled'
+  await capturePublicationReview(page, testInfo, name, {
+    language,
+    viewport: measurements.viewport,
+    access: 'fixture-with-write-controls'
   });
 }
 
@@ -263,7 +265,14 @@ export function registerPublicationTransverseAcceptanceTests(
         await expectFocusedControlInsideViewport(save);
         await expectNoHorizontalOverflow(page, dialog);
         const prefix = `publication-transverse-${language}-${viewport.width}x${viewport.height}`;
-        await capture(page, testInfo, `${prefix}-editor`, dialog, save);
+        await capture(
+          page,
+          testInfo,
+          `${prefix}-editor`,
+          dialog,
+          save,
+          language
+        );
         await tabTo(page, dialog, referenceSummary, true);
         await page.keyboard.press('Enter');
         await expect(reference).toHaveJSProperty('open', false);
@@ -305,7 +314,8 @@ export function registerPublicationTransverseAcceptanceTests(
           testInfo,
           `${prefix}-confirmation`,
           confirmation,
-          cancel
+          cancel,
+          language
         );
         await page.keyboard.press('Escape');
         await expect(confirmation).toBeHidden();
@@ -377,7 +387,8 @@ export function registerPublicationTransverseAcceptanceTests(
         testInfo,
         `publication-transverse-${language}-simulated-controller`,
         confirmation,
-        cancel
+        cancel,
+        language
       );
       await pad.release();
       await pad.press('B');
