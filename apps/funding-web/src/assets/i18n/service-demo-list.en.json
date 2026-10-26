@@ -1,0 +1,13 @@
+{
+  "serviceDemoList": {
+    "searchHelp": "Search by name, with or without accents.",
+    "results": "{{count}} of {{total}} files",
+    "clearFilters": "Clear filters",
+    "activeFilters": "Applied filters",
+    "removeSearch": "Remove search: {{query}}",
+    "removeFilter": "Remove stage filter",
+    "filesTitle": "Files",
+    "nextAction": "Next intervention",
+    "localDraft": "Local draft"
+  }
+}

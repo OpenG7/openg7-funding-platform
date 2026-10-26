@@ -1,0 +1,183 @@
+{
+  "serviceDemo": {
+    "title": "Prestations de services",
+    "subtitle": "Retrouvez chaque dossier et sa prochaine intervention.",
+    "workspace": "Espace de préparation",
+    "skip": "Aller au contenu",
+    "demoTag": "Démo interactive",
+    "demoNotice": "Données fictives · Explorez les écrans et préparez un brouillon local. Aucun envoi ni publication.",
+    "language": "Passer en anglais",
+    "exit": "Quitter",
+    "breadcrumb": "Fil d’Ariane",
+    "dossierLabel": "Dossier :",
+    "offer": "Commandite Web + Facebook",
+    "more": "Autres actions",
+    "allActions": "Toutes les actions du dossier",
+    "history": "Historique des modifications",
+    "agreement": "Accord et prestations promises",
+    "proofs": "Preuves de réalisation",
+    "comment": "Ajouter un commentaire interne",
+    "back": "Retour",
+    "backList": "Retour aux prestations",
+    "fixtureLabel": "3 dossiers de démonstration",
+    "draftChanged": "Brouillon modifié · en mémoire",
+    "draftSaved": "Brouillon conservé pour cette visite",
+    "localOnly": "Exploration locale uniquement",
+    "stepsLabel": "Étapes de la prestation",
+    "steps": {
+      "contenu": { "title": "Contenu", "hint": "Texte et visuels" },
+      "autorisation": {
+        "title": "Consentement",
+        "hint": "Diffusion du contenu"
+      },
+      "publication": {
+        "title": "Publication",
+        "hint": "Destination et horaire"
+      }
+    },
+    "metrics": {
+      "total": "Dossiers à suivre",
+      "dossiers": "dossiers",
+      "services": "Prestations prévues",
+      "promised": "prestations",
+      "next": "Prochaines interventions",
+      "interventions": "à explorer"
+    },
+    "search": "Rechercher un dossier…",
+    "resultCount": "{{count}} résultat(s)",
+    "filters": {
+      "label": "Filtrer les dossiers",
+      "all": "Tous les dossiers",
+      "contenu": "Contenu à vérifier",
+      "autorisation": "Consentement à examiner",
+      "publication": "Publication à préparer"
+    },
+    "stageLabels": {
+      "contenu": "Contenu à vérifier",
+      "autorisation": "Consentement à examiner",
+      "publication": "Publication à préparer"
+    },
+    "nextActions": {
+      "contenu": "Vérifier le contenu",
+      "autorisation": "Vérifier le consentement",
+      "publication": "Finaliser la publication"
+    },
+    "empty": {
+      "title": "Aucun dossier trouvé",
+      "hint": "Essayez un autre nom ou retirez le filtre.",
+      "reset": "Réinitialiser la recherche"
+    },
+    "listHint": "Chaque dossier réunit les prestations promises, le contenu à préparer et les preuves à consulter.",
+    "web": "Présentation sur le site",
+    "facebook": "Publication Facebook",
+    "preview": {
+      "title": "Aperçu de la publication",
+      "label": "Aperçu · contenu de démonstration",
+      "text": "Découvrez {{name}}, un partenaire engagé aux côtés d’OpenG7. Ensemble, nous contribuons à un milieu plus fort et à des projets qui nous rassemblent.",
+      "imageAlt": "Paysage panoramique utilisé comme visuel de démonstration",
+      "caption": "Aperçu indicatif. Ce contenu n’est pas diffusé.",
+      "open": "Voir le contenu exact"
+    },
+    "facts": {
+      "payment": "Paiement fictif confirmé",
+      "consent": "Consentement d’exemple",
+      "reference": "Référence DÉMO · Octobre 2026"
+    },
+    "summary": {
+      "title": "Suivi des prestations du dossier",
+      "services": "Ce qui a été promis",
+      "webHint": "Fiche du partenaire sur le site OpenG7.",
+      "facebookHint": "Une publication sur la page Facebook OpenG7.",
+      "toPrepare": "À préparer",
+      "toReview": "À vérifier",
+      "nextTitle": "La prochaine intervention",
+      "nextHint": "Relisez le texte et le visuel avant d’examiner le consentement applicable à cette publication.",
+      "aiTitle": "Une proposition à examiner",
+      "aiHint": "Explorez une variante de texte préparée pour cette démonstration.",
+      "aiAction": "Examiner la proposition",
+      "proofHint": "Consulter les exemples de pièces et de résultats."
+    },
+    "tasks": {
+      "contenu": {
+        "title": "Vérifier le contenu",
+        "hint": "Relisez ce qui sera présenté au nom du partenaire.",
+        "noticeTitle": "La préparation reste distincte du consentement",
+        "notice": "Les contrôles ci-dessus décrivent un exemple. Vous pouvez corriger le brouillon sans approuver ni publier.",
+        "action": "Examiner le consentement"
+      },
+      "autorisation": {
+        "title": "Vérifier le consentement",
+        "hint": "Retrouvez le consentement à la diffusion du contenu, sa portée et le contact qui l’a donné.",
+        "noticeTitle": "Consentement fourni à titre d’exemple",
+        "notice": "Le courriel et les conditions sont fictifs. La confirmation suivante est un écran de prévisualisation.",
+        "action": "Voir la confirmation"
+      },
+      "publication": {
+        "title": "Finaliser la publication",
+        "hint": "Vérifiez la version, la destination et l’horaire envisagés.",
+        "noticeTitle": "Publication de démonstration",
+        "notice": "Parcourez la planification et le récapitulatif. La diffusion et la programmation réelle sont désactivées.",
+        "action": "Voir le récapitulatif"
+      }
+    },
+    "contentChecks": {
+      "text": {
+        "title": "Texte de la publication",
+        "hint": "Lire et corriger le message du partenaire."
+      },
+      "image": {
+        "title": "Visuel et présentation",
+        "hint": "Consulter l’image utilisée dans l’aperçu."
+      },
+      "link": {
+        "title": "Liens et destination",
+        "hint": "Vérifier l’adresse affichée dans le brouillon."
+      },
+      "mentions": {
+        "title": "Mentions du partenaire",
+        "hint": "Retrouver le nom et les mentions prévues."
+      }
+    },
+    "authorizationChecks": {
+      "consent": {
+        "title": "Consentement explicite reçu — exemple",
+        "hint": "Courriel du 22 octobre 2026 · contenu fictif."
+      },
+      "conditions": {
+        "title": "Conditions du consentement",
+        "hint": "Portée, canal et version examinée."
+      },
+      "contact": {
+        "title": "Contact du dossier",
+        "hint": "Camille Exemple · contact de démonstration."
+      }
+    },
+    "publicationChecks": {
+      "destination": {
+        "title": "Destination",
+        "hint": "Page OpenG7 · Facebook · exemple déconnecté."
+      },
+      "version": {
+        "title": "Contenu exact",
+        "hint": "Lire le texte, le visuel et le lien actuels."
+      },
+      "schedule": {
+        "title": "Horaire envisagé",
+        "hint": "Choisir une date · fuseau America/Toronto."
+      }
+    },
+    "authorizationMeta": {
+      "title": "Détails du consentement — exemple",
+      "date": "Date",
+      "dateValue": "22 octobre 2026, 14 h 18",
+      "contact": "Par",
+      "contactValue": "Camille Exemple",
+      "method": "Méthode",
+      "methodValue": "Courriel fictif"
+    },
+    "requestCorrection": "Demander une correction",
+    "editContent": "Corriger le contenu",
+    "missingTitle": "Cette vue est introuvable",
+    "missingHint": "Retrouvez les dossiers et les écrans disponibles depuis la liste."
+  }
+}

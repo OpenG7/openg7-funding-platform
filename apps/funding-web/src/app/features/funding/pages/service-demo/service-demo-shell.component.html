@@ -1,0 +1,216 @@
+<div class="service-demo" data-og7="service-demo">
+  <a class="skip-link" href="#service-demo-heading">{{
+    'serviceDemo.skip' | translate
+  }}</a>
+  <header class="workspace-bar">
+    <a
+      class="workspace-brand"
+      routerLink="/demo/prestations"
+      [queryParams]="state.listParams()"
+      ><span class="brand-mark" aria-hidden="true">G<span>7</span></span
+      ><span
+        >OpenG7 <small>{{ 'serviceDemo.workspace' | translate }}</small></span
+      ></a
+    >
+    <div class="workspace-tools">
+      <span class="demo-tag">{{ 'serviceDemo.demoTag' | translate }}</span
+      ><button
+        class="button quiet"
+        type="button"
+        (click)="state.i18n.toggleLanguage()"
+        [attr.aria-label]="'serviceDemo.language' | translate"
+        data-og7="service-demo-language"
+      >
+        {{ state.language() === 'fr-CA' ? 'EN' : 'FR' }}</button
+      ><a class="button quiet" routerLink="/admin/fundraiser"
+        >{{ 'serviceDemo.exit' | translate }} <openg7-admin-icon name="arrow"
+      /></a>
+    </div>
+  </header>
+  <div
+    class="demo-notice"
+    role="region"
+    [attr.aria-label]="'serviceDemo.demoTag' | translate"
+  >
+    {{ 'serviceDemo.demoNotice' | translate }}
+  </div>
+  <main class="demo-window" [class.is-list]="isList()">
+    <header class="window-heading">
+      <span class="heading-icon" aria-hidden="true"
+        ><openg7-admin-icon [name]="icon()"
+      /></span>
+      <div class="heading-copy">
+        @if (!isList()) {
+          <nav
+            class="breadcrumbs"
+            [attr.aria-label]="'serviceDemo.breadcrumb' | translate"
+          >
+            <a
+              routerLink="/demo/prestations"
+              [queryParams]="state.listParams()"
+              >{{ 'serviceDemo.title' | translate }}</a
+            >
+            @if (!isList() && !isMissing()) {
+              <span aria-hidden="true">/</span
+              ><a [routerLink]="state.href()" queryParamsHandling="preserve">{{
+                state.dossier().name
+              }}</a>
+            }
+          </nav>
+        }
+        <h1 id="service-demo-heading" tabindex="-1">
+          {{ titleKey() | translate }}
+        </h1>
+        <p>
+          @if (isList()) {
+            {{ 'serviceDemo.subtitle' | translate }}
+          } @else if (!isMissing()) {
+            {{ 'serviceDemo.dossierLabel' | translate }}
+            {{ state.dossier().name }}
+            <span class="heading-meta"
+              >· {{ 'serviceDemo.offer' | translate }}</span
+            >
+          }
+        </p>
+        @if (!isList() && !isMissing() && (state.dirty() || state.saved())) {
+          <span
+            class="draft-indicator"
+            [class.changed]="state.dirty()"
+            [class.saved]="state.saved()"
+            role="status"
+            data-og7="service-demo-draft-status"
+          >
+            <openg7-admin-icon
+              [name]="
+                state.saved()
+                  ? 'check'
+                  : state.dirty()
+                    ? 'publications'
+                    : 'clock'
+              "
+            />
+            {{
+              (state.dirty()
+                ? 'serviceDemo.draftChanged'
+                : state.saved()
+                  ? 'serviceDemo.draftSaved'
+                  : 'serviceDemo.localOnly'
+              ) | translate
+            }}
+          </span>
+        }
+      </div>
+      @if (!isList() && !isMissing()) {
+        <div class="heading-menu" data-og7="service-demo-menu">
+          <button
+            #moreToggle
+            class="button quiet"
+            type="button"
+            (click)="menuOpen.set(!menuOpen())"
+            [attr.aria-expanded]="menuOpen()"
+            aria-controls="service-demo-more"
+            [attr.aria-label]="'serviceDemo.more' | translate"
+            data-og7="service-demo-more"
+          >
+            <openg7-admin-icon name="menu" /><span>{{
+              'serviceDemo.more' | translate
+            }}</span>
+          </button>
+          @if (menuOpen()) {
+            <div
+              id="service-demo-more"
+              class="more-menu"
+              (keydown.escape)="menuOpen.set(false); moreToggle.focus()"
+            >
+              <a
+                [routerLink]="state.href('historique')"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.history' | translate }}</a
+              ><a
+                [routerLink]="state.href('accord')"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.agreement' | translate }}</a
+              ><a
+                [routerLink]="state.href('preuves')"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.proofs' | translate }}</a
+              ><a
+                [routerLink]="state.href('commentaire')"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.comment' | translate }}</a
+              ><a
+                [routerLink]="state.href('autres-actions')"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.allActions' | translate }}</a
+              >
+            </div>
+          }
+        </div>
+      }
+    </header>
+    @if (showSteps()) {
+      <nav
+        class="stepper"
+        [attr.aria-label]="'serviceDemo.stepsLabel' | translate"
+      >
+        @for (step of steps; track step; let index = $index) {
+          <a
+            [routerLink]="state.href(step)"
+            queryParamsHandling="preserve"
+            [class.active]="activeStep() === step"
+            [attr.aria-current]="activeStep() === step ? 'step' : null"
+            data-og7="service-demo-step"
+            [attr.data-og7-id]="step"
+            ><span class="step-number">{{ index + 1 }}</span
+            ><span
+              ><strong>{{
+                'serviceDemo.steps.' + step + '.title' | translate
+              }}</strong
+              ><small>{{
+                'serviceDemo.steps.' + step + '.hint' | translate
+              }}</small></span
+            ></a
+          >
+        }
+      </nav>
+    }
+    @if (!isMissing()) {
+      <openg7-service-demo-help [isList]="isList()" />
+    }
+    <div class="demo-body" id="service-demo-body"><router-outlet /></div>
+    <footer class="window-footer">
+      @if (!isList() && state.page() !== 'corriger') {
+        <a
+          class="button"
+          data-og7="service-demo-back"
+          [routerLink]="
+            isMissing()
+              ? '/demo/prestations'
+              : state.page()
+                ? state.href(returnPage())
+                : '/demo/prestations'
+          "
+          [queryParams]="!state.page() ? state.listParams() : null"
+          queryParamsHandling="merge"
+          ><span aria-hidden="true">←</span
+          >{{
+            (state.page() ? 'serviceDemo.back' : 'serviceDemo.backList')
+              | translate
+          }}</a
+        >
+      } @else if (isList()) {
+        <span class="muted">{{ 'serviceDemo.fixtureLabel' | translate }}</span>
+      }
+      <ng-container [ngTemplateOutlet]="state.actions()" />
+      <span class="local-status" role="status">
+        @if (state.dirty()) {
+          {{ 'serviceDemo.draftChanged' | translate }}
+        } @else if (state.saved()) {
+          {{ 'serviceDemo.draftSaved' | translate }}
+        } @else {
+          {{ 'serviceDemo.localOnly' | translate }}
+        }
+      </span>
+    </footer>
+  </main>
+</div>

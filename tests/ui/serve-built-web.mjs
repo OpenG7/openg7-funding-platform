@@ -17,6 +17,60 @@ const types = {
   '.woff2': 'font/woff2'
 };
 
+// Keep direct-entry QA aligned with the explicit, synthetic demo destinations.
+const serviceDemoPages = new Set([
+  'contenu',
+  'autorisation',
+  'publication',
+  'corriger',
+  'historique',
+  'apercu',
+  'preuves',
+  'accord',
+  'controle',
+  'proposition',
+  'comparer',
+  'commentaire',
+  'demander-correction',
+  'demander-accord',
+  'preuve',
+  'accord-recu',
+  'conditions',
+  'contact',
+  'planifier',
+  'confirmer-envoi',
+  'resultat',
+  'reconcilier',
+  'attester',
+  'web',
+  'confirmer-visibilite',
+  'approuver-preparation',
+  'autres-actions',
+  'quitter',
+  'conflit',
+  'indisponible',
+  'medias',
+  'guide',
+  'destinations',
+  'filtres',
+  'retablir',
+  'annuler-autorisation',
+  'apercu-envoi',
+  'confirmer-autorisation',
+  ...['texte', 'image', 'liens', 'mentions', 'options'].map(
+    (tab) => `corriger/${tab}`
+  )
+]);
+
+function isServiceDemoRoute(pathname) {
+  if (/^\/demo\/prestations\/?$/.test(pathname)) return true;
+  const match =
+    /^\/demo\/prestations\/dossier\/(atelier-boreal|collectif-rivages|studio-canopée)(?:\/(.*?))?\/?$/.exec(
+      pathname
+    );
+  return !!match && (!match[2] || serviceDemoPages.has(match[2]));
+}
+
 export const createBuiltWebServer = (apiHandler) =>
   createServer(async (request, response) => {
     try {
@@ -40,6 +94,7 @@ export const createBuiltWebServer = (apiHandler) =>
       if (info?.isDirectory()) file = resolve(file, 'index.html');
       else if (!info?.isFile()) {
         const clientRoute =
+          isServiceDemoRoute(pathname) ||
           /^\/(?:admin\/(?:login|oidc-setup|auth\/callback|fundraiser(?:\/(?:pilotage|attention|assistant|contributions|sponsors(?:\/quality)?|campaigns|invoices|publications(?:\/(?:drafts|batches|calendar|automation))?|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
             pathname
           );

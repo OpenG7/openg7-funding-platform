@@ -117,6 +117,13 @@ const englishPublicRoutes: Routes = publicRoutes.map((route) => ({
 }));
 
 export const appRoutes: Routes = [
+  {
+    path: 'demo/prestations',
+    loadChildren: () =>
+      import('./features/funding/pages/service-demo/service-demo.routes.js').then(
+        (m) => m.serviceDemoRoutes
+      )
+  },
   ...publicRoutes,
   ...englishPublicRoutes,
   {

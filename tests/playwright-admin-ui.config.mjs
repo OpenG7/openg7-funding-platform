@@ -4,6 +4,7 @@ import { defineBuiltWebSuite } from './ui/playwright-fixtures.config.mjs';
 // Does not start the API, load .env, seed a DB, or run the Docker teardown.
 export default defineBuiltWebSuite({
   testMatch: [
+    'service-demo.ui.spec.ts',
     'admin-audit-ui.spec.ts',
     'admin-transparency-ui.spec.ts',
     'admin-allocation-create-ui.spec.ts',

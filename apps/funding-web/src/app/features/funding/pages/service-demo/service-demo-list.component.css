@@ -1,0 +1,254 @@
+:host {
+  display: block;
+}
+
+.search-group {
+  width: min(100%, 430px);
+}
+
+.search-group .search-field {
+  width: 100%;
+}
+
+.search-help {
+  display: block;
+  margin: 6px 2px 0;
+  color: #63758a;
+  font-size: 12px;
+}
+
+.list-result-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.result-count {
+  color: #52647a;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.reset-filters {
+  font-size: 12px;
+  color: #0753ba;
+  padding-inline: 8px;
+}
+
+.filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 5px;
+  margin-left: 8px;
+  background: #e7edf5;
+  color: #52647a;
+  font-size: 12px;
+  border-radius: 5px;
+}
+
+.active .filter-count {
+  background: #dceafe;
+  color: #0753ba;
+}
+
+.selected-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 20px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #d8e5f5;
+  border-radius: 7px;
+  background: #f1f6fd;
+  color: #214f87;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  background: #e6f0fd;
+  border-color: #b4cdef;
+}
+
+.filter-chip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.filter-chip openg7-admin-icon {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+}
+
+.list-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 0 8px 12px;
+}
+
+.list-section-heading h2 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.list-section-heading > span {
+  color: #63758a;
+  font-size: 12px;
+}
+
+.dossier-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 10px;
+}
+
+.draft-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #f4f0fc;
+  color: #634197;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.draft-badge openg7-admin-icon {
+  width: 12px;
+  height: 12px;
+}
+
+@media (min-width: 1041px) {
+  :host .metrics {
+    margin-bottom: 16px;
+  }
+
+  :host .metrics article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+  }
+
+  :host .metrics strong {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-top: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  :host .list-toolbar {
+    margin-bottom: 12px;
+  }
+
+  .search-help {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  :host .filter-tabs {
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+  }
+
+  :host .filter-tabs a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .selected-filters {
+    margin-bottom: 12px;
+  }
+
+  .list-section-heading {
+    padding-bottom: 6px;
+  }
+
+  :host .dossier-row {
+    padding-block: 12px;
+  }
+
+  :host .dossier-information {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+  }
+
+  :host .dossier-name {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  :host .dossier-information p {
+    margin: 0;
+  }
+
+  :host .mini-services {
+    display: none;
+  }
+
+  :host .next-action {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .list-result-summary {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .search-help {
+    font-size: 12px;
+  }
+
+  .list-section-heading {
+    padding-inline: 0;
+  }
+
+  .list-section-heading > span {
+    display: none;
+  }
+
+  .filter-chip {
+    min-height: 40px;
+  }
+
+  .filter-count {
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+  }
+}

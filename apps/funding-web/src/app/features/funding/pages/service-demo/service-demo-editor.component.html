@@ -1,0 +1,289 @@
+<div class="demo-grid" data-og7="service-demo-editor">
+  <section class="panel" aria-labelledby="demo-editor-heading">
+    <div class="panel-heading">
+      <openg7-admin-icon name="publications" />
+      <div>
+        <h2 id="demo-editor-heading">
+          {{ 'serviceDemoEditor.heading' | translate }}
+        </h2>
+        <p class="muted">{{ 'serviceDemoEditor.description' | translate }}</p>
+      </div>
+    </div>
+
+    <nav
+      class="tabs editor-tabs"
+      [attr.aria-label]="'serviceDemoEditor.tabsLabel' | translate"
+    >
+      @for (item of tabs; track item) {
+        <a
+          class="button quiet"
+          [class.active]="tab() === item"
+          [attr.aria-current]="tab() === item ? 'page' : null"
+          [routerLink]="state.href('corriger/' + item)"
+          queryParamsHandling="preserve"
+          data-og7="service-demo-editor-tab"
+          [attr.data-og7-id]="item"
+        >
+          {{ 'serviceDemoEditor.tabs.' + item | translate }}
+        </a>
+      }
+    </nav>
+
+    @switch (tab()) {
+      @case ('image') {
+        <h3>{{ 'serviceDemoEditor.imageHeading' | translate }}</h3>
+        <p class="muted">{{ 'serviceDemoEditor.imageHelp' | translate }}</p>
+        <fieldset class="image-choices">
+          <legend>{{ 'serviceDemoEditor.visuals.title' | translate }}</legend>
+          <div class="image-grid">
+            @for (visual of ['panorama', 'companion']; track visual) {
+              <label class="image-choice"
+                ><img
+                  [src]="
+                    visual === 'panorama'
+                      ? 'assets/admin-guide-panorama.webp'
+                      : 'assets/admin-guide-princess-lion.webp'
+                  "
+                  width="240"
+                  height="120"
+                  alt=""
+                  loading="lazy"
+                /><input
+                  type="radio"
+                  name="demo-editor-image"
+                  [checked]="state.imageAsset() === visual"
+                  (change)="
+                    chooseImage(
+                      visual === 'panorama' ? 'panorama' : 'companion'
+                    )
+                  "
+                  data-og7="service-demo-editor-image"
+                  [attr.data-og7-id]="visual"
+                /><span>{{
+                  'serviceDemoEditor.visuals.' + visual | translate
+                }}</span></label
+              >
+            }
+          </div>
+        </fieldset>
+        <div class="editor-field">
+          <label for="demo-editor-image-alt">{{
+            'serviceDemoEditor.visuals.altLabel' | translate
+          }}</label
+          ><input
+            #alternativeText
+            id="demo-editor-image-alt"
+            class="field"
+            type="text"
+            [value]="state.imageAlt()"
+            (input)="
+              state.imageAlt.set(alternativeText.value); state.markEdited()
+            "
+            aria-describedby="demo-editor-image-alt-help"
+            data-og7="service-demo-editor-image-alt"
+          /><small id="demo-editor-image-alt-help">{{
+            'serviceDemoEditor.visuals.altHelp' | translate
+          }}</small>
+        </div>
+        <label class="editor-toggle">
+          <input
+            #image
+            type="checkbox"
+            [checked]="state.imageIncluded()"
+            (change)="
+              state.imageIncluded.set(image.checked);
+              state.saved.set(false);
+              state.dirty.set(true)
+            "
+          />
+          <span>{{ 'serviceDemoEditor.includeImage' | translate }}</span>
+        </label>
+        <a
+          class="button"
+          [routerLink]="state.href('medias')"
+          queryParamsHandling="preserve"
+        >
+          <openg7-admin-icon name="search" />{{
+            'serviceDemoEditor.reviewImage' | translate
+          }}
+        </a>
+      }
+      @case ('liens') {
+        <div class="editor-field">
+          <label for="demo-editor-link">{{
+            'serviceDemoEditor.linkLabel' | translate
+          }}</label>
+          <input
+            #link
+            id="demo-editor-link"
+            type="url"
+            class="field"
+            [value]="state.link()"
+            [attr.aria-invalid]="linkInvalid() ? 'true' : null"
+            (input)="changeLink(link.value)"
+            aria-describedby="demo-editor-link-help"
+          />
+          <small
+            id="demo-editor-link-help"
+            class="muted"
+            [class.editor-validation]="linkInvalid()"
+            >{{
+              (linkInvalid()
+                ? 'serviceDemoEditor.linkInvalid'
+                : 'serviceDemoEditor.linkHelp'
+              ) | translate
+            }}</small
+          >
+        </div>
+        <p class="notice">{{ 'serviceDemoEditor.linkNotice' | translate }}</p>
+      }
+      @case ('mentions') {
+        <div class="editor-field">
+          <label for="demo-editor-mention">{{
+            'serviceDemoEditor.mentionLabel' | translate
+          }}</label>
+          <input
+            #mentionInput
+            id="demo-editor-mention"
+            type="text"
+            class="field"
+            [value]="mention()"
+            (input)="
+              mention.set(mentionInput.value);
+              state.saved.set(false);
+              state.dirty.set(true)
+            "
+            aria-describedby="demo-editor-mention-help"
+          />
+          <small id="demo-editor-mention-help" class="muted">{{
+            'serviceDemoEditor.mentionHelp' | translate
+          }}</small>
+        </div>
+        <p class="notice">
+          {{ 'serviceDemoEditor.mentionNotice' | translate }}
+        </p>
+      }
+      @case ('options') {
+        <h3>{{ 'serviceDemoEditor.optionsHeading' | translate }}</h3>
+        <p class="muted">{{ 'serviceDemoEditor.optionsHelp' | translate }}</p>
+        <label class="editor-toggle">
+          <input
+            #showLinkInput
+            type="checkbox"
+            [checked]="showLink()"
+            (change)="
+              showLink.set(showLinkInput.checked);
+              state.saved.set(false);
+              state.dirty.set(true)
+            "
+          />
+          <span>{{ 'serviceDemoEditor.showLink' | translate }}</span>
+        </label>
+        <p class="notice">
+          {{ 'serviceDemoEditor.optionsNotice' | translate }}
+        </p>
+      }
+      @default {
+        <div class="editor-field">
+          <label for="demo-editor-text">{{
+            'serviceDemoEditor.textLabel' | translate
+          }}</label>
+          <textarea
+            #text
+            id="demo-editor-text"
+            class="field"
+            [value]="state.text()"
+            (input)="changeText(text.value)"
+            aria-describedby="demo-editor-text-help"
+            data-og7="service-demo-editor-text"
+          ></textarea>
+          <small id="demo-editor-text-help" class="muted">{{
+            'serviceDemoEditor.textHelp' | translate
+          }}</small>
+        </div>
+        <small class="muted editor-count">{{
+          'serviceDemoEditor.characterCount'
+            | translate: { count: characterCount() }
+        }}</small>
+        @if (!state.text().trim()) {
+          <p class="editor-empty" role="status">
+            {{ 'serviceDemoEditor.emptyText' | translate }}
+          </p>
+        }
+        <div class="editor-tools">
+          <a
+            class="button"
+            [routerLink]="state.href('corriger/liens')"
+            queryParamsHandling="preserve"
+          >
+            <openg7-admin-icon name="arrow" />{{
+              'serviceDemoEditor.insertLink' | translate
+            }}
+          </a>
+          <a
+            class="button"
+            [routerLink]="state.href('proposition')"
+            queryParamsHandling="preserve"
+          >
+            <openg7-admin-icon name="assistant" />{{
+              'serviceDemoEditor.aiProposal' | translate
+            }}
+          </a>
+        </div>
+        <div class="notice assistance">
+          <strong>{{ 'serviceDemoEditor.aiHeading' | translate }}</strong>
+          <p>{{ 'serviceDemoEditor.aiHelp' | translate }}</p>
+        </div>
+      }
+    }
+
+    @if (state.saved()) {
+      <p
+        class="notice success"
+        role="status"
+        data-og7="service-demo-editor-saved"
+      >
+        {{ 'serviceDemoEditor.saved' | translate }}
+      </p>
+    }
+  </section>
+
+  <div>
+    <openg7-service-demo-preview />
+    <p class="notice editor-preview-note">
+      {{ 'serviceDemoEditor.previewHelp' | translate }}
+    </p>
+  </div>
+</div>
+
+<ng-template openg7ServiceDemoActions
+  ><div class="footer-actions">
+    <a
+      class="button"
+      [routerLink]="state.href('historique')"
+      queryParamsHandling="preserve"
+      ><openg7-admin-icon name="clock" />{{
+        'serviceDemoEditor.history' | translate
+      }}</a
+    >
+    <a
+      class="button quiet"
+      [routerLink]="state.href('retablir')"
+      queryParamsHandling="preserve"
+      >{{ 'serviceDemoEditor.restore' | translate }}</a
+    >
+    <a class="button" [routerLink]="state.href(returnPage())">{{
+      'serviceDemoEditor.returnTo.' + returnPage() | translate
+    }}</a>
+    <button
+      type="button"
+      class="button primary"
+      (click)="state.saveDraft()"
+      data-og7="service-demo-editor-save"
+    >
+      <openg7-admin-icon name="check" />{{
+        'serviceDemoEditor.save' | translate
+      }}
+    </button>
+  </div></ng-template
+>

@@ -1,0 +1,16 @@
+{
+  "serviceDemoPreview": {
+    "modeLabel": "Preview width",
+    "modes": {
+      "standard": "Standard",
+      "compact": "Compact"
+    },
+    "webTitle": "Website presentation preview",
+    "webChannel": "OpenG7 website",
+    "partners": "Partners",
+    "partnerLabel": "Partner · demonstration",
+    "website": "Displayed address",
+    "emptyText": "The draft does not have any text yet. What you type will appear here.",
+    "companionAlt": "OpenG7 guide characters used as a demonstration visual"
+  }
+}

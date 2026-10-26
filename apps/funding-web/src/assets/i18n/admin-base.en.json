@@ -1,5 +1,6 @@
 {
   "admin": {
+    "serviceDemo": { "open": "Open services (demo)" },
     "privacy": {
       "forbidden": "Your account can no longer view this data. Check your access before reloading.",
       "stale": "Last known state: this data could not be refreshed. Verify its current state before taking action."

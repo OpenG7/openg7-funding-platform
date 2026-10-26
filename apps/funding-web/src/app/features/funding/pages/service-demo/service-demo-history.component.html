@@ -1,0 +1,154 @@
+<section data-og7="service-demo-history">
+  <nav
+    class="tabs history-tabs"
+    [attr.aria-label]="'serviceDemoHistory.filtersLabel' | translate"
+  >
+    @for (item of filters; track item) {
+      <a
+        class="button quiet"
+        [routerLink]="state.href('historique')"
+        [queryParams]="{ filtre: item, version: null }"
+        queryParamsHandling="merge"
+        [class.active]="filter() === item"
+        [attr.aria-current]="filter() === item ? 'page' : null"
+        data-og7="service-demo-history-filter"
+        [attr.data-og7-id]="item"
+      >
+        {{ 'serviceDemoHistory.filters.' + item | translate }}
+      </a>
+    }
+    <a
+      class="button"
+      [routerLink]="state.href('historique')"
+      [queryParams]="{ ordre: oldestFirst() ? null : 'ancien' }"
+      queryParamsHandling="merge"
+    >
+      <openg7-admin-icon name="settings" />{{
+        (oldestFirst()
+          ? 'serviceDemoHistory.oldestFirst'
+          : 'serviceDemoHistory.newestFirst'
+        ) | translate
+      }}
+    </a>
+  </nav>
+
+  <div class="demo-grid">
+    <div class="panel history-list">
+      @for (event of sortedEvents(); track event.id) {
+        <a
+          class="history-event"
+          [class.active]="selected()?.id === event.id"
+          [routerLink]="state.href('historique')"
+          [queryParams]="{ version: event.id }"
+          queryParamsHandling="merge"
+          [attr.aria-current]="selected()?.id === event.id ? 'true' : null"
+          data-og7="service-demo-history-event"
+          [attr.data-og7-id]="event.id"
+        >
+          <span class="history-dot" aria-hidden="true"
+            ><openg7-admin-icon name="clock"
+          /></span>
+          <div>
+            <small class="muted"
+              >{{
+                'serviceDemoHistory.date'
+                  | translate: { day: event.day, time: event.time }
+              }}
+              ·
+              {{
+                'serviceDemoHistory.actors.' + event.actor | translate
+              }}</small
+            >
+            <strong>{{
+              'serviceDemoHistory.events.' + event.title | translate
+            }}</strong>
+            <p class="muted">
+              {{ 'serviceDemoHistory.events.' + event.description | translate }}
+            </p>
+          </div>
+        </a>
+      } @empty {
+        <div class="history-empty" role="status">
+          <openg7-admin-icon name="clock" />
+          <h2>{{ 'serviceDemoHistory.empty' | translate }}</h2>
+          <p class="muted">{{ 'serviceDemoHistory.emptyHelp' | translate }}</p>
+        </div>
+      }
+    </div>
+
+    <section class="panel history-detail" aria-labelledby="demo-history-detail">
+      @if (selected(); as event) {
+        <div class="panel-heading">
+          <openg7-admin-icon name="publications" />
+          <div>
+            <h2 id="demo-history-detail">
+              {{ 'serviceDemoHistory.detail' | translate }}
+            </h2>
+            <p class="muted">
+              {{
+                'serviceDemoHistory.date'
+                  | translate: { day: event.day, time: event.time }
+              }}
+            </p>
+          </div>
+        </div>
+        <span class="status">{{
+          'serviceDemoHistory.filters.' + event.type | translate
+        }}</span>
+        @if (event.before) {
+          <h3>{{ 'serviceDemoHistory.before' | translate }}</h3>
+          <p class="history-version">
+            {{ 'serviceDemoHistory.' + event.before | translate }}
+          </p>
+        }
+        @if (event.after) {
+          <h3>{{ 'serviceDemoHistory.after' | translate }}</h3>
+          <p class="history-version after">
+            {{ 'serviceDemoHistory.' + event.after | translate }}
+          </p>
+        }
+        @if (!event.before && !event.after) {
+          <h3>{{ 'serviceDemoHistory.events.' + event.title | translate }}</h3>
+          <p class="history-version">
+            {{ 'serviceDemoHistory.events.' + event.description | translate }}
+          </p>
+        }
+        <p class="notice">{{ 'serviceDemoHistory.synthetic' | translate }}</p>
+      } @else {
+        <h2 id="demo-history-detail">
+          {{ 'serviceDemoHistory.noSelection' | translate }}
+        </h2>
+        <p class="muted">
+          {{ 'serviceDemoHistory.noSelectionHelp' | translate }}
+        </p>
+      }
+    </section>
+  </div>
+
+  <ng-template openg7ServiceDemoActions
+    ><div class="footer-actions">
+      <a
+        class="button"
+        [routerLink]="state.href('comparer')"
+        queryParamsHandling="preserve"
+        ><openg7-admin-icon name="clock" />{{
+          'serviceDemoHistory.compare' | translate
+        }}</a
+      >
+      <a
+        class="button"
+        [routerLink]="state.href('commentaire')"
+        queryParamsHandling="preserve"
+        ><openg7-admin-icon name="email" />{{
+          'serviceDemoHistory.addComment' | translate
+        }}</a
+      >
+      <a
+        class="button primary"
+        [routerLink]="state.href('contenu')"
+        queryParamsHandling="preserve"
+        >{{ 'serviceDemoHistory.back' | translate }}</a
+      >
+    </div></ng-template
+  >
+</section>

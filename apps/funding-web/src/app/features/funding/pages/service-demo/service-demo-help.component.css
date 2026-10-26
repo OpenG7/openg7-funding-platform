@@ -1,0 +1,142 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 12px 28px 0;
+}
+
+.context-help {
+  overflow: hidden;
+  border: 1px solid #e1e9f3;
+  border-radius: 10px;
+  color: #344d6c;
+  background: #f8fafd;
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::marker {
+  content: '';
+}
+
+summary:hover {
+  background: #f0f5fc;
+}
+
+summary:focus-visible {
+  outline: 3px solid #075dde;
+  outline-offset: -3px;
+  border-radius: 9px;
+}
+
+.help-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #ebdcae;
+  border-radius: 50%;
+  color: #795318;
+  background: #fff8e8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.help-heading {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.help-topic {
+  margin-left: auto;
+  color: #52647a;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.help-chevron {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 4px 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.context-help[open] .help-chevron {
+  margin-top: 6px;
+  transform: rotate(225deg);
+}
+
+.help-body {
+  padding: 2px 18px 16px 48px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.help-intro {
+  margin: 0;
+  color: #344d6c;
+}
+
+.help-body ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 28px;
+  margin: 9px 0 0;
+  padding-left: 16px;
+  list-style: disc;
+  color: #52647a;
+}
+
+.help-body li {
+  padding-left: 2px;
+}
+
+@media (max-width: 600px) {
+  :host {
+    margin: 12px 12px 0;
+  }
+
+  summary {
+    flex-wrap: wrap;
+    gap: 6px 9px;
+    padding: 10px 12px;
+  }
+
+  .help-heading {
+    flex: 1;
+  }
+
+  .help-topic {
+    order: 1;
+    flex-basis: calc(100% - 33px);
+    margin-left: 33px;
+    text-align: left;
+  }
+
+  .help-body {
+    padding: 1px 15px 15px;
+  }
+
+  .help-body ul {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+}
