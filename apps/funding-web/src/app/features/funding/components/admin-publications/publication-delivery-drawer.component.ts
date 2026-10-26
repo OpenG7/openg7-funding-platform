@@ -15,6 +15,7 @@ import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { FundingModerationActionsComponent } from '../admin-moderation/funding-moderation-actions.component.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 import { AdminPublicationNavigationService } from '../../services/admin-publication-navigation.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import type { PublicationDeliveryController } from './publication-delivery-controller.js';
 
@@ -42,6 +43,8 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
 export class PublicationDeliveryDrawerComponent {
   readonly controller = input.required<PublicationDeliveryController>();
   private readonly navigation = inject(AdminPublicationNavigationService);
+  private readonly admin = inject(FundingAdminService);
+  readonly canWrite = computed(() => this.admin.identity()?.role !== 'reader');
   readonly automaticFor = input<string | null>(null);
   readonly automaticTarget = computed(() => {
     const job = this.controller().selected();

@@ -67,6 +67,16 @@ actions. The recorded agreement, historical qualification, adjustments and timin
 remain in **Promised services** within the dossier; Service fulfilment does not replace
 those decisions. The review drawer labels dates with the browser's timezone.
 
+The final-publication drawer identifies the saved delivery version and any local
+unsaved changes. While editing, separate collapsed sections show the entered text
+and the saved text, schedule and version; the local text preview does not simulate
+the social network's layout or establish saving. A version conflict retains the
+entries and explains how to keep useful corrections before closing and refreshing.
+Saving a draft remains distinct from authorizing it, and an edit revokes its prior
+authorization. Readers retain the saved content and specialized history, while
+creation and delivery mutation controls are hidden. API authorization remains the
+security boundary.
+
 The advanced settings distinguish **Public profile** (slug, public summary and
 private profile preview) from separately collapsed **Declared social tracking**
 (destination, declared status, channels, external reference and private notes).

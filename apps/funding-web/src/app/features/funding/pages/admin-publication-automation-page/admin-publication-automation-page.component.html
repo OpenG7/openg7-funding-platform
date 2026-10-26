@@ -125,13 +125,15 @@
                 }
               </select></label
             >
-            <button
-              class="admin-button"
-              (click)="delivery.create()"
-              [disabled]="busy()"
-            >
-              {{ 'admin.publicationAutomation.new' | translate }}
-            </button>
+            @if (canWrite()) {
+              <button
+                class="admin-button"
+                (click)="delivery.create()"
+                [disabled]="busy()"
+              >
+                {{ 'admin.publicationAutomation.new' | translate }}
+              </button>
+            }
           </div>
           @if (tab() === 'calendar') {
             <openg7-admin-publication-calendar
