@@ -3003,7 +3003,11 @@
         "localPreview": "Read the entered text",
         "localPreviewHelp": "This preview reflects your local text. It confirms neither saving nor authorization and does not reproduce the social network’s layout.",
         "emptyText": "No text entered.",
-        "savedReference": "Review the saved text and schedule"
+        "savedReference": "Review the saved text and schedule",
+        "previewHeading": "Content preview",
+        "expandPreview": "Enlarge preview",
+        "reducePreview": "Reduce preview",
+        "footerHelp": "Saving keeps a draft. Authorizing delivery remains a separate decision."
       },
       "approvalHelp": "Any change revokes the previous authorization. Check the account, text, image and time above.",
       "collectionHelp": "LinkedIn collection: review every JPEG in the displayed order. One photo per sponsor, with 2 to 10 participants. Each photo retains its rights and its credit in the text.",
