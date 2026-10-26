@@ -1,0 +1,911 @@
+<section data-og7="service-demo-detail" [attr.data-og7-id]="page()">
+  @switch (page()) {
+    @case ('apercu') {
+      <div class="demo-grid">
+        <div class="panel">
+          <h2>{{ t('titles.preview') }}</h2>
+          <p class="muted">{{ t('copy.previewDescription') }}</p>
+          <dl>
+            <dt>{{ t('labels.channel') }}</dt>
+            <dd>
+              {{
+                previewKind() === 'web' ? t('titles.web') : 'Facebook · OpenG7'
+              }}
+            </dd>
+            <dt>{{ t('labels.version') }}</dt>
+            <dd>{{ t('copy.localDraft') }}</dd>
+            <dt>{{ t('labels.destination') }}</dt>
+            <dd>{{ t('copy.examplePage') }}</dd>
+          </dl>
+          <a
+            class="button"
+            [routerLink]="
+              state.href(previewKind() === 'web' ? 'web' : 'corriger/texte')
+            "
+            queryParamsHandling="preserve"
+            >{{ t('actions.editContent') }}</a
+          >
+        </div>
+        <openg7-service-demo-preview [kind]="previewKind()" />
+      </div>
+    }
+    @case ('proposition') {
+      <div class="demo-grid">
+        <article class="panel">
+          <h2>{{ t('labels.currentText') }}</h2>
+          <p>{{ draftText() }}</p>
+          <div class="notice assistance">{{ t('copy.proposalOrigin') }}</div>
+        </article>
+        <article class="panel">
+          <h2>{{ t('titles.proposal') }}</h2>
+          <p>{{ t('copy.proposedText') }}</p>
+          <p class="muted">{{ t('copy.proposalLimits') }}</p>
+          <a
+            class="button primary"
+            [routerLink]="state.href('corriger/texte')"
+            (click)="useProposal()"
+            queryParamsHandling="preserve"
+            >{{ t('actions.useDraft') }}</a
+          >
+        </article>
+      </div>
+    }
+    @case ('comparer') {
+      <section
+        data-og7="service-demo-comparison"
+        [attr.aria-label]="t('titles.compare')"
+      >
+        <header class="comparison-heading">
+          <h2>{{ t('titles.compare') }}</h2>
+          <p class="muted">{{ t('comparison.description') }}</p>
+        </header>
+        <label class="field" for="demo-compare-version"
+          >{{ t('comparison.reference') }}
+          <select
+            id="demo-compare-version"
+            [value]="selectedVersion()"
+            (change)="chooseComparison(value($event))"
+            data-og7="service-demo-comparison-reference"
+          >
+            <option value="conserve" [disabled]="!state.savedContent()">
+              {{ t('comparison.saved') }}
+            </option>
+            <option value="exemple">{{ t('comparison.example') }}</option>
+          </select>
+        </label>
+        <div class="demo-grid">
+          <article
+            class="panel comparison-version"
+            data-og7="service-demo-comparison-before"
+          >
+            <span class="eyebrow">{{ t('comparison.reference') }}</span>
+            <h3>
+              {{
+                selectedVersion() === 'conserve'
+                  ? t('comparison.saved')
+                  : t('comparison.example')
+              }}
+            </h3>
+            <p class="comparison-text">
+              {{ referenceText() || t('comparison.emptyText') }}
+            </p>
+          </article>
+          <article
+            class="panel comparison-version"
+            [class.changed]="comparisonFields()[0]?.changed"
+            data-og7="service-demo-comparison-after"
+          >
+            <span class="eyebrow">{{ t('comparison.current') }}</span>
+            <h3>{{ t('labels.currentText') }}</h3>
+            <p class="comparison-text">
+              {{ draftText() || t('comparison.emptyText') }}
+            </p>
+          </article>
+        </div>
+        <section
+          class="panel comparison-summary"
+          [attr.aria-label]="t('comparison.changes')"
+        >
+          <h3>{{ t('comparison.changes') }}</h3>
+          @if (changedFields().length) {
+            <ul
+              class="comparison-changes"
+              data-og7="service-demo-comparison-changes"
+            >
+              @for (field of changedFields(); track field.key) {
+                <li [attr.data-og7-id]="field.key">{{ field.label }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="muted" role="status">{{ t('comparison.identical') }}</p>
+          }
+          <details class="comparison-details">
+            <summary>{{ t('comparison.otherFields') }}</summary>
+            <dl class="comparison-fields">
+              @for (field of comparisonMetadata(); track field.key) {
+                <div>
+                  <dt>
+                    {{ field.label
+                    }}<small>{{
+                      field.changed
+                        ? t('comparison.changed')
+                        : t('comparison.unchanged')
+                    }}</small>
+                  </dt>
+                  <dd>
+                    <small>{{ t('comparison.reference') }}</small
+                    >{{ field.before }}
+                  </dd>
+                  <dd>
+                    <small>{{ t('comparison.current') }}</small
+                    >{{ field.after }}
+                  </dd>
+                </div>
+              }
+            </dl>
+          </details>
+        </section>
+        <p class="notice">
+          {{
+            selectedVersion() === 'exemple'
+              ? t('comparison.exampleNotice')
+              : t('comparison.savedNotice')
+          }}
+        </p>
+        <ng-template openg7ServiceDemoActions
+          ><div class="footer-actions">
+            <a
+              class="button"
+              [routerLink]="state.href('corriger/texte')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.continueEditing') }}</a
+            >
+            <a
+              class="button"
+              [routerLink]="state.href('retablir')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.restoreDraft') }}</a
+            >
+          </div></ng-template
+        >
+      </section>
+    }
+    @case ('commentaire') {
+      <div class="panel">
+        <h2>{{ t('titles.comment') }}</h2>
+        <p class="muted">{{ t('copy.commentVisibility') }}</p>
+        <label class="field" for="demo-comment"
+          >{{ t('labels.comment') }}
+          <textarea
+            id="demo-comment"
+            rows="6"
+            [value]="comment()"
+            (input)="comment.set(value($event)); commentSaved.set(false)"
+          ></textarea>
+        </label>
+        <p class="notice">{{ t('copy.commentLocal') }}</p>
+        <button
+          class="button"
+          type="button"
+          [disabled]="!comment().trim()"
+          (click)="state.comment.set(comment()); commentSaved.set(true)"
+        >
+          {{ t('actions.recordComment') }}
+        </button>
+        @if (commentSaved()) {
+          <p class="notice success" role="status">
+            {{ t('copy.commentSaved') }}
+          </p>
+        }
+      </div>
+    }
+    @case ('demander-correction') {
+      <ng-container [ngTemplateOutlet]="requestForm" />
+    }
+    @case ('demander-accord') {
+      <ng-container [ngTemplateOutlet]="requestForm" />
+    }
+    @case ('apercu-envoi') {
+      <div class="panel">
+        <h2>{{ t('titles.messagePreview') }}</h2>
+        <p>
+          <strong>{{ t('labels.recipient') }} :</strong>
+          {{ state.recipient() }}
+        </p>
+        <p>
+          <strong>{{ t('labels.subject') }} :</strong>
+          {{ t('copy.messageSubject') }}
+        </p>
+        <blockquote>{{ state.note() || t('copy.defaultMessage') }}</blockquote>
+        <a
+          class="button"
+          [routerLink]="state.href('apercu')"
+          [queryParams]="{ origine: 'apercu-envoi' }"
+          queryParamsHandling="merge"
+          >{{ t('actions.reviewContent') }}</a
+        >
+        <p class="notice">{{ t('copy.noMessage') }}</p>
+        <button class="button primary" type="button" disabled>
+          {{ t('actions.sendMessage') }}
+        </button>
+      </div>
+    }
+    @case ('preuve') {
+      <div class="panel">
+        <h2>{{ t('titles.attachment') }}</h2>
+        <p class="muted">{{ t('copy.evidenceMeaning') }}</p>
+        <label class="field" for="demo-proof-file"
+          >{{ t('labels.file') }}
+          <input
+            id="demo-proof-file"
+            type="file"
+            accept="image/png,image/jpeg,application/pdf,text/plain"
+            (change)="selectFile($event)"
+          />
+        </label>
+        @if (proofName()) {
+          <p data-og7="service-demo-proof-name">
+            {{ t('labels.selectedFile') }} : {{ proofName() }}
+          </p>
+        }
+        <label class="field" for="demo-proof-note"
+          >{{ t('labels.sourceNote') }}
+          <textarea
+            id="demo-proof-note"
+            rows="4"
+            [value]="proofNote()"
+            (input)="proofNote.set(value($event))"
+          ></textarea>
+        </label>
+        <div class="notice">{{ t('copy.fileLocal') }}</div>
+        <button class="button" type="button" disabled>
+          {{ t('actions.attachEvidence') }}
+        </button>
+      </div>
+    }
+    @case ('accord-recu') {
+      <div class="panel">
+        <h2>{{ t('titles.receivedAgreement') }}</h2>
+        <p class="status">{{ t('copy.exampleMessage') }}</p>
+        <dl>
+          <dt>{{ t('labels.sender') }}</dt>
+          <dd>contact&#64;example.test</dd>
+          <dt>{{ t('labels.receivedAt') }}</dt>
+          <dd>22/10/2026 · 14:18 · America/Toronto</dd>
+          <dt>{{ t('labels.subject') }}</dt>
+          <dd>{{ t('copy.messageSubject') }}</dd>
+        </dl>
+        <blockquote>{{ t('copy.receivedMessage') }}</blockquote>
+        <p class="notice">{{ t('copy.receivedDisclaimer') }}</p>
+        <a
+          class="button"
+          [routerLink]="state.href('preuve')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.inspectAttachment') }}</a
+        >
+      </div>
+    }
+    @case ('conditions') {
+      <div class="panel">
+        <h2>{{ t('titles.conditions') }}</h2>
+        <div class="check-row">
+          <span>01</span>
+          <div>
+            <h3>{{ t('labels.scope') }}</h3>
+            <p>{{ t('copy.scope') }}</p>
+          </div>
+        </div>
+        <div class="check-row">
+          <span>02</span>
+          <div>
+            <h3>{{ t('labels.duration') }}</h3>
+            <p>{{ t('copy.duration') }}</p>
+          </div>
+        </div>
+        <div class="check-row">
+          <span>03</span>
+          <div>
+            <h3>{{ t('labels.contentVersion') }}</h3>
+            <p>{{ t('copy.exactContent') }}</p>
+          </div>
+        </div>
+        <a
+          class="button"
+          [routerLink]="state.href('accord')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.viewAgreement') }}</a
+        >
+      </div>
+    }
+    @case ('contact') {
+      <div class="panel">
+        <h2>{{ t('titles.contact') }}</h2>
+        <p class="muted">{{ t('copy.contactDescription') }}</p>
+        <label class="field" for="demo-contact-name"
+          >{{ t('labels.name')
+          }}<input
+            id="demo-contact-name"
+            [value]="t('copy.exampleContact')"
+            readonly
+        /></label>
+        <label class="field" for="demo-contact-email"
+          >{{ t('labels.email')
+          }}<input
+            id="demo-contact-email"
+            type="email"
+            [value]="state.recipient()"
+            (input)="state.recipient.set(value($event)); state.markEdited()"
+        /></label>
+        <p class="notice">{{ t('copy.contactLocal') }}</p>
+        <a
+          class="button"
+          [routerLink]="state.href('demander-accord')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.prepareRequest') }}</a
+        >
+      </div>
+    }
+    @case ('planifier') {
+      <div class="demo-grid">
+        <div class="panel">
+          <h2>{{ t('titles.schedule') }}</h2>
+          <p class="muted">{{ t('copy.scheduleDescription') }}</p>
+          <label class="field" for="demo-schedule-date"
+            >{{ t('labels.dateTime') }}
+            <input
+              id="demo-schedule-date"
+              type="datetime-local"
+              [value]="state.schedule()"
+              (input)="state.schedule.set(value($event)); state.markEdited()"
+            />
+          </label>
+          <label class="field" for="demo-time-zone"
+            >{{ t('labels.timeZone') }}
+            <select
+              id="demo-time-zone"
+              [value]="state.timeZone()"
+              (change)="state.timeZone.set(value($event)); state.markEdited()"
+            >
+              <option>America/Toronto</option>
+              <option>America/Vancouver</option>
+              <option>Europe/Paris</option>
+              <option>UTC</option>
+            </select>
+          </label>
+          <p>
+            {{ state.schedule().replace('T', ' · ') }} · {{ state.timeZone() }}
+          </p>
+          <p class="notice">{{ t('copy.scheduleLocal') }}</p>
+          <a
+            class="button primary"
+            [routerLink]="state.href('confirmer-envoi')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.reviewDelivery') }}</a
+          >
+        </div>
+        <openg7-service-demo-preview [kind]="previewKind()" />
+      </div>
+    }
+    @case ('resultat') {
+      <div class="panel">
+        <h2>{{ t('titles.result') }}</h2>
+        <p class="status">{{ t('copy.noOperation') }}</p>
+        <p>{{ t('copy.resultDescription') }}</p>
+        <dl>
+          <dt>{{ t('labels.reference') }}</dt>
+          <dd>—</dd>
+          <dt>{{ t('labels.externalUrl') }}</dt>
+          <dd>—</dd>
+          <dt>{{ t('labels.evidence') }}</dt>
+          <dd>{{ t('copy.noEvidence') }}</dd>
+        </dl>
+        <a
+          class="button"
+          [routerLink]="state.href('reconcilier')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.inspectUncertain') }}</a
+        >
+      </div>
+    }
+    @case ('reconcilier') {
+      <div class="panel">
+        <h2>{{ t('titles.reconcile') }}</h2>
+        <p>{{ t('copy.reconcileDescription') }}</p>
+        <label class="field" for="demo-external-reference"
+          >{{ t('labels.externalReference')
+          }}<input id="demo-external-reference" type="text"
+        /></label>
+        <label class="field" for="demo-external-link"
+          >{{ t('labels.externalUrl')
+          }}<input
+            id="demo-external-link"
+            type="url"
+            placeholder="https://example.test/publication"
+        /></label>
+        <p class="notice">{{ t('copy.noReconciliation') }}</p>
+        <div class="footer-actions">
+          <a
+            class="button"
+            [routerLink]="state.href('attester')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.inspectAbsence') }}</a
+          ><button class="button" type="button" disabled>
+            {{ t('actions.reconcile') }}
+          </button>
+        </div>
+      </div>
+    }
+    @case ('attester') {
+      <div class="panel">
+        <h2>{{ t('titles.attest') }}</h2>
+        <p>{{ t('copy.attestDescription') }}</p>
+        <label class="field" for="demo-absence-reason"
+          >{{ t('labels.verificationReason')
+          }}<textarea id="demo-absence-reason" rows="5"></textarea>
+        </label>
+        <p class="notice">{{ t('copy.noAttestation') }}</p>
+        <button class="button" type="button" disabled>
+          {{ t('actions.attest') }}
+        </button>
+      </div>
+    }
+    @case ('web') {
+      <div class="demo-grid">
+        <div class="panel">
+          <h2>{{ t('titles.web') }}</h2>
+          <label class="field" for="demo-web-title"
+            >{{ t('labels.presentationTitle')
+            }}<input
+              id="demo-web-title"
+              [value]="state.dossier().name"
+              readonly
+          /></label>
+          <label class="field" for="demo-web-description"
+            >{{ t('labels.description')
+            }}<textarea
+              id="demo-web-description"
+              rows="5"
+              [value]="draftText()"
+              (input)="setText(value($event))"
+            ></textarea>
+          </label>
+          <label class="field" for="demo-web-link"
+            >{{ t('labels.website')
+            }}<input
+              id="demo-web-link"
+              type="url"
+              [value]="state.link()"
+              (input)="setLink(value($event))"
+          /></label>
+          <p class="notice">{{ t('copy.webLocal') }}</p>
+          <ng-template openg7ServiceDemoActions
+            ><div class="footer-actions">
+              <a
+                class="button primary"
+                [routerLink]="state.href('confirmer-visibilite')"
+                queryParamsHandling="preserve"
+                >{{ t('actions.reviewVisibility') }}</a
+              >
+            </div></ng-template
+          >
+        </div>
+        <openg7-service-demo-preview [kind]="previewKind()" />
+      </div>
+    }
+    @case ('preuves') {
+      <div class="panel">
+        <h2>{{ t('titles.evidence') }}</h2>
+        <div class="check-row">
+          <span>◷</span>
+          <div>
+            <h3>{{ t('copy.webEvidence') }}</h3>
+            <p class="muted">{{ t('copy.webEvidenceDescription') }}</p>
+          </div>
+        </div>
+        <div class="check-row">
+          <span>◷</span>
+          <div>
+            <h3>{{ t('copy.socialEvidence') }}</h3>
+            <p class="muted">{{ t('copy.socialEvidenceDescription') }}</p>
+          </div>
+        </div>
+        <div class="notice">{{ t('copy.noEvidence') }}</div>
+        <a
+          class="button"
+          [routerLink]="state.href('preuve')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.inspectAttachment') }}</a
+        >
+      </div>
+    }
+    @case ('accord') {
+      <div class="panel">
+        <h2>{{ t('titles.agreement') }}</h2>
+        <p>{{ t('copy.agreementDescription') }}</p>
+        <div class="check-row">
+          <span>01</span>
+          <div>
+            <h3>{{ t('titles.web') }}</h3>
+            <p>{{ t('copy.promisedWeb') }}</p>
+          </div>
+        </div>
+        <div class="check-row">
+          <span>02</span>
+          <div>
+            <h3>Facebook</h3>
+            <p>{{ t('copy.promisedSocial') }}</p>
+          </div>
+        </div>
+        <p class="notice">{{ t('copy.offerDisclaimer') }}</p>
+        <a
+          class="button"
+          [routerLink]="state.href('conditions')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.viewConditions') }}</a
+        >
+      </div>
+    }
+    @case ('controle') {
+      <div class="panel">
+        <h2>{{ t('titles.check') }}</h2>
+        <h3>{{ t('copy.priorityCheck') }}</h3>
+        <p>{{ t('copy.checkReason') }}</p>
+        <dl>
+          <dt>{{ t('labels.source') }}</dt>
+          <dd>{{ t('copy.checkSource') }}</dd>
+          <dt>{{ t('labels.nextStep') }}</dt>
+          <dd>{{ t('copy.checkNext') }}</dd>
+        </dl>
+        <a
+          class="button primary"
+          [routerLink]="state.href('autorisation')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.reviewAgreement') }}</a
+        >
+      </div>
+    }
+    @case ('medias') {
+      <div class="demo-grid">
+        <div class="panel">
+          <h2>{{ t('titles.media') }}</h2>
+          <p>{{ t('copy.mediaDescription') }}</p>
+          <label class="check-row"
+            ><input
+              type="checkbox"
+              [checked]="state.imageIncluded()"
+              (change)="toggleImage()"
+            /><span>{{ t('labels.includeIllustration') }}</span></label
+          >
+          <p class="notice">{{ t('copy.mediaLocal') }}</p>
+          <a
+            class="button primary"
+            [routerLink]="state.href('corriger/image')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnEditor') }}</a
+          >
+        </div>
+        <openg7-service-demo-preview [kind]="previewKind()" />
+      </div>
+    }
+    @case ('filtres') {
+      <div class="panel">
+        <h2>{{ t('titles.filters') }}</h2>
+        <label class="field" for="demo-status-filter"
+          >{{ t('labels.status')
+          }}<select
+            id="demo-status-filter"
+            [value]="statusFilter()"
+            (change)="statusFilter.set(value($event))"
+          >
+            <option value="all">{{ t('labels.all') }}</option>
+            <option value="contenu">{{ t('copy.contentStage') }}</option>
+            <option value="autorisation">
+              {{ t('copy.authorizationStage') }}
+            </option>
+            <option value="publication">
+              {{ t('copy.publicationStage') }}
+            </option>
+          </select></label
+        >
+        <p class="notice">{{ t('copy.filterDescription') }}</p>
+        <a
+          class="button primary"
+          routerLink="/demo/prestations"
+          [queryParams]="{ etat: statusFilter() }"
+          >{{ t('actions.applyFilters') }}</a
+        >
+      </div>
+    }
+    @case ('retablir') {
+      <div class="panel">
+        <h2>{{ t('titles.restore') }}</h2>
+        <p>{{ t('restore.description') }}</p>
+        @if (state.savedContent()) {
+          <div class="demo-grid">
+            <article class="comparison-version">
+              <h3>{{ t('comparison.saved') }}</h3>
+              <blockquote data-og7="service-demo-restore-reference">
+                {{ savedText() || t('comparison.emptyText') }}
+              </blockquote>
+            </article>
+            <article class="comparison-version">
+              <h3>{{ t('labels.currentText') }}</h3>
+              <blockquote>
+                {{ draftText() || t('comparison.emptyText') }}
+              </blockquote>
+            </article>
+          </div>
+          @if (!state.canRestoreDraft() && !restored()) {
+            <p class="notice">{{ t('restore.identical') }}</p>
+          }
+        } @else {
+          <p class="notice">{{ t('restore.missing') }}</p>
+        }
+        <p class="notice">{{ t('restore.local') }}</p>
+        @if (restored()) {
+          <p
+            class="notice success"
+            role="status"
+            data-og7="service-demo-restore-feedback"
+          >
+            {{ t('restore.done') }}
+          </p>
+        }
+        <ng-template openg7ServiceDemoActions
+          ><div class="footer-actions restore-actions">
+            <a
+              class="button"
+              [routerLink]="state.href('comparer')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.compare') }}</a
+            >
+            <button
+              class="button primary"
+              type="button"
+              [disabled]="!state.canRestoreDraft()"
+              (click)="restoreDraft()"
+              data-og7="service-demo-restore-saved"
+            >
+              {{ t('restore.action') }}
+            </button>
+            <a
+              class="button"
+              [routerLink]="state.href('corriger/texte')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.continueEditing') }}</a
+            >
+          </div></ng-template
+        >
+      </div>
+    }
+    @case ('quitter') {
+      <div class="panel">
+        <h2>{{ t('titles.leave') }}</h2>
+        <p>{{ t('copy.leaveDescription') }}</p>
+        <a
+          class="button primary"
+          [routerLink]="state.href('corriger/texte')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.continueEditing') }}</a
+        >
+        <a
+          class="button"
+          [routerLink]="state.href('')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.returnSummary') }}</a
+        >
+      </div>
+    }
+    @case ('conflit') {
+      <div class="panel">
+        <h2>{{ t('titles.conflict') }}</h2>
+        <p>{{ t('copy.conflictDescription') }}</p>
+        <a
+          class="button"
+          [routerLink]="state.href('comparer')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.compare') }}</a
+        >
+        <a
+          class="button primary"
+          [routerLink]="state.href('corriger/texte')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.keepDraft') }}</a
+        >
+      </div>
+    }
+    @case ('indisponible') {
+      <div class="panel">
+        <h2>{{ t('titles.unavailable') }}</h2>
+        <p>{{ t('copy.unavailableDescription') }}</p>
+        <p class="notice">{{ t('copy.unavailableLocal') }}</p>
+        <a
+          class="button primary"
+          [routerLink]="state.href('')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.returnSummary') }}</a
+        >
+      </div>
+    }
+    @case ('guide') {
+      <div class="panel">
+        <h2>{{ t('titles.guide') }}</h2>
+        <p>{{ t('copy.guideDescription') }}</p>
+        <div class="check-row">
+          <strong>01</strong>
+          <p>{{ t('copy.guideContent') }}</p>
+        </div>
+        <div class="check-row">
+          <strong>02</strong>
+          <p>{{ t('copy.guideAgreement') }}</p>
+        </div>
+        <div class="check-row">
+          <strong>03</strong>
+          <p>{{ t('copy.guideDelivery') }}</p>
+        </div>
+        <a
+          class="button primary"
+          [routerLink]="state.href('')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.returnSummary') }}</a
+        >
+      </div>
+    }
+    @case ('destinations') {
+      <div class="panel">
+        <h2>{{ t('titles.destinations') }}</h2>
+        <p>{{ t('copy.destinationsDescription') }}</p>
+        <dl>
+          <dt>{{ t('labels.payment') }}</dt>
+          <dd>{{ t('copy.paymentReadOnly') }}</dd>
+          <dt>{{ t('labels.campaign') }}</dt>
+          <dd>{{ t('copy.campaignReadOnly') }}</dd>
+          <dt>{{ t('labels.contact') }}</dt>
+          <dd>{{ t('copy.contactReadOnly') }}</dd>
+        </dl>
+        <p class="notice">{{ t('copy.destinationsLocal') }}</p>
+        <a
+          class="button"
+          [routerLink]="state.href('contact')"
+          queryParamsHandling="preserve"
+          >{{ t('actions.inspectContact') }}</a
+        >
+      </div>
+    }
+    @case ('autres-actions') {
+      <div class="panel">
+        <h2>{{ t('titles.more') }}</h2>
+        <nav class="timeline" [attr.aria-label]="t('titles.more')">
+          @for (
+            destination of ['historique', 'preuves', 'accord', 'web', 'guide'];
+            track destination
+          ) {
+            <a
+              class="check-row"
+              [routerLink]="state.href(destination)"
+              queryParamsHandling="preserve"
+              >{{ t('destinations.' + destination) }}
+              <span aria-hidden="true">→</span></a
+            >
+          }
+        </nav>
+        <details>
+          <summary class="muted">{{ t('copy.exploreScreens') }}</summary>
+          <nav class="timeline" [attr.aria-label]="t('copy.exploreScreens')">
+            @for (destination of pages; track destination.path) {
+              @if (destination.path !== 'autres-actions') {
+                <a
+                  class="check-row"
+                  [routerLink]="state.href(destination.path)"
+                  queryParamsHandling="preserve"
+                >
+                  {{ state.t(destination.titleKey) }}
+                  <span aria-hidden="true">→</span>
+                </a>
+              }
+            }
+          </nav>
+        </details>
+      </div>
+    }
+    @default {
+      @if (confirmationPages.has(page())) {
+        <div class="demo-grid">
+          <div class="panel">
+            <h2>{{ definition() ? state.t(definition()!.titleKey) : '' }}</h2>
+            <p>{{ t('confirmation.' + page()) }}</p>
+            <dl>
+              <dt>{{ t('labels.scope') }}</dt>
+              <dd>
+                {{
+                  page() === 'confirmer-visibilite'
+                    ? t('titles.web')
+                    : 'Facebook · OpenG7'
+                }}
+              </dd>
+              <dt>{{ t('labels.contentVersion') }}</dt>
+              <dd>{{ t('copy.localDraft') }}</dd>
+              @if (page() === 'confirmer-envoi') {
+                <dt>{{ t('labels.dateTime') }}</dt>
+                <dd>
+                  {{ state.schedule().replace('T', ' · ') }} ·
+                  {{ state.timeZone() }}
+                </dd>
+              }
+            </dl>
+            <a
+              class="button"
+              [routerLink]="state.href('apercu')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.reviewContent') }}</a
+            >
+            <label class="check-row"
+              ><input
+                type="checkbox"
+                [checked]="checked()"
+                (change)="checked.set(!checked())"
+              /><span>{{ t('copy.confirmationAcknowledgement') }}</span></label
+            >
+            <p class="notice">{{ t('copy.confirmationDisabled') }}</p>
+            <button class="button primary" type="button" disabled>
+              {{ t('actions.confirmUnavailable') }}
+            </button>
+            @if (page() === 'confirmer-envoi') {
+              <a
+                class="button"
+                [routerLink]="state.href('resultat')"
+                queryParamsHandling="preserve"
+                >{{ t('actions.viewResult') }}</a
+              >
+            }
+          </div>
+          <openg7-service-demo-preview [kind]="previewKind()" />
+        </div>
+      }
+    }
+  }
+</section>
+
+<ng-template #requestForm>
+  <div class="panel">
+    <h2>
+      {{
+        page() === 'demander-correction'
+          ? t('titles.requestCorrection')
+          : t('titles.requestAgreement')
+      }}
+    </h2>
+    <p class="muted">
+      {{
+        page() === 'demander-correction'
+          ? t('copy.correctionDescription')
+          : t('copy.agreementRequestDescription')
+      }}
+    </p>
+    <label class="field" for="demo-request-recipient"
+      >{{ t('labels.recipient')
+      }}<input
+        id="demo-request-recipient"
+        type="email"
+        [value]="state.recipient()"
+        readonly
+    /></label>
+    <label class="field" for="demo-request-message"
+      >{{ t('labels.message')
+      }}<textarea
+        id="demo-request-message"
+        rows="6"
+        [value]="state.note()"
+        (input)="state.note.set(value($event)); state.markEdited()"
+      ></textarea>
+    </label>
+    <p class="notice">{{ t('copy.noMessage') }}</p>
+    <a
+      class="button primary"
+      [routerLink]="state.href('apercu-envoi')"
+      [queryParams]="{ origine: page(), source: page() }"
+      queryParamsHandling="merge"
+      >{{ t('actions.previewMessage') }}</a
+    >
+  </div>
+</ng-template>

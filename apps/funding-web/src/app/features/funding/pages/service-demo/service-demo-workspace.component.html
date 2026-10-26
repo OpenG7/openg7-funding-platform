@@ -1,0 +1,252 @@
+<div [attr.data-og7]="'service-demo-' + (page() || 'dossier')">
+  @if (!page()) {
+    <div class="dossier-facts">
+      <span
+        ><openg7-admin-icon name="contributions" />{{
+          'serviceDemo.facts.payment' | translate
+        }}</span
+      ><span
+        ><openg7-admin-icon name="audit" />{{
+          'serviceDemo.facts.consent' | translate
+        }}</span
+      ><span class="muted">{{
+        'serviceDemo.facts.reference' | translate
+      }}</span>
+    </div>
+    <div class="demo-grid">
+      <section>
+        <header class="section-heading">
+          <h2>{{ 'serviceDemo.summary.services' | translate }}</h2>
+          <a class="text-link" [routerLink]="state.href('accord')"
+            >{{ 'serviceDemo.agreement' | translate }} ↗</a
+          >
+        </header>
+        <a class="service-card" [routerLink]="state.href('web')"
+          ><span class="service-icon"><openg7-admin-icon name="cloud" /></span>
+          <div>
+            <h3>{{ 'serviceDemo.web' | translate }}</h3>
+            <p>{{ 'serviceDemo.summary.webHint' | translate }}</p>
+            <span class="status blue">{{
+              'serviceDemo.summary.toPrepare' | translate
+            }}</span>
+          </div>
+          <span class="chevron" aria-hidden="true">›</span></a
+        >
+        <a class="service-card selected" [routerLink]="state.href('contenu')"
+          ><span class="service-icon facebook-icon" aria-hidden="true">f</span>
+          <div>
+            <h3>{{ 'serviceDemo.facebook' | translate }}</h3>
+            <p>{{ 'serviceDemo.summary.facebookHint' | translate }}</p>
+            <span class="status amber">{{
+              'serviceDemo.summary.toReview' | translate
+            }}</span>
+          </div>
+          <span class="chevron" aria-hidden="true">›</span></a
+        >
+        <div class="notice">
+          <openg7-admin-icon name="warning" />
+          <div>
+            <strong>{{ 'serviceDemo.summary.nextTitle' | translate }}</strong>
+            <p>{{ 'serviceDemo.summary.nextHint' | translate }}</p>
+          </div>
+        </div>
+        <div class="notice assistance">
+          <openg7-admin-icon name="assistant" />
+          <div>
+            <strong>{{ 'serviceDemo.summary.aiTitle' | translate }}</strong>
+            <p>{{ 'serviceDemo.summary.aiHint' | translate }}</p>
+            <a class="text-link" [routerLink]="state.href('proposition')"
+              >{{ 'serviceDemo.summary.aiAction' | translate }} →</a
+            >
+          </div>
+        </div>
+      </section>
+      <div>
+        <openg7-service-demo-preview /><a
+          class="proof-link"
+          [routerLink]="state.href('preuves')"
+          ><openg7-admin-icon name="audit" />
+          <div>
+            <strong>{{ 'serviceDemo.proofs' | translate }}</strong
+            ><small>{{ 'serviceDemo.summary.proofHint' | translate }}</small>
+          </div>
+          <span aria-hidden="true">›</span></a
+        >
+      </div>
+    </div>
+    <ng-template openg7ServiceDemoActions
+      ><div class="footer-actions">
+        <a class="button" [routerLink]="state.href('historique')"
+          ><openg7-admin-icon name="clock" />{{
+            'serviceDemo.history' | translate
+          }}</a
+        ><a class="button primary" [routerLink]="state.href('contenu')"
+          >{{ 'serviceDemo.nextActions.contenu' | translate }}
+          <openg7-admin-icon name="arrow"
+        /></a></div
+    ></ng-template>
+  } @else {
+    <div class="demo-grid">
+      <section>
+        <div class="panel">
+          <header class="panel-heading">
+            <span class="service-icon"
+              ><openg7-admin-icon
+                [name]="
+                  page() === 'autorisation'
+                    ? 'audit'
+                    : page() === 'publication'
+                      ? 'publications'
+                      : 'check'
+                "
+            /></span>
+            <div>
+              <h2>
+                {{ 'serviceDemo.tasks.' + page() + '.title' | translate }}
+              </h2>
+              <p class="muted">
+                {{ 'serviceDemo.tasks.' + page() + '.hint' | translate }}
+              </p>
+            </div>
+          </header>
+          @if (page() === 'contenu') {
+            @for (check of contentChecks; track check.key) {
+              <a class="check-row" [routerLink]="state.href(check.target)"
+                ><span class="check-symbol" aria-hidden="true"
+                  ><openg7-admin-icon name="check" /></span
+                ><openg7-admin-icon [name]="check.icon" /><span
+                  ><strong>{{
+                    'serviceDemo.contentChecks.' + check.key + '.title'
+                      | translate
+                  }}</strong
+                  ><small>{{
+                    'serviceDemo.contentChecks.' + check.key + '.hint'
+                      | translate
+                  }}</small></span
+                ><span class="chevron" aria-hidden="true">›</span></a
+              >
+            }
+          } @else if (page() === 'autorisation') {
+            @for (check of authorizationChecks; track check.key) {
+              <a class="check-row" [routerLink]="state.href(check.target)"
+                ><span class="check-symbol" aria-hidden="true"
+                  ><openg7-admin-icon name="check" /></span
+                ><openg7-admin-icon [name]="check.icon" /><span
+                  ><strong>{{
+                    'serviceDemo.authorizationChecks.' + check.key + '.title'
+                      | translate
+                  }}</strong
+                  ><small>{{
+                    'serviceDemo.authorizationChecks.' + check.key + '.hint'
+                      | translate
+                  }}</small></span
+                ><span class="chevron" aria-hidden="true">›</span></a
+              >
+            }
+          } @else {
+            @for (check of publicationChecks; track check.key) {
+              <a class="check-row" [routerLink]="state.href(check.target)"
+                ><span class="check-symbol neutral" aria-hidden="true"
+                  ><openg7-admin-icon [name]="check.icon" /></span
+                ><span
+                  ><strong>{{
+                    'serviceDemo.publicationChecks.' + check.key + '.title'
+                      | translate
+                  }}</strong
+                  ><small>{{
+                    'serviceDemo.publicationChecks.' + check.key + '.hint'
+                      | translate
+                  }}</small></span
+                ><span class="chevron" aria-hidden="true">›</span></a
+              >
+            }
+          }
+        </div>
+        <div class="notice">
+          <openg7-admin-icon name="audit" />
+          <div>
+            <strong>{{
+              'serviceDemo.tasks.' + page() + '.noticeTitle' | translate
+            }}</strong>
+            <p>{{ 'serviceDemo.tasks.' + page() + '.notice' | translate }}</p>
+          </div>
+        </div>
+        @if (page() === 'publication') {
+          <a class="proof-link" [routerLink]="state.href('web')"
+            ><openg7-admin-icon name="cloud" />
+            <div>
+              <strong>{{ 'serviceDemo.web' | translate }}</strong
+              ><small>{{ 'serviceDemo.summary.webHint' | translate }}</small>
+            </div>
+            <span aria-hidden="true">›</span></a
+          >
+        }
+      </section>
+      <div>
+        <openg7-service-demo-preview />
+        @if (page() === 'autorisation') {
+          <div class="authorization-meta">
+            <h3>{{ 'serviceDemo.authorizationMeta.title' | translate }}</h3>
+            <dl>
+              <dt>{{ 'serviceDemo.authorizationMeta.date' | translate }}</dt>
+              <dd>
+                {{ 'serviceDemo.authorizationMeta.dateValue' | translate }}
+              </dd>
+              <dt>{{ 'serviceDemo.authorizationMeta.contact' | translate }}</dt>
+              <dd>
+                {{ 'serviceDemo.authorizationMeta.contactValue' | translate }}
+              </dd>
+              <dt>{{ 'serviceDemo.authorizationMeta.method' | translate }}</dt>
+              <dd>
+                {{ 'serviceDemo.authorizationMeta.methodValue' | translate }}
+              </dd>
+            </dl>
+          </div>
+        }
+      </div>
+    </div>
+    <ng-template openg7ServiceDemoActions
+      ><div class="footer-actions">
+        <a
+          class="button"
+          [routerLink]="state.href('apercu')"
+          [queryParams]="{ origine: page() }"
+          queryParamsHandling="merge"
+          >{{ 'serviceDemo.preview.open' | translate }}</a
+        >
+        <div class="action-group">
+          <a
+            class="button"
+            [routerLink]="
+              state.href(
+                page() === 'autorisation'
+                  ? 'demander-correction'
+                  : 'corriger/texte'
+              )
+            "
+            [queryParams]="{ retour: page() }"
+            >{{
+              (page() === 'autorisation'
+                ? 'serviceDemo.requestCorrection'
+                : 'serviceDemo.editContent'
+              ) | translate
+            }}</a
+          ><a
+            class="button primary"
+            [routerLink]="
+              state.href(
+                page() === 'contenu'
+                  ? 'autorisation'
+                  : page() === 'autorisation'
+                    ? 'confirmer-autorisation'
+                    : 'confirmer-envoi'
+              )
+            "
+            data-og7="service-demo-next"
+            >{{ 'serviceDemo.tasks.' + page() + '.action' | translate }}
+            <openg7-admin-icon name="arrow"
+          /></a>
+        </div></div
+    ></ng-template>
+  }
+</div>

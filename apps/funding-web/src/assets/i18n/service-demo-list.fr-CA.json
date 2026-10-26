@@ -1,0 +1,13 @@
+{
+  "serviceDemoList": {
+    "searchHelp": "Recherche par nom, avec ou sans accents.",
+    "results": "{{count}} sur {{total}} dossiers",
+    "clearFilters": "Effacer les filtres",
+    "activeFilters": "Filtres appliqués",
+    "removeSearch": "Retirer la recherche : {{query}}",
+    "removeFilter": "Retirer le filtre d’étape",
+    "filesTitle": "Les dossiers",
+    "nextAction": "Prochaine intervention",
+    "localDraft": "Brouillon local"
+  }
+}

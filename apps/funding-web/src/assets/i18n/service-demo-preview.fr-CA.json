@@ -1,0 +1,16 @@
+{
+  "serviceDemoPreview": {
+    "modeLabel": "Largeur de l’aperçu",
+    "modes": {
+      "standard": "Standard",
+      "compact": "Compact"
+    },
+    "webTitle": "Aperçu de la présentation Web",
+    "webChannel": "Site OpenG7",
+    "partners": "Partenaires",
+    "partnerLabel": "Partenaire · démonstration",
+    "website": "Adresse présentée",
+    "emptyText": "Le brouillon ne contient pas encore de texte. Votre saisie apparaîtra ici.",
+    "companionAlt": "Personnages du guide OpenG7 utilisés comme visuel de démonstration"
+  }
+}

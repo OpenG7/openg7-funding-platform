@@ -1,5 +1,6 @@
 {
   "admin": {
+    "serviceDemo": { "open": "Ouvrir les prestations (démo)" },
     "privacy": {
       "forbidden": "Votre compte ne permet plus de consulter ces données. Vérifiez vos accès avant de recharger.",
       "stale": "Dernier état connu : ces données n’ont pas pu être actualisées. Vérifiez leur état avant toute action."
