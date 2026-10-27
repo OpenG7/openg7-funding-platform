@@ -1,0 +1,38 @@
+.service-demo .demo-exit-description,
+.service-demo .demo-exit-hint {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.service-demo .demo-exit-heading {
+  margin-top: 24px;
+  font-size: 15px;
+}
+
+.service-demo .demo-exit-dossiers {
+  margin: 12px 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.service-demo .demo-exit-hint {
+  color: #52647a;
+  font-size: 13px;
+}
+
+.service-demo .demo-exit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  border-top: 1px solid #dce5ef;
+  background: #fff;
+}
+
+@media (max-width: 600px) {
+  .service-demo .demo-exit-actions .button {
+    width: 100%;
+  }
+}

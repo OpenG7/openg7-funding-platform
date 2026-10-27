@@ -6,13 +6,16 @@ import {
   signal
 } from '@angular/core';
 
-import en from '../../../../../assets/i18n/service-demo.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo.fr-CA.json' with { type: 'json' };
-import editorEn from '../../../../../assets/i18n/service-demo-editor.en.json' with { type: 'json' };
-import editorFr from '../../../../../assets/i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
-import detailEn from '../../../../../assets/i18n/service-demo-detail.en.json' with { type: 'json' };
-import detailFr from '../../../../../assets/i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
-import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { FundingI18nService } from '../services/funding-i18n.service.js';
+
+import en from './i18n/service-demo.en.json' with { type: 'json' };
+import fr from './i18n/service-demo.fr-CA.json' with { type: 'json' };
+import editorEn from './i18n/service-demo-editor.en.json' with { type: 'json' };
+import editorFr from './i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
+import detailEn from './i18n/service-demo-detail.en.json' with { type: 'json' };
+import detailFr from './i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
+import navigationEn from './i18n/service-demo-navigation.en.json' with { type: 'json' };
+import navigationFr from './i18n/service-demo-navigation.fr-CA.json' with { type: 'json' };
 
 export const DEMO_DOSSIERS = [
   {
@@ -60,6 +63,9 @@ interface ServiceDemoDraft extends ServiceDemoContent {
   readonly schedule: string;
   readonly timeZone: string;
   readonly recipient: string;
+  readonly reconciliationReference: string;
+  readonly reconciliationLink: string;
+  readonly absenceReason: string;
 }
 
 /** Presentation state only. Never connects to administrative or payment services. */
@@ -90,6 +96,9 @@ export class ServiceDemoState {
   readonly commentDraft = signal('');
   readonly proofName = signal('');
   readonly proofNote = signal('');
+  readonly reconciliationReference = signal('');
+  readonly reconciliationLink = signal('');
+  readonly absenceReason = signal('');
   readonly saved = signal(false);
   readonly dirty = signal(false);
   readonly imageIncluded = signal(true);
@@ -136,10 +145,14 @@ export class ServiceDemoState {
           draft.comment ||
           draft.commentDraft ||
           draft.proofName ||
-          draft.proofNote
+          draft.proofNote ||
+          draft.reconciliationReference ||
+          draft.reconciliationLink ||
+          draft.absenceReason
       )
       .map(([id]) => id);
   });
+  readonly hasLocalWork = computed(() => this.draftIds().length > 0);
   readonly previewOrigin = computed(() =>
     this.page() === 'corriger' ? `corriger/${this.editorTab()}` : this.page()
   );
@@ -151,6 +164,8 @@ export class ServiceDemoState {
     this.i18n.mergeTranslations('en', editorEn);
     this.i18n.mergeTranslations('fr-CA', detailFr);
     this.i18n.mergeTranslations('en', detailEn);
+    this.i18n.mergeTranslations('fr-CA', navigationFr);
+    this.i18n.mergeTranslations('en', navigationEn);
   }
 
   t(key: string): string {
@@ -172,6 +187,20 @@ export class ServiceDemoState {
     this.drafts.set(drafts);
     const draft = drafts.get(id);
     this.currentId.set(id);
+    this.applyDraft(id, draft);
+  }
+
+  /** Clear only this synthetic visit after a confirmed, completed departure. */
+  clearLocalWork(): void {
+    this.drafts.set(new Map());
+    this.savedVersions.set(new Map());
+    this.applyDraft(this.currentId());
+    this.query.set('');
+    this.filter.set('all');
+    this.previewMode.set('standard');
+  }
+
+  private applyDraft(id: string, draft?: ServiceDemoDraft): void {
     this.text.set(draft?.text ?? '');
     this.textEdited.set(draft?.textEdited ?? false);
     this.mention.set(draft?.mention ?? '');
@@ -181,6 +210,9 @@ export class ServiceDemoState {
     this.commentDraft.set(draft?.commentDraft ?? '');
     this.proofName.set(draft?.proofName ?? '');
     this.proofNote.set(draft?.proofNote ?? '');
+    this.reconciliationReference.set(draft?.reconciliationReference ?? '');
+    this.reconciliationLink.set(draft?.reconciliationLink ?? '');
+    this.absenceReason.set(draft?.absenceReason ?? '');
     this.recipient.set(draft?.recipient ?? 'contact@example.test');
     this.schedule.set(draft?.schedule ?? '2026-10-28T10:00');
     this.timeZone.set(draft?.timeZone ?? 'America/Toronto');
@@ -251,7 +283,10 @@ export class ServiceDemoState {
       dirty: this.dirty(),
       schedule: this.schedule(),
       timeZone: this.timeZone(),
-      recipient: this.recipient()
+      recipient: this.recipient(),
+      reconciliationReference: this.reconciliationReference(),
+      reconciliationLink: this.reconciliationLink(),
+      absenceReason: this.absenceReason()
     };
   }
 }

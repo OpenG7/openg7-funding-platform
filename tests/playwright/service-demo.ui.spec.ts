@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './support/test.js';
 
@@ -6,6 +6,41 @@ const base = '/demo/prestations';
 const dossier = `${base}/dossier/atelier-boreal`;
 const editedText =
   'Atelier Boréal : un partenariat au service de notre communauté.';
+
+async function expectSingleLineText(
+  label: Locator,
+  container = label
+): Promise<void> {
+  const text = await label.evaluate((element) => {
+    const range = element.ownerDocument.createRange();
+    range.selectNodeContents(element);
+    const lines = new Set(
+      Array.from(range.getClientRects())
+        .filter((rectangle) => rectangle.width > 0)
+        .map((rectangle) => Math.round(rectangle.top))
+    );
+    const bounds = range.getBoundingClientRect();
+    return { lines: lines.size, left: bounds.left, right: bounds.right };
+  });
+  const box = await container.boundingBox();
+  expect(box).not.toBeNull();
+  expect(text.lines).toBe(1);
+  expect(text.left).toBeGreaterThanOrEqual(box!.x - 1);
+  expect(text.right).toBeLessThanOrEqual(box!.x + box!.width + 1);
+}
+
+async function acceptLocalWorkLoss(
+  page: Page,
+  navigate: () => Promise<unknown>
+): Promise<void> {
+  await Promise.all([
+    page.waitForEvent('dialog').then(async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.accept();
+    }),
+    navigate()
+  ]);
+}
 
 async function openLocalProof(page: Page): Promise<void> {
   await page.locator('[data-og7="service-demo-more"]').click();
@@ -389,7 +424,9 @@ test('conserve l’horaire dans le récapitulatif et initialise les autres dossi
     path: testInfo.outputPath('recapitulatif.png'),
     fullPage: true
   });
-  await page.goto(`${base}/dossier/collectif-rivages/contenu`);
+  await acceptLocalWorkLoss(page, () =>
+    page.goto(`${base}/dossier/collectif-rivages/contenu`)
+  );
   await expect(page.locator('[data-og7="service-demo-preview"]')).toContainText(
     'Collectif Rivages'
   );
@@ -415,12 +452,7 @@ test('revient à la publication après l’aperçu ouvert depuis le pied de page
     .last()
     .click();
   await expect(page).toHaveURL(/\/apercu\?origine=publication$/);
-  await page
-    .locator('footer')
-    .last()
-    .getByRole('link', { name: /Retour/ })
-    .first()
-    .click();
+  await page.locator('[data-og7="service-demo-back"]').click();
   await expect(page).toHaveURL(/\/publication(?:\?|$)/);
   await expect(
     page.locator('[data-og7="service-demo-step"][data-og7-id="publication"]')
@@ -534,7 +566,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
     '2026-11-06T09:15'
   );
   await expect(page.getByLabel('Fuseau horaire')).toHaveValue('Europe/Paris');
-  await page.reload();
+  await acceptLocalWorkLoss(page, () => page.reload());
   await expect(page.getByLabel('Date et heure locales')).toHaveValue(
     '2026-10-28T10:00'
   );
@@ -1013,3 +1045,348 @@ test('revient à la demande de correction après deux aperçus successifs sans p
     page.getByLabel('Message à préparer', { exact: true })
   ).toHaveValue(message);
 });
+
+test('quitte une simple consultation sans confirmation de perte', async ({
+  page
+}) => {
+  await page.goto(base);
+  await page.locator('a[href="/admin/fundraiser"]').click();
+  await expect(page).not.toHaveURL(new RegExp(base));
+  await expect(page.locator('[data-og7="service-demo"]')).toHaveCount(0);
+});
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`protège les brouillons modifiés et conservés de tous les dossiers en ${language}`, async ({
+    page
+  }) => {
+    const english = language === 'en';
+    const browserDialogs: string[] = [];
+    page.on('dialog', async (dialog) => {
+      browserDialogs.push(dialog.type());
+      await dialog.dismiss();
+    });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.goto(`${dossier}/corriger/texte`);
+    const editor = page.locator('[data-og7="service-demo-editor-text"]');
+    const exit = page.locator('a[href="/admin/fundraiser"]');
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Leave the demo?' : 'Quitter la démo ?',
+      exact: true
+    });
+    const close = dialog.getByRole('button', {
+      name: english ? 'Close confirmation' : 'Fermer la confirmation',
+      exact: true
+    });
+    const stay = dialog.locator('[data-og7="service-demo-exit-stay"]');
+    const leave = dialog.locator('[data-og7="service-demo-exit-confirm"]');
+
+    await editor.fill(editedText);
+    await page
+      .locator('[data-og7="service-demo-editor-tab"][data-og7-id="image"]')
+      .click();
+    await page
+      .locator('[data-og7="service-demo-editor-tab"][data-og7-id="texte"]')
+      .click();
+    await expect(editor).toHaveValue(editedText);
+    await expect(dialog).toBeHidden();
+
+    await exit.focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+s');
+    await expect(dialog).toBeVisible();
+    await expect(
+      page.locator('[data-og7="service-demo-editor-saved"]')
+    ).toBeHidden();
+    await expect(dialog).toContainText('Atelier Boréal');
+    await expect(stay).toHaveAccessibleName(
+      english ? 'Stay in the demo' : 'Rester dans la démo'
+    );
+    await expect(leave).toHaveAccessibleName(
+      english ? 'Leave and clear drafts' : 'Quitter et effacer les brouillons'
+    );
+    await page.keyboard.press('Shift+Tab');
+    await expect(stay).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(exit).toBeFocused();
+    await expect(editor).toHaveValue(editedText);
+
+    await page.locator('[data-og7="service-demo-editor-save"]').click();
+    await expect(
+      page.locator('[data-og7="service-demo-editor-saved"]')
+    ).toBeVisible();
+    await exit.click();
+    await expect(dialog).toBeVisible();
+    await stay.click();
+    await expect(dialog).toBeHidden();
+    await expect(exit).toBeFocused();
+    await expect(editor).toHaveValue(editedText);
+
+    await page.locator(`a[href="${base}"]`).first().click();
+    await page
+      .locator(
+        '[data-og7="service-demo-open-dossier"][data-og7-id="collectif-rivages"]'
+      )
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.locator('[data-og7="service-demo-draft-status"]')
+    ).toHaveCount(0);
+    await exit.click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Atelier Boréal');
+    await expect(dialog).not.toContainText('Collectif Rivages');
+    await leave.click();
+    await expect(page).not.toHaveURL(new RegExp(base));
+    await expect(page.locator('[data-og7="service-demo"]')).toHaveCount(0);
+
+    await page.locator(`a[href="${base}"]`).first().click();
+    await expect(
+      page.locator('[data-og7="service-demo-draft-badge"]')
+    ).toHaveCount(0);
+    await page
+      .locator(
+        '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
+      )
+      .click();
+    await page
+      .locator('[data-og7="service-demo-step"][data-og7-id="contenu"]')
+      .click();
+    await page.locator(`a[href="${dossier}/corriger/texte"]`).first().click();
+    await expect(editor).not.toHaveValue(editedText);
+    await expect(editor).toHaveValue(/Atelier Boréal/);
+    expect(browserDialogs).toEqual([]);
+  });
+}
+
+test('annule une sortie en attente quand le retour navigateur reste dans la démo', async ({
+  page
+}) => {
+  await page.goto(`${dossier}/corriger/texte`);
+  await page
+    .locator('[data-og7="service-demo-editor-tab"][data-og7-id="image"]')
+    .click();
+  await page
+    .locator('[data-og7="service-demo-editor-tab"][data-og7-id="texte"]')
+    .click();
+  await page.locator('[data-og7="service-demo-editor-text"]').fill(editedText);
+  await page.locator('a[href="/admin/fundraiser"]').click();
+  const dialog = page.getByRole('dialog', { name: 'Quitter la démo ?' });
+  await expect(dialog).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/corriger\/image$/);
+  await expect(dialog).toBeHidden();
+  await page
+    .locator('[data-og7="service-demo-editor-tab"][data-og7-id="texte"]')
+    .click();
+  await expect(
+    page.locator('[data-og7="service-demo-editor-text"]')
+  ).toHaveValue(editedText);
+});
+
+for (const source of [
+  { kind: 'commentaire', path: 'commentaire', field: '#demo-comment' },
+  {
+    kind: 'message',
+    path: 'demander-correction',
+    field: '#demo-request-message'
+  },
+  { kind: 'note-piece', path: 'preuve', field: '#demo-proof-note' },
+  { kind: 'fichier', path: 'preuve', field: '#demo-proof-file' },
+  {
+    kind: 'reference-externe',
+    path: 'reconcilier',
+    field: '#demo-external-reference'
+  },
+  {
+    kind: 'lien-externe',
+    path: 'reconcilier',
+    field: '#demo-external-link'
+  },
+  {
+    kind: 'motif-absence',
+    path: 'attester',
+    field: '#demo-absence-reason'
+  }
+] as const) {
+  test(`protège la saisie locale de type ${source.kind} avant de quitter`, async ({
+    page
+  }) => {
+    await page.goto(`${dossier}/${source.path}`);
+    const value =
+      source.kind === 'lien-externe'
+        ? 'https://example.test/reference-locale'
+        : `Saisie synthétique ${source.kind}, locale à cette visite.`;
+    const field = page.locator(source.field);
+    if (source.kind === 'fichier') {
+      await page.getByLabel('Choisir un fichier local').setInputFiles({
+        name: 'reference-locale.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('Référence synthétique sans téléversement.')
+      });
+    } else {
+      await field.fill(value);
+    }
+    if (source.kind !== 'message') {
+      await expect(
+        page.locator('[data-og7="service-demo-draft-status"]')
+      ).toHaveCount(0);
+    }
+    await page.locator('a[href="/admin/fundraiser"]').click();
+    const dialog = page.getByRole('dialog', { name: 'Quitter la démo ?' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Atelier Boréal');
+    await dialog.locator('[data-og7="service-demo-exit-stay"]').click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`${dossier}/${source.path}$`));
+    if (source.kind === 'fichier') {
+      await expect(
+        page.locator('[data-og7="service-demo-detail"][data-og7-id="preuve"]')
+      ).toContainText('reference-locale.txt');
+    } else {
+      await expect(field).toHaveValue(value);
+    }
+    await page.locator('[data-og7="service-demo-back"]').click();
+    await expect(dialog).toBeHidden();
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${dossier}/${source.path}$`));
+    await expect(dialog).toBeHidden();
+    await page.locator(`a[href="${base}"]`).first().click();
+    await page
+      .locator(
+        '[data-og7="service-demo-open-dossier"][data-og7-id="collectif-rivages"]'
+      )
+      .click();
+    await page.goBack();
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${dossier}/${source.path}$`));
+    await expect(dialog).toBeHidden();
+    if (source.kind === 'fichier') {
+      await expect(
+        page.locator('[data-og7="service-demo-proof-name"]')
+      ).toContainText('reference-locale.txt');
+    } else {
+      await expect(field).toHaveValue(value);
+    }
+  });
+}
+
+test('avertit au rechargement avant et après conservation locale du brouillon', async ({
+  page
+}) => {
+  await page.goto(`${dossier}/corriger/texte`);
+  const editor = page.locator('[data-og7="service-demo-editor-text"]');
+  await editor.fill(editedText);
+  await expect(
+    page.locator('[data-og7="service-demo-draft-status"]')
+  ).toBeVisible();
+  await Promise.all([
+    page.waitForEvent('dialog').then(async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss();
+    }),
+    page.evaluate(() => window.location.reload())
+  ]);
+  await expect(editor).toHaveValue(editedText);
+  await page.locator('[data-og7="service-demo-editor-save"]').click();
+  await expect(
+    page.locator('[data-og7="service-demo-editor-saved"]')
+  ).toBeVisible();
+  await acceptLocalWorkLoss(page, () => page.reload());
+  await expect(editor).not.toHaveValue(editedText);
+  await expect(
+    page.locator('[data-og7="service-demo-draft-status"]')
+  ).toHaveCount(0);
+});
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`garde les actions accessibles à 320 px et en mise en page équivalente à 200 % en ${language}`, async ({
+    page
+  }) => {
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${dossier}/corriger/texte`);
+    const save = page.locator('[data-og7="service-demo-editor-save"]');
+    const footer = page.locator('footer').filter({ has: save });
+    // 640 × 450 CSS pixels models the reflow of 1280 × 900 at 200% zoom.
+    for (const viewport of [
+      { width: 320, height: 760 },
+      { width: 640, height: 450 }
+    ]) {
+      await page.setViewportSize(viewport);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth + 1
+        )
+      ).toBe(true);
+      const steps = page.locator('[data-og7="service-demo-step"]');
+      await expect(steps).toHaveCount(3);
+      for (const step of await steps.all()) {
+        await expectSingleLineText(step.locator('strong'), step);
+      }
+      const tabs = page.locator('[data-og7="service-demo-editor-tab"]');
+      await expect(tabs).toHaveCount(5);
+      for (const tab of await tabs.all()) await expectSingleLineText(tab);
+      if (viewport.width === 320) {
+        const rows = await tabs.evaluateAll(
+          (elements) =>
+            new Set(
+              elements.map((element) =>
+                Math.round(element.getBoundingClientRect().top)
+              )
+            ).size
+        );
+        expect(rows).toBeGreaterThan(1);
+      }
+      const actions = footer.locator('a, button');
+      expect(await actions.count()).toBeGreaterThanOrEqual(3);
+      for (const action of await actions.all()) {
+        await action.focus();
+        await expect(action).toBeFocused();
+        await action.scrollIntoViewIfNeeded();
+        const box = await action.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(
+          await action.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth + 1
+          )
+        ).toBe(true);
+      }
+      await page
+        .locator('[data-og7="service-demo-editor-text"]')
+        .fill(editedText);
+      await page.locator('a[href="/admin/fundraiser"]').click();
+      const dialog = page.getByRole('dialog', {
+        name: language === 'en' ? 'Leave the demo?' : 'Quitter la démo ?'
+      });
+      await expect(dialog).toBeVisible();
+      for (const hook of [
+        'service-demo-exit-stay',
+        'service-demo-exit-confirm'
+      ]) {
+        const action = dialog.locator(`[data-og7="${hook}"]`);
+        await action.scrollIntoViewIfNeeded();
+        const box = await action.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
+      await dialog.locator('[data-og7="service-demo-exit-stay"]').click();
+      await expect(dialog).toBeHidden();
+    }
+  });
+}

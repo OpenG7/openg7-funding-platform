@@ -6,6 +6,17 @@ Ce dossier décrit la démo **Contenu → Consentement → Publication** pour la
 reprendre et la faire évoluer avec ChatGPT. Il distingue les comportements
 locaux constatés, les opérations illustratives et les évolutions à concevoir.
 
+Le blueprint comporte une actualisation locale ciblée du 27 octobre 2026 sur
+la navigation, les brouillons et les actions. Les captures, exports et preuves
+datés du livrable d'origine restent associés à leur révision de référence.
+
+Le code courant est encapsulé dans la feature Funding
+[service-delivery](../../../apps/funding-web/src/app/features/funding/service-delivery/README.md).
+Son [point d'entrée public `index.ts`](../../../apps/funding-web/src/app/features/funding/service-delivery/index.ts)
+expose les routes chargées à la demande pour `/demo/prestations`; ses sept paires
+FR/EN sont regroupées dans `service-delivery/i18n/`. Les URL et hooks de la démo
+restent les repères de navigation et de recette.
+
 - [Blueprint complet](blueprint-demo-prestations.md) : produit, écrans, parcours,
   données, règles, style, recette et limites.
 - [Prompt de reprise pour ChatGPT](prompt-reprise-chatgpt.md) : texte à copier

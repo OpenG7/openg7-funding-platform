@@ -85,9 +85,16 @@ summary:focus-visible {
 }
 
 .help-body {
+  display: grid;
+  grid-template-rows: 1fr;
   padding: 2px 18px 16px 48px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.help-copy {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .help-intro {
@@ -107,6 +114,32 @@ summary:focus-visible {
 
 .help-body li {
   padding-left: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  summary {
+    transition: background-color 150ms ease;
+  }
+
+  .help-chevron {
+    transition: transform 180ms ease;
+  }
+
+  .context-help[open] .help-body {
+    animation: service-demo-help-open 200ms ease-out;
+  }
+
+  @keyframes service-demo-help-open {
+    from {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+
+    to {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
 }
 
 @media (max-width: 600px) {

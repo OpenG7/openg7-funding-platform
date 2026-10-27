@@ -9,12 +9,13 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import enTranslations from '../../../../../assets/i18n/service-demo-detail.en.json' with { type: 'json' };
-import frTranslations from '../../../../../assets/i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
-import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { FundingI18nService } from '../services/funding-i18n.service.js';
 
+import enTranslations from './i18n/service-demo-detail.en.json' with { type: 'json' };
+import frTranslations from './i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
 import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 import {
   ServiceDemoState,
   type ServiceDemoContent
@@ -180,7 +181,8 @@ export const DEMO_DETAIL_PAGES = [
     NgTemplateOutlet,
     RouterLink,
     ServiceDemoPreviewComponent,
-    ServiceDemoActionsDirective
+    ServiceDemoActionsDirective,
+    ServiceDemoTransitionDirective
   ],
   templateUrl: './service-demo-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -419,6 +421,23 @@ export class ServiceDemoDetailComponent {
   readonly restored = signal(false);
   readonly statusFilter = signal('all');
   readonly checked = signal(false);
+  readonly messageSource = computed(() =>
+    this.query().get('source') === 'demander-correction'
+      ? 'demander-correction'
+      : 'demander-accord'
+  );
+  readonly confirmationNext = computed(() => {
+    switch (this.page()) {
+      case 'confirmer-envoi':
+        return { path: 'resultat', label: 'actions.viewResult' };
+      case 'confirmer-visibilite':
+        return { path: 'web', label: 'actions.returnWebsite' };
+      case 'approuver-preparation':
+        return { path: 'contenu', label: 'actions.reviewDraftContent' };
+      default:
+        return { path: 'publication', label: 'actions.preparePublication' };
+    }
+  });
 
   readonly confirmationPages = new Set([
     'confirmer-envoi',

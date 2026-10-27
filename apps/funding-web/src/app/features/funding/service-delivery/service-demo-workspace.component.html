@@ -47,7 +47,12 @@
           <openg7-admin-icon name="warning" />
           <div>
             <strong>{{ 'serviceDemo.summary.nextTitle' | translate }}</strong>
-            <p>{{ 'serviceDemo.summary.nextHint' | translate }}</p>
+            <p>
+              {{
+                'serviceDemo.summary.nextHints.' + state.dossier().stage
+                  | translate
+              }}
+            </p>
           </div>
         </div>
         <div class="notice assistance">
@@ -80,8 +85,11 @@
           ><openg7-admin-icon name="clock" />{{
             'serviceDemo.history' | translate
           }}</a
-        ><a class="button primary" [routerLink]="state.href('contenu')"
-          >{{ 'serviceDemo.nextActions.contenu' | translate }}
+        ><a
+          class="button primary"
+          [routerLink]="state.href(state.dossier().stage)"
+          data-og7="service-demo-next"
+          >{{ 'serviceDemo.nextActions.' + state.dossier().stage | translate }}
           <openg7-admin-icon name="arrow"
         /></a></div
     ></ng-template>

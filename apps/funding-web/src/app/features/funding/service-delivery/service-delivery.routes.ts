@@ -39,11 +39,14 @@ const steps: Routes = ['contenu', 'autorisation', 'publication'].map(
   })
 );
 
-export const serviceDemoRoutes: Routes = [
+export const serviceDeliveryRoutes: Routes = [
   {
     path: '',
     component: ServiceDemoShellComponent,
     providers: [ServiceDemoState],
+    canDeactivate: [
+      (component: ServiceDemoShellComponent) => component.canLeave()
+    ],
     children: [
       {
         path: '',

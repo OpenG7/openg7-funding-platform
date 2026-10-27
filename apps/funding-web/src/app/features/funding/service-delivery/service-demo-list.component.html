@@ -1,6 +1,7 @@
 <section data-og7="service-demo-list">
   <div class="metrics">
     <article>
+      <openg7-admin-icon class="metric-icon" name="publications" />
       <span>{{ 'serviceDemo.metrics.total' | translate }}</span
       ><strong
         >{{ totalDossiers }}
@@ -8,6 +9,7 @@
       >
     </article>
     <article>
+      <openg7-admin-icon class="metric-icon" name="transparency" />
       <span>{{ 'serviceDemo.metrics.services' | translate }}</span
       ><strong
         >{{ totalServices }}
@@ -15,6 +17,7 @@
       >
     </article>
     <article>
+      <openg7-admin-icon class="metric-icon" name="clock" />
       <span>{{ 'serviceDemo.metrics.next' | translate }}</span
       ><strong
         >{{ totalDossiers }}
@@ -70,6 +73,7 @@
     </div>
   </div>
   <nav
+    openg7ServiceDemoTabs
     class="tabs filter-tabs"
     [attr.aria-label]="'serviceDemo.filters.label' | translate"
   >
@@ -128,9 +132,17 @@
     <h2>{{ 'serviceDemoList.filesTitle' | translate }}</h2>
     <span>{{ 'serviceDemoList.nextAction' | translate }}</span>
   </div>
-  <div class="dossier-list">
+  <div
+    class="dossier-list"
+    [openg7ServiceDemoTransition]="resultIds()"
+    data-og7="service-demo-results"
+  >
     @for (dossier of dossiers(); track dossier.id) {
-      <article class="dossier-row">
+      <article
+        class="dossier-row"
+        data-og7="service-demo-dossier"
+        [attr.data-og7-id]="dossier.id"
+      >
         <div
           class="company-avatar"
           [class]="'company-avatar ' + dossier.tone"

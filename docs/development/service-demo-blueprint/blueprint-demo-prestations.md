@@ -9,6 +9,12 @@ Référence examinée :
 Le code de cette révision et les captures associées décrivent le prototype;
 ils ne prouvent ni sa fusion ni son activation en production.
 
+Actualisation fonctionnelle ciblée du 27 octobre 2026 : les descriptions de
+navigation, d'état local et d'actions ci-dessous suivent l'implémentation locale
+actuelle. La révision de référence, les captures et les preuves datées restent
+celles du livrable d'origine; cette actualisation ne les réattribue pas au code
+courant et ne décrit aucune activation en production.
+
 ## 1. Ce que ce blueprint permet de faire
 
 Reprendre la démo sans connaître la conversation d'origine, comprendre chaque
@@ -77,7 +83,7 @@ distinction ne constitue pas un nouveau modèle de rôles implémenté.
 | Planification | Date et fuseau saisis localement, repris dans le récapitulatif. |
 | Publication et visibilité | Écrans de confirmation et de suivi; commandes réelles désactivées. |
 | Assistance IA | Proposition de texte fixe, fournie avec la démo. |
-| Langues | Français canadien et anglais, six paires de fichiers de traduction. |
+| Langues | Français canadien et anglais, sept paires de fichiers de traduction. |
 | Adaptation | Présentation ordinateur et mobile; prévisualisation standard ou compacte. |
 | Services distants | Aucun paiement, envoi, téléversement ou appel à un fournisseur métier réalisé par la démo. Les assets et l'application Web restent chargés normalement. |
 
@@ -133,6 +139,11 @@ Sur ordinateur large et suffisamment haut, le corps possède son défilement;
 l'en-tête et le pied restent visibles. Sur une largeur plus petite, l'ensemble
 s'organise dans le flux de la page. La position du corps est mémorisée par URL
 pendant la visite. Il faut conserver ce fonctionnement lors d'une refonte.
+
+À 760 px de largeur ou moins, les numéros des étapes passent au-dessus de leur
+libellé; à 600 px ou moins, les sous-titres sont masqués. Cette disposition garde
+« Consentement » lisible à 640 px de largeur, y compris dans un viewport
+équivalent à un écran de 1280 px zoomé à 200 %.
 
 La liste privilégie le nom et la prochaine intervention. La synthèse privilégie
 les prestations promises. Les étapes privilégient la vérification en cours.
@@ -194,13 +205,16 @@ diffusion inventées. La fiche Web conserve sa propre structure visuelle.
 | Sélectionner une pièce | Retenir son nom dans le dossier local; ne pas lire son contenu ni le téléverser. |
 | Cocher une confirmation | Modifier un état de lecture de la vue; les commandes réelles restent désactivées. |
 | Changer de dossier | Retrouver les saisies locales de chaque dossier sans mélanger leur contenu, leurs notes ou leurs noms de pièces. |
-| Recharger le document | Réinitialiser les saisies et snapshots locaux; relire les paramètres d'URL et la préférence de langue. |
+| Recharger le document | Demander la confirmation native du navigateur si un dossier contient du travail local, y compris un contenu conservé; si le rechargement est accepté, réinitialiser les saisies et snapshots et relire URL/langue. |
+| Quitter la démo | Demander confirmation s'il reste du travail dans un des dossiers; rester conserve la visite, un départ confirmé et effectif purge l'état local. |
 
 Les données de contenu et les données du dossier ne partagent pas exactement
 la même portée de sauvegarde. L'annexe B détaille ces différences, notamment
-les horaires, destinataires, notes et commentaires. « Quitter » ne possède pas
-de commande explicite d'effacement; le blueprint ne promet pas une purge après
-un aller-retour dans l'administration.
+les horaires, destinataires, notes et commentaires. La protection est portée par
+le shell parent : elle couvre aussi la liste et les dossiers précédemment
+modifiés ou conservés, sans interrompre les détours internes à la démo. La purge
+intervient après un départ confirmé et effectif, pas lors de l'ouverture de la
+confirmation ni après son annulation.
 
 ## 8. Consentement, visibilité et publication
 
@@ -265,8 +279,9 @@ sont bornées à des destinations internes connues.
 
 Le français canadien est la langue de référence, avec une version anglaise
 équivalente. Les routes de démo n'ont pas de préfixe linguistique. Le choix de
-langue est mémorisé par le service existant; les douze fichiers de traduction
-conservent les mêmes clés et paramètres d'interpolation dans chaque paire.
+langue est mémorisé par le service existant; les quatorze fichiers de traduction
+propres à la feature sont regroupés sous `service-delivery/i18n/` et conservent
+les mêmes clés et paramètres d'interpolation dans chaque paire.
 Les détails d'URL sont inventoriés dans l'annexe A.
 
 Les captures documentaires sont prises à 1 536 × 960 et 390 × 844. La recette
@@ -318,7 +333,7 @@ Ces questions organisent la suite. Les propositions sont des points de départ
 | P1 | Comment présenter la prochaine intervention ? | Utiliser une action justifiée par les faits réels; conserver les badges de fixtures comme exemples tant que rien n'est calculé. |
 | P1 | Que doit créer un commentaire ? | Choisir entre note privée et événement de l'historique; ne pas simuler un journal persistant à partir de la chronologie fixe. |
 | P1 | Comment conserver plusieurs versions ? | Définir comparaison, restauration par copie et conflit; le prototype ne possède qu'un dernier contenu conservé par dossier. |
-| P1 | Quel comportement à la sortie ? | Choisir explicitement conservation, avertissement et effacement; aucun effacement à la sortie n'est garanti aujourd'hui. |
+| P1 | Quel comportement à la sortie ? | Définir une conservation durable pour la cible; la démo confirme déjà les départs avec travail local et purge la visite après une sortie effective. |
 | P1 | Comment organiser les nombreuses actions secondaires ? | Prioriser les parcours fréquents; conserver les autres derrière des liens contextuels et un menu clairement nommé. |
 | P2 | Quels autres canaux ou prestations ? | Ajouter les variantes après clarification de leurs engagements, formats, preuves et autorisations. |
 | P2 | Faut-il une assistance IA réelle ? | Évaluer le besoin après l'édition manuelle; conserver proposition, relecture humaine, version et droits distincts. |
@@ -370,9 +385,11 @@ Références propriétaires utiles dans le dépôt :
   [formats de publication](../../technical/publication-formats.md) et
   [identité administrative](../../operations/admin-identity-and-alerts.md).
 - Sources des écrans :
-  [routes](../../../apps/funding-web/src/app/features/funding/pages/service-demo/service-demo.routes.ts),
-  [état de la démo](../../../apps/funding-web/src/app/features/funding/pages/service-demo/service-demo-state.ts),
-  [contrôleur des détails](../../../apps/funding-web/src/app/features/funding/pages/service-demo/service-demo-detail.component.ts)
+  [feature et frontière publique](../../../apps/funding-web/src/app/features/funding/service-delivery/README.md),
+  [point d'entrée](../../../apps/funding-web/src/app/features/funding/service-delivery/index.ts),
+  [routes](../../../apps/funding-web/src/app/features/funding/service-delivery/service-delivery.routes.ts),
+  [état de la démo](../../../apps/funding-web/src/app/features/funding/service-delivery/service-demo-state.ts),
+  [contrôleur des détails](../../../apps/funding-web/src/app/features/funding/service-delivery/service-demo-detail.component.ts)
   et [recette navigateur](../../../tests/playwright/service-demo.ui.spec.ts).
 
 Pour la reprise, joindre ce blueprint puis utiliser le
@@ -404,6 +421,15 @@ Le cadre principal présente un fil d'Ariane liste → dossier, un H1 propre à 
 Le menu « Autres actions » propose Historique, Accord et prestations promises, Preuves de réalisation, Ajouter un commentaire interne et Toutes les actions. Il se ferme après navigation, avec Échap ou par clic extérieur; Échap restitue le focus à son déclencheur. Le corps est une zone de défilement dédiée. Le shell mémorise la position par URL complète et la restaure au retour.
 
 Après une navigation entre pages, le focus va au H1. Entre onglets de l'éditeur, il va à l'onglet actif. Un lien d'évitement rejoint le contenu. Le pied présente le retour contextuel, les actions de la page injectées via un template et l'état local du brouillon. L'aide dépliable varie selon liste, synthèse, Contenu, Consentement, Publication, éditeur, historique ou détail générique.
+
+Le `canDeactivate` du shell parent intercepte une sortie de la démo si un des
+dossiers contient du travail local, même déjà conservé pour la visite. Le panneau
+de confirmation identifie les dossiers concernés; rester ou fermer le panneau
+préserve leurs saisies. Après un départ accepté et effectif, la destruction du
+shell purge la visite. Un `beforeunload` demande aussi la confirmation native
+pour un rechargement, une fermeture ou un départ hors application lorsque le
+navigateur l'autorise après interaction. Les navigations internes entre dossiers,
+onglets et détails restent libres.
 
 #### Paramètres d'URL réellement gérés
 
@@ -437,9 +463,9 @@ Ne pas présenter les origines comme des redirections ouvertes ou une autorisati
 
 - Faits illustratifs : paiement fictif confirmé, consentement d'exemple, référence DEMO.
 - Deux cartes distinctes : présentation sur le site (à préparer) → `web`; publication Facebook (à vérifier) → `contenu`.
-- Prochaine intervention, lien vers l'offre commerciale, proposition d'IA illustrative → `proposition`.
+- Prochaine intervention et aide adaptées à l'étape fictive du dossier; lien vers l'offre commerciale, proposition d'IA illustrative → `proposition`.
 - Aperçu Facebook à droite et accès aux preuves → `preuves`.
-- Pied : Historique → `historique`, Vérifier le contenu → `contenu`; retour vers la liste.
+- Pied : Historique → `historique`, puis une action principale selon l'étape du dossier : Vérifier le contenu → `contenu`, Vérifier le consentement → `autorisation` ou Préparer la publication → `publication`; retour vers la liste.
 - Les états de ces cartes restent des textes de démonstration même après édition ou conservation locale.
 
 #### Contenu `/contenu`
@@ -453,12 +479,12 @@ Ne pas présenter les origines comme des redirections ouvertes ou une autorisati
 
 - Contrôles : consentement reçu → `accord-recu`, conditions → `conditions`, contact → `contact`.
 - Aperçu, métadonnées d'exemple (date, contact, méthode : courriel fictif).
-- Pied : aperçu exact avec origine; Demander une correction → `demander-correction?retour=autorisation`; Voir la confirmation → `confirmer-autorisation`.
+- Pied : aperçu exact avec origine; Demander une correction → `demander-correction?retour=autorisation`; Examiner la confirmation d'exemple → `confirmer-autorisation`.
 - La confirmation n'écrit ni consentement ni autorisation administrative.
 
 #### Publication `/publication`
 
-- Contrôles : destination → `destinations`, contenu exact → `apercu`, horaire → `planifier`.
+- Contrôles : destination → récapitulatif `confirmer-envoi`, contenu exact → `apercu`, horaire → `planifier`.
 - Aperçu Facebook; lien séparé vers présentation Web → `web`.
 - Pied : aperçu exact avec origine; Corriger le contenu → éditeur avec `retour=publication`; Voir le récapitulatif → `confirmer-envoi`.
 - Aucun état planifié n'est enregistré côté serveur.
@@ -476,7 +502,7 @@ Tous les onglets partagent les mêmes valeurs locales du dossier, l'aperçu Face
 | `corriger/mentions` | Champ texte libre Mention | Affiché comme texte dans l'aperçu, aucune résolution de compte social ni tag externe. |
 | `corriger/options` | Case Afficher le lien dans l'aperçu | Règle uniquement l'affichage local. Destination, consentement et autorisation d'envoi se consultent dans leurs étapes; aucune option cachée d'envoi. |
 
-Conserver remplace un unique snapshot local du contenu du dossier (texte, mention, lien, présence du lien, visuel, alternative). Les messages, commentaires, destinataire, noms de pièce et horaire restent dans l'état de visite par dossier mais ne sont pas une version de contenu à rétablir. Un rechargement du navigateur réinitialise ces états.
+Conserver remplace un unique snapshot local du contenu du dossier (texte, mention, lien, présence du lien, visuel, alternative). Les messages, commentaires, destinataire, noms de pièce, horaire et champs de préparation de réconciliation/attestation restent dans l'état de visite par dossier mais ne sont pas une version de contenu à rétablir. Un rechargement accepté réinitialise ces états; une sortie confirmée et effective les purge aussi.
 
 ### A.5. Historique `/historique`
 
@@ -488,7 +514,7 @@ Conserver remplace un unique snapshot local du contenu du dossier (texte, mentio
 
 ### A.6. Inventaire exhaustif des 33 détails
 
-Tous les suffixes sont relatifs à `/demo/prestations/dossier/:id/`. La colonne Retour indique le parent par défaut; l'aperçu peut retrouver son origine grâce aux paramètres décrits plus haut. Les champs purement illustratifs ne sont pas liés à l'état partagé et peuvent être perdus au changement de vue.
+Tous les suffixes sont relatifs à `/demo/prestations/dossier/:id/`. La colonne Retour indique le parent par défaut; l'aperçu peut retrouver son origine grâce aux paramètres décrits plus haut. La référence et le lien de réconciliation ainsi que le motif d'attestation sont des saisies locales liées au snapshot de chaque dossier; les quitter pour un autre écran ou dossier ne les efface pas. Ils ne déclenchent aucune vérification fournisseur.
 
 <!-- prettier-ignore -->
 | Suffixe et titre affiché | Contenu / champs | Actions et effet actuel | Retour par défaut |
@@ -499,33 +525,33 @@ Tous les suffixes sont relatifs à `/demo/prestations/dossier/:id/`. La colonne 
 | `controle` — Comprendre ce qui manque | Priorité consentement reçu, raison, source et prochaine étape fixes | Vérifier consentement → `autorisation` | Synthèse |
 | `proposition` — Examiner une proposition de l’IA | Texte actuel et variante fixe livrée avec la maquette | Utiliser dans le brouillon remplace le texte local, marque modifié et rejoint éditeur texte; aucun fournisseur IA | Éditeur texte |
 | `comparer` — Comparer deux versions | Sélecteur référence conservée/exemple; deux textes; champs modifiés; détails lien/mention/image/alternative/lien visible | Choisir référence modifie `comparaison` dans URL; continuer édition ou rejoindre `retablir`; aucune écriture à la simple lecture | Historique |
-| `commentaire` — Ajouter un commentaire interne | Zone texte liée au brouillon de commentaire; information sur visibilité | Conserver commentaire dans la visite (désactivé si vide), retour de succès local; pas d'envoi ni d'audit serveur | Historique |
-| `demander-correction` — Demander une correction | Destinataire d'exemple non modifiable ici; message libre partagé | Prévisualiser → `apercu-envoi`, avec `origine` et `source` ; aucun envoi | Contenu |
-| `demander-accord` — Demander le consentement | Même formulaire local, portée texte/visuel/destination dans l'aide | Prévisualiser → `apercu-envoi`; une demande ne constitue pas un consentement | Consentement |
-| `preuve` — Consulter ou joindre une preuve | Sélecteur de fichier PNG/JPEG/PDF/TXT; nom du fichier sélectionné; note source/portée | Seul `files[0].name` est lu, aucun contenu lu ni stocké; Enregistrer preuve désactivé; note et nom gardés localement par dossier | Consentement |
+| `commentaire` — Ajouter un commentaire interne | Zone texte liée au brouillon de commentaire; information sur visibilité | Conserver commentaire dans la visite (désactivé si vide), retour de succès local puis action principale vers l'historique; pas d'envoi ni d'audit serveur | Historique |
+| `demander-correction` — Préparer une demande de correction | Destinataire d'exemple non modifiable ici; message libre partagé | Prévisualiser → `apercu-envoi`, avec `origine` et `source` ; aucun envoi | Contenu |
+| `demander-accord` — Préparer une demande de consentement | Même formulaire local, portée texte/visuel/destination dans l'aide | Prévisualiser → `apercu-envoi`; une demande ne constitue pas un consentement | Consentement |
+| `preuve` — Examiner une pièce locale | Sélecteur de fichier PNG/JPEG/PDF/TXT; nom du fichier sélectionné; note source/portée | Seul `files[0].name` est lu, aucun contenu lu ni stocké; Enregistrer preuve désactivé; note et nom gardés localement par dossier; reprendre l'examen du consentement → `autorisation` | Consentement |
 | `accord-recu` — Lire le consentement reçu | Courriel fictif de `contact@example.test`, date illustrative, objet et texte reçus | Consulter pièces → `preuve`; lire ne change aucun état | Consentement |
-| `conditions` — Examiner les conditions | Portée, durée/dates, contenu concerné; données fixes | Voir prestations promises → `accord` | Consentement |
+| `conditions` — Examiner les conditions | Portée, durée/dates, contenu concerné; données fixes | Voir prestations promises → `accord`; action principale reprendre l'examen du consentement → `autorisation` | Consentement |
 | `contact` — Vérifier le contact | Nom fictif non modifiable; courriel d'exemple modifiable | Modifie le destinataire local; Préparer une demande → `demander-accord`; aucune correction de destinataire réelle | Consentement |
-| `planifier` — Planifier la publication | `datetime-local`; choix fuseau Toronto / Vancouver / Paris / UTC; récapitulatif; aperçu | Saisies gardées en mémoire; Voir récapitulatif → `confirmer-envoi`; aucun calcul/validation de conversion DST serveur ni programmation | Publication |
+| `planifier` — Préparer un horaire de publication | `datetime-local`; choix fuseau Toronto / Vancouver / Paris / UTC; récapitulatif; aperçu | Saisies gardées en mémoire; Voir récapitulatif → `confirmer-envoi`; aucun calcul/validation de conversion DST serveur ni programmation | Publication |
 | `confirmer-envoi` — Relire la confirmation d’envoi | Portée Facebook/OpenG7, version locale, horaire/fuseau, aperçu, case récapitulatif relu | Revoir contenu; case locale; bouton confirmer toujours désactivé; Explorer suivi → `resultat` | Publication |
 | `resultat` — Suivre le résultat | « Aucune opération »; références/lien externes absents, aucune preuve disponible | Explorer réconciliation → `reconcilier`; ne simule pas une publication réussie | Publication |
-| `reconcilier` — Examiner un résultat incertain | Référence externe et URL, champs de présentation non liés à l'état partagé | Examiner attestation → `attester`; Réconciliation désactivée; aucun fournisseur interrogé | Résultat |
-| `attester` — Attester une absence vérifiée | Zone motif/vérifications, pure présentation | Attestation désactivée; aucune attestation réelle créée | Réconciliation |
+| `reconcilier` — Examiner un résultat incertain | Référence externe et URL liées au snapshot de visite par dossier | Examiner attestation → `attester`; Réconciliation désactivée; aucun fournisseur interrogé | Résultat |
+| `attester` — Examiner une attestation d'absence | Zone motif/vérifications liée au snapshot de visite par dossier | Attestation désactivée; aucune attestation réelle créée; retour au suivi → `resultat` | Réconciliation |
 | `web` — Présentation sur le site | Nom dossier non modifiable; description liée au même texte que l'éditeur social; site lié au même lien; aperçu Web distinct | Description/lien modifient le brouillon commun; Voir confirmation → `confirmer-visibilite`; aucune fiche publiée | Synthèse |
-| `confirmer-visibilite` — Relire la confirmation de visibilité | Portée présentation Web, contenu local, aperçu Web, case relu | Revoir aperçu; confirmer désactivé; décision de visibilité reste distincte du consentement/social | Présentation Web |
-| `approuver-preparation` — Relire l’approbation de préparation | Récapitulatif générique, portée, version, case relu | Confirmation désactivée; ne crée ni approbation éditoriale ni autorisation d'envoi | Synthèse |
+| `confirmer-visibilite` — Relire la confirmation de visibilité | Portée présentation Web, contenu local, aperçu Web, case relu | Revoir aperçu; confirmer désactivé; revenir à la présentation → `web`; décision de visibilité distincte du consentement/social | Présentation Web |
+| `approuver-preparation` — Relire l’approbation de préparation | Récapitulatif générique, portée, version, case relu | Confirmation désactivée; reprendre la revue → `contenu`; ne crée ni approbation éditoriale ni autorisation d'envoi | Synthèse |
 | `autres-actions` — Autres actions | Liens principaux Historique / Preuves / Offre / Web / Guide; section repliable de tous les détails | Navigation vers les 32 autres détails; aide à explorer les vues hors chemin principal | Synthèse |
-| `quitter` — Quitter l’éditeur | Explication de la conservation limitée à la visite | Continuer saisie → éditeur texte; Revenir dossier → synthèse; pas de guard automatique de navigation | Éditeur texte |
-| `conflit` — Résoudre un conflit de version | Exemple explicatif de conflit distant | Comparer → `comparer`; conserver ma saisie → éditeur; aucun conflit serveur détecté/résolu | Éditeur texte |
+| `quitter` — Quitter l’éditeur | Explication de la conservation limitée à la visite | Continuer saisie → éditeur texte; Revenir dossier → synthèse; ces détours internes ne quittent pas le shell protégé | Éditeur texte |
+| `conflit` — Résoudre un conflit de version | Exemple explicatif de conflit distant | Comparer → `comparer`; reprendre ma saisie → éditeur; aucun conflit serveur détecté/résolu | Éditeur texte |
 | `indisponible` — Indisponibilité ou session expirée | Exemple d'erreur/session; aucune session interrogée | Revenir dossier → synthèse; aucun retry réel | Synthèse |
 | `medias` — Revue des médias | Case inclure illustration, aperçu et explication locale | Active/retire l'image du brouillon; Revenir éditeur image; ne supprime pas de fichier ni ne valide de droits médias | Éditeur image |
 | `guide` — Guide du parcours | Trois étapes décrites : Contenu, Consentement, Publication | Revenir dossier | Synthèse |
 | `destinations` — Repères administratifs | Références explicatives paiement, campagne, contact; aucune donnée réelle | Consulter contact fictif; aucun accès à des dossiers admin réels | Synthèse |
 | `filtres` — Filtrer les prestations | Liste de choix Tous / Contenu / Consentement / Publication | Retour liste avec `etat` choisi; navigation effective, pas de requête API | Synthèse |
 | `retablir` — Rétablir une version dans le brouillon | Dernier contenu conservé et saisie actuelle; états aucune sauvegarde / identique / différences / rétabli | Comparer, rétablir si différent, continuer édition; copie uniquement le dernier snapshot local de contenu; ne touche ni notes, ni horaire ni autorisation | Historique |
-| `annuler-autorisation` — Relire le retrait d’autorisation | Récapitulatif illustratif d'une autorisation d'envoi précise, case relu | Confirmation désactivée; aucune autorisation retirée ni historique financier/publication effacé | Publication |
+| `annuler-autorisation` — Relire le retrait d’autorisation | Récapitulatif illustratif d'une autorisation d'envoi précise, case relu | Confirmation désactivée; reprendre la préparation → `publication`; aucune autorisation retirée ni historique financier/publication effacé | Publication |
 | `apercu-envoi` — Prévisualiser un message au client | Destinataire local, objet fixe, note saisie ou texte par défaut | Revoir contenu → aperçu; Envoi désactivé; retour à la source correction/consentement via `source` | Demande de consentement ou source bornée |
-| `confirmer-autorisation` — Relire la confirmation de consentement | Portée et version, case relu, aperçu; demande de preuve du consentement reçu | Confirmation désactivée même après cochage; une case administrative ne crée jamais le consentement | Consentement |
+| `confirmer-autorisation` — Relire la confirmation de consentement | Portée et version, case relu, aperçu; demande de preuve du consentement reçu | Confirmation désactivée même après cochage; explorer la préparation → `publication`; une case administrative ne crée jamais le consentement | Consentement |
 
 ### A.7. Aperçus et contenu commun
 
@@ -544,7 +570,7 @@ Limite à porter explicitement dans le blueprint : les contenus Web et Facebook 
 5. Synthèse → Web → confirmer visibilité → aperçu Web → retour confirmation; aucune publication.
 6. Historique → filtre, ordre, événement → commentaire → retour avec filtre/événement/défilement conservés.
 7. Résultat → réconcilier → attester : parcours d'incertitude entièrement explicatif et sans relance.
-8. Dossier A édité → liste → dossier B édité → retour A : brouillons distincts; rechargement : réinitialisation, langue encore choisie par le service de langue.
+8. Dossier A édité → liste → dossier B édité → retour A : brouillons distincts; une sortie ou un rechargement demandent confirmation pour l'ensemble de ces dossiers, même déjà conservés; le départ effectif ou le rechargement accepté réinitialise la visite, tandis que la langue reste choisie par le service de langue.
 
 ### A.9. Différences à ne pas masquer en rédigeant la cible
 
@@ -560,7 +586,15 @@ Limite à porter explicitement dans le blueprint : les contenus Web et Facebook 
 
 ### A.10. Sources propriétaires
 
-- `apps/funding-web/src/app/features/funding/pages/service-demo/service-demo.routes.ts` : composition et bornes des routes.
+L'implémentation courante réside dans
+`apps/funding-web/src/app/features/funding/service-delivery/`. La feature est
+chargée à la demande depuis les routes de l'application; `index.ts`, qui expose
+`serviceDeliveryRoutes`, est sa seule API publique. Les composants, état et
+directives restent internes à cette frontière. Les URL `/demo/prestations` et
+les hooks `data-og7` conservent leur contrat de navigation et de recette.
+
+- `index.ts` : point d'entrée public des consommateurs de la feature.
+- `service-delivery.routes.ts` : composition interne et bornes des routes.
 - `service-demo-detail.component.ts` : `DEMO_DETAIL_PAGES`, comparaison, rétablissement, liste de confirmations.
 - `service-demo-detail.component.html` : contenu des 33 vues, champs et actions désactivées.
 - `service-demo-workspace.component.{ts,html}` : synthèse et trois étapes.
@@ -571,7 +605,7 @@ Limite à porter explicitement dans le blueprint : les contenus Web et Facebook 
 - `service-demo-history.component.{ts,html}` : cinq événements fixes et query params.
 - `service-demo-preview.component.ts` : rendus Web/Facebook et absence de navigation externe des liens saisis.
 - `service-demo-help.component.{ts,html}` : aide contextuelle dépliable.
-- Six paires `service-demo*.fr-CA.json` / `.en.json` : textes réels.
+- `i18n/` : sept paires `service-demo*.fr-CA.json` / `.en.json` propres à la feature, dont la protection de navigation.
 - `tests/playwright/service-demo.ui.spec.ts` et `tests/service-demo-routing.test.mjs` : scénarios de démo et routes/404; aucune preuve d'effet fournisseur.
 
 ## Annexe B — Données, états, conservation et recette
@@ -586,7 +620,7 @@ Le prototype ne contient aucun chargement de dossiers serveur, appel `HttpClient
 
 Les trois étapes ne forment pas un automate métier : on peut les visiter librement. Une conservation locale, une case cochée ou un clic « suivant » ne fait progresser aucun statut réel, ne crée aucun consentement et ne vaut aucune autorisation administrative.
 
-Sources principales : `service-demo.routes.ts:43`, `service-demo-state.ts:64`, `service-demo-workspace.component.html:208`, `service-demo-detail.component.html:812`.
+Sources principales de la feature courante : `index.ts`, `service-delivery.routes.ts`, `service-demo-state.ts`, `service-demo-workspace.component.html` et `service-demo-detail.component.html`.
 
 ### B.2. Modèles réellement présents
 
@@ -636,12 +670,15 @@ Les images sont deux assets déjà suivis dans Git : `assets/admin-guide-panoram
 | `schedule` | Chaîne de date/heure locale illustrative |
 | `timeZone` | Nom de fuseau sélectionné |
 | `recipient` | Adresse d'exemple modifiable sur la vue contact |
+| `reconciliationReference` | Référence externe préparée localement pour l'examen d'un résultat incertain |
+| `reconciliationLink` | Lien externe saisi pour cet examen, sans résolution ni vérification distante |
+| `absenceReason` | Motif et vérifications saisis pour l'exemple d'attestation d'absence |
 
-Valeurs initiales : texte vide avec repli sur un exemple traduit ; image panorama incluse ; lien affiché `https://example.com/<id-encodé>` ; mention/note/commentaires/pièces vides ; date `2026-10-28T10:00` ; fuseau `America/Toronto` ; destinataire `contact@example.test` ; `saved=false`, `dirty=false`.
+Valeurs initiales : texte vide avec repli sur un exemple traduit ; image panorama incluse ; lien affiché `https://example.com/<id-encodé>` ; mention/note/commentaires/pièces/référence de réconciliation/lien de réconciliation/motif d'absence vides ; date `2026-10-28T10:00` ; fuseau `America/Toronto` ; destinataire `contact@example.test` ; `saved=false`, `dirty=false`.
 
 #### 2.4 États de présentation hors brouillon de dossier
 
-`previewMode` (`standard`/`compact`) appartient à la visite entière et n'est pas copié dans les snapshots par dossier. Il reste identique entre les vues, y compris après changement de dossier, jusqu'au renouvellement de l'application.
+`previewMode` (`standard`/`compact`) appartient à la visite entière et n'est pas copié dans les snapshots par dossier. Il reste identique entre les vues, y compris après changement de dossier, jusqu'au rechargement ou à la purge après sortie confirmée et effective.
 
 `query`, `filter`, `page`, `editorTab` sont des états d'orchestration de la navigation. Les actions de pied de page sont fournies par `TemplateRef` et `ServiceDemoActionsDirective` ; ce ne sont pas des commandes métier.
 
@@ -661,20 +698,22 @@ Le shell possède menu ouvert, titre, icône, origine d'édition, page de retour
 - Initialise le texte d'exemple s'il n'a jamais été saisi.
 - Remplace la dernière copie locale `savedVersions[currentId]` par le contenu courant.
 - Passe `saved=true`, `dirty=false`.
-- Ne conserve dans cette copie ni commentaire, ni pièce, ni message, ni horaire, ni destinataire.
+- Ne conserve dans cette copie ni commentaire, ni pièce, ni message, ni horaire, ni destinataire, ni référence/lien de réconciliation ou motif d'absence.
 - N'écrit ni dans le stockage navigateur ni sur un serveur.
 
-Modifier du contenu, une date, un fuseau, un destinataire ou le message appelle selon la vue un marquage `dirty=true`, `saved=false`. Le badge de liste détecte aussi explicitement les notes, commentaires et noms/notes de pièces. Le badge « brouillon local » n'est pas la preuve d'une sauvegarde durable et n'est pas la projection d'une version de contenu réelle.
+Modifier du contenu, une date, un fuseau, un destinataire ou le message appelle selon la vue un marquage `dirty=true`, `saved=false`. Le badge de liste détecte aussi explicitement les notes, commentaires, noms/notes de pièces, référence/lien de réconciliation et motif d'absence; ces trois derniers champs restent détectés sans dépendre du marquage `dirty`. Le badge « brouillon local » n'est pas la preuve d'une sauvegarde durable et n'est pas la projection d'une version de contenu réelle.
 
-`restoreSavedDraft()` recopie uniquement les huit champs `ServiceDemoContent` de la dernière conservation. Il laisse les commentaires, pièces, message, horaire et destinataire tels quels. Il ne rétablit aucune autorisation, décision, visibilité ou offre. Il passe `saved=true`, `dirty=false`, même si des données hors contenu restent présentes. Le bouton n'est actif que si une copie existe et diffère du contenu courant ; `textEdited` seul est ignoré dans ce test de différence.
+`restoreSavedDraft()` recopie uniquement les huit champs `ServiceDemoContent` de la dernière conservation. Il laisse les commentaires, pièces, message, horaire, destinataire et trois champs de réconciliation/attestation tels quels. Il ne rétablit aucune autorisation, décision, visibilité ou offre. Il passe `saved=true`, `dirty=false`, même si des données hors contenu restent présentes. Le bouton n'est actif que si une copie existe et diffère du contenu courant ; `textEdited` seul est ignoré dans ce test de différence.
 
-Un rechargement complet du document perd toutes les Maps, saisies, commentaires, noms de pièces, horaires choisis et versions conservées. Les tests démontrent notamment le retour de l'horaire et du fuseau initiaux et la disparition du texte saisi.
+`hasLocalWork()` s'appuie sur les dossiers identifiés par `draftIds()`, pas seulement sur le dossier actif ou sur `dirty`. Un contenu conservé pour la visite reste du travail local exposé à la perte, comme les commentaires, pièces, horaires et champs de préparation. Le shell parent utilise ce signal pour sa confirmation de sortie et son `beforeunload`; le raccourci de conservation est suspendu pendant l'ouverture du panneau de sortie.
 
-Ne pas promettre que « Quitter » vers l'administration efface les brouillons : aucun code ne les efface explicitement à cette action, et l'injecteur de route peut être conservé par Angular. L'effacement démontré est celui du rechargement complet ou d'une nouvelle instance de l'application. La sortie puis réentrée SPA n'est pas couverte par les 21 scénarios.
+Un rechargement accepté du document perd toutes les Maps, saisies, commentaires, noms de pièces, horaires choisis, champs de préparation et versions conservées. Refuser la confirmation native laisse la visite courante intacte. Les preuves datées de la révision d'origine sur le rechargement restent présentées séparément en B.7.
+
+Une sortie SPA confirmée ne purge pas la visite dès le clic : `canLeave()` attend la décision dans le panneau, puis le shell appelle `clearLocalWork()` lors de sa destruction après un départ accepté et effectif. Annuler le panneau ou abandonner la navigation ne purge rien. La purge vide `drafts` et `savedVersions`, remet le dossier courant à ses valeurs initiales et réinitialise recherche, filtre et mode d'aperçu. Une réentrée dans la démo ne récupère donc pas les saisies de la visite quittée, même si l'injecteur de route est réutilisé.
 
 Les éléments qui survivent au rechargement sont le contexte porté par l'URL et la langue choisie, si `localStorage` est disponible. Le prototype ne stocke aucune donnée du dossier dans `localStorage` ; seule la préférence globale `openg7.language` est persistée.
 
-Sources : `service-demo-state.ts:68`, `:104`, `:126`, `:164`, `:197`, `:202`, `:214`, `:229`, `:242` ; `funding-i18n.service.ts:140`, `:166`.
+Sources : `service-demo-state.ts` (`draftIds`, `hasLocalWork`, `selectDossier`, `saveDraft`, `restoreSavedDraft`, `clearLocalWork`), `service-demo-shell.component.ts` (`canLeave`, `answerExit`, `beforeunload`, destruction du shell), `service-demo.routes.ts` (`canDeactivate`) et `funding-i18n.service.ts` (préférence de langue).
 
 ### B.4. URL, retours et restauration de contexte
 

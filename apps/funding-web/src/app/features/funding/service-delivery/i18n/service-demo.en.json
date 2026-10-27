@@ -60,7 +60,7 @@
     "nextActions": {
       "contenu": "Review content",
       "autorisation": "Review consent",
-      "publication": "Finalize publication"
+      "publication": "Prepare publication"
     },
     "empty": {
       "title": "No files found",
@@ -92,6 +92,11 @@
       "toReview": "To review",
       "nextTitle": "The next intervention",
       "nextHint": "Review the text and visual before examining the consent applicable to this publication.",
+      "nextHints": {
+        "contenu": "Review the text and visual before examining the consent applicable to this publication.",
+        "autorisation": "Review the sample consent message, its scope and the contact associated with the exact content.",
+        "publication": "Review the destination, exact content and proposed time. Publishing operations remain disabled."
+      },
       "aiTitle": "A proposal to examine",
       "aiHint": "Explore an alternative text prepared for this demonstration.",
       "aiAction": "Examine proposal",
@@ -110,10 +115,10 @@
         "hint": "Find the consent to share the content, its scope and the contact who provided it.",
         "noticeTitle": "Sample consent",
         "notice": "The email and conditions are fictional. The next confirmation is a preview screen.",
-        "action": "View confirmation"
+        "action": "Review the sample confirmation"
       },
       "publication": {
-        "title": "Finalize publication",
+        "title": "Prepare publication",
         "hint": "Check the version, destination and proposed timing.",
         "noticeTitle": "Demonstration publication",
         "notice": "Explore scheduling and the recap. Real sending and scheduling are disabled.",

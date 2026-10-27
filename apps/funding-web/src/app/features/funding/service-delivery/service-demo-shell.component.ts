@@ -9,6 +9,7 @@ import {
   ViewEncapsulation,
   computed,
   afterNextRender,
+  afterRenderEffect,
   inject,
   signal
 } from '@angular/core';
@@ -17,6 +18,7 @@ import {
   ActivatedRoute,
   NavigationEnd,
   NavigationStart,
+  NavigationSkipped,
   Router,
   RouterLink,
   RouterOutlet
@@ -24,14 +26,17 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import { filter } from 'rxjs';
 
+import { AdminDrawerComponent } from '../components/admin-ui/admin-drawer.component.js';
 import {
   AdminIconComponent,
   type AdminIconName
-} from '../../components/admin-ui/admin-icon.component.js';
+} from '../components/admin-ui/admin-icon.component.js';
 
-import { ServiceDemoState } from './service-demo-state.js';
+import { DEMO_DOSSIERS, ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoHelpComponent } from './service-demo-help.component.js';
 import { DEMO_DETAIL_PAGES } from './service-demo-detail.component.js';
+import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 
 const demoPages = new Set([
   '',
@@ -54,10 +59,18 @@ const demoPages = new Set([
     TranslatePipe,
     AdminIconComponent,
     NgTemplateOutlet,
-    ServiceDemoHelpComponent
+    ServiceDemoHelpComponent,
+    ServiceDemoTabsDirective,
+    ServiceDemoTransitionDirective,
+    AdminDrawerComponent
   ],
   templateUrl: './service-demo-shell.component.html',
-  styleUrls: ['../../../../../styles/admin-fonts.css', './service-demo.css'],
+  styleUrls: [
+    '../../../../styles/admin-fonts.css',
+    './service-demo.css',
+    './service-demo-motion.css',
+    './service-demo-navigation.css'
+  ],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -72,6 +85,14 @@ export class ServiceDemoShellComponent {
   private lastView = '';
   private lastPage = '';
   private lastPath = '';
+  private resolveExit: ((accepted: boolean) => void) | null = null;
+  private clearAfterDeparture = false;
+  readonly exitPending = signal(false);
+  readonly draftDossiers = computed(() =>
+    DEMO_DOSSIERS.filter((dossier) =>
+      this.state.draftIds().includes(dossier.id)
+    )
+  );
   readonly menuOpen = signal(false);
   readonly titleKey = signal('serviceDemo.title');
   readonly icon = signal<AdminIconName>('publications');
@@ -104,13 +125,20 @@ export class ServiceDemoShellComponent {
       .pipe(
         filter(
           (event) =>
-            event instanceof NavigationEnd || event instanceof NavigationStart
+            event instanceof NavigationEnd ||
+            event instanceof NavigationStart ||
+            event instanceof NavigationSkipped
         ),
         takeUntilDestroyed(destroyRef)
       )
       .subscribe((event) => {
         const body = this.document.getElementById('service-demo-body');
+        if (event instanceof NavigationSkipped) {
+          this.answerExit(false);
+          return;
+        }
         if (event instanceof NavigationStart) {
+          this.answerExit(false);
           if (this.lastView)
             this.viewPositions.set(this.lastView, body?.scrollTop ?? 0);
           return;
@@ -145,6 +173,39 @@ export class ServiceDemoShellComponent {
         this.lastPage = this.state.page();
       });
     this.syncRoute();
+    afterRenderEffect((onCleanup) => {
+      if (!this.state.hasLocalWork()) return;
+      const view = this.document.defaultView;
+      if (!view) return;
+      const preventLoss = (event: BeforeUnloadEvent) => {
+        event.preventDefault();
+        event.returnValue = '';
+      };
+      view.addEventListener('beforeunload', preventLoss);
+      onCleanup(() => view.removeEventListener('beforeunload', preventLoss));
+    });
+    destroyRef.onDestroy(() => {
+      const clear = this.clearAfterDeparture;
+      this.answerExit(false);
+      if (clear) this.state.clearLocalWork();
+    });
+  }
+
+  canLeave(): boolean | Promise<boolean> {
+    if (!this.state.hasLocalWork()) return true;
+    if (this.exitPending()) return false;
+    this.exitPending.set(true);
+    return new Promise((resolve) => {
+      this.resolveExit = resolve;
+    });
+  }
+
+  answerExit(accepted: boolean): void {
+    this.clearAfterDeparture = accepted;
+    const resolve = this.resolveExit;
+    this.resolveExit = null;
+    this.exitPending.set(false);
+    resolve?.(accepted);
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -157,7 +218,7 @@ export class ServiceDemoShellComponent {
       this.state.page() === 'corriger'
     ) {
       event.preventDefault();
-      this.state.saveDraft();
+      if (!this.exitPending()) this.state.saveDraft();
     }
     if (event.key === 'Escape' && this.menuOpen()) {
       this.menuOpen.set(false);

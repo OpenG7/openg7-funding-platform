@@ -60,7 +60,7 @@
     "nextActions": {
       "contenu": "Vérifier le contenu",
       "autorisation": "Vérifier le consentement",
-      "publication": "Finaliser la publication"
+      "publication": "Préparer la publication"
     },
     "empty": {
       "title": "Aucun dossier trouvé",
@@ -92,6 +92,11 @@
       "toReview": "À vérifier",
       "nextTitle": "La prochaine intervention",
       "nextHint": "Relisez le texte et le visuel avant d’examiner le consentement applicable à cette publication.",
+      "nextHints": {
+        "contenu": "Relisez le texte et le visuel avant d’examiner le consentement applicable à cette publication.",
+        "autorisation": "Examinez le message de consentement d’exemple, sa portée et le contact associé au contenu exact.",
+        "publication": "Relisez la destination, le contenu exact et le créneau envisagé. Les opérations de publication restent désactivées."
+      },
       "aiTitle": "Une proposition à examiner",
       "aiHint": "Explorez une variante de texte préparée pour cette démonstration.",
       "aiAction": "Examiner la proposition",
@@ -110,10 +115,10 @@
         "hint": "Retrouvez le consentement à la diffusion du contenu, sa portée et le contact qui l’a donné.",
         "noticeTitle": "Consentement fourni à titre d’exemple",
         "notice": "Le courriel et les conditions sont fictifs. La confirmation suivante est un écran de prévisualisation.",
-        "action": "Voir la confirmation"
+        "action": "Examiner la confirmation d’exemple"
       },
       "publication": {
-        "title": "Finaliser la publication",
+        "title": "Préparer la publication",
         "hint": "Vérifiez la version, la destination et l’horaire envisagés.",
         "noticeTitle": "Publication de démonstration",
         "notice": "Parcourez la planification et le récapitulatif. La diffusion et la programmation réelle sont désactivées.",

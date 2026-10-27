@@ -1,5 +1,6 @@
 <section data-og7="service-demo-history">
   <nav
+    openg7ServiceDemoTabs
     class="tabs history-tabs"
     [attr.aria-label]="'serviceDemoHistory.filtersLabel' | translate"
   >
@@ -33,7 +34,11 @@
   </nav>
 
   <div class="demo-grid">
-    <div class="panel history-list">
+    <div
+      class="panel history-list"
+      [openg7ServiceDemoTransition]="eventIds()"
+      data-og7="service-demo-history-results"
+    >
       @for (event of sortedEvents(); track event.id) {
         <a
           class="history-event"
@@ -76,7 +81,12 @@
       }
     </div>
 
-    <section class="panel history-detail" aria-labelledby="demo-history-detail">
+    <section
+      class="panel history-detail"
+      [openg7ServiceDemoTransition]="selected()?.id ?? ''"
+      aria-labelledby="demo-history-detail"
+      data-og7="service-demo-history-detail"
+    >
       @if (selected(); as event) {
         <div class="panel-heading">
           <openg7-admin-icon name="publications" />
