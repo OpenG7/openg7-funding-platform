@@ -1,0 +1,40 @@
+@if (sources().length) {
+  <a
+    class="media-link"
+    [routerLink]="href()"
+    queryParamsHandling="preserve"
+    [attr.aria-label]="label()"
+    data-og7="dossier-media-open"
+  >
+    <span class="media-window" aria-hidden="true">
+      <span class="media-strip" data-og7="dossier-media-strip">
+        @for (source of previews(); track source) {
+          <span class="media-frame">
+            <img
+              [src]="source"
+              alt=""
+              width="240"
+              height="96"
+              loading="lazy"
+              decoding="async"
+              (error)="imageFailed(source)"
+              data-og7="dossier-media-image"
+            />
+          </span>
+        }
+      </span>
+    </span>
+    @for (capacity of capacities; track capacity) {
+      @if (sources().length > capacity) {
+        <span
+          class="extra-count"
+          [class]="'extra-count extra-count-' + capacity"
+          aria-hidden="true"
+          data-og7="dossier-media-extra"
+          [attr.data-og7-id]="capacity"
+          >+{{ sources().length - capacity }}</span
+        >
+      }
+    }
+  </a>
+}

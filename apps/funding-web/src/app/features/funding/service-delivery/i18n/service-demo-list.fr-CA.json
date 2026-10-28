@@ -8,6 +8,7 @@
     "removeFilter": "Retirer le filtre d’étape",
     "filesTitle": "Les dossiers",
     "nextAction": "Prochaine intervention",
-    "localDraft": "Brouillon local"
+    "localDraft": "Brouillon local",
+    "openMedia": "Consulter les médias du dossier {{name}}"
   }
 }
