@@ -120,8 +120,8 @@ export const appRoutes: Routes = [
   {
     path: 'demo/prestations',
     loadChildren: () =>
-      import('./features/funding/pages/service-demo/service-demo.routes.js').then(
-        (m) => m.serviceDemoRoutes
+      import('./features/funding/service-delivery/index.js').then(
+        (m) => m.serviceDeliveryRoutes
       )
   },
   ...publicRoutes,

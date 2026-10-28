@@ -8,7 +8,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
+import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
 
 import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
@@ -46,7 +46,7 @@ export class ServiceDemoWorkspaceComponent {
     { key: 'contact', target: 'contact', icon: 'sponsors' }
   ] as const;
   readonly publicationChecks = [
-    { key: 'destination', target: 'destinations', icon: 'cloud' },
+    { key: 'destination', target: 'confirmer-envoi', icon: 'cloud' },
     { key: 'version', target: 'apercu', icon: 'publications' },
     { key: 'schedule', target: 'planifier', icon: 'clock' }
   ] as const;

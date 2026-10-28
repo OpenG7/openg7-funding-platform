@@ -8,15 +8,21 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import en from '../../../../../assets/i18n/service-demo-preview.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo-preview.fr-CA.json' with { type: 'json' };
-
+import en from './i18n/service-demo-preview.en.json' with { type: 'json' };
+import fr from './i18n/service-demo-preview.fr-CA.json' with { type: 'json' };
 import { ServiceDemoState } from './service-demo-state.js';
+import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 
 @Component({
   selector: 'openg7-service-demo-preview',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    ServiceDemoTabsDirective,
+    ServiceDemoTransitionDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './service-demo-preview.component.css',
   template: `
@@ -53,6 +59,7 @@ import { ServiceDemoState } from './service-demo-state.js';
       </header>
       <div
         class="preview-modes"
+        openg7ServiceDemoTabs
         role="group"
         [attr.aria-label]="'serviceDemoPreview.modeLabel' | translate"
       >
@@ -73,6 +80,7 @@ import { ServiceDemoState } from './service-demo-state.js';
       <div
         class="preview-canvas"
         [class.compact]="state.previewMode() === 'compact'"
+        [openg7ServiceDemoTransition]="transitionKey()"
       >
         @if (kind() === 'facebook') {
           <article class="post">
@@ -172,6 +180,14 @@ export class ServiceDemoPreviewComponent {
   readonly state = inject(ServiceDemoState);
   readonly kind = input<'facebook' | 'web'>('facebook');
   readonly modes = ['standard', 'compact'] as const;
+  readonly transitionKey = computed(() =>
+    [
+      this.kind(),
+      this.state.previewMode(),
+      this.state.imageIncluded(),
+      this.state.imageAsset()
+    ].join(':')
+  );
   readonly text = computed(() =>
     this.state.text() || this.state.textEdited()
       ? this.state.text()

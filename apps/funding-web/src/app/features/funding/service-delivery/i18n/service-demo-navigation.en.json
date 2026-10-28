@@ -1,0 +1,12 @@
+{
+  "serviceDemoNavigation": {
+    "leaveTitle": "Leave the demo?",
+    "leaveDescription": "Drafts, notes and attachment references from this visit will be cleared, including drafts you kept. Files on your device will remain untouched.",
+    "sessionHint": "Drafts remain available between screens during this visit. Reloading or closing the demo clears them.",
+    "affectedFiles": "Affected files",
+    "localWork": "Local entries for this visit",
+    "stay": "Stay in the demo",
+    "leave": "Leave and clear drafts",
+    "close": "Close confirmation"
+  }
+}

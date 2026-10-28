@@ -1,0 +1,12 @@
+{
+  "serviceDemoNavigation": {
+    "leaveTitle": "Quitter la démo ?",
+    "leaveDescription": "Les brouillons, notes et références de pièces de cette visite seront effacés, y compris les brouillons conservés. Aucun fichier sur votre appareil ne sera supprimé.",
+    "sessionHint": "Les brouillons restent disponibles entre les écrans pendant cette visite. Recharger ou fermer la démo les efface.",
+    "affectedFiles": "Dossiers concernés",
+    "localWork": "Saisie locale pour cette visite",
+    "stay": "Rester dans la démo",
+    "leave": "Quitter et effacer les brouillons",
+    "close": "Fermer la confirmation"
+  }
+}

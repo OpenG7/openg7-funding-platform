@@ -7,9 +7,8 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import en from '../../../../../assets/i18n/service-demo-help.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo-help.fr-CA.json' with { type: 'json' };
-
+import en from './i18n/service-demo-help.en.json' with { type: 'json' };
+import fr from './i18n/service-demo-help.fr-CA.json' with { type: 'json' };
 import { ServiceDemoState } from './service-demo-state.js';
 
 const stepContexts = new Set([

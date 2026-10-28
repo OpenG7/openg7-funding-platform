@@ -17,14 +17,16 @@
             <dt>{{ t('labels.destination') }}</dt>
             <dd>{{ t('copy.examplePage') }}</dd>
           </dl>
-          <a
-            class="button"
-            [routerLink]="
-              state.href(previewKind() === 'web' ? 'web' : 'corriger/texte')
-            "
-            queryParamsHandling="preserve"
-            >{{ t('actions.editContent') }}</a
-          >
+          <div class="detail-actions">
+            <a
+              class="button primary"
+              [routerLink]="
+                state.href(previewKind() === 'web' ? 'web' : 'corriger/texte')
+              "
+              queryParamsHandling="preserve"
+              >{{ t('actions.editContent') }}</a
+            >
+          </div>
         </div>
         <openg7-service-demo-preview [kind]="previewKind()" />
       </div>
@@ -40,13 +42,15 @@
           <h2>{{ t('titles.proposal') }}</h2>
           <p>{{ t('copy.proposedText') }}</p>
           <p class="muted">{{ t('copy.proposalLimits') }}</p>
-          <a
-            class="button primary"
-            [routerLink]="state.href('corriger/texte')"
-            (click)="useProposal()"
-            queryParamsHandling="preserve"
-            >{{ t('actions.useDraft') }}</a
-          >
+          <div class="detail-actions">
+            <a
+              class="button primary"
+              [routerLink]="state.href('corriger/texte')"
+              (click)="useProposal()"
+              queryParamsHandling="preserve"
+              >{{ t('actions.useDraft') }}</a
+            >
+          </div>
         </article>
       </div>
     }
@@ -76,6 +80,7 @@
         <div class="demo-grid">
           <article
             class="panel comparison-version"
+            [openg7ServiceDemoTransition]="selectedVersion()"
             data-og7="service-demo-comparison-before"
           >
             <span class="eyebrow">{{ t('comparison.reference') }}</span>
@@ -155,7 +160,7 @@
         <ng-template openg7ServiceDemoActions
           ><div class="footer-actions">
             <a
-              class="button"
+              class="button primary"
               [routerLink]="state.href('corriger/texte')"
               queryParamsHandling="preserve"
               >{{ t('actions.continueEditing') }}</a
@@ -184,14 +189,24 @@
           ></textarea>
         </label>
         <p class="notice">{{ t('copy.commentLocal') }}</p>
-        <button
-          class="button"
-          type="button"
-          [disabled]="!comment().trim()"
-          (click)="state.comment.set(comment()); commentSaved.set(true)"
-        >
-          {{ t('actions.recordComment') }}
-        </button>
+        <div class="detail-actions">
+          <button
+            class="button"
+            [class.primary]="!commentSaved()"
+            type="button"
+            [disabled]="!comment().trim()"
+            (click)="state.comment.set(comment()); commentSaved.set(true)"
+          >
+            {{ t('actions.recordComment') }}
+          </button>
+          <a
+            class="button"
+            [class.primary]="commentSaved()"
+            [routerLink]="state.href('historique')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnHistory') }}</a
+          >
+        </div>
         @if (commentSaved()) {
           <p class="notice success" role="status">
             {{ t('copy.commentSaved') }}
@@ -225,9 +240,18 @@
           >{{ t('actions.reviewContent') }}</a
         >
         <p class="notice">{{ t('copy.noMessage') }}</p>
-        <button class="button primary" type="button" disabled>
-          {{ t('actions.sendMessage') }}
-        </button>
+        <div class="detail-actions">
+          <button class="button" type="button" disabled>
+            {{ t('actions.sendMessage') }}
+          </button>
+          <a
+            class="button primary"
+            [routerLink]="state.href(messageSource())"
+            queryParamsHandling="preserve"
+            data-og7="service-demo-detail-next"
+            >{{ t('actions.returnMessage') }}</a
+          >
+        </div>
       </div>
     }
     @case ('preuve') {
@@ -258,9 +282,18 @@
           ></textarea>
         </label>
         <div class="notice">{{ t('copy.fileLocal') }}</div>
-        <button class="button" type="button" disabled>
-          {{ t('actions.attachEvidence') }}
-        </button>
+        <div class="detail-actions">
+          <button class="button" type="button" disabled>
+            {{ t('actions.attachEvidence') }}
+          </button>
+          <a
+            class="button primary"
+            [routerLink]="state.href('autorisation')"
+            queryParamsHandling="preserve"
+            data-og7="service-demo-detail-next"
+            >{{ t('actions.returnConsent') }}</a
+          >
+        </div>
       </div>
     }
     @case ('accord-recu') {
@@ -277,12 +310,14 @@
         </dl>
         <blockquote>{{ t('copy.receivedMessage') }}</blockquote>
         <p class="notice">{{ t('copy.receivedDisclaimer') }}</p>
-        <a
-          class="button"
-          [routerLink]="state.href('preuve')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.inspectAttachment') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('preuve')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.inspectAttachment') }}</a
+          >
+        </div>
       </div>
     }
     @case ('conditions') {
@@ -309,12 +344,21 @@
             <p>{{ t('copy.exactContent') }}</p>
           </div>
         </div>
-        <a
-          class="button"
-          [routerLink]="state.href('accord')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.viewAgreement') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button"
+            [routerLink]="state.href('accord')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.viewAgreement') }}</a
+          >
+          <a
+            class="button primary"
+            [routerLink]="state.href('autorisation')"
+            queryParamsHandling="preserve"
+            data-og7="service-demo-detail-next"
+            >{{ t('actions.returnConsent') }}</a
+          >
+        </div>
       </div>
     }
     @case ('contact') {
@@ -337,12 +381,14 @@
             (input)="state.recipient.set(value($event)); state.markEdited()"
         /></label>
         <p class="notice">{{ t('copy.contactLocal') }}</p>
-        <a
-          class="button"
-          [routerLink]="state.href('demander-accord')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.prepareRequest') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('demander-accord')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.prepareRequest') }}</a
+          >
+        </div>
       </div>
     }
     @case ('planifier') {
@@ -376,12 +422,14 @@
             {{ state.schedule().replace('T', ' · ') }} · {{ state.timeZone() }}
           </p>
           <p class="notice">{{ t('copy.scheduleLocal') }}</p>
-          <a
-            class="button primary"
-            [routerLink]="state.href('confirmer-envoi')"
-            queryParamsHandling="preserve"
-            >{{ t('actions.reviewDelivery') }}</a
-          >
+          <div class="detail-actions">
+            <a
+              class="button primary"
+              [routerLink]="state.href('confirmer-envoi')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.reviewDelivery') }}</a
+            >
+          </div>
         </div>
         <openg7-service-demo-preview [kind]="previewKind()" />
       </div>
@@ -399,12 +447,14 @@
           <dt>{{ t('labels.evidence') }}</dt>
           <dd>{{ t('copy.noEvidence') }}</dd>
         </dl>
-        <a
-          class="button"
-          [routerLink]="state.href('reconcilier')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.inspectUncertain') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('reconcilier')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.inspectUncertain') }}</a
+          >
+        </div>
       </div>
     }
     @case ('reconcilier') {
@@ -413,19 +463,25 @@
         <p>{{ t('copy.reconcileDescription') }}</p>
         <label class="field" for="demo-external-reference"
           >{{ t('labels.externalReference')
-          }}<input id="demo-external-reference" type="text"
+          }}<input
+            id="demo-external-reference"
+            type="text"
+            [value]="state.reconciliationReference()"
+            (input)="state.reconciliationReference.set(value($event))"
         /></label>
         <label class="field" for="demo-external-link"
           >{{ t('labels.externalUrl')
           }}<input
             id="demo-external-link"
             type="url"
+            [value]="state.reconciliationLink()"
+            (input)="state.reconciliationLink.set(value($event))"
             placeholder="https://example.test/publication"
         /></label>
         <p class="notice">{{ t('copy.noReconciliation') }}</p>
-        <div class="footer-actions">
+        <div class="detail-actions">
           <a
-            class="button"
+            class="button primary"
             [routerLink]="state.href('attester')"
             queryParamsHandling="preserve"
             >{{ t('actions.inspectAbsence') }}</a
@@ -441,12 +497,26 @@
         <p>{{ t('copy.attestDescription') }}</p>
         <label class="field" for="demo-absence-reason"
           >{{ t('labels.verificationReason')
-          }}<textarea id="demo-absence-reason" rows="5"></textarea>
+          }}<textarea
+            id="demo-absence-reason"
+            rows="5"
+            [value]="state.absenceReason()"
+            (input)="state.absenceReason.set(value($event))"
+          ></textarea>
         </label>
         <p class="notice">{{ t('copy.noAttestation') }}</p>
-        <button class="button" type="button" disabled>
-          {{ t('actions.attest') }}
-        </button>
+        <div class="detail-actions">
+          <button class="button" type="button" disabled>
+            {{ t('actions.attest') }}
+          </button>
+          <a
+            class="button primary"
+            [routerLink]="state.href('resultat')"
+            queryParamsHandling="preserve"
+            data-og7="service-demo-detail-next"
+            >{{ t('actions.returnResult') }}</a
+          >
+        </div>
       </div>
     }
     @case ('web') {
@@ -510,12 +580,14 @@
           </div>
         </div>
         <div class="notice">{{ t('copy.noEvidence') }}</div>
-        <a
-          class="button"
-          [routerLink]="state.href('preuve')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.inspectAttachment') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('preuve')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.inspectAttachment') }}</a
+          >
+        </div>
       </div>
     }
     @case ('accord') {
@@ -537,12 +609,14 @@
           </div>
         </div>
         <p class="notice">{{ t('copy.offerDisclaimer') }}</p>
-        <a
-          class="button"
-          [routerLink]="state.href('conditions')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.viewConditions') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('conditions')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.viewConditions') }}</a
+          >
+        </div>
       </div>
     }
     @case ('controle') {
@@ -556,12 +630,14 @@
           <dt>{{ t('labels.nextStep') }}</dt>
           <dd>{{ t('copy.checkNext') }}</dd>
         </dl>
-        <a
-          class="button primary"
-          [routerLink]="state.href('autorisation')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.reviewAgreement') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('autorisation')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.reviewAgreement') }}</a
+          >
+        </div>
       </div>
     }
     @case ('medias') {
@@ -577,12 +653,14 @@
             /><span>{{ t('labels.includeIllustration') }}</span></label
           >
           <p class="notice">{{ t('copy.mediaLocal') }}</p>
-          <a
-            class="button primary"
-            [routerLink]="state.href('corriger/image')"
-            queryParamsHandling="preserve"
-            >{{ t('actions.returnEditor') }}</a
-          >
+          <div class="detail-actions">
+            <a
+              class="button primary"
+              [routerLink]="state.href('corriger/image')"
+              queryParamsHandling="preserve"
+              >{{ t('actions.returnEditor') }}</a
+            >
+          </div>
         </div>
         <openg7-service-demo-preview [kind]="previewKind()" />
       </div>
@@ -608,12 +686,14 @@
           </select></label
         >
         <p class="notice">{{ t('copy.filterDescription') }}</p>
-        <a
-          class="button primary"
-          routerLink="/demo/prestations"
-          [queryParams]="{ etat: statusFilter() }"
-          >{{ t('actions.applyFilters') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            routerLink="/demo/prestations"
+            [queryParams]="{ etat: statusFilter() }"
+            >{{ t('actions.applyFilters') }}</a
+          >
+        </div>
       </div>
     }
     @case ('retablir') {
@@ -660,7 +740,8 @@
               >{{ t('actions.compare') }}</a
             >
             <button
-              class="button primary"
+              class="button"
+              [class.primary]="state.canRestoreDraft()"
               type="button"
               [disabled]="!state.canRestoreDraft()"
               (click)="restoreDraft()"
@@ -670,6 +751,7 @@
             </button>
             <a
               class="button"
+              [class.primary]="!state.canRestoreDraft()"
               [routerLink]="state.href('corriger/texte')"
               queryParamsHandling="preserve"
               >{{ t('actions.continueEditing') }}</a
@@ -682,36 +764,40 @@
       <div class="panel">
         <h2>{{ t('titles.leave') }}</h2>
         <p>{{ t('copy.leaveDescription') }}</p>
-        <a
-          class="button primary"
-          [routerLink]="state.href('corriger/texte')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.continueEditing') }}</a
-        >
-        <a
-          class="button"
-          [routerLink]="state.href('')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.returnSummary') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('corriger/texte')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.continueEditing') }}</a
+          >
+          <a
+            class="button"
+            [routerLink]="state.href('')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnSummary') }}</a
+          >
+        </div>
       </div>
     }
     @case ('conflit') {
       <div class="panel">
         <h2>{{ t('titles.conflict') }}</h2>
         <p>{{ t('copy.conflictDescription') }}</p>
-        <a
-          class="button"
-          [routerLink]="state.href('comparer')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.compare') }}</a
-        >
-        <a
-          class="button primary"
-          [routerLink]="state.href('corriger/texte')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.keepDraft') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button"
+            [routerLink]="state.href('comparer')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.compare') }}</a
+          >
+          <a
+            class="button primary"
+            [routerLink]="state.href('corriger/texte')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.keepDraft') }}</a
+          >
+        </div>
       </div>
     }
     @case ('indisponible') {
@@ -719,12 +805,14 @@
         <h2>{{ t('titles.unavailable') }}</h2>
         <p>{{ t('copy.unavailableDescription') }}</p>
         <p class="notice">{{ t('copy.unavailableLocal') }}</p>
-        <a
-          class="button primary"
-          [routerLink]="state.href('')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.returnSummary') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnSummary') }}</a
+          >
+        </div>
       </div>
     }
     @case ('guide') {
@@ -743,12 +831,14 @@
           <strong>03</strong>
           <p>{{ t('copy.guideDelivery') }}</p>
         </div>
-        <a
-          class="button primary"
-          [routerLink]="state.href('')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.returnSummary') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnSummary') }}</a
+          >
+        </div>
       </div>
     }
     @case ('destinations') {
@@ -764,12 +854,14 @@
           <dd>{{ t('copy.contactReadOnly') }}</dd>
         </dl>
         <p class="notice">{{ t('copy.destinationsLocal') }}</p>
-        <a
-          class="button"
-          [routerLink]="state.href('contact')"
-          queryParamsHandling="preserve"
-          >{{ t('actions.inspectContact') }}</a
-        >
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('contact')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.inspectContact') }}</a
+          >
+        </div>
       </div>
     }
     @case ('autres-actions') {
@@ -806,6 +898,14 @@
             }
           </nav>
         </details>
+        <div class="detail-actions">
+          <a
+            class="button primary"
+            [routerLink]="state.href('')"
+            queryParamsHandling="preserve"
+            >{{ t('actions.returnSummary') }}</a
+          >
+        </div>
       </div>
     }
     @default {
@@ -847,17 +947,18 @@
               /><span>{{ t('copy.confirmationAcknowledgement') }}</span></label
             >
             <p class="notice">{{ t('copy.confirmationDisabled') }}</p>
-            <button class="button primary" type="button" disabled>
-              {{ t('actions.confirmUnavailable') }}
-            </button>
-            @if (page() === 'confirmer-envoi') {
+            <div class="detail-actions">
+              <button class="button" type="button" disabled>
+                {{ t('actions.confirmUnavailable') }}
+              </button>
               <a
-                class="button"
-                [routerLink]="state.href('resultat')"
+                class="button primary"
+                [routerLink]="state.href(confirmationNext().path)"
                 queryParamsHandling="preserve"
-                >{{ t('actions.viewResult') }}</a
+                data-og7="service-demo-detail-next"
+                >{{ t(confirmationNext().label) }}</a
               >
-            }
+            </div>
           </div>
           <openg7-service-demo-preview [kind]="previewKind()" />
         </div>
@@ -900,12 +1001,14 @@
       ></textarea>
     </label>
     <p class="notice">{{ t('copy.noMessage') }}</p>
-    <a
-      class="button primary"
-      [routerLink]="state.href('apercu-envoi')"
-      [queryParams]="{ origine: page(), source: page() }"
-      queryParamsHandling="merge"
-      >{{ t('actions.previewMessage') }}</a
-    >
+    <div class="detail-actions">
+      <a
+        class="button primary"
+        [routerLink]="state.href('apercu-envoi')"
+        [queryParams]="{ origine: page(), source: page() }"
+        queryParamsHandling="merge"
+        >{{ t('actions.previewMessage') }}</a
+      >
+    </div>
   </div>
 </ng-template>

@@ -22,7 +22,10 @@
         data-og7="service-demo-language"
       >
         {{ state.language() === 'fr-CA' ? 'EN' : 'FR' }}</button
-      ><a class="button quiet" routerLink="/admin/fundraiser"
+      ><a
+        class="button quiet"
+        routerLink="/admin/fundraiser"
+        data-og7="service-demo-exit"
         >{{ 'serviceDemo.exit' | translate }} <openg7-admin-icon name="arrow"
       /></a>
     </div>
@@ -39,7 +42,7 @@
       <span class="heading-icon" aria-hidden="true"
         ><openg7-admin-icon [name]="icon()"
       /></span>
-      <div class="heading-copy">
+      <div class="heading-copy" [openg7ServiceDemoTransition]="titleKey()">
         @if (!isList()) {
           <nav
             class="breadcrumbs"
@@ -150,6 +153,7 @@
     </header>
     @if (showSteps()) {
       <nav
+        openg7ServiceDemoTabs
         class="stepper"
         [attr.aria-label]="'serviceDemo.stepsLabel' | translate"
       >
@@ -207,10 +211,53 @@
           {{ 'serviceDemo.draftChanged' | translate }}
         } @else if (state.saved()) {
           {{ 'serviceDemo.draftSaved' | translate }}
+        } @else if (state.hasLocalWork()) {
+          {{ 'serviceDemoNavigation.localWork' | translate }}
         } @else {
           {{ 'serviceDemo.localOnly' | translate }}
         }
       </span>
     </footer>
   </main>
+  <openg7-admin-drawer
+    [opened]="exitPending()"
+    [title]="'serviceDemoNavigation.leaveTitle' | translate"
+    [closeLabel]="'serviceDemoNavigation.close' | translate"
+    [fixedFooter]="true"
+    (closed)="answerExit(false)"
+    data-og7="service-demo-exit-dialog"
+  >
+    <p class="demo-exit-description">
+      {{ 'serviceDemoNavigation.leaveDescription' | translate }}
+    </p>
+    <h3 class="demo-exit-heading">
+      {{ 'serviceDemoNavigation.affectedFiles' | translate }}
+    </h3>
+    <ul class="demo-exit-dossiers">
+      @for (dossier of draftDossiers(); track dossier.id) {
+        <li>{{ dossier.name }}</li>
+      }
+    </ul>
+    <p class="demo-exit-hint">
+      {{ 'serviceDemoNavigation.sessionHint' | translate }}
+    </p>
+    <footer adminDrawerFooter class="demo-exit-actions">
+      <button
+        class="button"
+        type="button"
+        (click)="answerExit(true)"
+        data-og7="service-demo-exit-confirm"
+      >
+        {{ 'serviceDemoNavigation.leave' | translate }}
+      </button>
+      <button
+        class="button primary"
+        type="button"
+        (click)="answerExit(false)"
+        data-og7="service-demo-exit-stay"
+      >
+        {{ 'serviceDemoNavigation.stay' | translate }}
+      </button>
+    </footer>
+  </openg7-admin-drawer>
 </div>

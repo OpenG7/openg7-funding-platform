@@ -9,11 +9,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import en from '../../../../../assets/i18n/service-demo-list.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo-list.fr-CA.json' with { type: 'json' };
-import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
+import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
 
+import en from './i18n/service-demo-list.en.json' with { type: 'json' };
+import fr from './i18n/service-demo-list.fr-CA.json' with { type: 'json' };
 import { DEMO_DOSSIERS, ServiceDemoState } from './service-demo-state.js';
+import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 
 const filterIds = ['all', 'contenu', 'autorisation', 'publication'] as const;
 
@@ -28,7 +30,13 @@ function normalizeSearchTerm(value: string): string {
 @Component({
   selector: 'openg7-service-demo-list',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, AdminIconComponent],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    AdminIconComponent,
+    ServiceDemoTabsDirective,
+    ServiceDemoTransitionDirective
+  ],
   templateUrl: './service-demo-list.component.html',
   styleUrl: './service-demo-list.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -66,6 +74,11 @@ export class ServiceDemoListComponent {
           normalizeSearchTerm(this.query())
         )
     )
+  );
+  readonly resultIds = computed(() =>
+    this.dossiers()
+      .map((dossier) => dossier.id)
+      .join('|')
   );
 
   constructor() {

@@ -8,14 +8,16 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import en from '../../../../../assets/i18n/service-demo-editor.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
-import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
-import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
+import { FundingI18nService } from '../services/funding-i18n.service.js';
 
+import en from './i18n/service-demo-editor.en.json' with { type: 'json' };
+import fr from './i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
 import { ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
 import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js';
+import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 
 /** Browser-local draft editor. It never grants authorization or publishes content. */
 @Component({
@@ -26,7 +28,9 @@ import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js
     TranslatePipe,
     AdminIconComponent,
     ServiceDemoPreviewComponent,
-    ServiceDemoActionsDirective
+    ServiceDemoActionsDirective,
+    ServiceDemoTabsDirective,
+    ServiceDemoTransitionDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './service-demo-editor.component.html',
@@ -144,6 +148,44 @@ import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js
         color: #52647a;
         font-size: 13px;
         margin-top: 8px;
+      }
+      .editor-save-feedback {
+        align-items: center;
+      }
+      .editor-save-check {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+      }
+      .editor-save-check path {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 0;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .editor-save-feedback {
+          animation: editor-save-confirm 240ms ease-out;
+        }
+        .editor-save-check path {
+          animation: editor-save-draw 200ms ease-out 30ms both;
+        }
+        @keyframes editor-save-confirm {
+          from {
+            background-color: #d8f1e2;
+            box-shadow: 0 0 0 3px #d8f1e2;
+          }
+          to {
+            background-color: #eff8f2;
+            box-shadow: 0 0 0 0 transparent;
+          }
+        }
+        @keyframes editor-save-draw {
+          from {
+            stroke-dashoffset: 1;
+          }
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
       }
       @media (max-width: 380px) {
         .image-grid {

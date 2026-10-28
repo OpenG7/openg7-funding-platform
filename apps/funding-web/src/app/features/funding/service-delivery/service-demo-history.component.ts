@@ -8,13 +8,15 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import en from '../../../../../assets/i18n/service-demo-editor.en.json' with { type: 'json' };
-import fr from '../../../../../assets/i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
-import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
-import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
+import { FundingI18nService } from '../services/funding-i18n.service.js';
 
+import en from './i18n/service-demo-editor.en.json' with { type: 'json' };
+import fr from './i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
 import { ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
+import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
+import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
 
 const events = [
   {
@@ -82,7 +84,9 @@ const events = [
     RouterLink,
     TranslatePipe,
     AdminIconComponent,
-    ServiceDemoActionsDirective
+    ServiceDemoActionsDirective,
+    ServiceDemoTabsDirective,
+    ServiceDemoTransitionDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './service-demo-history.component.html',
@@ -158,6 +162,25 @@ const events = [
         padding: 32px 20px;
         text-align: center;
       }
+      @media (prefers-reduced-motion: no-preference) {
+        .history-event {
+          transition:
+            background-color 180ms ease-out,
+            border-color 180ms ease-out;
+        }
+        .history-dot {
+          transition: transform 180ms ease-out;
+        }
+        .history-event:focus-visible .history-dot,
+        .history-event.active .history-dot {
+          transform: scale(1.08);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .history-event:hover .history-dot {
+            transform: scale(1.08) rotate(-6deg);
+          }
+        }
+      }
     `
   ]
 })
@@ -192,6 +215,11 @@ export class ServiceDemoHistoryComponent {
     this.oldestFirst()
       ? [...this.visibleEvents()].reverse()
       : this.visibleEvents()
+  );
+  readonly eventIds = computed(() =>
+    this.sortedEvents()
+      .map((event) => event.id)
+      .join('|')
   );
 
   constructor() {
