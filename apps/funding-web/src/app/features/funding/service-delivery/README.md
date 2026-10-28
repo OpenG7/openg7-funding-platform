@@ -64,6 +64,20 @@ Les composants standalone, templates, styles et animations sont colocalisés;
 Les clés de traduction, hooks et URL publiques sont définis par les parcours
 existants. Les images restent des assets partagés de l'application.
 
+La liste réutilise l'illustration incluse dans le brouillon de chaque dossier,
+sans changer de dossier courant. `DossierMediaPreviewComponent` est une molécule
+de présentation interne : jusqu'à trois images selon sa propre largeur,
+miniature si fournie, compteur des images restantes et retrait des sources
+inaccessibles. Son lien rejoint la consultation **Médias** existante. Le survol
+ou le focus de la ligne déplace lentement les images ; le tactile et la préférence
+de mouvement réduit conservent un aperçu fixe. Les aperçus sont masqués lorsque
+la largeur disponible privilégie l'identité et l'intervention.
+
+Le prototype contient actuellement une seule illustration sélectionnée par
+dossier, parmi les deux assets du guide. Il ne simule ni photos de partenaires
+ni médias supplémentaires et ne charge aucune URL privée. La capacité multiple
+du composant n'ajoute aucune source de données ni autorisation de publication.
+
 Les dépendances communes Funding sont le service de traduction et les primitives
 de présentation `AdminIconComponent` et `AdminDrawerComponent`. La feature ne
 charge aucun client métier API, de paiement ou d'identité administrative.

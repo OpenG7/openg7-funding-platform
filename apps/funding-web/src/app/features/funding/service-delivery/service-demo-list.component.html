@@ -180,6 +180,15 @@
             ><span><openg7-admin-icon name="publications" />Facebook</span>
           </div>
         </div>
+        @if (dossier.media.length) {
+          <openg7-dossier-media-preview
+            [media]="dossier.media"
+            [href]="'/demo/prestations/dossier/' + dossier.id + '/medias'"
+            [label]="
+              'serviceDemoList.openMedia' | translate: { name: dossier.name }
+            "
+          />
+        }
         <div class="next-action">
           <span class="status" [class]="'status ' + dossier.tone">{{
             'serviceDemo.stageLabels.' + dossier.stage | translate

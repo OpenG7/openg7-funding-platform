@@ -31,6 +31,12 @@ export interface ServiceDemoContent {
   readonly imageAlt: string;
 }
 
+function demoImageSource(asset: ServiceDemoContent['imageAsset']): string {
+  return asset === 'companion'
+    ? 'assets/admin-guide-princess-lion.webp'
+    : 'assets/admin-guide-panorama.webp';
+}
+
 interface ServiceDemoDraft extends ServiceDemoContent {
   readonly note: string;
   readonly comment: string;
@@ -84,11 +90,7 @@ export class ServiceDemoState {
   readonly imageAsset = signal<'panorama' | 'companion'>('panorama');
   readonly imageAlt = signal('');
   readonly previewMode = signal<'standard' | 'compact'>('standard');
-  readonly previewImage = computed(() =>
-    this.imageAsset() === 'companion'
-      ? 'assets/admin-guide-princess-lion.webp'
-      : 'assets/admin-guide-panorama.webp'
-  );
+  readonly previewImage = computed(() => demoImageSource(this.imageAsset()));
   readonly savedContent = computed(() =>
     this.savedVersions().get(this.currentId())
   );
@@ -155,6 +157,21 @@ export class ServiceDemoState {
 
   href(page = ''): string {
     return `/demo/prestations/dossier/${encodeURIComponent(this.currentId())}${page ? '/' + page : ''}`;
+  }
+
+  /** Read each visit's illustration without selecting or changing its dossier. */
+  mediaForDossier(id: string): readonly { readonly src: string }[] {
+    if (!DEMO_DOSSIERS.some((dossier) => dossier.id === id)) return [];
+    const content =
+      id === this.currentId()
+        ? {
+            imageIncluded: this.imageIncluded(),
+            imageAsset: this.imageAsset()
+          }
+        : this.drafts().get(id);
+    return content?.imageIncluded === false
+      ? []
+      : [{ src: demoImageSource(content?.imageAsset ?? 'panorama') }];
   }
 
   selectDossier(id: string): void {

@@ -9,6 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
 
+import { DossierMediaPreviewComponent } from './dossier-media-preview.component.js';
 import en from './i18n/service-demo-list.en.json' with { type: 'json' };
 import fr from './i18n/service-demo-list.fr-CA.json' with { type: 'json' };
 import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
@@ -34,6 +35,7 @@ function normalizeSearchTerm(value: string): string {
     RouterLink,
     TranslatePipe,
     AdminIconComponent,
+    DossierMediaPreviewComponent,
     ServiceDemoTabsDirective,
     ServiceDemoTransitionDirective
   ],
@@ -70,7 +72,10 @@ export class ServiceDemoListComponent {
         normalizeSearchTerm(dossier.name).includes(
           normalizeSearchTerm(this.query())
         )
-    )
+    ).map((dossier) => ({
+      ...dossier,
+      media: this.state.mediaForDossier(dossier.id)
+    }))
   );
   readonly resultIds = computed(() =>
     this.dossiers()
