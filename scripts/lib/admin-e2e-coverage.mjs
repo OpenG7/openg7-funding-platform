@@ -24,6 +24,15 @@ export function declaredAdminRoutes(sourceText) {
     ts.forEachChild(node, find);
   };
   find(source);
+  // This wrapper adds navigation guards while preserving the literal route tree.
+  if (
+    declaration &&
+    ts.isCallExpression(declaration) &&
+    ts.isIdentifier(declaration.expression) &&
+    declaration.expression.text === 'protectWorkspaceNavigation' &&
+    declaration.arguments.length === 1
+  )
+    declaration = declaration.arguments[0];
   const paths = new Set();
   const visit = (array, prefix) => {
     if (!array || !ts.isArrayLiteralExpression(array))

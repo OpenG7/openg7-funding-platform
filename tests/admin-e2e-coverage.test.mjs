@@ -95,6 +95,35 @@ test('admin coverage rejects missing routes, guarantees, skipped evidence and si
   );
 });
 
+test('admin route inventory reads literals and the guard wrapper without executing source', () => {
+  const literal = `[
+    { path: 'fundraiser', children: [
+      { path: 'campaigns', loadComponent: () => { throw new Error('Never execute'); } }
+    ] }
+  ]`;
+  for (const declaration of [literal, `protectWorkspaceNavigation(${literal})`])
+    assert.deepEqual(
+      declaredAdminRoutes(`export const adminRoutes = ${declaration};`),
+      ['/admin/fundraiser/campaigns']
+    );
+
+  for (const declaration of [
+    `unknownWrapper(${literal})`,
+    `routes.protectWorkspaceNavigation(${literal})`,
+    `protectWorkspaceNavigation(${literal}, true)`,
+    'protectWorkspaceNavigation()',
+    'protectWorkspaceNavigation(dynamicRoutes)',
+    `protectWorkspaceNavigation(...${literal})`,
+    `protectWorkspaceNavigation(unknownWrapper(${literal}))`,
+    `[{ path: 'fundraiser', children: protectWorkspaceNavigation(${literal}) }]`
+  ])
+    assert.throws(
+      () => declaredAdminRoutes(`export const adminRoutes = ${declaration};`),
+      /requires literal route arrays/,
+      declaration
+    );
+});
+
 test('admin route coverage follows declarations and the publication matcher spaces', () => {
   const source = readFileSync(
     'apps/funding-web/src/app/admin.routes.ts',
