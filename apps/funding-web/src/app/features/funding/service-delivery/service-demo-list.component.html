@@ -155,6 +155,7 @@
             <a
               class="dossier-name"
               [routerLink]="['/demo/prestations/dossier', dossier.id]"
+              queryParamsHandling="preserve"
               data-og7="service-demo-open-dossier"
               [attr.data-og7-id]="dossier.id"
               >{{ dossier.name }} <span aria-hidden="true">↗</span></a
@@ -190,6 +191,7 @@
               dossier.id,
               dossier.stage
             ]"
+            queryParamsHandling="preserve"
             >{{ 'serviceDemo.nextActions.' + dossier.stage | translate }}
             <openg7-admin-icon name="arrow"
           /></a>

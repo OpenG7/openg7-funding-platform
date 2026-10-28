@@ -9,6 +9,7 @@ import type {
 import { extractStructuredPreparationPublications } from '../../packages/funding-core/src/index.js';
 
 import { expect, test } from './support/test.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   controllerId,
   controllerJourneysFixtures,
@@ -208,11 +209,7 @@ async function fixtures(
 
 async function open(page: Page, path = controllerPath('publication')) {
   await page.goto(path);
-  const toggle = hook(page, 'admin-guidance-toggle');
-  await expect(toggle).toBeVisible();
-  if (!(await hook(page, 'admin-guidance-panel').isVisible()))
-    await toggle.click();
-  await hook(page, 'admin-guidance-workflows-mode').click();
+  await restoreLegacyGuideMode(page, 'workflows');
   await expect(hook(page, 'workflow-guide')).toBeVisible();
   if (
     !(await journeyPicker(page).evaluate(
@@ -568,11 +565,7 @@ test('a failed lazy workflow chunk can retry locally and discovery remains usabl
     return route.fulfill({ response });
   });
   await page.goto(controllerPath('publication'));
-  const toggle = hook(page, 'admin-guidance-toggle');
-  await expect(toggle).toBeVisible();
-  if (!(await hook(page, 'admin-guidance-panel').isVisible()))
-    await toggle.click();
-  await hook(page, 'admin-guidance-workflows-mode').click();
+  await restoreLegacyGuideMode(page, 'workflows');
   const panel = hook(page, 'admin-guidance-panel');
   await expect(panel.getByRole('alert')).toHaveText(
     'The journeys could not be loaded. Retry while keeping your place.'
@@ -584,10 +577,7 @@ test('a failed lazy workflow chunk can retry locally and discovery remains usabl
   await hook(page, 'admin-guidance-workflows-retry').click();
   await expect(hook(page, 'workflow-guide')).toBeVisible();
   await expect(panel.getByRole('alert')).toHaveCount(0);
-  await expect(hook(page, 'admin-guidance-workflows-mode')).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
+  await expect(hook(page, 'admin-guidance-workflows-mode')).toHaveCount(0);
   expect(page.url()).toBe(currentUrl);
   await hook(page, 'admin-guidance-discovery-mode').click();
   await expect(panel.getByRole('alert')).toHaveCount(0);

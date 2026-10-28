@@ -234,6 +234,9 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
   await pad.activate(hook(page, 'payment-journey-refresh'));
   await expect(hook(page, 'payment-journey-complete')).toBeVisible();
   await expect(hook(page, 'payment-journey-next')).toHaveCount(0);
+  // Refresh disables its focused button while reading; Y rejoins the guide.
+  await pad.press(3);
+  await expect(hook(page, 'admin-guidance-toggle')).toBeFocused();
   await pad.activate(hook(page, 'payment-journey-pause'));
   await pad.activate(
     page.locator('openg7-admin-nav a[href="/admin/fundraiser/contributions"]')

@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { CanMatchFn, Router, Routes } from '@angular/router';
+import type { Route } from '@angular/router';
 import { provideStore } from '@ngrx/store';
 
 import enTranslations from '../assets/i18n/admin-base.en.json' with { type: 'json' };
@@ -10,6 +11,7 @@ import { adminCampaignsFeature } from './features/funding/services/admin-campaig
 import { FundingAdminService } from './features/funding/services/funding-admin.service.js';
 import { FundingI18nService } from './features/funding/services/funding-i18n.service.js';
 import { adminPublicationNavigationGuard } from './features/funding/services/admin-publication-navigation.service.js';
+import { adminWorkspaceNavigationGuard } from './features/funding/services/admin-guide-navigation.service.js';
 
 /** Register once per application, before an administrative page or auth guard. */
 @Injectable({ providedIn: 'root' })
@@ -45,7 +47,35 @@ const adminSessionRequired: CanMatchFn = async (_route, segments) => {
   });
 };
 
-export const adminRoutes: Routes = [
+function protectWorkspaceNavigation(
+  routes: Routes,
+  insideWorkspace = false
+): Routes {
+  return routes.map((route): Route => {
+    const workspace =
+      insideWorkspace ||
+      route.path === 'fundraiser' ||
+      route.path?.startsWith('fundraiser/') === true;
+    return {
+      ...route,
+      ...(route.children
+        ? { children: protectWorkspaceNavigation(route.children, workspace) }
+        : {}),
+      ...(workspace && route.loadComponent
+        ? {
+            canDeactivate: [
+              adminWorkspaceNavigationGuard,
+              ...(route.canDeactivate ?? []).filter(
+                (guard) => guard !== adminPublicationNavigationGuard
+              )
+            ]
+          }
+        : {})
+    };
+  });
+}
+
+export const adminRoutes: Routes = protectWorkspaceNavigation([
   {
     path: 'fundraiser/pilotage',
     canMatch: [adminSessionRequired],
@@ -226,4 +256,4 @@ export const adminRoutes: Routes = [
         (m) => m.AdminSetupPageComponent
       )
   }
-];
+]);

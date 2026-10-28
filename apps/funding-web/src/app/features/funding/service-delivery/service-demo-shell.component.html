@@ -1,7 +1,14 @@
-<div class="service-demo" data-og7="service-demo">
-  <a class="skip-link" href="#service-demo-heading">{{
-    'serviceDemo.skip' | translate
-  }}</a>
+<div
+  class="service-demo"
+  [class.embedded]="navigation.embedded"
+  data-og7="service-demo"
+>
+  <a
+    class="skip-link"
+    href="#service-demo-heading"
+    (click)="skipToContent($event)"
+    >{{ 'serviceDemo.skip' | translate }}</a
+  >
   <header class="workspace-bar">
     <a
       class="workspace-brand"
@@ -21,13 +28,31 @@
         [attr.aria-label]="'serviceDemo.language' | translate"
         data-og7="service-demo-language"
       >
-        {{ state.language() === 'fr-CA' ? 'EN' : 'FR' }}</button
-      ><a
-        class="button quiet"
-        routerLink="/admin/fundraiser"
-        data-og7="service-demo-exit"
-        >{{ 'serviceDemo.exit' | translate }} <openg7-admin-icon name="arrow"
-      /></a>
+        {{ state.language() === 'fr-CA' ? 'EN' : 'FR' }}
+      </button>
+      @if (navigation.embedded) {
+        <button
+          class="button quiet"
+          type="button"
+          data-og7="service-demo-exit"
+          (click)="closeRequested.emit()"
+        >
+          {{ 'serviceDemoNavigation.backToGuide' | translate }}
+        </button>
+      } @else {
+        <a
+          class="button quiet"
+          [routerLink]="state.returnTo() ?? '/admin/fundraiser'"
+          data-og7="service-demo-exit"
+          >{{
+            (state.returnTo()
+              ? 'serviceDemoNavigation.returnToAdministration'
+              : 'serviceDemo.exit'
+            ) | translate
+          }}
+          <openg7-admin-icon name="arrow"
+        /></a>
+      }
     </div>
   </header>
   <div
@@ -37,7 +62,12 @@
   >
     {{ 'serviceDemo.demoNotice' | translate }}
   </div>
-  <main class="demo-window" [class.is-list]="isList()">
+  <div
+    class="demo-window"
+    [class.is-list]="isList()"
+    [attr.role]="navigation.embedded ? 'region' : 'main'"
+    [attr.aria-label]="titleKey() | translate"
+  >
     <header class="window-heading">
       <span class="heading-icon" aria-hidden="true"
         ><openg7-admin-icon [name]="icon()"
@@ -181,7 +211,42 @@
     @if (!isMissing()) {
       <openg7-service-demo-help [isList]="isList()" />
     }
-    <div class="demo-body" id="service-demo-body"><router-outlet /></div>
+    <div class="demo-body" id="service-demo-body">
+      @if (navigation.embedded) {
+        @switch (navigation.kind()) {
+          @case ('list') {
+            <openg7-service-demo-list />
+          }
+          @case ('workspace') {
+            <openg7-service-demo-workspace />
+          }
+          @case ('editor') {
+            <openg7-service-demo-editor />
+          }
+          @case ('history') {
+            <openg7-service-demo-history />
+          }
+          @case ('detail') {
+            @for (view of detailViews(); track view) {
+              <openg7-service-demo-detail />
+            }
+          }
+          @default {
+            <section class="empty-state" data-og7="service-demo-missing">
+              <p>{{ 'serviceDemo.missingHint' | translate }}</p>
+              <a
+                class="button primary"
+                routerLink="/demo/prestations"
+                queryParamsHandling="preserve"
+                >{{ 'serviceDemo.backList' | translate }}</a
+              >
+            </section>
+          }
+        }
+      } @else {
+        <router-outlet />
+      }
+    </div>
     <footer class="window-footer">
       @if (!isList() && state.page() !== 'corriger') {
         <a
@@ -218,7 +283,7 @@
         }
       </span>
     </footer>
-  </main>
+  </div>
   <openg7-admin-drawer
     [opened]="exitPending()"
     [title]="'serviceDemoNavigation.leaveTitle' | translate"

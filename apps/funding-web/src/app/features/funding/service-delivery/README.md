@@ -7,15 +7,55 @@ Les données et opérations restent celles du prototype local décrit dans le
 
 ## Point d'entrée public
 
-L'application charge `index.ts` en différé depuis `app.routes.ts`. Son seul
-export est `serviceDeliveryRoutes`; les composants, directives, catalogues et
-`ServiceDemoState` restent internes à la feature. Les consommateurs externes
-passent par cet index, et les fichiers internes s'importent directement entre eux.
+L'application et le guide chargent `index.ts` en différé. Il expose
+`serviceDeliveryRoutes` pour la démo autonome et `ServiceDeliveryEmbeddedComponent`
+pour l'espace embarqué. Les autres composants, directives, catalogues,
+`ServiceDemoState` et `ServiceDemoNavigation` restent internes à la feature.
+Les consommateurs externes passent par cet index, et les fichiers internes
+s'importent directement entre eux.
 
 Le préfixe public `/demo/prestations` appartient au routeur de l'application.
 `service-delivery.routes.ts` compose ses routes enfants et fournit l'état sur le
-shell parent. Le guard de sortie et la durée de vie des brouillons sont donc
-communs à tous les écrans de la feature.
+shell parent, avec une instance de l'état et de la navigation. Le composant
+embarqué fournit ses propres instances. Les pages et leurs métadonnées sont
+communes aux deux présentations ; les brouillons d'une visite ne sont pas partagés
+avec une autre instance.
+
+## Accès depuis le guide administratif
+
+Le menu du Guide administratif propose **Prestations** juste après **Découvrir**.
+Ce bouton charge le composant public dans la zone à droite du menu, au sein du
+guide. La rubrique administrative, son URL et ses paramètres restent en place.
+La disposition s'adapte à la largeur disponible sur mobile.
+
+La navigation entre liste, dossier, éditeur et détails est conservée en mémoire
+dans cette instance. Elle ne fait aucune navigation sur le routeur administratif
+et ne réutilise pas les paramètres de recherche de la page hôte. Les ancres
+conservent une URL valide vers la démo autonome pour l'ouverture volontaire dans
+un autre onglet.
+
+Le guide garde l'instance masquée lorsqu'on revient à **Découvrir** ou qu'on réduit
+le panneau : la rouvrir retrouve les saisies et la page locale. Le contrat public
+`canLeave()` permet au guard administratif de demander confirmation avant un
+départ réel de la rubrique ; `cancelLeave()` annule une décision devenue caduque.
+L'événement `closeRequested` permet de revenir au guide sans naviguer.
+Annuler un départ conserve les brouillons. Un rechargement ou une fermeture du
+navigateur reste soumis à la protection native des saisies locales.
+
+Le retrait des sélecteurs de suivi d'un paiement, de préparation et d'exploration
+des parcours concerne le rail du guide. Leurs rendus contextuels, les préférences
+historiques et les accès métier depuis Contributions ou **Vérifier un nouveau lot** restent
+compatibles. La démo ne charge aucun dossier réel et n'exécute aucune de ces
+opérations.
+
+## Démo autonome
+
+L'accès direct `/demo/prestations` conserve le routeur Angular et ses liens
+profonds. Son guard protège les brouillons quand on quitte la feature.
+Le paramètre optionnel `returnTo` accepte uniquement un chemin local sous
+`/admin/fundraiser`, sans recherche ni fragment. **Retour à l’administration**
+rejoint ce chemin ; sans destination valide, la sortie revient au cockpit.
+Ce paramètre ne sert pas à l'injection dans le guide.
 
 ## Ressources et dépendances
 
@@ -28,6 +68,8 @@ Les dépendances communes Funding sont le service de traduction et les primitive
 de présentation `AdminIconComponent` et `AdminDrawerComponent`. La feature ne
 charge aucun client métier API, de paiement ou d'identité administrative.
 
-Les [tests de frontière et de routage](../../../../../../../tests/service-demo-routing.test.mjs)
+Les [tests de frontière et de routage](../../../../../../../tests/service-demo-routing.test.mjs),
+les [tests de navigation](../../../../../../../tests/service-demo-navigation.test.mjs)
 et les [parcours navigateur](../../../../../../../tests/playwright/service-demo.ui.spec.ts)
-vérifient son point d'entrée, ses routes et ses comportements.
+vérifient les points d'entrée, les routes et les comportements. Les tests Node de
+navigation utilisent `dist` et demandent d'abord `yarn build`.

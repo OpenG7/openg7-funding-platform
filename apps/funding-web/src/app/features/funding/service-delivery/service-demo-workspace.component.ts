@@ -4,12 +4,12 @@ import {
   computed,
   inject
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
 
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
+import { ServiceDemoNavigation } from './service-demo-navigation.js';
 import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
 import { ServiceDemoState } from './service-demo-state.js';
@@ -29,10 +29,7 @@ import { ServiceDemoState } from './service-demo-state.js';
 })
 export class ServiceDemoWorkspaceComponent {
   readonly state = inject(ServiceDemoState);
-  private readonly route = inject(ActivatedRoute);
-  private readonly data = toSignal(this.route.data, {
-    initialValue: this.route.snapshot.data
-  });
+  private readonly data = inject(ServiceDemoNavigation).data;
   readonly page = computed(() => (this.data()['page'] as string) ?? '');
   readonly contentChecks = [
     { key: 'text', target: 'corriger/texte', icon: 'publications' },

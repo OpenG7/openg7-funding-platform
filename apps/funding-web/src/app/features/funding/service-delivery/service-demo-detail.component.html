@@ -691,6 +691,7 @@
             class="button primary"
             routerLink="/demo/prestations"
             [queryParams]="{ etat: statusFilter() }"
+            queryParamsHandling="merge"
             >{{ t('actions.applyFilters') }}</a
           >
         </div>

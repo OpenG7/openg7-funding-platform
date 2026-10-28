@@ -9,6 +9,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, sampledFrames, test } from './support/test.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
   installAdminController
@@ -707,8 +708,7 @@ test('the dossier receipt and a batch receipt for the same payment keep separate
   });
   await page.goto(path());
   await expectDossier(page);
-  await page.locator('[data-og7="admin-guidance-toggle"]').click();
-  await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  await restoreLegacyGuideMode(page, 'automatic');
   const receipts = page.locator('[data-og7="preparation-receipt"]');
   await expect(receipts).toHaveCount(2);
   const descriptions = await receipts.evaluateAll((elements) =>
@@ -797,8 +797,7 @@ test('a dossier agreement refreshes the mounted batch receipt during a pending r
   });
   await page.goto(path());
   await expectDossier(page);
-  await page.locator('[data-og7="admin-guidance-toggle"]').click();
-  await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  await restoreLegacyGuideMode(page, 'automatic');
   const batch = page.locator('[data-og7="preparation-receipts-carousel"]');
   const batchReceipt = batch.locator('[data-og7="preparation-receipt"]');
   const batchStamp = batch.locator('[data-og7="preparation-receipt-stamp"]');

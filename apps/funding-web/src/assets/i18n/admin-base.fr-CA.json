@@ -1760,6 +1760,8 @@
       },
       "modeLabel": "Type de guide",
       "discoveryMode": "Découvrir",
+      "serviceDeliveryMode": "Prestations",
+      "serviceDeliveryUnavailable": "Les prestations n’ont pas pu être chargées. Réessayez sans quitter votre rubrique.",
       "paymentMode": "Suivi d’un paiement",
       "automaticMode": "Préparation des dossiers",
       "workflowsMode": "Explorer les parcours",

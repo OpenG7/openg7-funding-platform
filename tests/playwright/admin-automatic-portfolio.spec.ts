@@ -9,6 +9,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
   installAdminController
@@ -525,11 +526,7 @@ for (const language of ['fr-CA', 'en']) {
 
 async function open(page: Page, phase = 'review', expand = true) {
   await page.goto(path);
-  const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
-  await expect(toggle).toBeVisible();
-  const panel = page.locator('[data-og7="admin-guidance-panel"]');
-  if (!(await panel.isVisible())) await toggle.click();
-  await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  await restoreLegacyGuideMode(page, 'automatic');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', phase);
   if (expand) await expandProcessing(page);
 }
@@ -676,7 +673,7 @@ for (const [language, width] of [
     ).toHaveLength(3);
     await expect(
       page.locator('[data-og7="admin-guidance-automatic-mode"]')
-    ).toHaveAttribute('aria-pressed', 'true');
+    ).toHaveCount(0);
     const shortcutBounds = await shortcut.boundingBox();
     expect(shortcutBounds).not.toBeNull();
     expect(shortcutBounds!.x).toBeGreaterThanOrEqual(0);

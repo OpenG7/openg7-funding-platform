@@ -16,30 +16,9 @@ import detailEn from './i18n/service-demo-detail.en.json' with { type: 'json' };
 import detailFr from './i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
 import navigationEn from './i18n/service-demo-navigation.en.json' with { type: 'json' };
 import navigationFr from './i18n/service-demo-navigation.fr-CA.json' with { type: 'json' };
+import { DEMO_DOSSIERS } from './service-demo-fixtures.js';
 
-export const DEMO_DOSSIERS = [
-  {
-    id: 'atelier-boreal',
-    name: 'Atelier Boréal',
-    initials: 'AB',
-    stage: 'contenu',
-    tone: 'blue'
-  },
-  {
-    id: 'collectif-rivages',
-    name: 'Collectif Rivages',
-    initials: 'CR',
-    stage: 'autorisation',
-    tone: 'amber'
-  },
-  {
-    id: 'studio-canopée',
-    name: 'Studio Canopée',
-    initials: 'SC',
-    stage: 'publication',
-    tone: 'green'
-  }
-] as const;
+export { DEMO_DOSSIERS };
 
 export interface ServiceDemoContent {
   readonly text: string;
@@ -123,9 +102,11 @@ export class ServiceDemoState {
   });
   readonly query = signal('');
   readonly filter = signal('all');
+  readonly returnTo = signal<string | null>(null);
   readonly listParams = computed(() => ({
     q: this.query() || null,
-    etat: this.filter() === 'all' ? null : this.filter()
+    etat: this.filter() === 'all' ? null : this.filter(),
+    ...(this.returnTo() ? { returnTo: this.returnTo() } : {})
   }));
   readonly page = signal('');
   readonly editorTab = signal('texte');
@@ -197,6 +178,7 @@ export class ServiceDemoState {
     this.applyDraft(this.currentId());
     this.query.set('');
     this.filter.set('all');
+    this.returnTo.set(null);
     this.previewMode.set('standard');
   }
 

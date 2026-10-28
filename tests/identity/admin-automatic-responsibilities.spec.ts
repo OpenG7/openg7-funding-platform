@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import type { AdminAutomaticRunState } from '@openg7/funding-core';
 
+import { restoreLegacyGuideMode } from '../playwright/support/admin-guidance-bookmarks.js';
+
 import { startIdentityStack } from './stack.mjs';
 import { openAdminIdentity } from './support/admin-browser.js';
 
@@ -120,8 +122,7 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
 
     await test.step('The owner starts a real sequential passage; currencies and zero promised benefits remain distinct', async () => {
       expect((await read()).run).toBeNull();
-      await page.locator('[data-og7="admin-guidance-toggle"]').click();
-      await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+      await restoreLegacyGuideMode(page, 'automatic');
       await openBatch(page);
       await expect(hook(page, 'state')).toHaveAttribute(
         'data-og7-id',

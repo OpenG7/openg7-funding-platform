@@ -5,11 +5,11 @@ import {
   inject,
   input
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import en from './i18n/service-demo-preview.en.json' with { type: 'json' };
 import fr from './i18n/service-demo-preview.fr-CA.json' with { type: 'json' };
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
 import { ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
 import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
