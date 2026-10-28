@@ -11,7 +11,11 @@ async function expectSingleLineText(
   label: Locator,
   container = label
 ): Promise<void> {
-  const text = await label.evaluate((element) => {
+  const containerElement = await container.elementHandle();
+  expect(containerElement).not.toBeNull();
+  const text = await label.evaluate(async (element, containerElement) => {
+    if (!containerElement) throw new Error('Text container is unavailable');
+    await element.ownerDocument.fonts.ready;
     const range = element.ownerDocument.createRange();
     range.selectNodeContents(element);
     const lines = new Set(
@@ -20,13 +24,19 @@ async function expectSingleLineText(
         .map((rectangle) => Math.round(rectangle.top))
     );
     const bounds = range.getBoundingClientRect();
-    return { lines: lines.size, left: bounds.left, right: bounds.right };
-  });
-  const box = await container.boundingBox();
-  expect(box).not.toBeNull();
+    const box = containerElement.getBoundingClientRect();
+    return {
+      lines: lines.size,
+      left: bounds.left,
+      right: bounds.right,
+      containerLeft: box.left,
+      containerRight: box.right
+    };
+  }, containerElement);
+  await containerElement?.dispose();
   expect(text.lines).toBe(1);
-  expect(text.left).toBeGreaterThanOrEqual(box!.x - 1);
-  expect(text.right).toBeLessThanOrEqual(box!.x + box!.width + 1);
+  expect(text.left).toBeGreaterThanOrEqual(text.containerLeft - 1);
+  expect(text.right).toBeLessThanOrEqual(text.containerRight + 1);
 }
 
 async function acceptLocalWorkLoss(
@@ -1465,6 +1475,19 @@ test('garde l’identité, le badge et l’intervention immobiles pendant la con
       .locator('openg7-admin-icon')
   ];
   await expect(open).toBeVisible();
+  // Capture the resting layout after the existing badge entrance has settled.
+  // Hover and focus still exercise the real media transitions below.
+  await row.evaluate(async (element) => {
+    await element.ownerDocument.fonts.ready;
+    await Promise.allSettled(
+      element
+        .getAnimations({ subtree: true })
+        .filter(
+          (animation) => animation.effect?.getTiming().iterations !== Infinity
+        )
+        .map((animation) => animation.finished)
+    );
+  });
   const resting = await Promise.all(
     fixed.map((element) => element.boundingBox())
   );
