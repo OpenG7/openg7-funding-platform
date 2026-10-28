@@ -1742,11 +1742,13 @@ for (const language of ['fr-CA', 'en'] as const) {
       { width: 640, height: 450 }
     ]) {
       await page.setViewportSize(viewport);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth + 1
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth + 1
+          )
         )
-      ).toBe(true);
+        .toBe(true);
       const steps = page.locator('[data-og7="service-demo-step"]');
       await expect(steps).toHaveCount(3);
       for (const step of await steps.all()) {
