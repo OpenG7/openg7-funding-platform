@@ -1,5 +1,7 @@
 {
   "serviceDemoNavigation": {
+    "backToGuide": "Back to Discover",
+    "returnToAdministration": "Back to administration",
     "leaveTitle": "Leave the demo?",
     "leaveDescription": "Drafts, notes and attachment references from this visit will be cleared, including drafts you kept. Files on your device will remain untouched.",
     "sessionHint": "Drafts remain available between screens during this visit. Reloading or closing the demo clears them.",

@@ -120,9 +120,11 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ### Explorer les six parcours en navigation libre
 
-Dans **Guide administratif → Explorer les parcours**, choisir librement un parcours puis une étape
-numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
-son résultat attendu et son emplacement actuel.
+Le rendu historique **Explorer les parcours** reste compatible avec les repères
+déjà mémorisés, mais son sélecteur est retiré du menu du Guide administratif.
+Dans ce rendu, choisir librement un parcours puis une étape numérotée, ou utiliser
+**Étape précédente / suivante**. Le guide décrit l’action, son résultat attendu
+et son emplacement actuel.
 Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
 la fiche publique et le suivi historique manuel. Le volet **Emplacement actuel /
 Organisation proposée** présente encore des pistes futures marquées à réaliser,
@@ -151,10 +153,32 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 ### Guide administratif
 
 Le bouton **Guide administratif**, sous la barre commune, accompagne les 20 rubriques
-administratives authentifiées. Les quatre modes **Découvrir**, **Suivi d’un paiement**,
-**Préparation des dossiers** et **Explorer les parcours** gardent des libellés
-visibles. La rubrique courante reste affichée dans tous les modes. Le rail devient
-une grille sur petit écran ; il défile avec le contenu lorsque la hauteur est limitée.
+administratives authentifiées. Son menu présente **Découvrir**, puis **Prestations**,
+avec leurs libellés visibles. Les sélecteurs **Suivi d’un paiement**,
+**Préparation des dossiers** et **Explorer les parcours** sont retirés du rail.
+Leurs rendus contextuels et repères historiques restent compatibles :
+**Suivre ce paiement**, depuis Contributions, et **Vérifier un nouveau lot**, dans la barre
+commune, conservent leur accès métier. La rubrique courante reste affichée dans
+le guide. Le rail devient une grille sur petit écran ; il défile avec le contenu
+lorsque la hauteur est limitée.
+
+**Prestations** affiche la démonstration complète dans la zone à droite du menu
+du guide, avec sa liste de dossiers, ses étapes et son éditeur. Le composant est
+chargé à la demande ; la rubrique administrative, son URL, ses paramètres et son
+contenu restent en place. Sur petit écran, la disposition se réorganise dans le
+panneau. Les changements de page et les filtres de la démo restent en mémoire
+dans cet espace, sans navigation administrative ni opération métier.
+
+La fenêtre garde les mêmes dimensions entre les onglets ; seul son contenu
+défile. Sa taille reste limitée à l'écran et à l'espace réservé aux manettes.
+
+Revenir à **Découvrir** ou réduire le guide masque l'espace sans détruire ses
+brouillons ; sa réouverture retrouve la page et les saisies. Quitter réellement
+la rubrique administrative demande confirmation si la démo contient des saisies
+locales. Une sortie annulée les conserve ; le rechargement et la fermeture du
+navigateur gardent leur avertissement natif. L'accès direct à `/demo/prestations`
+reste disponible comme démo autonome, avec ses propres brouillons.
+
 La bannière et le portrait princesse/lion sont décoratifs, masqués aux technologies
 d’assistance et réduits sur petit écran. **Découvrir** affiche **Vous êtes ici**,
 une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
@@ -264,8 +288,8 @@ publication ou paiement de production.
 
 ### Préparation des dossiers par lot
 
-La commande de démarrage, dans l'en-tête ou **Guide administratif → Préparation des dossiers**,
-lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
+La commande **Vérifier un nouveau lot**, dans la barre commune, ouvre la préparation
+contextuelle et lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les publications promises doivent toutes être présentes. Les devises

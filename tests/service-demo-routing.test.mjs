@@ -76,13 +76,70 @@ function property(object, name) {
   )?.initializer;
 }
 
+function evaluatePresentation(source, dependencies) {
+  const exports = {};
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.CommonJS,
+      experimentalDecorators: true
+    }
+  }).outputText;
+  // Evaluate only these local presentation declarations. Components and Angular
+  // decorators are inert markers; no application, DI, browser or API is started.
+  new Function('exports', 'require', transpiled)(exports, dependencies);
+  return exports;
+}
+
+function presentationContracts() {
+  const fixtures = evaluatePresentation(
+    read(directory + 'service-demo-fixtures.ts'),
+    () => {
+      throw new Error('Synthetic fixtures must not load a runtime dependency.');
+    }
+  );
+  const metadata = evaluatePresentation(
+    read(directory + 'service-demo-pages.ts'),
+    (specifier) => {
+      assert.equal(specifier, './service-demo-fixtures.js');
+      return fixtures;
+    }
+  );
+  const components = Object.fromEntries(
+    [
+      'ServiceDemoDetailComponent',
+      'ServiceDemoEditorComponent',
+      'ServiceDemoHistoryComponent',
+      'ServiceDemoListComponent',
+      'ServiceDemoShellComponent',
+      'ServiceDemoWorkspaceComponent',
+      'ServiceDemoState',
+      'ServiceDemoNavigation',
+      'ServiceDemoLinkDirective'
+    ].map((name) => [name, name])
+  );
+  const routes = evaluatePresentation(
+    read(directory + 'service-delivery.routes.ts'),
+    (specifier) => {
+      if (specifier === '@angular/core')
+        return { Component: () => (component) => component };
+      if (specifier === '@angular/router') return {};
+      if (specifier === '@ngx-translate/core')
+        return { TranslatePipe: 'TranslatePipe' };
+      assert.match(specifier, /^\.\/service-demo-[a-z.-]+\.js$/);
+      return { ...metadata, ...fixtures, ...components };
+    }
+  );
+  return { ...metadata, ...fixtures, routes: routes.serviceDeliveryRoutes };
+}
+
 test('the static host serves every declared synthetic service destination', () => {
   assert.ok(location, 'the demo has an explicit client routing location');
   const accepts = new RegExp(location[1]);
   const ids = [
-    ...read(directory + 'service-demo-state.ts').matchAll(/id: '([^']+)'/g)
+    ...read(directory + 'service-demo-fixtures.ts').matchAll(/id: '([^']+)'/g)
   ].map((match) => match[1]);
-  const catalog = read(directory + 'service-demo-detail.component.ts').match(
+  const catalog = read(directory + 'service-demo-pages.ts').match(
     /export const DEMO_DETAIL_PAGES = \[([\s\S]*?)\] as const;/
   );
   assert.ok(catalog, 'the declared demo destination catalog is available');
@@ -127,7 +184,7 @@ test('unknown files, tabs, descendants and prefix collisions remain HTTP 404s', 
     assert.equal(accepts.test(path), false, path);
 });
 
-test('service delivery exposes only its lazy route entry point to external callers', () => {
+test('service delivery exposes only its two lazy entry points to external callers', () => {
   const config = ts.readConfigFile(
     path.join(workspace, 'tsconfig.json'),
     ts.sys.readFile
@@ -211,7 +268,7 @@ test('service delivery exposes only its lazy route entry point to external calle
       .getExportsOfModule(module)
       .map((symbol) => symbol.getName())
       .sort(),
-    ['serviceDeliveryRoutes']
+    ['ServiceDeliveryEmbeddedComponent', 'serviceDeliveryRoutes']
   );
 });
 
@@ -247,6 +304,14 @@ test('service delivery owns one draft scope and departure guard on its shell rou
     'drafts have one scope across all child pages'
   );
   const shell = draftScopes[0];
+  const providers = property(shell, 'providers');
+  assert.ok(
+    providers.elements.some(
+      (provider) =>
+        ts.isIdentifier(provider) && provider.text === 'ServiceDemoNavigation'
+    ),
+    'standalone navigation is scoped alongside its drafts'
+  );
   const component = property(shell, 'component');
   assert.ok(
     component &&
@@ -266,5 +331,118 @@ test('service delivery owns one draft scope and departure guard on its shell rou
   assert.ok(
     guardedRoutes.length === 1 && guardedRoutes[0] === shell,
     'only leaving the shell asks for confirmation'
+  );
+});
+
+test('embedded navigation resolves the same declared destinations and metadata as standalone routes', () => {
+  const contract = presentationContracts();
+  const destinations = [];
+  const walk = (routes, prefix = [], inherited = {}) => {
+    for (const route of routes) {
+      if (route.path === '**' || route.redirectTo) continue;
+      const parts = route.path ? route.path.split('/') : [];
+      let candidates = [{ segments: prefix, params: inherited }];
+      for (const part of parts) {
+        const values =
+          part === ':id'
+            ? contract.DEMO_DOSSIERS.map((dossier) => dossier.id)
+            : part === ':tab'
+              ? contract.SERVICE_DEMO_EDITOR_TABS
+              : [part];
+        candidates = candidates.flatMap((candidate) =>
+          values.map((value) => ({
+            segments: [...candidate.segments, value],
+            params: {
+              ...candidate.params,
+              ...(part.startsWith(':') ? { [part.slice(1)]: value } : {})
+            }
+          }))
+        );
+      }
+      for (const candidate of candidates) {
+        if (route.children)
+          walk(route.children, candidate.segments, candidate.params);
+        else if (route.component)
+          destinations.push({ ...candidate, data: route.data });
+      }
+    }
+  };
+  walk(contract.routes);
+  assert.equal(destinations.length, 130);
+  for (const destination of destinations) {
+    const segments = ['demo', 'prestations', ...destination.segments];
+    assert.deepEqual(
+      contract.resolveServiceDemoPage(segments),
+      { data: destination.data, params: destination.params },
+      '/' + segments.join('/')
+    );
+  }
+  for (const dossier of contract.DEMO_DOSSIERS) {
+    assert.deepEqual(
+      contract.resolveServiceDemoPage([
+        'demo',
+        'prestations',
+        'dossier',
+        dossier.id,
+        'corriger'
+      ]),
+      {
+        data: contract.SERVICE_DEMO_EDITOR_DATA,
+        params: { id: dossier.id, tab: 'texte' }
+      },
+      'the editor shortcut keeps the same default tab'
+    );
+  }
+  for (const destination of [
+    ['demo', 'prestations-extra'],
+    ['demo', 'prestations', 'dossier', 'unknown', 'contenu'],
+    ['demo', 'prestations', 'dossier', 'atelier-boreal', 'unknown'],
+    ['demo', 'prestations', 'dossier', 'atelier-boreal', 'contenu', 'extra'],
+    ['demo', 'prestations', 'dossier', 'atelier-boreal', 'corriger', 'unknown']
+  ])
+    assert.deepEqual(contract.resolveServiceDemoPage(destination), {
+      data: contract.SERVICE_DEMO_MISSING_DATA,
+      params: {}
+    });
+});
+
+test('each embedded instance owns its drafts and navigation without exposing private state', () => {
+  const source = ts.createSourceFile(
+    'service-delivery-embedded.component.ts',
+    read(directory + 'service-delivery-embedded.component.ts'),
+    ts.ScriptTarget.Latest,
+    true
+  );
+  const scopes = [];
+  const visit = (node) => {
+    if (ts.isObjectLiteralExpression(node)) {
+      const providers = property(node, 'providers');
+      if (providers && ts.isArrayLiteralExpression(providers))
+        scopes.push(providers);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.equal(scopes.length, 1);
+  const providers = scopes[0].elements;
+  for (const name of ['ServiceDemoState', 'ServiceDemoNavigation'])
+    assert.equal(
+      providers.filter(
+        (provider) => ts.isIdentifier(provider) && provider.text === name
+      ).length,
+      1,
+      name + ' is scoped per embedded instance'
+    );
+  const embedded = providers.find(
+    (provider) =>
+      ts.isObjectLiteralExpression(provider) &&
+      property(provider, 'provide')?.getText(source) === 'SERVICE_DEMO_EMBEDDED'
+  );
+  assert.ok(embedded, 'the embedding mode is explicit on the public host');
+  assert.equal(property(embedded, 'useValue').kind, ts.SyntaxKind.TrueKeyword);
+  const entryPoint = read(directory + 'index.ts');
+  assert.doesNotMatch(
+    entryPoint,
+    /\b(?:ServiceDemoState|ServiceDemoNavigation)\b/
   );
 });

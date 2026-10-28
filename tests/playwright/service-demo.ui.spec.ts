@@ -53,6 +53,112 @@ async function openLocalProof(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
+test('conserve le retour administratif dans les actions, onglets et filtres de la démo', async ({
+  page
+}) => {
+  const returnTo = '/admin/fundraiser/publications/drafts';
+  const browserDialogs: string[] = [];
+  page.on('dialog', async (dialog) => {
+    browserDialogs.push(dialog.type());
+    await dialog.dismiss();
+  });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${base}?returnTo=${encodeURIComponent(returnTo)}`);
+  const exit = page.locator('[data-og7="service-demo-exit"]');
+  await expect(exit).toHaveAttribute('href', returnTo);
+  await expect(exit).toHaveAccessibleName('Retour à l’administration');
+  await page
+    .getByRole('link', { name: 'Vérifier le contenu', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-contenu"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page
+    .getByRole('link', { name: 'Corriger le contenu', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-editor"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  expect(new URL(page.url()).searchParams.get('retour')).toBe('contenu');
+  for (const tab of ['image', 'liens', 'texte']) {
+    await page
+      .locator(`[data-og7="service-demo-editor-tab"][data-og7-id="${tab}"]`)
+      .click();
+    await expect(
+      page.locator(`[data-og7="service-demo-editor-tab"][data-og7-id="${tab}"]`)
+    ).toHaveAttribute('aria-current', 'page');
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+    expect(new URL(page.url()).searchParams.get('retour')).toBe('contenu');
+  }
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: /OpenG7/ })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.locator('[data-og7="service-demo-search"]').fill('rivages');
+  const authorization = page.locator(
+    '[data-og7="service-demo-filter"][data-og7-id="autorisation"]'
+  );
+  await authorization.click();
+  await expect(authorization).toHaveAttribute('aria-current', 'page');
+  await expect(
+    page.locator('[data-og7="service-demo-open-dossier"]')
+  ).toHaveCount(1);
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.reload();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+  await expect(page.locator('[data-og7="service-demo-search"]')).toHaveValue(
+    'rivages'
+  );
+  await expect(authorization).toHaveAttribute('aria-current', 'page');
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await expect(exit).toHaveAttribute('href', returnTo);
+  await expect(exit).toHaveAccessibleName('Retour à l’administration');
+  await page.locator('[data-og7="service-demo-language"]').click();
+  await expect(exit).toHaveAccessibleName('Back to administration');
+  await expect(exit).toHaveAttribute('href', returnTo);
+  expect(browserDialogs).toEqual([]);
+});
+
+test('ignore les destinations de retour externes, ambiguës ou contenant des paramètres', async ({
+  page
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  for (const returnTo of [
+    'https://example.test/admin/fundraiser',
+    '//example.test/admin/fundraiser',
+    '/admin/fundraiser-evil',
+    '/admin/fundraiser/../publications',
+    '/admin/fundraiser/%2e%2e/publications',
+    '%2Fadmin%2Ffundraiser%2Fpublications',
+    '/admin/fundraiser/publications?draft=synthetic',
+    '/admin/fundraiser/publications#synthetic'
+  ]) {
+    await test.step(returnTo, async () => {
+      await page.goto(`${base}?returnTo=${encodeURIComponent(returnTo)}`);
+      await expect(
+        page.locator('[data-og7="service-demo-list"]')
+      ).toBeVisible();
+      const exit = page.locator('[data-og7="service-demo-exit"]');
+      await expect(exit).toHaveAttribute('href', '/admin/fundraiser');
+      await expect(exit).toHaveAccessibleName('Quitter');
+      expect(
+        await page
+          .locator('[data-og7="service-demo"] a[href]')
+          .evaluateAll((links) =>
+            links
+              .map((link) => (link as HTMLAnchorElement).href)
+              .filter((href) => new URL(href).origin !== location.origin)
+          )
+      ).toEqual([]);
+    });
+  }
+});
+
 test('explore un dossier et conserve le brouillon entre les onglets', async ({
   page
 }) => {
@@ -159,7 +265,11 @@ test('représente la recherche et les filtres dans l’URL et affiche le vide', 
     page.locator('[data-og7="service-demo-open-dossier"]')
   ).toHaveCount(1);
   await page.locator('[data-og7="service-demo-open-dossier"]').click();
-  await expect(page).toHaveURL(/dossier\/collectif-rivages$/);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === `${base}/dossier/collectif-rivages` &&
+      url.searchParams.get('etat') === 'autorisation'
+  );
   await page.goBack();
   await expect(page).toHaveURL(/etat=autorisation/);
   await expect(
@@ -347,6 +457,7 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
   page
 }) => {
   test.setTimeout(60000);
+  const returnTo = '/admin/fundraiser/publications/drafts';
   const errors: string[] = [];
   const apiRequests: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -390,7 +501,9 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
     'confirmer-autorisation'
   ];
   for (const destination of destinations) {
-    const response = await page.goto(`${dossier}/${destination}`);
+    const response = await page.goto(
+      `${dossier}/${destination}?returnTo=${encodeURIComponent(returnTo)}`
+    );
     expect(response?.status(), destination).toBe(200);
     await expect(
       page.locator(
@@ -400,6 +513,21 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
     await expect(page.locator('[data-og7="service-demo"]')).not.toContainText(
       /serviceDemo(?:Editor|Detail|History)?\./
     );
+    const brokenReturns = await page
+      .locator('[data-og7="service-demo"] a[href]')
+      .evaluateAll(
+        (links, expected) =>
+          links
+            .map((link) => new URL((link as HTMLAnchorElement).href))
+            .filter(
+              (url) =>
+                url.pathname.startsWith('/demo/prestations') &&
+                url.searchParams.get('returnTo') !== expected
+            )
+            .map((url) => url.pathname),
+        returnTo
+      );
+    expect(brokenReturns, destination).toEqual([]);
   }
   expect(errors).toEqual([]);
   expect(apiRequests).toEqual([]);
@@ -493,7 +621,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
   await page
     .locator('[data-og7="service-demo-step"][data-og7-id="publication"]')
     .click();
-  await page.locator(`a[href="${dossier}/planifier"]`).first().click();
+  await page.getByRole('link', { name: /Horaire envisagé/ }).click();
   await page.getByLabel('Date et heure locales').fill('2026-11-06T09:15');
   await page.getByLabel('Fuseau horaire').selectOption('Europe/Paris');
   await page
@@ -561,7 +689,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
   await page
     .locator('[data-og7="service-demo-step"][data-og7-id="publication"]')
     .click();
-  await page.locator(`a[href="${dossier}/planifier"]`).first().click();
+  await page.getByRole('link', { name: /Horaire envisagé/ }).click();
   await expect(page.getByLabel('Date et heure locales')).toHaveValue(
     '2026-11-06T09:15'
   );

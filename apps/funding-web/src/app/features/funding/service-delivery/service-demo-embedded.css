@@ -1,0 +1,324 @@
+/* The guide owns the viewport; the feature owns one inner scrollport. */
+.service-delivery-embedded {
+  container: service-delivery / inline-size;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+.service-delivery-embedded:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+
+.service-delivery-embedded[hidden] {
+  display: none;
+}
+
+.service-delivery-embedded > openg7-service-demo-shell {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.service-delivery-embedded .service-demo.embedded {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 1rem;
+
+  .workspace-bar {
+    min-height: 54px;
+    padding: 8px 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .workspace-brand {
+    font-size: 17px;
+  }
+
+  .workspace-brand small {
+    display: none;
+  }
+
+  .workspace-tools {
+    gap: 6px;
+  }
+
+  .demo-notice {
+    margin: 0;
+    padding: 8px 20px;
+    text-align: start;
+  }
+
+  .demo-window {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .window-heading {
+    padding: 20px;
+    gap: 14px;
+  }
+
+  h1 {
+    font-size: clamp(22px, 2.7cqi, 30px);
+  }
+
+  .heading-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .heading-icon openg7-admin-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .more-menu {
+    width: min(270px, calc(100cqi - 32px));
+  }
+
+  .stepper {
+    margin: 0 20px 4px;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .step-number {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .demo-body {
+    padding: 20px;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .window-footer {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  openg7-service-demo-help {
+    margin-inline: 20px;
+  }
+
+  .footer-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+}
+
+@container service-delivery (max-width: 56rem) {
+  .service-delivery-embedded .service-demo.embedded {
+    .demo-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .heading-meta {
+      display: block;
+    }
+
+    .stepper a {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .stepper a::after {
+      display: none;
+    }
+
+    .list-toolbar {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .dossier-row {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .dossier-information {
+      display: block;
+      flex-basis: calc(100% - 60px);
+    }
+
+    .mini-services {
+      display: flex;
+    }
+
+    .next-action {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .next-action .button {
+      min-width: 0;
+    }
+
+    .post img {
+      height: auto;
+      max-height: 280px;
+    }
+
+    .help-body ul {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
+
+@container service-delivery (max-width: 38rem) {
+  .service-delivery-embedded .service-demo.embedded {
+    font-size: 14px;
+
+    .workspace-bar,
+    .demo-notice,
+    .window-heading,
+    .demo-body,
+    .window-footer {
+      padding-inline: 12px;
+    }
+
+    .workspace-tools .button {
+      padding-inline: 8px;
+    }
+
+    .demo-tag,
+    .heading-icon,
+    .heading-menu .button > span,
+    .stepper small,
+    .list-section-heading > span {
+      display: none;
+    }
+
+    .window-heading {
+      padding-block: 16px;
+      gap: 8px;
+    }
+
+    .heading-copy p {
+      font-size: 13px;
+    }
+
+    .stepper {
+      margin-inline: 12px;
+      padding-inline: 6px;
+      gap: 6px;
+    }
+
+    .stepper strong {
+      font-size: 12px;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+    }
+
+    .panel {
+      padding: 14px;
+    }
+
+    .metrics article {
+      grid-template-columns: 18px minmax(0, 1fr);
+      column-gap: 6px;
+      padding: 12px 8px;
+    }
+
+    .metric-icon {
+      grid-row: 1 / 3;
+      width: 18px;
+      height: 18px;
+    }
+
+    .metrics strong {
+      grid-column: 2;
+      display: block;
+      margin-top: 5px;
+      font-size: 24px;
+      white-space: normal;
+    }
+
+    .metrics article > span,
+    .metrics small {
+      font-size: 11px;
+    }
+
+    .list-result-summary {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    dl {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 4px;
+    }
+
+    dd:not(:last-child) {
+      margin-bottom: 8px;
+    }
+
+    .detail-actions,
+    .footer-actions,
+    .action-group {
+      width: 100%;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+
+    .detail-actions > .button,
+    .footer-actions > .button,
+    .action-group > .button {
+      flex: 1 1 100%;
+      min-width: 0;
+      width: 100%;
+      white-space: normal;
+    }
+
+    .help-topic {
+      display: none;
+    }
+
+    .help-body {
+      padding: 2px 14px 14px;
+    }
+
+    openg7-service-demo-help {
+      margin-inline: 12px;
+    }
+  }
+}
+
+@container service-delivery (max-width: 26rem) {
+  .service-delivery-embedded .service-demo.embedded .metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .service-delivery-embedded .service-demo.embedded .metrics article + article {
+    border-inline-start: 0;
+    border-top: 1px solid #e3ebf5;
+  }
+}

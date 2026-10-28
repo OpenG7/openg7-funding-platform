@@ -14,6 +14,7 @@ import type {
 import { defaultControllerProfile } from '../../apps/funding-web/src/app/features/funding/components/admin-pilotage/controller-input.js';
 
 import { expect, sampledFrames, test } from './support/test.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
   installAdminController
@@ -321,11 +322,7 @@ async function fixture(page: Page, language = 'fr-CA') {
 
 async function open(page: Page, expectedReceipt = true) {
   await page.goto('/admin/fundraiser/attention');
-  const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
-  await expect(toggle).toBeVisible();
-  if (!(await page.locator('[data-og7="admin-guidance-panel"]').isVisible()))
-    await toggle.click();
-  await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  await restoreLegacyGuideMode(page, 'automatic');
   await expect(preparationView(page, 'records')).toHaveAttribute(
     'aria-pressed',
     'true'
@@ -1104,6 +1101,10 @@ test('Xbox navigation changes preparation views and explicitly rejoins a paused 
   await open(page);
   const controller = adminController(page);
   await controller.ready();
+  await controller.press('Y');
+  await expect(
+    page.locator('[data-og7="admin-guidance-toggle"]')
+  ).toBeFocused();
   await controller.activate(hook(page, 'previous'));
   await expectPosition(page, 2);
   await expect(hook(page, 'previous')).toBeFocused();

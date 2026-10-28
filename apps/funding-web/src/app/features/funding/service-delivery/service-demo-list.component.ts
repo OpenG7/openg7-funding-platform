@@ -5,14 +5,14 @@ import {
   effect,
   inject
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
 
 import en from './i18n/service-demo-list.en.json' with { type: 'json' };
 import fr from './i18n/service-demo-list.fr-CA.json' with { type: 'json' };
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
+import { ServiceDemoNavigation } from './service-demo-navigation.js';
 import { DEMO_DOSSIERS, ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
 import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
@@ -43,11 +43,8 @@ function normalizeSearchTerm(value: string): string {
 })
 export class ServiceDemoListComponent {
   readonly state = inject(ServiceDemoState);
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly params = toSignal(this.route.queryParamMap, {
-    initialValue: this.route.snapshot.queryParamMap
-  });
+  private readonly navigation = inject(ServiceDemoNavigation);
+  private readonly params = this.navigation.query;
   readonly query = computed(() => this.params().get('q') ?? '');
   readonly selectedFilter = computed(() => {
     const candidate = this.params().get('etat');
@@ -91,24 +88,21 @@ export class ServiceDemoListComponent {
   }
 
   clearFilter(): void {
-    void this.router.navigate([], {
-      relativeTo: this.route,
+    void this.navigation.navigate([], {
       queryParams: { etat: null },
       queryParamsHandling: 'merge'
     });
   }
 
   resetFilters(): void {
-    void this.router.navigate([], {
-      relativeTo: this.route,
+    void this.navigation.navigate([], {
       queryParams: { q: null, etat: null },
       queryParamsHandling: 'merge'
     });
   }
 
   search(value: string): void {
-    void this.router.navigate([], {
-      relativeTo: this.route,
+    void this.navigation.navigate([], {
       queryParams: { q: value || null },
       queryParamsHandling: 'merge',
       replaceUrl: true

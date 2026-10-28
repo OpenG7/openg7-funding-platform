@@ -16,6 +16,7 @@ import {
 } from '../../packages/funding-core/src/index.js';
 
 import { expect, sampledFrames, test } from './support/test.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
   installAdminController
@@ -423,11 +424,7 @@ async function guideFixtures(
 
 async function openGuide(page: Page) {
   await page.goto('/admin/fundraiser/attention');
-  const toggle = hook(page, 'admin-guidance-toggle');
-  await expect(toggle).toBeVisible();
-  if (!(await hook(page, 'admin-guidance-panel').isVisible()))
-    await toggle.click();
-  await hook(page, 'admin-guidance-automatic-mode').click();
+  await restoreLegacyGuideMode(page, 'automatic');
   await expect(hook(page, 'preparation-receipts-carousel')).toBeVisible();
 }
 
