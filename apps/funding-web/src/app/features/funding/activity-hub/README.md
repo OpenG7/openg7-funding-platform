@@ -28,6 +28,10 @@ L’input public `active` ferme les détails ouverts quand cet espace devient
 invisible. Le chargement initial conserve le focus sur le contrôle Découvrir.
 Les panneaux modaux conservent la priorité du composant partagé de dialogue.
 
+À l’ouverture, les sept choix de navigation apparaissent en cascade de gauche à
+droite, sur moins de 600 ms. La préférence de réduction des mouvements désactive
+cette animation ; un choix atteint au clavier reste immédiatement visible.
+
 L’output public `serviceDeliveryRequested` demande l’onglet **Prestations** :
 `null` retrouve son contexte courant ; un identifiant synthétique demande ce
 dossier via `ServiceDeliveryEmbeddedComponent.openDossier()`. L’hôte attend le

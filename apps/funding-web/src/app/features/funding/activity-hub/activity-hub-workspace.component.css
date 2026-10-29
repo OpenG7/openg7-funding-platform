@@ -1133,6 +1133,30 @@ progress::-moz-progress-bar {
   height: 16px;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .embedded-section-nav.is-active > button {
+    animation: activity-hub-nav-enter 300ms cubic-bezier(0.22, 1, 0.36, 1)
+      calc(var(--hub-nav-index, 0) * 45ms) both;
+  }
+
+  .embedded-section-nav > button:focus-visible {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  @keyframes activity-hub-nav-enter {
+    from {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
 @container activity-hub-workspace (max-width: 1000px) {
   .embedded .hero-motto {
     display: none;

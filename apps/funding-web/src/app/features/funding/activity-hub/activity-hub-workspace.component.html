@@ -155,6 +155,7 @@
         @if (embedded()) {
           <nav
             class="embedded-section-nav"
+            [class.is-active]="active()"
             [attr.aria-label]="'activityHub.navigation' | translate"
           >
             @for (item of sections; track item.id) {
@@ -162,6 +163,7 @@
                 type="button"
                 data-og7="activity-hub-section"
                 [attr.data-og7-id]="item.id"
+                [style.--hub-nav-index]="$index"
                 [attr.aria-current]="section() === item.id ? 'page' : null"
                 (click)="selectSection(item.id)"
               >
