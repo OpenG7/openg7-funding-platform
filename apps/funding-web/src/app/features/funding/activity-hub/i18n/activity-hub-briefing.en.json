@@ -1,0 +1,36 @@
+{
+  "activityHubBriefing": {
+    "eyebrow": "Your starting point",
+    "title": "My briefing",
+    "subtitle": "Find recent reading, pick up your saved items and keep useful reference material close at hand.",
+    "visitLabel": "Simulated last visit",
+    "visits": {
+      "previousDay": "October 26, 2026",
+      "morning": "October 27, 2026",
+      "current": "October 28, 2026"
+    },
+    "dayComparison": "This visit is simulated. Content has a calendar date: the selection compares days without inferring a publication time.",
+    "read": "Read",
+    "total": "Available",
+    "remaining": "To read",
+    "newTitle": "Since your simulated visit",
+    "newCopy": "The three most recent unread items dated after the selected day.",
+    "newCount": "{{count}} unread items since this date",
+    "emptyNew": "No unread content is dated after this day. Choose an earlier date or explore the feed.",
+    "browseAll": "Explore the full feed",
+    "savedTitle": "Pick up your reading",
+    "savedCopy": "Up to two unread items saved during this visit.",
+    "savedCount": "{{count}} saved items remain unread",
+    "emptySaved": "Your selection starts in the feed: save something to read and find it here.",
+    "allSavedRead": "All your available saved items have been opened. Find them in your selection.",
+    "browseSaved": "View my saved items",
+    "guidesTitle": "Your reference guides",
+    "guidesCopy": "Four signposts to understand a dossier and prepare the next step.",
+    "guideRead": "Already opened",
+    "guideUnread": "To discover",
+    "emptyGuides": "No guide is available in this selection.",
+    "minutes": "{{count}} min read",
+    "snapshot": "Fixed demonstration date: October 28, 2026.",
+    "localNotice": "The simulated date, reading and saved items belong to this visit. Opening content marks it as read; no sign-in tracking or real history is used."
+  }
+}

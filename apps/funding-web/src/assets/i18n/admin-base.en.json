@@ -1762,6 +1762,7 @@
       "discoveryMode": "Discover",
       "serviceDeliveryMode": "Service delivery",
       "serviceDeliveryUnavailable": "Service delivery could not be loaded. Retry without leaving your section.",
+      "discoveryUnavailable": "Discover content could not be loaded.",
       "paymentMode": "Follow a payment",
       "automaticMode": "Dossier preparation",
       "workflowsMode": "Explore the journeys",

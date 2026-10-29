@@ -1,0 +1,259 @@
+<div class="dashboard" data-og7="activity-hub-dashboard">
+  <div class="briefing-grid">
+    <section
+      class="panel journal-panel"
+      data-og7="activity-hub-diary"
+      aria-labelledby="daily-journal-title"
+      [attr.aria-busy]="scenario() === 'loading'"
+    >
+      <header class="panel-heading">
+        <span class="panel-icon gold"
+          ><openg7-admin-icon name="publications"
+        /></span>
+        <div>
+          <h2 id="daily-journal-title">
+            {{ 'activityHub.guide.journalTitle' | translate }}
+          </h2>
+          <p>{{ 'activityHub.guide.journalSubtitle' | translate }}</p>
+        </div>
+        <button
+          class="outline-button all-activity"
+          type="button"
+          (click)="sectionRequested.emit('journal')"
+        >
+          {{ 'activityHub.guide.allActivity' | translate
+          }}<openg7-admin-icon name="arrow" />
+        </button>
+      </header>
+      @if (scenario() !== 'normal') {
+        <p
+          class="source-status"
+          [class.source-warning]="
+            scenario() === 'unavailable' || scenario() === 'partial'
+          "
+          role="status"
+          data-og7="activity-hub-diary-status"
+        >
+          {{ 'activityHubExperience.status.' + scenario() | translate }}
+        </p>
+      }
+      @if (scenario() === 'loading') {
+        <div class="diary-skeleton" aria-hidden="true">
+          @for (row of [1, 2, 3, 4]; track row) {
+            <span></span>
+          }
+        </div>
+      } @else if (diary().length) {
+        <ol class="daily-timeline">
+          @for (event of diary(); track event.id) {
+            <li [attr.data-tone]="activityTone(event.kind)">
+              <time [attr.datetime]="event.occurredAt">{{
+                timeLabel(event)
+              }}</time>
+              <span [class]="'round-icon ' + activityTone(event.kind)"
+                ><openg7-admin-icon [name]="activityIcon(event.kind)"
+              /></span>
+              <button
+                class="diary-open"
+                type="button"
+                data-og7="activity-hub-diary-open"
+                [attr.data-og7-id]="event.id"
+                (click)="activityOpened.emit(event)"
+              >
+                <span class="event-title">{{
+                  event.titleKey | translate
+                }}</span>
+                <span class="event-origin"
+                  ><openg7-admin-icon
+                    [name]="event.origin === 'human' ? 'sponsors' : 'settings'"
+                  /><span class="sr-only"
+                    >{{ 'activityHubExperience.origin' | translate }} : </span
+                  >{{ 'activityHubJournal.origins.' + event.origin | translate
+                  }}<span aria-hidden="true"> · </span
+                  ><span class="sr-only"
+                    >{{ 'activityHubExperience.actor' | translate }} : </span
+                  >{{ event.actorKey | translate }}</span
+                >
+              </button>
+            </li>
+          }
+        </ol>
+      } @else if (scenario() !== 'unavailable') {
+        <p class="diary-empty" data-og7="activity-hub-diary-empty">
+          {{ 'activityHubExperience.emptyDiary' | translate }}
+        </p>
+      }
+    </section>
+
+    <section
+      class="panel takeaway-panel"
+      data-og7="activity-hub-takeaways"
+      aria-labelledby="takeaway-title"
+    >
+      <header class="panel-heading">
+        <span class="bookmark-icon" aria-hidden="true">▰</span>
+        <div>
+          <h2 id="takeaway-title">
+            {{ 'activityHub.guide.takeawaysTitle' | translate }}
+          </h2>
+          <p>{{ 'activityHub.guide.takeawaysSubtitle' | translate }}</p>
+        </div>
+      </header>
+      <div class="takeaway-list">
+        @for (takeaway of takeaways; track takeaway.id) {
+          <button
+            class="takeaway"
+            data-og7="activity-hub-takeaway"
+            type="button"
+            (click)="opened.emit(guides[takeaway.guide])"
+          >
+            <span [class]="'round-icon ' + takeaway.tone"
+              ><openg7-admin-icon [name]="takeaway.icon" /></span
+            ><span class="takeaway-copy"
+              ><strong>{{
+                'activityHub.guide.takeaways.' + takeaway.id + '.title'
+                  | translate
+              }}</strong
+              ><small>{{
+                'activityHub.guide.takeaways.' + takeaway.id + '.copy'
+                  | translate
+              }}</small></span
+            ><span class="chevron" aria-hidden="true">›</span>
+          </button>
+        }
+      </div>
+    </section>
+
+    <section
+      class="quote-panel"
+      data-og7="activity-hub-quote"
+      aria-labelledby="daily-quote-title"
+    >
+      <h2 id="daily-quote-title">
+        <span aria-hidden="true">“</span
+        >{{ 'activityHub.guide.quoteTitle' | translate }}
+      </h2>
+      <blockquote>
+        «&nbsp;{{ 'activityHub.guide.quote' | translate }}&nbsp;»
+      </blockquote>
+      <span class="gold-rule" aria-hidden="true"
+        ><openg7-admin-icon name="assistant"
+      /></span>
+      <p>«&nbsp;{{ 'activityHub.guide.quoteFoot' | translate }}&nbsp;»</p>
+    </section>
+  </div>
+
+  <div class="resource-grid">
+    <section
+      class="panel guides-panel"
+      data-og7="activity-hub-resource-guides"
+      aria-labelledby="guides-title"
+    >
+      <header class="panel-heading">
+        <span class="panel-icon gold"
+          ><openg7-admin-icon name="publications"
+        /></span>
+        <div>
+          <h2 id="guides-title">
+            {{ 'activityHub.guide.resourcesTitle' | translate }}
+          </h2>
+          <p>{{ 'activityHub.guide.resourcesSubtitle' | translate }}</p>
+        </div>
+        <button
+          class="outline-button"
+          type="button"
+          (click)="sectionRequested.emit('resources')"
+        >
+          {{ 'activityHub.guide.allResources' | translate
+          }}<openg7-admin-icon name="arrow" />
+        </button>
+      </header>
+      <div class="guide-cards">
+        @for (guide of guides; track guide.id; let index = $index) {
+          <article
+            class="guide-card"
+            data-og7="activity-hub-guide"
+            [attr.data-og7-id]="guide.id"
+          >
+            <div
+              class="guide-image"
+              [attr.data-illustration]="index"
+              role="presentation"
+            >
+              <span class="reading-time"
+                ><openg7-admin-icon name="clock" />{{ guide.minutes }}
+                {{ 'activityHub.guide.minutes' | translate }}</span
+              >
+            </div>
+            <h3>
+              <button type="button" (click)="opened.emit(guide)">
+                {{ guide.titleKey | translate }}
+              </button>
+            </h3>
+            <p>{{ guide.summaryKey | translate }}</p>
+            <button
+              class="read-guide"
+              type="button"
+              (click)="opened.emit(guide)"
+              [attr.aria-label]="
+                ('activityHub.guide.readGuide' | translate) +
+                ' : ' +
+                (guide.titleKey | translate)
+              "
+            >
+              {{ 'activityHub.guide.readGuide' | translate
+              }}<openg7-admin-icon name="arrow" />
+            </button>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section
+      class="panel week-panel"
+      data-og7="activity-hub-summary"
+      aria-labelledby="week-title"
+    >
+      <header class="panel-heading">
+        <span class="panel-icon gold"
+          ><openg7-admin-icon name="expenses"
+        /></span>
+        <div>
+          <h2 id="week-title">
+            {{ 'activityHub.guide.weekTitle' | translate }}
+          </h2>
+          <p>{{ 'activityHub.guide.weekSubtitle' | translate }}</p>
+        </div>
+      </header>
+      <div class="week-metrics">
+        @for (metric of metricCards(); track metric.kind) {
+          <button
+            type="button"
+            data-og7="activity-hub-metric"
+            [attr.data-og7-id]="metric.kind"
+            [disabled]="metric.value === null"
+            [class.is-unavailable]="metric.value === null"
+            (click)="openMetric(metric)"
+          >
+            <span [class]="'round-icon ' + metric.tone"
+              ><openg7-admin-icon [name]="metric.icon" /></span
+            ><strong>{{
+              metric.value === null
+                ? ((scenario() === 'loading'
+                    ? 'activityHubExperience.loading'
+                    : 'activityHubExperience.unavailable'
+                  ) | translate)
+                : metric.value
+            }}</strong
+            ><span class="metric-label">{{
+              'activityHub.guide.metrics.' + metric.kind | translate
+            }}</span>
+            @if (metric.value !== null) {
+              <span class="chevron" aria-hidden="true">›</span>
+            }
+          </button>
+        }
+      </div>
+    </section>
+  </div>
+</div>

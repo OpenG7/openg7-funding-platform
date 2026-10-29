@@ -25,7 +25,9 @@ avec une autre instance.
 
 Le menu du Guide administratif propose **Prestations** juste après **Découvrir**.
 Ce bouton charge le composant public dans la zone à droite du menu, au sein du
-guide. La rubrique administrative, son URL et ses paramètres restent en place.
+guide. **Découvrir** accueille le module d’actualités et peut aussi demander
+l’ouverture de cet espace ou d’un dossier synthétique précis. La rubrique
+administrative, son URL, ses paramètres et son fragment restent en place.
 La disposition s'adapte à la largeur disponible sur mobile.
 
 La navigation entre liste, dossier, éditeur et détails est conservée en mémoire
@@ -41,6 +43,19 @@ départ réel de la rubrique ; `cancelLeave()` annule une décision devenue cadu
 L'événement `closeRequested` permet de revenir au guide sans naviguer.
 Annuler un départ conserve les brouillons. Un rechargement ou une fermeture du
 navigateur reste soumis à la protection native des saisies locales.
+
+Le contrat public `openDossier(id: string): boolean` accepte uniquement un
+identifiant de `DEMO_DOSSIERS`. Il change la navigation locale de cette instance,
+conserve les brouillons séparés par dossier et retourne `false` pour une cible
+inconnue. L’hôte peut attendre le chargement différé avant de transmettre la
+demande issue de Découvrir. Aucun accès aux composants ou services internes de
+la feature n’est nécessaire. Ouvrir volontairement une ancre dans un autre onglet
+conserve l’URL publique de la démo autonome.
+
+Une déconnexion ou un changement de session détruit l’instance embarquée et
+invalide les chargements encore en cours. Les essais de chargement et leur source
+de réessai sont aussi réinitialisés ; aucun brouillon d’une ancienne instance
+n’est transmis à une autre identité.
 
 Le retrait des sélecteurs de suivi d'un paiement, de préparation et d'exploration
 des parcours concerne le rail du guide. Leurs rendus contextuels, les préférences

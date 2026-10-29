@@ -169,6 +169,7 @@ export class FundingI18nService {
     // across navigation/reloads; public URLs retain their canonical locale.
     if (
       (normalizedPath.startsWith('/admin/') ||
+        normalizedPath === '/demo/actualites' ||
         normalizedPath === '/demo/prestations' ||
         normalizedPath.startsWith('/demo/prestations/')) &&
       isPlatformBrowser(this.platformId)

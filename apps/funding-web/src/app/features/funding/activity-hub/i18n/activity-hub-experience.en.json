@@ -1,0 +1,40 @@
+{
+  "activityHubExperience": {
+    "briefingTitle": "My briefing",
+    "journalTitle": "Activity journal",
+    "activityTitle": "Activity details",
+    "activityIntro": "Fictional example · No real change",
+    "occurredAt": "Date and time",
+    "origin": "Origin",
+    "actor": "Actor",
+    "entity": "Related item",
+    "reference": "Event reference",
+    "dossier": "Open the demonstration dossier",
+    "guide": "Understand this activity",
+    "backActivity": "Back to the activity",
+    "statesLabel": "Demonstration scenarios",
+    "scenarioLabel": "Operational data state",
+    "scenarios": {
+      "normal": "Data available",
+      "empty": "Empty snapshot",
+      "loading": "Simulated loading",
+      "partial": "Partial data",
+      "unavailable": "Source unavailable"
+    },
+    "status": {
+      "normal": "Simulation: activities and metrics for this fictional snapshot are available.",
+      "empty": "Simulation: this snapshot contains no activity. Available metrics are zero.",
+      "loading": "Simulation: activities and metrics are loading. No value is confirmed yet.",
+      "partial": "Simulation: only some data is available. Metrics without a source remain unavailable.",
+      "unavailable": "Simulation: the operational source is unavailable. Activities and metrics cannot be determined."
+    },
+    "retry": "Retry the simulation",
+    "finishLoading": "Finish simulated loading",
+    "lastRefresh": "Latest snapshot",
+    "unavailable": "Unavailable",
+    "loading": "Simulated loading",
+    "emptyDiary": "No activity in this snapshot",
+    "journalDescription": "Fictional platform activities and human interventions, with their context.",
+    "defaultDate": "October 28, 2026"
+  }
+}

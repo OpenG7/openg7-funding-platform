@@ -11,7 +11,7 @@ import {
   SERVICE_DEMO_EMBEDDED,
   ServiceDemoNavigation
 } from './service-demo-navigation.js';
-import { ServiceDemoState } from './service-demo-state.js';
+import { DEMO_DOSSIERS, ServiceDemoState } from './service-demo-state.js';
 
 /** Public, browser-local workspace; its navigation never changes the host router. */
 @Component({
@@ -34,6 +34,7 @@ import { ServiceDemoState } from './service-demo-state.js';
 export class ServiceDeliveryEmbeddedComponent {
   readonly closeRequested = output<void>();
   readonly hasLocalWork = inject(ServiceDemoState).hasLocalWork;
+  private readonly navigation = inject(ServiceDemoNavigation);
   private readonly shell = viewChild(ServiceDemoShellComponent);
 
   canLeave(): boolean | Promise<boolean> {
@@ -42,5 +43,12 @@ export class ServiceDeliveryEmbeddedComponent {
 
   cancelLeave(): void {
     this.shell()?.answerExit(false);
+  }
+
+  /** Accept only a known synthetic file and keep the host router untouched. */
+  openDossier(id: string): boolean {
+    if (!DEMO_DOSSIERS.some((dossier) => dossier.id === id)) return false;
+    void this.navigation.navigate(['/demo/prestations/dossier', id]);
+    return true;
   }
 }

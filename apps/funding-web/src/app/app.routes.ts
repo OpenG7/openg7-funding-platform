@@ -118,6 +118,13 @@ const englishPublicRoutes: Routes = publicRoutes.map((route) => ({
 
 export const appRoutes: Routes = [
   {
+    path: 'demo/actualites',
+    loadComponent: () =>
+      import('./features/funding/activity-hub/index.js').then(
+        (m) => m.ActivityHubPageComponent
+      )
+  },
+  {
     path: 'demo/prestations',
     loadChildren: () =>
       import('./features/funding/service-delivery/index.js').then(

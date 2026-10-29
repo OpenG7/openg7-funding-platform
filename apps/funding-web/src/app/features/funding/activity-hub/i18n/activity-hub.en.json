@@ -1,0 +1,239 @@
+{
+  "activityHub": {
+    "title": "News and inspiration",
+    "subtitle": "Keep up with OpenG7, discover fresh ideas and find resources for your day-to-day work.",
+    "workspace": "Administration workspace",
+    "hubName": "The OpenG7 Feed",
+    "hubHint": "Observe. Discover. Get inspired.",
+    "eyebrow": "A reading space for administrators",
+    "demo": "DEMO",
+    "demoNotice": "Demonstration · Fictional content and preferences kept only for this visit.",
+    "skip": "Skip to content",
+    "language": "Change language",
+    "backAdmin": "Administration",
+    "navigation": "OpenG7 Feed sections",
+    "sections": {
+      "overview": "Overview",
+      "journal": "Live journal",
+      "inspirations": "Inspiration",
+      "news": "What’s new",
+      "resources": "Resources",
+      "saved": "My saved items"
+    },
+    "descriptions": {
+      "journal": "Conversations, lessons and moments from community life, day by day.",
+      "inspirations": "Ideas to share and possibilities to explore together.",
+      "news": "Previews and proposals to follow the platform’s evolution.",
+      "resources": "Practical reference material to read and keep close at hand.",
+      "saved": "Your personal selection for finding an idea or continuing a read during this visit."
+    },
+    "sidebarNote": "An idea becomes more useful when it is shared. Keep what speaks to you and return at your own pace.",
+    "otherDemo": "Explore service delivery",
+    "refresh": "Simulate an update",
+    "upToDate": "Demo up to date",
+    "refreshedNotice": "{{count}} new fictional entries have been added to the feed.",
+    "summary": "Activity at a glance",
+    "period": "Week of October 26, 2026 · Demo",
+    "toDiscover": "To discover",
+    "results": "{{count}} items",
+    "searchLabel": "Search content",
+    "searchPlaceholder": "A topic, an idea, a resource…",
+    "themeLabel": "Filter by topic",
+    "allThemes": "All topics",
+    "unreadOnly": "Unread",
+    "filtered": "Filters applied",
+    "reset": "Reset filters",
+    "featured": "Featured",
+    "collective": "Better ideas, together",
+    "read": "Read",
+    "unread": "To read",
+    "readingTime": "{{minutes}} min read",
+    "save": "Save for later",
+    "saved": "Saved",
+    "unsave": "Remove from saved items",
+    "saveEntry": "Save for later: {{title}}",
+    "unsaveEntry": "Remove from saved items: {{title}}",
+    "savedNotice": "Saved: {{title}}",
+    "unsavedNotice": "Removed from saved items: {{title}}",
+    "emptyTitle": "No content matches these filters",
+    "emptyCopy": "Try a different keyword or broaden your filters to return to the feed.",
+    "emptySavedTitle": "Your selection starts here",
+    "emptySavedCopy": "Save a piece of content to find it here during this visit.",
+    "discover": "Discover the feed",
+    "feedFooter": "You have reached the end of this selection.",
+    "digestEyebrow": "This week’s perspective",
+    "digestTitle": "Good ideas find their way",
+    "digestCopy": "In this fictional edition: conversations to listen to, ideas to connect and practical ways to make our tools more accessible.",
+    "openJournal": "Browse the journal",
+    "recentActivity": "From the journal",
+    "yourReading": "Your reading progress",
+    "readingProgress": "{{read}} of {{total}} items opened",
+    "visitOnly": "This indicator belongs to your visit and resets when the page reloads.",
+    "footer": "A space to stay curious and move forward together.",
+    "detail": "Read content",
+    "close": "Close",
+    "detailNote": "Fictional demonstration content. Your reading and saved items stay in memory for this visit.",
+    "guideReading": "Guide reading",
+    "guide": {
+      "title": "OpenG7 Administration Guide",
+      "subtitle": "Find your way, understand and prepare each intervention.",
+      "discover": "Discover",
+      "today": "Today",
+      "date": "Wednesday, October 28, 2026",
+      "minutes": "min",
+      "metrics": {
+        "ready": "dossiers in progress",
+        "media": "media items reviewed",
+        "rules": "rules up to date",
+        "preparation": "preparation ready"
+      },
+      "heroLead": "OpenG7’s living journal: understand, follow and find inspiration.",
+      "heroCopy": "Keep up with recent activity, discover good practices and explore resources to make the most of OpenG7 every day.",
+      "heroMotto": "Understand more today to build tomorrow.",
+      "reduce": "Minimize the guide",
+      "expand": "Open the guide",
+      "dockBottom": "Move to the bottom",
+      "dockTop": "Move back to the top",
+      "explore": "Explore the sections",
+      "services": "Service delivery",
+      "sidebarQuote": "Tools for lasting impact.",
+      "journalTitle": "Today’s journal",
+      "journalSubtitle": "The latest activity on the platform.",
+      "allActivity": "View all activity",
+      "takeawaysTitle": "Today’s takeaways",
+      "takeawaysSubtitle": "Three key points for your interventions.",
+      "quoteTitle": "Quote of the day",
+      "quote": "Technology does not replace judgment. It gives it reach.",
+      "quoteFoot": "Building means making the next step simpler than the last.",
+      "resourcesTitle": "New things to discover",
+      "resourcesSubtitle": "Guides and advice to deepen your knowledge.",
+      "allResources": "View all resources",
+      "readGuide": "Read the guide",
+      "weekTitle": "This week",
+      "weekSubtitle": "Focus on what matters.",
+      "archiveTitle": "Explore the feed",
+      "backDiscover": "Back to Discover",
+      "readingSummary": "Your reading",
+      "inspirations": "Inspiration",
+      "resources": "Resources",
+      "unread": "To discover",
+      "demoShort": "Demonstration · Fictional activity",
+      "tools": "Reading tools",
+      "portraitAlt": "A queen and a white lion before a mountain landscape and a castle.",
+      "takeaways": {
+        "media": {
+          "title": "Media follows the dossier’s permissions",
+          "copy": "Check the applicable permissions before preparing to use a media item."
+        },
+        "context": {
+          "title": "Actions adapt to the context",
+          "copy": "The dossier’s information helps explain the proposed interventions."
+        },
+        "human": {
+          "title": "Human validation is still required",
+          "copy": "Review and verify every preparation before authorizing a real action."
+        }
+      },
+      "diary": {
+        "ready": "2 fictional dossiers are ready for review.",
+        "media": "17 demonstration media items have been examined; 3 still need checking.",
+        "rules": "A permission inheritance rule illustrates how the dossier works.",
+        "preparation": "The demonstration preparation is ready for human review."
+      },
+      "resourceCards": {
+        "exceptions": {
+          "title": "Media review by exception",
+          "copy": "Identify media items that need a closer check.",
+          "body": "Review by exception highlights media items that need closer attention: a source to clarify, a permission to check or content changed since the last review. In this example, visual indicators help distinguish what has been examined from what still needs understanding.\n\nFor each item, check its relationship to the dossier, the scope of consent and the conditions for use. Permission at dossier level does not remove the need to check the eligibility of the specific media item. Every preparation remains subject to human review and explicit authorization before publication."
+        },
+        "context": {
+          "title": "How the Context Controller works",
+          "copy": "Understand how the dossier’s context guides the proposed actions.",
+          "body": "In this illustration, the Context Controller is a visual signpost connecting the current dossier, its stage and the relevant actions. It aims to explain why a suggestion appears and which information is missing before it can be considered. It presents an interface principle without connecting to a real controller.\n\nBefore following a proposed action, review the target, context and dossier status. A suggestion helps with orientation; the responsible person checks permissions, applicable conditions and the expected result, then confirms the intervention in the screen that owns the action."
+        },
+        "human": {
+          "title": "AI prefill and human validation",
+          "copy": "Prepare the information, then retain human review before taking action.",
+          "body": "AI prefill illustrates help with preparation: organizing information, suggesting a draft and highlighting points to check. In this guide, it is a visual principle. No connected model reads a real dossier or makes an administrative decision.\n\nHuman review means comparing the proposal with the dossier’s information, correcting facts and checking permissions. A preparation grants no additional rights. The authorized person remains responsible for the decision and explicitly confirms any sensitive action through the intended workflow."
+        },
+        "services": {
+          "title": "Understanding a dossier’s service delivery",
+          "copy": "Explore the content, consent and publication stages.",
+          "body": "Service delivery can be understood through three distinct stages: preparing content, checking consent and reviewing publication conditions. The dossier brings together the information needed to understand the text, media and intended destination. Each stage addresses a specific question before moving to the next.\n\nIn the illustrative journey, start by reading the content, then examine applicable permissions and anything that still needs checking. A prepared draft remains distinct from approved content. Real publication would require explicit administrative authorization for the content and its destination."
+        }
+      }
+    },
+    "themes": {
+      "community": "Community",
+      "product": "Platform",
+      "practice": "Good practices"
+    },
+    "authors": {
+      "editorial": "Editorial team · Demo",
+      "community": "Community team · Demo",
+      "product": "Platform team · Demo"
+    },
+    "entries": {
+      "sharedWorkshop": {
+        "title": "A shared workshop, ideas in motion",
+        "summary": "What if a short gathering could bring different perspectives together and spark the next useful idea?",
+        "body": "Imagine a workshop bringing together the people who support the community and those who design the tools. Each person arrives with a concrete question, an example and a possibility to explore. This fictional story illustrates one way of sharing lessons within OpenG7.\n\nThe idea is to listen before proposing, keep a short record of ideas and choose a small experiment together. Adapt this inspiration to your context; no real workshop or outcome is being announced here."
+      },
+      "weeklyRoundup": {
+        "title": "A few signposts for the week",
+        "summary": "A selection of topics to revisit, ideas to explore and resources to keep close at hand.",
+        "body": "This fictional edition brings together three perspectives: community conversations, ideas for the platform and practices for everyday work. It helps readers recover the context without browsing every section.\n\nStart with an inspiration, open a useful resource, then return to the updates. This editorial digest represents neither real OpenG7 operations nor an audit log."
+      },
+      "clearerNavigation": {
+        "title": "Clearer navigation to explore",
+        "summary": "A preview of how content could be grouped to make useful reading easier to find.",
+        "body": "This demo update explores one possibility: bringing content into sections with clear roles, while retaining a way to browse by topic. Readers could find the same subject through its format or its context.\n\nThe proposal still needs to be explored with the people who would use this space. It is not an announcement of a release on the real platform."
+      },
+      "keyboardPaths": {
+        "title": "Finding your way with a keyboard",
+        "summary": "A few checks to make sure reading and actions remain accessible without a mouse.",
+        "body": "Start with the skip link, then move through the controls with Tab. Focus should stay visible and follow the reading order. Check that search, filters and article controls each have a meaningful name.\n\nIn a reading window, Escape should return to the content and focus should return to the original control. This demo resource offers points to check; it does not certify the accessibility of the whole platform."
+      },
+      "listeningNotes": {
+        "title": "Listen to the questions before choosing answers",
+        "summary": "An example of a short note that preserves the context of a conversation and the questions still open.",
+        "body": "A useful note can begin with what we are trying to understand. In this fictional example, the team records a navigation question, a need for context and a reading suggestion. Observations remain separate from proposed solutions.\n\nThis format makes it easier to pick up a conversation and avoids treating an assumption as a decision. No private conversation, real user feedback or personal information is reproduced here."
+      },
+      "ideaLibrary": {
+        "title": "A small library of useful ideas",
+        "summary": "Organize inspirations around the question they address, rather than the order they arrived.",
+        "body": "What if every inspiration answered a simple question: how to explain, welcome or find something more easily? This imaginary library favours a few ideas with context over a collection of links without signposts.\n\nFor each idea, keep a sentence about why it matters and another about what needs checking before adapting it. A saved item then becomes a way back during your visit, without approving the idea or starting a project."
+      },
+      "shortBriefings": {
+        "title": "Prepare a team briefing in five minutes",
+        "summary": "A simple reading outline: what changed, what deserves a conversation and what to keep handy.",
+        "body": "Choose a recent topic, an open question and a useful resource. Introduce the context in a few sentences and say clearly what you need from the conversation: understanding, more information or a proposal.\n\nFinish with a signpost for what could come next, without automatically assigning an action or decision to anyone. This fictional outline can support a discussion; it creates no real task."
+      },
+      "demoPreview": {
+        "title": "A preview of the new reading space",
+        "summary": "Explore how the journal, inspirations and resources could share one starting point.",
+        "body": "This preview shows one way to bring useful reading closer to administrators’ daily work. The overview offers signposts, while the sections let readers focus on a type of content.\n\nArticles, dates and authors are synthetic. Search, reading and saved items let you try the journey without connecting to real administrative data."
+      },
+      "fieldNotebook": {
+        "title": "A notebook for small observations",
+        "summary": "Make room for the details that could help explain a need later.",
+        "body": "An unclear label, a lengthy route, a missing explanation: small observations can support a useful discussion. This fictional notebook suggests recording them with their context and the question they raise.\n\nAn observation alone does not prove a wider problem. Bring together different perspectives before choosing a next step, and keep only the information needed to understand the subject."
+      },
+      "accessibleStories": {
+        "title": "Stories you can read at your own pace",
+        "summary": "Take inspiration from a short, structured format that is easy to return to between activities.",
+        "body": "This imaginary story starts with a clear idea, develops an example and leaves a question to consider. Short paragraphs and useful headings help readers find their place again.\n\nThe format could inspire future internal content: explicit context, concrete words and an estimated reading time. It represents neither a real testimonial nor editorial approval."
+      },
+      "communityQuestions": {
+        "title": "Three questions to start a conversation",
+        "summary": "A new demo signpost: understand the need, share the context and imagine a next step.",
+        "body": "What would help you today? What context is missing? What small possibility could be explored next? These fictional questions illustrate content added when the feed is refreshed in the demo.\n\nThey invite discussion without assuming an answer or a consensus. Refreshing adds local examples only; it does not contact an external service."
+      },
+      "readingChecklist": {
+        "title": "Before sharing a resource",
+        "summary": "Check the context, clarity and usefulness of a reading before recommending it to the team.",
+        "body": "Read the title again and check that it describes the content. Summarize its value for the team, identify what still needs confirming and make sure the text makes sense without the original conversation.\n\nThis demo signpost helps prepare a recommendation. Saving an item keeps a choice for the visit; it does not share, approve or publish any content."
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "activityHubJournal": {
+    "title": "Journal de l’activité",
+    "subtitle": "Retrouvez les événements fictifs, leur origine et les éléments qui demandent votre attention.",
+    "metricTitle": "Les éléments derrière ce compteur",
+    "metricCopy": "Une ligne par élément distinct, avec son événement le plus récent dans la période choisie. Plusieurs événements sur le même élément ne le comptent qu’une fois.",
+    "results": "{{count}} événements",
+    "entityResults": "{{count}} éléments distincts",
+    "availableResults": "{{count}} événements disponibles",
+    "availableEntityResults": "{{count}} éléments distincts disponibles",
+    "sourceLoading": "Chargement simulé",
+    "sourceUnavailable": "Indisponible",
+    "loadingCopy": "Simulation : les activités sont en cours de chargement. Le nombre d’événements reste inconnu.",
+    "unavailableCopy": "Simulation : la source des activités est indisponible. Aucun nombre d’événements ne peut être déterminé pour cet instantané.",
+    "mediaUnavailableCopy": "Simulation : la source des médias est indisponible. Le nombre d’activités de ce type reste inconnu.",
+    "partialNote": "Simulation : la source des médias est indisponible. La liste et le compteur couvrent uniquement les autres sources disponibles.",
+    "partialEmptyTitle": "Aucun résultat parmi les sources disponibles",
+    "partialEmptyCopy": "Les données médias manquent à cet instantané. Ces filtres ne retournent aucun événement dans les autres sources ; le journal reste incomplet.",
+    "demo": "Démonstration locale · Instantané du 28 octobre 2026 à 14 h 30, heure de Toronto. Aucun événement ni changement réel.",
+    "filters": "Filtrer l’activité",
+    "search": "Rechercher dans le journal",
+    "searchHint": "Un dossier, un événement, un auteur…",
+    "kind": "Type d’activité",
+    "allKinds": "Tous les types",
+    "period": "Période",
+    "origin": "Origine",
+    "allOrigins": "Toutes les origines",
+    "attentionOnly": "À vérifier seulement",
+    "attention": "À vérifier",
+    "reset": "Réinitialiser les filtres",
+    "emptyTitle": "Aucune activité pour ces filtres",
+    "emptyCopy": "Changez la période, retirez un filtre ou essayez un autre mot-clé.",
+    "kinds": {
+      "ready": "Dossiers prêts pour révision",
+      "media": "Médias examinés",
+      "rules": "Règles mises à jour",
+      "preparation": "Préparations à relire"
+    },
+    "periods": {
+      "today": "Aujourd’hui · 28 octobre",
+      "week": "Cette semaine · 26–28 octobre",
+      "all": "Tout l’historique de démo"
+    },
+    "origins": {
+      "human": "Intervention humaine",
+      "automatic": "Traitement automatique"
+    },
+    "actors": {
+      "human": "Équipe de revue · Démo",
+      "automatic": "Traitement de démonstration"
+    },
+    "events": {
+      "readyBoreal": {
+        "title": "Le dossier Atelier Boréal est prêt pour révision",
+        "summary": "Les éléments de démonstration sont regroupés ; la revue humaine reste à effectuer.",
+        "detail": "Une personne fictive de l’équipe de revue a rassemblé le contenu du dossier Atelier Boréal. Cet événement illustre le passage à une étape de vérification ; il n’exprime aucune approbation.\n\nOuvrez le dossier de démonstration pour explorer son contenu, ses médias et ses autorisations. Aucune donnée administrative réelle n’a été modifiée."
+      },
+      "mediaBoreal": {
+        "title": "Le média d’Atelier Boréal demande une vérification",
+        "summary": "Un contrôle automatique fictif signale un point d’autorisation à relire.",
+        "detail": "Le média DEMO-MEDIA-BOREAL-01 apparaît aussi dans un événement du 27 octobre. Il s’agit du même élément : le compteur de médias ne l’ajoute qu’une seule fois et présente ici son état le plus récent.\n\nLe signalement automatique est un exemple local. Il ne valide ni consentement, ni admissibilité, ni publication. La personne responsable doit examiner les autorisations avant toute utilisation réelle."
+      },
+      "rulesMedia": {
+        "title": "Un repère de règle média a été mis à jour",
+        "summary": "Le scénario illustre le lien entre un média et les autorisations de son dossier.",
+        "detail": "Cette ligne décrit une évolution fictive de la règle DEMO-REGLE-MEDIA-01 dans le dossier Collectif Rivages. Elle permet d’explorer le contexte d’une intervention automatique.\n\nLe prototype ne change aucune règle de la plateforme. Une règle applicable ne remplace jamais la vérification de l’admissibilité du média et de l’autorisation portant sur son usage exact."
+      },
+      "preparationRivages": {
+        "title": "La préparation Collectif Rivages est prête à relire",
+        "summary": "Un brouillon fictif a été préparé pour une revue humaine, sans approbation ni envoi.",
+        "detail": "Une personne de démonstration a organisé les informations de DEMO-PREPARATION-RIVAGES-01. Ce repère indique uniquement qu’un brouillon peut être relu.\n\nLa préparation, la revue, le consentement et l’autorisation de publication restent distincts. Ouvrir ce détail ou consulter le guide n’accorde aucune autorisation et ne déclenche aucun envoi."
+      },
+      "readyRivages": {
+        "title": "Le dossier Collectif Rivages a été regroupé pour révision",
+        "summary": "Une intervention humaine fictive a préparé les éléments du dossier.",
+        "detail": "Cet événement du 27 octobre complète le journal de démonstration. Le dossier DEMO-DOSSIER-RIVAGES est compté une fois parmi les dossiers de la semaine.\n\nLe lien vers le dossier ouvre le parcours Prestations local. Il ne lit ni ne modifie un dossier administratif réel."
+      },
+      "mediaBorealEarlier": {
+        "title": "Première lecture du média d’Atelier Boréal",
+        "summary": "Une personne fictive a examiné ce média le 27 octobre, avant le signalement du lendemain.",
+        "detail": "Le journal conserve cet événement ancien et le signalement du 28 octobre pour le même média DEMO-MEDIA-BOREAL-01. Le journal montre les deux événements ; le compteur de médias ne compte qu’un élément.\n\nCette première lecture n’autorise pas la publication. Un changement de contenu ou de contexte demande une nouvelle vérification des conditions applicables."
+      },
+      "mediaRivages": {
+        "title": "Un média de Collectif Rivages a été examiné dans le scénario",
+        "summary": "Le traitement fictif ne signale aucun point supplémentaire pour cet élément.",
+        "detail": "DEMO-MEDIA-RIVAGES-01 représente un deuxième média distinct dans les exemples de la semaine. Son résultat illustre un contrôle automatique sans signalement.\n\nL’absence de signalement dans cette fixture ne prouve aucune conformité réelle et ne constitue pas une autorisation de publication."
+      },
+      "rulesConsent": {
+        "title": "Un repère de consentement reste à vérifier",
+        "summary": "Une personne fictive a relevé une question de périmètre dans le dossier Studio Canopée.",
+        "detail": "Le scénario DEMO-REGLE-CONSENTEMENT-02 conserve une question à examiner sur les conditions d’utilisation d’un contenu. Il ne modifie aucun consentement.\n\nLes droits du dossier, l’admissibilité des médias et l’autorisation de publication doivent être vérifiés séparément dans le parcours réel prévu."
+      },
+      "mediaCanopee": {
+        "title": "Un média de Studio Canopée a été relu",
+        "summary": "Une lecture humaine fictive complète les exemples du début de semaine.",
+        "detail": "Le média DEMO-MEDIA-CANOPEE-01 est un élément distinct des médias Boréal et Rivages. Son événement du 26 octobre appartient à la semaine de démonstration.\n\nCette lecture illustrée ne change ni statut serveur, ni consentement, ni visibilité. Les données restent entièrement synthétiques."
+      },
+      "readyCanopee": {
+        "title": "Le dossier Studio Canopée attend sa révision",
+        "summary": "Le scénario rassemble les éléments à vérifier avant toute décision.",
+        "detail": "DEMO-DOSSIER-CANOPEE représente le troisième dossier distinct prêt pour révision dans la semaine illustrée. Le repère invite à consulter le contexte.\n\nIl ne valide ni paiement, ni consentement, ni approbation administrative. Aucune publication n’est préparée ou exécutée par l’ouverture de cet événement."
+      },
+      "preparationBorealEarlier": {
+        "title": "Une préparation antérieure d’Atelier Boréal figure dans l’historique",
+        "summary": "Daté du 23 octobre, cet exemple apparaît dans tout l’historique et reste hors de la semaine courante.",
+        "detail": "DEMO-PREPARATION-BOREAL-01 sert à distinguer les bornes des périodes. Son événement est antérieur au 26 octobre ; il n’alimente donc aucun compteur de la semaine affichée.\n\nCette préparation passée est fictive. Elle ne constitue ni une ancienne approbation, ni un envoi, ni une preuve de réalisation."
+      },
+      "mediaCanopeeRefresh": {
+        "title": "Un nouveau média de Studio Canopée demande une lecture",
+        "summary": "L’actualisation locale ajoute un média distinct à 14 h 30 dans l’instantané de démonstration.",
+        "detail": "L’actualisation simulée ajoute DEMO-MEDIA-CANOPEE-02 une seule fois pendant la visite. Ce nouvel élément augmente le compteur de médias de la semaine d’une unité.\n\nLe prototype ne contacte aucun fournisseur et ne traite aucun fichier. Le signalement et son heure sont préparés dans les fixtures, sans événement réel."
+      }
+    }
+  }
+}

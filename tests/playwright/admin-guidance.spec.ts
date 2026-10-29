@@ -112,7 +112,7 @@ for (const [locale, theme, width, height] of [
     for (const removed of ['payment', 'automatic', 'workflows']) {
       await expect(hook(page, removed + '-mode')).toHaveCount(0);
     }
-    await expectEmptyDiscovery(page);
+    await expectDiscoveryHub(page);
     await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
     expect(
       await page.evaluate(
@@ -121,7 +121,7 @@ for (const [locale, theme, width, height] of [
     ).toBe(true);
     await hook(page, 'discovery-mode').focus();
     await page.keyboard.press('Enter');
-    await expectEmptyDiscovery(page);
+    await expectDiscoveryHub(page);
     await expect(hook(page, 'discovery-mode')).toBeFocused();
     const audit = await new AxeBuilder({ page })
       .include('[data-og7="admin-guidance"]')
@@ -267,7 +267,7 @@ for (const [locale, width, height, sourcePath] of [
       'aria-pressed',
       'true'
     );
-    await expectEmptyDiscovery(page);
+    await expectDiscoveryHub(page);
     await expect(hook(page, 'discovery-mode')).toBeFocused();
     await expectStableBounds();
     expect(f.mutations).toEqual([]);
@@ -332,7 +332,7 @@ test('the embedded draft survives discovery and guide collapse without intercept
   expect(await saveOutside()).toBe(false);
 
   await hook(page, 'discovery-mode').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(hook(page, 'discovery-mode')).toBeFocused();
   await expect(feature).toBeHidden();
   expect(await originalEditor!.evaluate((node) => node.isConnected)).toBe(true);
@@ -356,7 +356,7 @@ test('the embedded draft survives discovery and guide collapse without intercept
   ).toBeVisible();
 
   await feature.locator('[data-og7="service-demo-exit"]').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(hook(page, 'discovery-mode')).toBeFocused();
   await expect(feature).toBeHidden();
   await hook(page, 'service-delivery-mode').click();
@@ -1191,15 +1191,17 @@ test('English mobile payment guidance remains keyboard accessible without horizo
   expect(fixture.mutations).toEqual([]);
 });
 
-async function expectEmptyDiscovery(page: Page) {
+async function expectDiscoveryHub(page: Page) {
   await expect(hook(page, 'discovery-mode')).toHaveAttribute(
     'aria-pressed',
     'true'
   );
   const content = hook(page, 'content');
   await expect(content).toBeVisible();
-  await expect(content).toHaveText('', { useInnerText: true });
-  await expect(content.locator(':visible')).toHaveCount(0);
+  await expect(
+    content.locator('[data-og7="activity-hub-embedded"]')
+  ).toBeVisible();
+  await expect(content.locator('[data-og7="activity-hub"]')).toBeVisible();
   await expect(hook(page, 'page')).toHaveCount(0);
   await expect(page.locator(highlighted)).toHaveCount(0);
 }
@@ -1365,7 +1367,7 @@ async function forget(page: Page) {
   await hook(page, 'forget').click();
 }
 
-test('discovery opens from the keyboard with an empty content area and no automatic focus transfer', async ({
+test('discovery opens from the keyboard with a local activity workspace and no automatic focus transfer', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1376,12 +1378,12 @@ test('discovery opens from the keyboard with an empty content area and no automa
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(toggle).toBeFocused();
   const discovery = hook(page, 'discovery-mode');
   await discovery.focus();
   await page.keyboard.press('Enter');
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await sampledFrames(page);
   await expect(discovery).toBeFocused();
   expect(fixture.paymentRequests).toEqual([]);
@@ -1403,16 +1405,16 @@ test('legacy paused discovery preferences remain inert across navigation and rel
   await page.goto(
     dashboardPath + '?itemId=synthetic-private-dossier#synthetic'
   );
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await navigate(page, attentionPath);
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await hook(page, 'discovery-mode').focus();
   await page.keyboard.press('Enter');
   await sampledFrames(page);
   await expect(hook(page, 'discovery-mode')).toBeFocused();
   expect(await stored(page)).toEqual(retained);
   await page.reload();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(page).toHaveURL(attentionPath);
   expect(await stored(page)).toEqual(retained);
   expect(fixture.paymentRequests).toEqual([]);
@@ -1425,15 +1427,15 @@ test('collapsing discovery preserves preferences and stays collapsed after reloa
   await fixtures(page);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   const retained = (await stored(page)).bookmark;
   await hook(page, 'toggle').click();
-  await expect(hook(page, 'panel')).toHaveCount(0);
+  await expect(hook(page, 'panel')).toBeHidden();
   await page.reload();
   await expect(hook(page, 'panel')).toHaveCount(0);
   expect(await stored(page)).toEqual({ enabled: false, bookmark: retained });
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect((await stored(page)).bookmark).toEqual(retained);
 });
 
@@ -1453,24 +1455,24 @@ test('discovery preferences remain isolated between signed-in accounts', async (
     storagePrefix + fixture.accountId
   );
   await page.goto(dashboardPath);
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   const retained = await stored(page);
   fixture.accountId = 'guidance-owner-b';
   await page.reload();
   await expect(hook(page, 'toggle')).toBeVisible();
   await expect(hook(page, 'panel')).toHaveCount(0);
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect((await stored(page, fixture.accountId)).enabled).toBe(true);
   expect(await stored(page)).toEqual(retained);
   fixture.accountId = 'guidance-owner-a';
   await page.reload();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect(await stored(page)).toEqual(retained);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('blocked persistence leaves discovery empty during in-app navigation', async ({
+test('blocked persistence leaves discovery usable during in-app navigation', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1496,14 +1498,14 @@ test('blocked persistence leaves discovery empty during in-app navigation', asyn
   }, storagePrefix);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await navigate(page, attentionPath);
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect(fixture.paymentRequests).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('a retained payment mode keeps its storage warning after a refused write and discovery stays empty', async ({
+test('a retained payment mode keeps its storage warning after a refused write and discovery keeps the local activity hub', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1522,12 +1524,12 @@ test('a retained payment mode keeps its storage warning after a refused write an
   await hook(page, 'toggle').click();
   await expect(hook(page, 'storage-warning')).toBeVisible();
   await hook(page, 'discovery-mode').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect(fixture.paymentRequests).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('failed erasure from another mode remains disclosed outside the empty discovery panel', async ({
+test('failed erasure from another mode remains disclosed outside the discovery workspace panel', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1550,17 +1552,17 @@ test('failed erasure from another mode remains disclosed outside the empty disco
   await expect(hook(page, 'toggle')).toBeFocused();
   expect(await stored(page)).toEqual(retained);
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('revoking a session removes the empty discovery panel before another account signs in', async ({
+test('revoking a session removes the discovery workspace panel before another account signs in', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   const retained = await stored(page);
   fixture.signedIn = false;
   await page.route('**/api/admin/dashboard', (route) =>
@@ -1599,7 +1601,7 @@ for (const [name, invalid] of [
   ]
 ] as const) {
   test(
-    'invalid guidance state opens only an empty discovery panel: ' + name,
+    'invalid guidance state opens only a discovery workspace panel: ' + name,
     async ({ page }) => {
       await fixtures(page);
       await page.addInitScript(
@@ -1611,7 +1613,7 @@ for (const [name, invalid] of [
       await page.goto(dashboardPath);
       await expect(hook(page, 'panel')).toHaveCount(0);
       await hook(page, 'toggle').click();
-      await expectEmptyDiscovery(page);
+      await expectDiscoveryHub(page);
       expect((await stored(page)).enabled).toBe(true);
       expect(errors).toEqual([]);
     }
@@ -1621,7 +1623,7 @@ for (const [name, invalid] of [
 for (const language of ['fr-CA', 'en']) {
   for (const width of [1440, 320]) {
     test(
-      'empty discovery remains keyboard accessible in ' +
+      'discovery workspace remains keyboard accessible in ' +
         language +
         ' at ' +
         width +
@@ -1632,7 +1634,7 @@ for (const language of ['fr-CA', 'en']) {
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(dashboardPath);
         await hook(page, 'toggle').click();
-        await expectEmptyDiscovery(page);
+        await expectDiscoveryHub(page);
         const discovery = hook(page, 'discovery-mode');
         await discovery.focus();
         await page.keyboard.press('Enter');
@@ -1658,7 +1660,7 @@ for (const language of ['fr-CA', 'en']) {
 
 for (const width of [1440, 320]) {
   test(
-    'empty discovery keeps its floating shell and finite entrance at ' +
+    'discovery workspace keeps its floating shell and finite entrance at ' +
       width +
       'px',
     async ({ page }) => {
@@ -1667,7 +1669,7 @@ for (const width of [1440, 320]) {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto(dashboardPath);
       await hook(page, 'toggle').click();
-      await expectEmptyDiscovery(page);
+      await expectDiscoveryHub(page);
       const card = page.locator('[data-og7="admin-guidance"]');
       await expect(card).not.toHaveCSS('animation-name', 'none');
       expect(
@@ -1704,7 +1706,7 @@ for (const width of [1440, 320]) {
       const retained = await stored(page);
       await hook(page, 'move').click();
       await expect(card).toHaveAttribute('data-og7-placement', 'bottom');
-      await expectEmptyDiscovery(page);
+      await expectDiscoveryHub(page);
       expect(await stored(page)).toEqual(retained);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await expect(card).toHaveCSS('animation-name', 'none');
@@ -1724,13 +1726,13 @@ for (const width of [1440, 320]) {
       ).toBe(true);
       await page.keyboard.press('Escape');
       await expect(dialog).not.toBeVisible();
-      await expectEmptyDiscovery(page);
+      await expectDiscoveryHub(page);
       expect(fixture.mutations).toEqual([]);
     }
   );
 }
 
-test('empty discovery remains available in Pilotage concentration without revealing a landmark', async ({
+test('discovery workspace remains available in Pilotage concentration without revealing a landmark', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1741,7 +1743,7 @@ test('empty discovery remains available in Pilotage concentration without reveal
   await controller.ready();
   // Pilotage owns navigation until the shared guide is explicitly selected.
   await hook(page, 'toggle').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   const retained = (await stored(page)).bookmark;
   await controller.activate(hook(page, 'toggle'));
   const concentration = page.locator('[data-og7="pilot-focus"]');
@@ -1751,11 +1753,11 @@ test('empty discovery remains available in Pilotage concentration without reveal
   await hook(page, 'toggle').focus();
   await controller.release();
   await controller.press('Y');
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(hook(page, 'toggle')).toBeFocused();
   expect((await stored(page)).bookmark).toEqual(retained);
   await controller.press('B');
-  await expect(hook(page, 'panel')).toHaveCount(0);
+  await expect(hook(page, 'panel')).toBeHidden();
   await expect(concentration).toHaveAttribute('aria-pressed', 'true');
   expect(fixture.mutations).toEqual([]);
 });
@@ -1823,7 +1825,7 @@ test('the golden pulse for a payment is gentle, finishes, and stops immediately 
     .toBe(0);
   await expectGoldenZone(zone);
   await hook(page, 'discovery-mode').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(page.locator(highlighted)).toHaveCount(0);
   expect(fixture.mutations).toEqual([]);
 });
@@ -1930,7 +1932,7 @@ test('all visible repeated payment zones are highlighted without selecting a dos
   await expect(detail).toHaveCount(0);
   expect(page.url()).toBe(originalUrl);
   await hook(page, 'discovery-mode').click();
-  await expectEmptyDiscovery(page);
+  await expectDiscoveryHub(page);
   await expect(page.locator(highlighted)).toHaveCount(0);
   expect(
     await rows.evaluateAll((elements) =>
@@ -1981,7 +1983,7 @@ test('all protected admin workspaces retain guidance, including unavailable data
     await page.goto(dashboardPath + suffix);
     await expect(hook(page, 'toggle')).toBeVisible();
     await expect(hook(page, 'panel')).toBeVisible();
-    await expectEmptyDiscovery(page);
+    await expectDiscoveryHub(page);
   }
   expect(fixture.mutations).toEqual([]);
 });

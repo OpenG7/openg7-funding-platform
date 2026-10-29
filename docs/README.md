@@ -1,9 +1,8 @@
 # Documentation de la plateforme
 
-Révision de l’index : 25 octobre 2026.
+Révision : 29 octobre 2026.
 L'[état de la plateforme](platform-status.md) distingue fonctions livrées,
-préconditions et preuves d'exécution. Présence dans le dépôt et activation
-en production restent distinctes.
+préconditions et preuves, sans présumer leur activation en production.
 
 ## Guides fonctionnels actuels
 
@@ -124,6 +123,7 @@ PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
 
 ## Travaux envisagés
 
+- [Chargement local](development/development-loading-recovery.md).
 - [Blueprint des opérations Guide, commandites et campagnes](development/admin-operations-blueprint.md) :
   inventaire des zones et actions par surface et onglet, responsabilités,
   périmètres à séparer et composants transversaux à réutiliser.

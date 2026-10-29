@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 
 import type { ServiceDeliveryEmbeddedComponent } from '../../service-delivery/index.js';
+import type { ActivityHubEmbeddedComponent } from '../../activity-hub/index.js';
 import { AdminGuideNavigationService } from '../../services/admin-guide-navigation.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
@@ -77,6 +78,31 @@ export class AdminGuidanceComponent {
   readonly serviceDeliveryLoaded = computed(
     () => this.serviceDeliveryComponent() !== null
   );
+  readonly serviceDeliveryRetained = computed(() =>
+    this.serviceDeliveryRequested()
+  );
+  readonly activityHubLoading = signal(false);
+  readonly activityHubError = signal(false);
+  private readonly activityHubRequested = signal(false);
+  private readonly activityHubLoadAttempt = signal(0);
+  private readonly activityHubRetrySource = signal<string | null>(null);
+  private readonly activityHubComponent =
+    signal<ComponentRef<ActivityHubEmbeddedComponent> | null>(null);
+  readonly activityHubRetained = computed(() => this.activityHubRequested());
+  readonly activityHubSelected = computed(
+    () =>
+      this.guidance.available() &&
+      this.guidance.enabled() &&
+      this.guidance.mode() === 'discovery' &&
+      !this.serviceDeliverySelected()
+  );
+  readonly canRetryActivityHub = computed(
+    () =>
+      this.activityHubError() &&
+      this.activityHubRetrySource() !== null &&
+      this.activityHubLoadAttempt() < ADMIN_GUIDANCE_LOAD_RETRIES
+  );
+  private readonly pendingServiceDossier = signal<string | null>(null);
   private readonly departures = inject(AdminGuideNavigationService);
   private readonly admin = inject(FundingAdminService);
   private readonly serviceDeliveryIdentity = computed(() => {
@@ -84,6 +110,7 @@ export class AdminGuidanceComponent {
     return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}`;
   });
   private loadedServiceDeliveryIdentity = '';
+  private loadedActivityHubIdentity = '';
   private readonly automaticLoadAttempt = signal(0);
   private readonly workflowLoadAttempt = signal(0);
   private readonly automaticRetrySource = signal<string | null>(null);
@@ -129,11 +156,93 @@ export class AdminGuidanceComponent {
   private readonly serviceDeliveryHost = viewChild('serviceDeliveryHost', {
     read: ViewContainerRef
   });
+  private readonly activityHubHost = viewChild('activityHubHost', {
+    read: ViewContainerRef
+  });
   private focusServiceDelivery = false;
   private releaseHighlight: (() => void) | undefined;
   private frame = 0;
 
   constructor() {
+    afterRenderEffect(() => {
+      if (this.activityHubSelected()) this.activityHubRequested.set(true);
+    });
+    afterRenderEffect((onCleanup) => {
+      const identity = this.serviceDeliveryIdentity();
+      if (
+        this.loadedActivityHubIdentity &&
+        identity !== this.loadedActivityHubIdentity
+      ) {
+        this.activityHubRequested.set(
+          untracked(() => this.activityHubSelected())
+        );
+        this.activityHubLoadAttempt.set(0);
+        this.activityHubRetrySource.set(null);
+        this.activityHubError.set(false);
+      }
+      this.loadedActivityHubIdentity = identity;
+      const host = this.activityHubHost();
+      if (!host || !this.activityHubRequested()) return;
+      const attempt = this.activityHubLoadAttempt();
+      const retrySource = untracked(this.activityHubRetrySource);
+      let current = true;
+      let release: (() => void) | undefined;
+      this.activityHubLoading.set(true);
+      this.activityHubError.set(false);
+      onCleanup(() => {
+        current = false;
+        release?.();
+        this.activityHubComponent.set(null);
+        this.activityHubLoading.set(false);
+      });
+      const load =
+        attempt && retrySource
+          ? loadGuidanceChunkRetry<ActivityHubEmbeddedComponent>(
+              retrySource,
+              this.document.baseURI,
+              attempt,
+              'ActivityHubEmbeddedComponent'
+            )
+          : import('../../activity-hub/index.js').then(
+              (module) => module.ActivityHubEmbeddedComponent
+            );
+      void load
+        .then((componentType) => {
+          if (
+            !current ||
+            !this.guidance.available() ||
+            identity !== this.serviceDeliveryIdentity()
+          )
+            return;
+          const component = host.createComponent(componentType);
+          release = () => component.destroy();
+          component.setInput('active', this.activityHubSelected());
+          component.instance.serviceDeliveryRequested.subscribe((dossierId) => {
+            this.pendingServiceDossier.set(dossierId);
+            this.openServiceDelivery();
+          });
+          this.activityHubComponent.set(component);
+          this.activityHubLoading.set(false);
+          component.changeDetectorRef.markForCheck();
+        })
+        .catch((error: unknown) => {
+          if (!current || identity !== this.serviceDeliveryIdentity()) return;
+          release?.();
+          release = undefined;
+          this.activityHubComponent.set(null);
+          this.activityHubRetrySource.set(
+            guidanceChunkRetrySource(error, this.document.baseURI)
+          );
+          this.activityHubLoading.set(false);
+          this.activityHubError.set(true);
+        });
+    });
+    afterRenderEffect(() => {
+      this.activityHubComponent()?.setInput(
+        'active',
+        this.activityHubSelected()
+      );
+    });
     afterRenderEffect((onCleanup) => {
       const identity = this.serviceDeliveryIdentity();
       if (
@@ -142,6 +251,10 @@ export class AdminGuidanceComponent {
       ) {
         this.serviceDeliveryRequested.set(false);
         this.serviceDeliverySelected.set(false);
+        this.serviceDeliveryLoadAttempt.set(0);
+        this.serviceDeliveryRetrySource.set(null);
+        this.serviceDeliveryError.set(false);
+        this.pendingServiceDossier.set(null);
       }
       this.loadedServiceDeliveryIdentity = identity;
       const host = this.serviceDeliveryHost();
@@ -171,7 +284,12 @@ export class AdminGuidanceComponent {
             );
       void load
         .then((componentType) => {
-          if (!current || !this.guidance.available()) return;
+          if (
+            !current ||
+            !this.guidance.available() ||
+            identity !== this.serviceDeliveryIdentity()
+          )
+            return;
           const component = host.createComponent(componentType);
           this.serviceDeliveryComponent.set(component);
           const unregister = this.departures.register({
@@ -191,7 +309,7 @@ export class AdminGuidanceComponent {
           component.changeDetectorRef.markForCheck();
         })
         .catch((error: unknown) => {
-          if (!current) return;
+          if (!current || identity !== this.serviceDeliveryIdentity()) return;
           release?.();
           this.serviceDeliveryRetrySource.set(
             guidanceChunkRetrySource(error, this.document.baseURI)
@@ -199,6 +317,13 @@ export class AdminGuidanceComponent {
           this.serviceDeliveryLoading.set(false);
           this.serviceDeliveryError.set(true);
         });
+    });
+    afterRenderEffect(() => {
+      const component = this.serviceDeliveryComponent();
+      const dossierId = this.pendingServiceDossier();
+      if (!component || !dossierId || !this.serviceDeliverySelected()) return;
+      component.instance.openDossier(dossierId);
+      this.pendingServiceDossier.set(null);
     });
     afterRenderEffect((onCleanup) => {
       const host = this.workflowHost();
@@ -353,6 +478,15 @@ export class AdminGuidanceComponent {
     if (!this.canRetryServiceDelivery() || this.serviceDeliveryLoading())
       return;
     this.serviceDeliveryLoadAttempt.update((attempt) => attempt + 1);
+  }
+  retryActivityHub(): void {
+    if (
+      !this.guidance.available() ||
+      !this.canRetryActivityHub() ||
+      this.activityHubLoading()
+    )
+      return;
+    this.activityHubLoadAttempt.update((attempt) => attempt + 1);
   }
   retryAutomatic(): void {
     if (

@@ -64,7 +64,9 @@
           {{ t('clearUnavailable') }}
         </p>
       }
-      @if (guidance.enabled() || serviceDeliveryLoaded()) {
+      @if (
+        guidance.enabled() || serviceDeliveryRetained() || activityHubRetained()
+      ) {
         <div
           id="admin-guidance-panel"
           class="guidance-body"
@@ -117,8 +119,42 @@
           <div
             class="guidance-content"
             [class.service-delivery-content]="serviceDeliverySelected()"
+            [class.activity-hub-content]="
+              !serviceDeliverySelected() && guidance.mode() === 'discovery'
+            "
             data-og7="admin-guidance-content"
           >
+            <div
+              class="activity-hub-slot"
+              data-og7="admin-guidance-activity-hub-host"
+              [hidden]="
+                serviceDeliverySelected() || guidance.mode() !== 'discovery'
+              "
+            >
+              <ng-container #activityHubHost />
+              @if (activityHubLoading()) {
+                <p role="status" class="activity-hub-loading">
+                  {{ t('discoveryMode') }}…
+                </p>
+              }
+              @if (activityHubError()) {
+                <div class="mode-error">
+                  <p role="alert">{{ t('discoveryUnavailable') }}</p>
+                  <button
+                    type="button"
+                    class="admin-button"
+                    data-og7="admin-guidance-activity-hub-retry"
+                    [disabled]="!canRetryActivityHub()"
+                    (click)="retryActivityHub()"
+                  >
+                    {{ t('retryMode') }}
+                  </button>
+                  @if (!canRetryActivityHub()) {
+                    <p class="quiet">{{ t('retryUnavailable') }}</p>
+                  }
+                </div>
+              }
+            </div>
             <div
               class="service-delivery-slot"
               [hidden]="!serviceDeliverySelected()"

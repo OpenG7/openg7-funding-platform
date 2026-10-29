@@ -1,0 +1,217 @@
+<section
+  class="briefing"
+  data-og7="activity-hub-briefing"
+  [attr.data-og7-id]="lastVisit()"
+  aria-labelledby="personal-briefing-title"
+>
+  <header class="briefing-heading">
+    <div class="heading-copy">
+      <span class="eyebrow">{{
+        'activityHubBriefing.eyebrow' | translate
+      }}</span>
+      <h2 id="personal-briefing-title">
+        {{ 'activityHubBriefing.title' | translate }}
+      </h2>
+      <p>{{ 'activityHubBriefing.subtitle' | translate }}</p>
+    </div>
+    <label class="visit-control" for="activity-hub-last-visit">
+      <span>{{ 'activityHubBriefing.visitLabel' | translate }}</span>
+      <select
+        id="activity-hub-last-visit"
+        data-og7="activity-hub-visit"
+        [value]="lastVisit()"
+        (change)="selectVisit($any($event.target).value)"
+        aria-describedby="activity-hub-visit-explanation"
+      >
+        @for (visit of visits; track visit.id) {
+          <option [value]="visit.id" [selected]="lastVisit() === visit.id">
+            {{ visit.labelKey | translate }}
+          </option>
+        }
+      </select>
+    </label>
+  </header>
+
+  <p class="visit-explanation" id="activity-hub-visit-explanation">
+    <openg7-admin-icon name="clock" />
+    <span>{{ 'activityHubBriefing.dayComparison' | translate }}</span>
+  </p>
+
+  <dl class="reading-counts" data-og7="activity-hub-briefing-counts">
+    <div>
+      <dt>{{ 'activityHubBriefing.read' | translate }}</dt>
+      <dd>{{ readCount() }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'activityHubBriefing.total' | translate }}</dt>
+      <dd>{{ entries().length }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'activityHubBriefing.remaining' | translate }}</dt>
+      <dd>{{ remainingCount() }}</dd>
+    </div>
+  </dl>
+
+  <div class="briefing-grid">
+    <section class="briefing-panel" aria-labelledby="briefing-new-title">
+      <header class="panel-heading">
+        <span class="panel-icon blue"><openg7-admin-icon name="bell" /></span>
+        <div>
+          <h3 id="briefing-new-title">
+            {{ 'activityHubBriefing.newTitle' | translate }}
+          </h3>
+          <p>{{ 'activityHubBriefing.newCopy' | translate }}</p>
+        </div>
+      </header>
+      <p class="selection-count" role="status" aria-live="polite">
+        {{
+          'activityHubBriefing.newCount'
+            | translate: { count: newUnreadEntries().length }
+        }}
+      </p>
+      <ul class="reading-list" data-og7="activity-hub-briefing-new">
+        @for (entry of newPreview(); track entry.id) {
+          <li>
+            <button
+              type="button"
+              data-og7="activity-hub-briefing-open"
+              [attr.data-og7-id]="entry.id"
+              (click)="opened.emit(entry)"
+            >
+              <span class="entry-copy"
+                ><strong>{{ entry.titleKey | translate }}</strong
+                ><small
+                  ><time [attr.datetime]="entry.date">{{ entry.date }}</time
+                  ><span aria-hidden="true"> · </span
+                  >{{
+                    'activityHubBriefing.minutes'
+                      | translate: { count: entry.minutes }
+                  }}</small
+                ></span
+              ><openg7-admin-icon name="arrow" />
+            </button>
+          </li>
+        }
+      </ul>
+      @if (!newPreview().length) {
+        <p class="empty-state" data-og7="activity-hub-briefing-new-empty">
+          {{ 'activityHubBriefing.emptyNew' | translate }}
+        </p>
+      }
+      <button
+        class="section-button"
+        type="button"
+        (click)="sectionRequested.emit('all')"
+      >
+        {{ 'activityHubBriefing.browseAll' | translate
+        }}<openg7-admin-icon name="arrow" />
+      </button>
+    </section>
+
+    <section class="briefing-panel" aria-labelledby="briefing-saved-title">
+      <header class="panel-heading">
+        <span class="panel-icon gold"><openg7-admin-icon name="check" /></span>
+        <div>
+          <h3 id="briefing-saved-title">
+            {{ 'activityHubBriefing.savedTitle' | translate }}
+          </h3>
+          <p>{{ 'activityHubBriefing.savedCopy' | translate }}</p>
+        </div>
+      </header>
+      <p class="selection-count">
+        {{
+          'activityHubBriefing.savedCount'
+            | translate: { count: savedUnreadEntries().length }
+        }}
+      </p>
+      <ul class="reading-list" data-og7="activity-hub-briefing-saved">
+        @for (entry of savedPreview(); track entry.id) {
+          <li>
+            <button
+              type="button"
+              data-og7="activity-hub-briefing-saved-open"
+              [attr.data-og7-id]="entry.id"
+              (click)="opened.emit(entry)"
+            >
+              <span class="entry-copy"
+                ><strong>{{ entry.titleKey | translate }}</strong
+                ><small>{{
+                  'activityHubBriefing.minutes'
+                    | translate: { count: entry.minutes }
+                }}</small></span
+              ><openg7-admin-icon name="arrow" />
+            </button>
+          </li>
+        }
+      </ul>
+      @if (!savedPreview().length) {
+        <p class="empty-state" data-og7="activity-hub-briefing-saved-empty">
+          {{
+            (hasSavedEntries()
+              ? 'activityHubBriefing.allSavedRead'
+              : 'activityHubBriefing.emptySaved'
+            ) | translate
+          }}
+        </p>
+      }
+      <button
+        class="section-button"
+        type="button"
+        (click)="sectionRequested.emit('saved')"
+      >
+        {{ 'activityHubBriefing.browseSaved' | translate
+        }}<openg7-admin-icon name="arrow" />
+      </button>
+    </section>
+
+    <section class="briefing-panel" aria-labelledby="briefing-guides-title">
+      <header class="panel-heading">
+        <span class="panel-icon purple"
+          ><openg7-admin-icon name="publications"
+        /></span>
+        <div>
+          <h3 id="briefing-guides-title">
+            {{ 'activityHubBriefing.guidesTitle' | translate }}
+          </h3>
+          <p>{{ 'activityHubBriefing.guidesCopy' | translate }}</p>
+        </div>
+      </header>
+      <ul class="reading-list guides-list">
+        @for (entry of guides(); track entry.id) {
+          <li>
+            <button
+              type="button"
+              data-og7="activity-hub-briefing-guide"
+              [attr.data-og7-id]="entry.id"
+              (click)="opened.emit(entry)"
+            >
+              <span class="entry-copy"
+                ><strong>{{ entry.titleKey | translate }}</strong
+                ><small>{{
+                  (readIds().has(entry.id)
+                    ? 'activityHubBriefing.guideRead'
+                    : 'activityHubBriefing.guideUnread'
+                  ) | translate
+                }}</small></span
+              ><openg7-admin-icon
+                [name]="readIds().has(entry.id) ? 'check' : 'arrow'"
+              />
+            </button>
+          </li>
+        }
+      </ul>
+      @if (!guides().length) {
+        <p class="empty-state">
+          {{ 'activityHubBriefing.emptyGuides' | translate }}
+        </p>
+      }
+    </section>
+  </div>
+
+  <footer class="briefing-footer">
+    <time [attr.datetime]="snapshot">{{
+      'activityHubBriefing.snapshot' | translate
+    }}</time>
+    <p>{{ 'activityHubBriefing.localNotice' | translate }}</p>
+  </footer>
+</section>
