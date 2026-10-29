@@ -990,6 +990,9 @@ for (const [language, width] of [
     await page.setViewportSize({ width, height: 864 });
     const f = await fixture(page, language);
     await open(page);
+    await expect(
+      page.locator('[data-og7="admin-guidance-tour-play"]')
+    ).toBeHidden();
     await preparationView(page, 'records').scrollIntoViewIfNeeded();
     await expectRecordHeadingVisible(page);
     await expect

@@ -105,7 +105,11 @@
                 <span>{{ t('serviceDeliveryMode') }}</span>
               </button>
             </nav>
-            <section class="tour-controls" [attr.aria-label]="t('tour.title')">
+            <section
+              class="tour-controls"
+              [hidden]="guidance.mode() !== 'discovery'"
+              [attr.aria-label]="t('tour.title')"
+            >
               <p class="tour-title">{{ t('tour.title') }}</p>
               <div class="tour-actions">
                 <button
