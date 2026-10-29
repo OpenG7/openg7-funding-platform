@@ -40,7 +40,10 @@
   border: 1px solid var(--admin-border);
   border-radius: 1.15rem;
   background: var(--admin-panel, var(--admin-bg));
-  box-shadow: var(--admin-shadow-raised);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--admin-border) 45%, transparent),
+    0 3px 8px rgb(23 43 80 / 10%),
+    var(--admin-shadow-raised);
   overflow: hidden;
 }
 .guidance-content.service-delivery-content {

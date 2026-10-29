@@ -545,7 +545,7 @@ for (const validContext of [true, false]) {
   });
 }
 
-test('a failed lazy workflow chunk can retry locally and discovery remains usable without a business action', async ({
+test('a failed lazy workflow chunk can retry locally and return to empty discovery without a business action', async ({
   page
 }) => {
   const f = await fixtures(page);
@@ -581,20 +581,12 @@ test('a failed lazy workflow chunk can retry locally and discovery remains usabl
   expect(page.url()).toBe(currentUrl);
   await hook(page, 'admin-guidance-discovery-mode').click();
   await expect(panel.getByRole('alert')).toHaveCount(0);
-  await expect(hook(page, 'admin-guidance-step')).toHaveAttribute(
-    'data-og7-id',
-    'read'
-  );
-  await hook(page, 'admin-guidance-next').click();
-  await expect(hook(page, 'admin-guidance-step')).toHaveAttribute(
-    'data-og7-id',
-    'choose'
-  );
-  await hook(page, 'admin-guidance-show').click();
-  await expect(hook(page, 'sponsorship-dossier')).toHaveAttribute(
-    'data-og7-guidance-highlight',
-    ''
-  );
+  const content = hook(page, 'admin-guidance-content');
+  await expect(content).toHaveText('', { useInnerText: true });
+  await expect(content.locator(':visible')).toHaveCount(0);
+  await expect(hook(page, 'admin-guidance-discovery-mode')).toBeFocused();
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  expect(page.url()).toBe(currentUrl);
   expect(f.mutations).toEqual([]);
   expect(f.base.commands).toEqual([]);
 });

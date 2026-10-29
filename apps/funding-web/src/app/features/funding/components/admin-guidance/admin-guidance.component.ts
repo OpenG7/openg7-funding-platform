@@ -13,7 +13,6 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
 import type { ServiceDeliveryEmbeddedComponent } from '../../service-delivery/index.js';
 import { AdminGuideNavigationService } from '../../services/admin-guide-navigation.service.js';
@@ -42,7 +41,7 @@ import {
 @Component({
   selector: 'openg7-admin-guidance',
   standalone: true,
-  imports: [RouterLink, AdminIconComponent, AdminPaymentJourneyComponent],
+  imports: [AdminIconComponent, AdminPaymentJourneyComponent],
   host: { '[class.active]': 'guidance.available() && guidance.enabled()' },
   templateUrl: './admin-guidance.component.html',
   styleUrls: [
@@ -119,8 +118,8 @@ export class AdminGuidanceComponent {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly card = viewChild<ElementRef<HTMLElement>>('card');
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
-  private readonly resume = viewChild<ElementRef<HTMLAnchorElement>>('resume');
-  private readonly heading = viewChild<ElementRef<HTMLElement>>('stepHeading');
+  private readonly discovery =
+    viewChild<ElementRef<HTMLButtonElement>>('discovery');
   private readonly automaticHost = viewChild('automaticHost', {
     read: ViewContainerRef
   });
@@ -131,7 +130,6 @@ export class AdminGuidanceComponent {
     read: ViewContainerRef
   });
   private focusServiceDelivery = false;
-  private focusResume = false;
   private releaseHighlight: (() => void) | undefined;
   private frame = 0;
 
@@ -310,7 +308,6 @@ export class AdminGuidanceComponent {
     });
     afterRenderEffect(() => {
       this.guidance.page();
-      this.guidance.step();
       this.guidance.snapshot();
       this.guidance.mode();
       if (this.guidance.mode() !== 'discovery')
@@ -329,17 +326,6 @@ export class AdminGuidanceComponent {
       this.journey.data();
       this.clearHighlight();
       this.missing.set(false);
-      if (this.focusResume && this.resume()) {
-        this.focusResume = false;
-        this.resume()!.nativeElement.focus();
-      }
-      if (
-        this.guidance.resumeTarget() === this.guidance.page()?.id &&
-        this.heading()
-      ) {
-        this.heading()!.nativeElement.focus({ preventScroll: true });
-        this.guidance.resumeTarget.set(null);
-      }
     });
     inject(DestroyRef).onDestroy(() => this.clearHighlight());
   }
@@ -357,8 +343,11 @@ export class AdminGuidanceComponent {
   }
   selectDiscovery(): void {
     this.serviceDeliverySelected.set(false);
+    this.focusServiceDelivery = false;
     this.guidance.setMode('discovery');
-    this.guidance.resumeTarget.set(this.guidance.page()?.id ?? null);
+    this.guidance.resumeTarget.set(null);
+    if (this.guidance.enabled())
+      this.discovery()?.nativeElement.focus({ preventScroll: true });
   }
   retryServiceDelivery(): void {
     if (!this.canRetryServiceDelivery() || this.serviceDeliveryLoading())
@@ -391,18 +380,6 @@ export class AdminGuidanceComponent {
     if (!this.guidance.enabled()) this.guidance.toggle();
     this.guidance.setMode('automatic');
   }
-  move(direction: number): void {
-    this.guidance.move(direction);
-    this.guidance.resumeTarget.set(this.guidance.page()?.id ?? null);
-  }
-  restart(): void {
-    this.guidance.restart();
-    this.guidance.resumeTarget.set(this.guidance.page()?.id ?? null);
-  }
-  pause(): void {
-    this.focusResume = true;
-    this.guidance.pause();
-  }
   forget(): void {
     this.guidance.forget();
     this.toggle()?.nativeElement.focus();
@@ -411,8 +388,10 @@ export class AdminGuidanceComponent {
     this.clearHighlight();
     this.placement.update((value) => (value === 'top' ? 'bottom' : 'top'));
   }
-  show(hook = this.guidance.step()?.target): void {
+  show(hook?: string): void {
     this.clearHighlight();
+    if (this.serviceDeliverySelected() || this.guidance.mode() === 'discovery')
+      return;
     if (hook && !/^[a-z0-9-]+$/.test(hook)) return;
     const layout = this.element.nativeElement.closest<HTMLElement>(
       '[data-og7="admin-layout"]'
