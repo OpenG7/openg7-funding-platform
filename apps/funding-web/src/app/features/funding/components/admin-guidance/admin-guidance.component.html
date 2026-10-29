@@ -46,7 +46,11 @@
             </button>
           }
         </div>
-        @if (guidance.enabled()) {
+        @if (
+          guidance.enabled() &&
+          !serviceDeliverySelected() &&
+          guidance.mode() !== 'discovery'
+        ) {
           <p class="location">
             <span>{{ t('where') }}</span
             ><strong data-og7="admin-guidance-page">{{
@@ -74,6 +78,7 @@
               [attr.aria-label]="t('modeLabel')"
             >
               <button
+                #discovery
                 type="button"
                 class="admin-button"
                 data-og7="admin-guidance-discovery-mode"
@@ -140,200 +145,84 @@
                 </div>
               }
             </div>
-            <div [hidden]="serviceDeliverySelected()">
-              @if (guidance.mode() === 'automatic') {
-                <ng-container #automaticHost />
-                @if (automaticLoading()) {
-                  <p role="status">{{ t('automaticMode') }}…</p>
-                }
-                @if (automaticError()) {
-                  <div class="mode-error">
-                    <p role="alert">{{ t('automaticUnavailable') }}</p>
-                    <button
-                      type="button"
-                      class="admin-button"
-                      data-og7="admin-guidance-automatic-retry"
-                      [disabled]="!canRetryAutomatic()"
-                      (click)="retryAutomatic()"
-                    >
-                      <openg7-admin-icon name="refresh" />{{ t('retryMode') }}
-                    </button>
-                    @if (!canRetryAutomatic()) {
-                      <p class="quiet">{{ t('retryUnavailable') }}</p>
-                    }
-                  </div>
-                }
-              } @else if (guidance.mode() === 'workflows') {
-                <ng-container #workflowHost />
-                @if (workflowLoading()) {
-                  <p role="status">{{ t('workflowsMode') }}…</p>
-                }
-                @if (workflowError()) {
-                  <div class="mode-error">
-                    <p role="alert">{{ t('workflowsUnavailable') }}</p>
-                    <button
-                      type="button"
-                      class="admin-button"
-                      data-og7="admin-guidance-workflows-retry"
-                      [disabled]="!canRetryWorkflows()"
-                      (click)="retryWorkflows()"
-                    >
-                      <openg7-admin-icon name="refresh" />{{ t('retryMode') }}
-                    </button>
-                    @if (!canRetryWorkflows()) {
-                      <p class="quiet">{{ t('retryUnavailable') }}</p>
-                    }
-                  </div>
-                }
-              } @else if (guidance.mode() === 'payment') {
-                <openg7-admin-payment-journey (show)="show($event)" />
-              } @else {
-                @if (guidance.bookmarkPage(); as savedPage) {
-                  @if (
-                    guidance.snapshot().bookmark?.paused ||
-                    savedPage.id !== page.id
-                  ) {
-                    <div class="saved-cue">
-                      @if (guidance.snapshot().bookmark?.paused) {
-                        <p data-og7="admin-guidance-paused">
-                          {{ t('paused') }}
-                        </p>
-                      }
-                      <p>
-                        {{
-                          t('saved', {
-                            page: i18n.t(savedPage.titleKey),
-                            step: (guidance.snapshot().bookmark?.step ?? 0) + 1
-                          })
-                        }}
-                      </p>
-                      <div class="cue-actions">
-                        <a
-                          #resume
-                          class="admin-button admin-button--primary"
-                          data-og7="admin-guidance-resume"
-                          [routerLink]="savedPage.path"
-                          (click)="guidance.resume()"
-                          >{{ t('resume') }}</a
-                        >
-                        @if (savedPage.id !== page.id) {
-                          <button
-                            type="button"
-                            class="admin-button"
-                            data-og7="admin-guidance-resume-here"
-                            (click)="guidance.resumeHere()"
-                          >
-                            {{ t('resumeHere') }}
-                          </button>
-                        }
-                      </div>
-                    </div>
+            @if (guidance.mode() !== 'discovery') {
+              <div [hidden]="serviceDeliverySelected()">
+                @if (guidance.mode() === 'automatic') {
+                  <ng-container #automaticHost />
+                  @if (automaticLoading()) {
+                    <p role="status">{{ t('automaticMode') }}…</p>
                   }
-                }
-                @if (!guidance.snapshot().bookmark?.paused) {
-                  @if (guidance.step(); as step) {
-                    <div
-                      class="step-copy"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      <div class="step-position">
-                        <span>{{ t('next') }}</span
-                        ><span>{{
-                          t('step', {
-                            current: guidance.index() + 1,
-                            total: page.steps.length
-                          })
-                        }}</span>
-                      </div>
-                      <h2
-                        #stepHeading
-                        tabindex="-1"
-                        data-og7="admin-guidance-step"
-                        [attr.data-og7-id]="step.id"
-                      >
-                        {{ i18n.t(step.titleKey) }}
-                      </h2>
-                      <p>{{ i18n.t(step.bodyKey) }}</p>
-                    </div>
-                    <div class="cue-actions">
+                  @if (automaticError()) {
+                    <div class="mode-error">
+                      <p role="alert">{{ t('automaticUnavailable') }}</p>
                       <button
                         type="button"
                         class="admin-button"
-                        data-og7="admin-guidance-show"
-                        (click)="show()"
+                        data-og7="admin-guidance-automatic-retry"
+                        [disabled]="!canRetryAutomatic()"
+                        (click)="retryAutomatic()"
                       >
-                        <openg7-admin-icon name="search" />{{ t('show') }}
+                        <openg7-admin-icon name="refresh" />{{ t('retryMode') }}
                       </button>
+                      @if (!canRetryAutomatic()) {
+                        <p class="quiet">{{ t('retryUnavailable') }}</p>
+                      }
+                    </div>
+                  }
+                } @else if (guidance.mode() === 'workflows') {
+                  <ng-container #workflowHost />
+                  @if (workflowLoading()) {
+                    <p role="status">{{ t('workflowsMode') }}…</p>
+                  }
+                  @if (workflowError()) {
+                    <div class="mode-error">
+                      <p role="alert">{{ t('workflowsUnavailable') }}</p>
                       <button
                         type="button"
                         class="admin-button"
-                        data-og7="admin-guidance-previous"
-                        [disabled]="guidance.index() === 0"
-                        (click)="move(-1)"
+                        data-og7="admin-guidance-workflows-retry"
+                        [disabled]="!canRetryWorkflows()"
+                        (click)="retryWorkflows()"
                       >
-                        {{ t('previous') }}
+                        <openg7-admin-icon name="refresh" />{{ t('retryMode') }}
                       </button>
-                      @if (guidance.index() < page.steps.length - 1) {
-                        <button
-                          type="button"
-                          class="admin-button admin-button--primary"
-                          data-og7="admin-guidance-next"
-                          (click)="move(1)"
-                        >
-                          {{ t('advance') }}<openg7-admin-icon name="arrow" />
-                        </button>
-                      } @else {
-                        <button
-                          type="button"
-                          class="admin-button"
-                          data-og7="admin-guidance-restart"
-                          (click)="restart()"
-                        >
-                          {{ t('restart') }}
-                        </button>
+                      @if (!canRetryWorkflows()) {
+                        <p class="quiet">{{ t('retryUnavailable') }}</p>
                       }
-                      <button
-                        type="button"
-                        class="admin-button pause"
-                        data-og7="admin-guidance-pause"
-                        (click)="pause()"
-                      >
-                        <openg7-admin-icon name="clock" />{{ t('pause') }}
-                      </button>
                     </div>
-                    <p class="quiet">{{ t('reading') }}</p>
                   }
+                } @else if (guidance.mode() === 'payment') {
+                  <openg7-admin-payment-journey (show)="show($event)" />
                 }
-              }
-              @if (missing()) {
-                <p role="status" class="quiet">{{ t('missing') }}</p>
-              }
-              @if (!guidance.storageAvailable()) {
-                <p
-                  role="status"
-                  class="storage-warning"
-                  data-og7="admin-guidance-storage-warning"
-                >
-                  {{ t('storageUnavailable') }}
-                </p>
-              }
-              <details class="privacy">
-                <summary>{{ t('privacyTitle') }}</summary>
-                <p>{{ t('privacy') }}</p>
-                @if (guidance.tokenShared()) {
-                  <p>{{ t('tokenShared') }}</p>
+                @if (missing()) {
+                  <p role="status" class="quiet">{{ t('missing') }}</p>
                 }
-                <button
-                  type="button"
-                  class="admin-button"
-                  data-og7="admin-guidance-forget"
-                  (click)="forget()"
-                >
-                  {{ t('forget') }}
-                </button>
-              </details>
-            </div>
+                @if (!guidance.storageAvailable()) {
+                  <p
+                    role="status"
+                    class="storage-warning"
+                    data-og7="admin-guidance-storage-warning"
+                  >
+                    {{ t('storageUnavailable') }}
+                  </p>
+                }
+                <details class="privacy">
+                  <summary>{{ t('privacyTitle') }}</summary>
+                  <p>{{ t('privacy') }}</p>
+                  @if (guidance.tokenShared()) {
+                    <p>{{ t('tokenShared') }}</p>
+                  }
+                  <button
+                    type="button"
+                    class="admin-button"
+                    data-og7="admin-guidance-forget"
+                    (click)="forget()"
+                  >
+                    {{ t('forget') }}
+                  </button>
+                </details>
+              </div>
+            }
           </div>
         </div>
       }
