@@ -78,6 +78,13 @@ export class AdminGuidanceComponent {
   readonly serviceDeliveryLoaded = computed(
     () => this.serviceDeliveryComponent() !== null
   );
+  readonly serviceTour = computed(
+    () => this.serviceDeliveryComponent()?.instance ?? null
+  );
+  readonly tourPlayRequested = signal(false);
+  readonly tourState = computed(
+    () => this.serviceTour()?.tourState() ?? 'stopped'
+  );
   readonly serviceDeliveryRetained = computed(() =>
     this.serviceDeliveryRequested()
   );
@@ -255,6 +262,7 @@ export class AdminGuidanceComponent {
         this.serviceDeliveryRetrySource.set(null);
         this.serviceDeliveryError.set(false);
         this.pendingServiceDossier.set(null);
+        this.tourPlayRequested.set(false);
       }
       this.loadedServiceDeliveryIdentity = identity;
       const host = this.serviceDeliveryHost();
@@ -316,7 +324,23 @@ export class AdminGuidanceComponent {
           );
           this.serviceDeliveryLoading.set(false);
           this.serviceDeliveryError.set(true);
+          this.tourPlayRequested.set(false);
         });
+    });
+    afterRenderEffect(() => {
+      const component = this.serviceTour();
+      const active =
+        this.guidance.available() &&
+        this.guidance.enabled() &&
+        this.serviceDeliverySelected();
+      this.serviceDeliveryComponent()?.setInput('active', active);
+      if (!active) {
+        component?.pauseTour();
+        this.tourPlayRequested.set(false);
+      } else if (component && this.tourPlayRequested()) {
+        this.tourPlayRequested.set(false);
+        component.playTour();
+      }
     });
     afterRenderEffect(() => {
       const component = this.serviceDeliveryComponent();
@@ -465,6 +489,18 @@ export class AdminGuidanceComponent {
     this.serviceDeliverySelected.set(true);
     this.serviceDeliveryRequested.set(true);
     this.clearHighlight();
+  }
+  playServiceTour(): void {
+    if (!this.guidance.available() || this.tourState() === 'running') return;
+    this.openServiceDelivery();
+    this.focusServiceDelivery = false;
+    this.tourPlayRequested.set(true);
+  }
+  stopServiceTour(): void {
+    this.tourPlayRequested.set(false);
+    this.openServiceDelivery();
+    this.focusServiceDelivery = false;
+    this.serviceTour()?.stopTour();
   }
   selectDiscovery(): void {
     this.serviceDeliverySelected.set(false);

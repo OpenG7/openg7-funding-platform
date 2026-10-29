@@ -30,6 +30,30 @@ l’ouverture de cet espace ou d’un dossier synthétique précis. La rubrique
 administrative, son URL, ses paramètres et son fragment restent en place.
 La disposition s'adapte à la largeur disponible sur mobile.
 
+Sous **Prestations**, **Play** ouvre la démonstration complète sur le premier
+dossier synthétique, `atelier-boreal`, depuis Découvrir si nécessaire. Ses 25 écrans
+présentent le résumé et l'accord, la préparation du contenu avec les cinq onglets
+de l'éditeur, l'aperçu et l'approbation de préparation, puis la demande d'accord,
+son aperçu d'envoi, l'accord reçu, les conditions, le contact et la confirmation
+d'autorisation. La visite se poursuit avec la publication, sa planification, la
+confirmation d'envoi et le résultat, puis la fiche Web, sa visibilité, les preuves
+et l'historique.
+
+Chaque écran reste affiché 20 secondes ; la visite se termine après l'historique,
+sans boucle. **Pause** conserve l'étape et le délai restant ; **Play** reprend ce
+scénario sur le premier dossier, même si un autre a été ouvert manuellement.
+**Arrêt** revient au résumé du premier dossier et remet la visite au début, sans
+effacer les brouillons. Les écrans sont consultés sans activation automatique de
+leurs commandes : la visite n'enregistre, n'approuve et n'envoie rien, ni ne
+déclare une prestation accomplie. Elle n'appelle aucune API métier.
+
+Le composant embarqué expose les signaux en lecture seule `tourState`
+(`stopped`, `running`, `paused`, `completed`) et `tourStep`, le nombre `tourTotal`,
+ainsi que `playTour()`, `pauseTour()` et `stopTour()`. L'input `active` suspend la
+visite quand l'hôte masque cet espace. Un onglet navigateur masqué, un dialogue ouvert, une
+interaction ou une navigation manuelle dans la démo suspendent aussi la visite ;
+sa reprise reste volontaire. Le timer est détruit avec l'instance.
+
 La navigation entre liste, dossier, éditeur et détails est conservée en mémoire
 dans cette instance. Elle ne fait aucune navigation sur le routeur administratif
 et ne réutilise pas les paramètres de recherche de la page hôte. Les ancres
@@ -46,10 +70,10 @@ navigateur reste soumis à la protection native des saisies locales.
 
 Le contrat public `openDossier(id: string): boolean` accepte uniquement un
 identifiant de `DEMO_DOSSIERS`. Il change la navigation locale de cette instance,
-conserve les brouillons séparés par dossier et retourne `false` pour une cible
-inconnue. L’hôte peut attendre le chargement différé avant de transmettre la
-demande issue de Découvrir. Aucun accès aux composants ou services internes de
-la feature n’est nécessaire. Ouvrir volontairement une ancre dans un autre onglet
+met la visite en pause, conserve les brouillons séparés par dossier et retourne
+`false` pour une cible inconnue. L’hôte peut attendre le chargement différé avant
+de transmettre la demande issue de Découvrir. Aucun accès aux composants ou
+services internes de la feature n’est nécessaire. Ouvrir volontairement une ancre dans un autre onglet
 conserve l’URL publique de la démo autonome.
 
 Une déconnexion ou un changement de session détruit l’instance embarquée et
@@ -102,3 +126,6 @@ les [tests de navigation](../../../../../../../tests/service-demo-navigation.tes
 et les [parcours navigateur](../../../../../../../tests/playwright/service-demo.ui.spec.ts)
 vérifient les points d'entrée, les routes et les comportements. Les tests Node de
 navigation utilisent `dist` et demandent d'abord `yarn build`.
+Les [tests du guide administratif](../../../../../../../tests/playwright/admin-guidance.spec.ts)
+couvrent les commandes de visite et leur cadence sur le Web compilé avec des
+fixtures, sans API métier.

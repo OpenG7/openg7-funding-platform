@@ -105,6 +105,73 @@
                 <span>{{ t('serviceDeliveryMode') }}</span>
               </button>
             </nav>
+            <section class="tour-controls" [attr.aria-label]="t('tour.title')">
+              <p class="tour-title">{{ t('tour.title') }}</p>
+              <div class="tour-actions">
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="admin-guidance-tour-play"
+                  [disabled]="
+                    tourState() === 'running' ||
+                    tourPlayRequested() ||
+                    serviceDeliveryLoading() ||
+                    serviceDeliveryError()
+                  "
+                  (click)="playServiceTour()"
+                >
+                  <span aria-hidden="true">▶</span>{{ t('tour.play') }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="admin-guidance-tour-pause"
+                  [disabled]="tourState() !== 'running'"
+                  (click)="serviceTour()?.pauseTour()"
+                >
+                  <span aria-hidden="true">Ⅱ</span>{{ t('tour.pause') }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="admin-guidance-tour-stop"
+                  [disabled]="
+                    !tourPlayRequested() &&
+                    (!serviceTour() || tourState() === 'stopped')
+                  "
+                  (click)="stopServiceTour()"
+                >
+                  <span aria-hidden="true">■</span>{{ t('tour.stop') }}
+                </button>
+              </div>
+              <p
+                class="tour-status"
+                role="status"
+                aria-atomic="true"
+                data-og7="admin-guidance-tour-status"
+                [attr.data-og7-state]="tourState()"
+              >
+                {{
+                  t(
+                    tourPlayRequested() ? 'tour.loading' : 'tour.' + tourState()
+                  )
+                }}
+                @if (serviceTour(); as tour) {
+                  @if (tourState() !== 'stopped') {
+                    <span
+                      >{{
+                        t('tour.progress', {
+                          current: tour.tourStep() + 1,
+                          total: tour.tourTotal
+                        })
+                      }}
+                      · {{ i18n.t(tour.tourTitleKey()) }}</span
+                    >
+                  }
+                }
+              </p>
+              <p class="tour-help">{{ t('tour.delay') }}</p>
+            </section>
             <img
               class="guide-companions"
               src="/assets/admin-guide-princess-lion.webp"

@@ -185,6 +185,21 @@ contenu restent en place. Sur petit écran, la disposition se réorganise dans l
 panneau. Les changements de page et les filtres de la démo restent en mémoire
 dans cet espace, sans navigation administrative ni opération métier.
 
+Sous **Prestations**, **Play** ouvre le premier dossier synthétique et parcourt
+les 25 écrans de sa mission : accord, préparation du contenu et aperçu,
+autorisation, publication et résultat, visibilité Web, preuves et historique.
+Chaque écran reste affiché 20 secondes ; l'historique termine la visite, sans
+boucle. **Pause** conserve l'étape et le délai restant ; **Play** reprend ce scénario
+sur le premier dossier, même après un changement manuel de dossier. **Arrêt**
+revient au résumé du premier dossier et réinitialise la visite sans effacer les
+brouillons. Revenir à Découvrir, réduire le guide, masquer l'onglet, ouvrir un
+dialogue ou intervenir dans la démo suspend la visite. La reprise reste volontaire ;
+une fin de session détruit son timer. Le parcours consulte les écrans sans
+enregistrement, approbation ou envoi automatique, ni prestation déclarée accomplie.
+Son
+[contrat public](../../apps/funding-web/src/app/features/funding/service-delivery/README.md#accès-depuis-le-guide-administratif)
+est décrit dans la référence de la feature Prestations.
+
 Depuis Découvrir, **Prestations** retrouve cet espace tel quel ; un lien de
 dossier synthétique transmet sa cible au contrat public `openDossier()` après
 chargement si nécessaire. Seuls les trois dossiers de démonstration sont

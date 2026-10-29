@@ -201,6 +201,41 @@
   opacity: 0.8;
   pointer-events: none;
 }
+.tour-controls {
+  display: grid;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding-block-start: 0.8rem;
+  border-block-start: 1px solid var(--admin-border);
+}
+.tour-title,
+.tour-status,
+.tour-help {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.tour-title {
+  font-weight: 650;
+}
+.tour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tour-actions .admin-button {
+  flex: 1 1 auto;
+  gap: 0.3rem;
+  min-height: 2.5rem;
+  padding: 0.4rem;
+  font-size: 0.78rem;
+}
+.tour-status span {
+  display: block;
+}
+.tour-help {
+  color: var(--admin-muted);
+}
 .guidance-content {
   container: guidance-content / inline-size;
   min-width: 0;
@@ -328,7 +363,7 @@ p {
     overflow: hidden;
   }
   .service-delivery .mode-rail {
-    gap: 0;
+    gap: 0.65rem;
   }
 }
 @container guidance (max-width: 32rem) {
