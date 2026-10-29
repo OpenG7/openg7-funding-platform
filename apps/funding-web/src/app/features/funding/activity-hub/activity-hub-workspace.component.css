@@ -1092,7 +1092,7 @@ progress::-moz-progress-bar {
   gap: 7px;
   min-width: 0;
   margin: 0 0 12px;
-  padding-bottom: 11px;
+  padding: 15px;
   border-bottom: 1px solid #dce8f5;
 }
 
