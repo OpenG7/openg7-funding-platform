@@ -238,8 +238,11 @@ for (const [locale, width, height, sourcePath] of [
         '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
       )
       .click();
+    await expect(feature.locator('[data-og7="service-demo-list"]')).toHaveCount(
+      0
+    );
     await expect(
-      page.locator('[data-og7="service-demo-dossier"]')
+      feature.locator('[data-og7="service-demo-dossier"]')
     ).toBeVisible();
     await expect(page).toHaveURL(sourceUrl);
     await feature
