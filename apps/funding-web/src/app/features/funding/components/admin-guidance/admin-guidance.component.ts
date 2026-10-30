@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 
 import type { ServiceDeliveryEmbeddedComponent } from '../../service-delivery/index.js';
+import { SERVICE_DELIVERY_TOUR_ENABLED } from '../../config/admin-guide-features.js';
 import type { ActivityHubEmbeddedComponent } from '../../activity-hub/index.js';
 import { AdminGuideNavigationService } from '../../services/admin-guide-navigation.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -81,6 +82,7 @@ export class AdminGuidanceComponent {
   readonly serviceTour = computed(
     () => this.serviceDeliveryComponent()?.instance ?? null
   );
+  readonly serviceTourEnabled = SERVICE_DELIVERY_TOUR_ENABLED;
   readonly tourPlayRequested = signal(false);
   readonly tourState = computed(
     () => this.serviceTour()?.tourState() ?? 'stopped'
@@ -334,7 +336,7 @@ export class AdminGuidanceComponent {
         this.guidance.enabled() &&
         this.serviceDeliverySelected();
       this.serviceDeliveryComponent()?.setInput('active', active);
-      if (!active) {
+      if (!this.serviceTourEnabled || !active) {
         component?.pauseTour();
         this.tourPlayRequested.set(false);
       } else if (component && this.tourPlayRequested()) {
@@ -491,12 +493,18 @@ export class AdminGuidanceComponent {
     this.clearHighlight();
   }
   playServiceTour(): void {
-    if (!this.guidance.available() || this.tourState() === 'running') return;
+    if (
+      !this.serviceTourEnabled ||
+      !this.guidance.available() ||
+      this.tourState() === 'running'
+    )
+      return;
     this.openServiceDelivery();
     this.focusServiceDelivery = false;
     this.tourPlayRequested.set(true);
   }
   stopServiceTour(): void {
+    if (!this.serviceTourEnabled) return;
     this.tourPlayRequested.set(false);
     this.openServiceDelivery();
     this.focusServiceDelivery = false;

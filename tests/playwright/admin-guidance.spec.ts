@@ -9,6 +9,8 @@ import type {
   PilotState
 } from '@openg7/funding-core';
 
+import { SERVICE_DELIVERY_TOUR_ENABLED } from '../../apps/funding-web/src/app/features/funding/config/admin-guide-features.js';
+
 import { expect, sampledFrames, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
@@ -109,13 +111,20 @@ for (const [locale, theme, width, height] of [
       'aria-pressed',
       'false'
     );
-    await expect(hook(page, 'tour-play')).toHaveAccessibleName('Play');
-    await expect(hook(page, 'tour-pause')).toHaveAccessibleName('Pause');
-    await expect(hook(page, 'tour-stop')).toHaveAccessibleName(
-      locale === 'en' ? 'Stop' : 'Arrêt'
-    );
-    await expect(hook(page, 'tour-pause')).toBeDisabled();
-    await expect(hook(page, 'tour-stop')).toBeDisabled();
+    if (SERVICE_DELIVERY_TOUR_ENABLED) {
+      await expect(hook(page, 'tour-play')).toHaveAccessibleName('Play');
+      await expect(hook(page, 'tour-pause')).toHaveAccessibleName('Pause');
+      await expect(hook(page, 'tour-stop')).toHaveAccessibleName(
+        locale === 'en' ? 'Stop' : 'Arrêt'
+      );
+      await expect(hook(page, 'tour-pause')).toBeDisabled();
+      await expect(hook(page, 'tour-stop')).toBeDisabled();
+    } else {
+      for (const control of ['play', 'pause', 'stop']) {
+        await expect(hook(page, 'tour-' + control)).toBeHidden();
+        await expect(hook(page, 'tour-' + control)).toBeDisabled();
+      }
+    }
     for (const removed of ['payment', 'automatic', 'workflows']) {
       await expect(hook(page, removed + '-mode')).toHaveCount(0);
     }
@@ -322,6 +331,9 @@ async function settleTourView(page: Page) {
 const serviceTourScreens = [
   'dossier',
   'accord',
+  'web',
+  'confirmer-visibilite',
+  'accord',
   'contenu',
   'corriger/texte',
   'corriger/image',
@@ -341,8 +353,6 @@ const serviceTourScreens = [
   'planifier',
   'confirmer-envoi',
   'resultat',
-  'web',
-  'confirmer-visibilite',
   'preuves',
   'historique'
 ];
@@ -381,327 +391,515 @@ async function expectTourScreen(page: Page, screen: string) {
   }
 }
 
-// Built UI and synthetic dossiers only: playback never starts an API or provider.
-test('Play loads service delivery from discovery without changing the administrative URL', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.goto(`${dashboardPath}?contributionId=${paymentId}#guided-tour`);
-  const sourceUrl = page.url();
-  await hook(page, 'toggle').click();
-  await expectDiscoveryHub(page);
-  await expect(embeddedFeature(page)).toHaveCount(0);
-  await hook(page, 'tour-play').focus();
-  await page.keyboard.press('Enter');
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'running'
-  );
-  await expect(hook(page, 'tour-play')).toBeDisabled();
-  await expect(hook(page, 'tour-pause')).toBeEnabled();
-  await expect(page).toHaveURL(sourceUrl);
-  expect(f.mutations).toEqual([]);
-});
+if (!SERVICE_DELIVERY_TOUR_ENABLED) {
+  for (const [language, width] of [
+    ['fr-CA', 1440],
+    ['en', 390]
+  ] as const) {
+    test(`the disabled service tour leaves manual browsing usable in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const f = await fixtures(page, language);
+      await page.setViewportSize({ width, height: 864 });
+      await page.clock.install();
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(dashboardPath);
+      const sourceUrl = page.url();
+      await hook(page, 'toggle').click();
+      await expectDiscoveryHub(page);
+      for (const control of ['play', 'pause', 'stop']) {
+        await expect(hook(page, 'tour-' + control)).toBeHidden();
+        await expect(hook(page, 'tour-' + control)).toBeDisabled();
+      }
+      // Synthetic activation also respects the disabled feature gate.
+      await hook(page, 'tour-play').dispatchEvent('click');
+      await expect(hook(page, 'service-delivery-mode')).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+      await expect(embeddedFeature(page)).toHaveCount(0);
+      await hook(page, 'service-delivery-mode').click();
+      const feature = embeddedFeature(page);
+      await expect(feature).toBeVisible();
+      await expect(
+        feature.locator('[data-og7="service-demo-list"]')
+      ).toBeVisible();
+      await freezeTourTime(page);
+      await feature
+        .locator(
+          '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
+        )
+        .click();
+      await settleTourView(page);
+      await expectTourScreen(page, 'dossier');
+      await feature
+        .locator('a[href="/demo/prestations/dossier/atelier-boreal/accord"]')
+        .click();
+      await settleTourView(page);
+      await expectTourScreen(page, 'accord');
+      const web = feature.locator(
+        '[data-og7="service-demo-promised-service"][data-og7-id="web"]'
+      );
+      await web.focus();
+      await page.keyboard.press('Enter');
+      await settleTourView(page);
+      await expectTourScreen(page, 'web');
+      for (const control of ['play', 'pause', 'stop']) {
+        await expect(hook(page, 'tour-' + control)).toBeHidden();
+        await expect(hook(page, 'tour-' + control)).toBeDisabled();
+        await hook(page, 'tour-' + control).dispatchEvent('click');
+      }
+      await settleTourView(page);
+      await page.clock.fastForward(60_000);
+      await settleTourView(page);
+      await expectTourScreen(page, 'web');
+      await expect(hook(page, 'tour-status')).toHaveAttribute(
+        'data-og7-state',
+        'stopped'
+      );
+      await expect(page).toHaveURL(sourceUrl);
+      expect(f.mutations).toEqual([]);
+    });
+  }
+}
 
-test('the service tour waits twenty seconds, preserves the remaining pause time and stops at the end', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.clock.install();
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await openEmbeddedDelivery(page);
-  await hook(page, 'discovery-mode').click();
-  await freezeTourTime(page);
-  const sourceUrl = page.url();
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await hook(page, 'tour-pause').focus();
-  await page.clock.fastForward(19_000);
-  await expectTourScreen(page, 'dossier');
-  await page.clock.fastForward(1000);
-  await settleTourView(page);
-  await expectTourScreen(page, 'accord');
-  await expect(hook(page, 'tour-pause')).toBeFocused();
-
-  await page.clock.fastForward(7000);
-  await hook(page, 'tour-pause').click();
-  await settleTourView(page);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await expect(hook(page, 'tour-pause')).toBeDisabled();
-  await page.clock.fastForward(40_000);
-  await expectTourScreen(page, 'accord');
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expect(hook(page, 'tour-play')).toBeDisabled();
-  await page.clock.fastForward(12_500);
-  await expectTourScreen(page, 'accord');
-  await page.clock.fastForward(600);
-  await settleTourView(page);
-  await expectTourScreen(page, 'contenu');
-
-  await hook(page, 'tour-stop').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'stopped'
-  );
-  await page.clock.fastForward(40_000);
-  await expectTourScreen(page, 'dossier');
-
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  for (const screen of serviceTourScreens.slice(1)) {
-    await page.clock.fastForward(20_000);
-    await settleTourView(page);
-    await expectTourScreen(page, screen);
+// Retain playback coverage for reactivation through the same product feature gate.
+if (SERVICE_DELIVERY_TOUR_ENABLED) {
+  // Built UI and synthetic dossiers only: playback never starts an API or provider.
+  test('Play loads service delivery from discovery without changing the administrative URL', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.goto(`${dashboardPath}?contributionId=${paymentId}#guided-tour`);
+    const sourceUrl = page.url();
+    await hook(page, 'toggle').click();
+    await expectDiscoveryHub(page);
+    await expect(embeddedFeature(page)).toHaveCount(0);
+    await hook(page, 'tour-play').focus();
+    await page.keyboard.press('Enter');
+    await expectTourScreen(page, 'dossier');
     await expect(hook(page, 'tour-status')).toHaveAttribute(
       'data-og7-state',
       'running'
     );
-  }
-  await page.clock.fastForward(20_000);
-  await settleTourView(page);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'completed'
-  );
-  await expect(hook(page, 'tour-play')).toBeEnabled();
-  await expect(hook(page, 'tour-pause')).toBeDisabled();
-  await page.clock.fastForward(60_000);
-  await expectTourScreen(page, 'historique');
-  await expect(page).toHaveURL(sourceUrl);
-  expect(f.mutations).toEqual([]);
-});
+    await expect(hook(page, 'tour-play')).toBeDisabled();
+    await expect(hook(page, 'tour-pause')).toBeEnabled();
+    await expect(page).toHaveURL(sourceUrl);
+    expect(f.mutations).toEqual([]);
+  });
 
-test('hiding the guide and navigating service screens pause the tour without discarding local work', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.clock.install();
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await openEmbeddedDelivery(page);
-  await freezeTourTime(page);
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await hook(page, 'toggle').click();
-  await settleTourView(page);
-  await page.clock.fastForward(40_000);
-  await hook(page, 'toggle').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await hook(page, 'discovery-mode').click();
-  await settleTourView(page);
-  await page.clock.fastForward(40_000);
-  await hook(page, 'service-delivery-mode').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await embeddedFeature(page)
-    .locator('[data-og7="service-demo-step"][data-og7-id="contenu"]')
-    .click();
-  await settleTourView(page);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await embeddedFeature(page)
-    .getByRole('link', { name: 'Corriger le contenu', exact: true })
-    .click();
-  await settleTourView(page);
-  const editor = embeddedFeature(page).locator(
-    '[data-og7="service-demo-editor-text"]'
-  );
-  const draft = 'Ce brouillon reste disponible pendant une visite en pause.';
-  await editor.fill(draft);
-  await settleTourView(page);
-  await page.clock.fastForward(60_000);
-  await expect(editor).toHaveValue(draft);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await expect(page).toHaveURL(dashboardPath);
-  expect(f.mutations).toEqual([]);
-});
-
-test('Play selects the first synthetic dossier and Stop resets its complete tour', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.clock.install();
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await openEmbeddedDelivery(page);
-  const feature = embeddedFeature(page);
-  await feature
-    .locator(
-      '[data-og7="service-demo-open-dossier"][data-og7-id="collectif-rivages"]'
-    )
-    .click();
-  await freezeTourTime(page);
-  const selectDossier = async (id: string) => {
-    await feature
-      .getByRole('link', { name: 'Prestations de services', exact: true })
-      .click();
+  test('the service tour waits twenty seconds, preserves the remaining pause time and stops at the end', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openEmbeddedDelivery(page);
+    await hook(page, 'discovery-mode').click();
+    await freezeTourTime(page);
+    const sourceUrl = page.url();
+    await hook(page, 'tour-play').click();
     await settleTourView(page);
-    await feature
-      .locator(`[data-og7="service-demo-open-dossier"][data-og7-id="${id}"]`)
-      .click();
+    await expectTourScreen(page, 'dossier');
+    await hook(page, 'tour-pause').focus();
+    await page.clock.fastForward(19_000);
+    await expectTourScreen(page, 'dossier');
+    await page.clock.fastForward(1000);
     await settleTourView(page);
-  };
-  const expectFirstDossier = async () => {
-    await expect(
-      feature.getByRole('link', { name: 'Atelier Boréal', exact: true })
-    ).toBeVisible();
-  };
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expectFirstDossier();
-  await page.clock.fastForward(20_000);
-  await settleTourView(page);
-  await expectTourScreen(page, 'accord');
-  await selectDossier('studio-canopée');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'accord');
-  await expectFirstDossier();
-  await selectDossier('collectif-rivages');
-  await hook(page, 'tour-stop').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expectFirstDossier();
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'stopped'
-  );
-  await selectDossier('studio-canopée');
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expectFirstDossier();
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'running'
-  );
-  await expect(page).toHaveURL(dashboardPath);
-  expect(f.mutations).toEqual([]);
-});
+    await expectTourScreen(page, 'accord');
+    await expect(hook(page, 'tour-pause')).toBeFocused();
 
-test('a modal and a hidden browser tab pause service playback until Play is requested again', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.clock.install();
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await openEmbeddedDelivery(page);
-  await freezeTourTime(page);
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await page.locator('[data-og7="admin-search-open"]').click();
-  await settleTourView(page);
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await page.clock.fastForward(40_000);
-  await page.keyboard.press('Escape');
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await hook(page, 'tour-play').click();
-  await settleTourView(page);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'running'
-  );
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', {
-      configurable: true,
-      value: true
+    await page.clock.fastForward(7000);
+    await hook(page, 'tour-pause').click();
+    await settleTourView(page);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await expect(hook(page, 'tour-pause')).toBeDisabled();
+    await page.clock.fastForward(40_000);
+    await expectTourScreen(page, 'accord');
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expect(hook(page, 'tour-play')).toBeDisabled();
+    await page.clock.fastForward(12_500);
+    await expectTourScreen(page, 'accord');
+    await page.clock.fastForward(600);
+    await settleTourView(page);
+    await expectTourScreen(page, 'web');
+
+    await hook(page, 'tour-stop').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'stopped'
+    );
+    await page.clock.fastForward(40_000);
+    await expectTourScreen(page, 'dossier');
+
+    const promisedServiceClicks = await page.evaluateHandle(() => {
+      const clicks: string[] = [];
+      document.addEventListener(
+        'click',
+        (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const service = target.closest<HTMLAnchorElement>(
+            'a[data-og7="service-demo-promised-service"]'
+          );
+          const id = service?.getAttribute('data-og7-id');
+          if (id) clicks.push(id);
+        },
+        true
+      );
+      return clicks;
     });
-    document.dispatchEvent(new Event('visibilitychange'));
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    for (const screen of serviceTourScreens.slice(1)) {
+      await page.clock.fastForward(20_000);
+      await settleTourView(page);
+      await expectTourScreen(page, screen);
+      await expect(hook(page, 'tour-status')).toHaveAttribute(
+        'data-og7-state',
+        'running'
+      );
+    }
+    await page.clock.fastForward(20_000);
+    await settleTourView(page);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'completed'
+    );
+    await expect(hook(page, 'tour-play')).toBeEnabled();
+    await expect(hook(page, 'tour-pause')).toBeDisabled();
+    await page.clock.fastForward(60_000);
+    await expectTourScreen(page, 'historique');
+    expect(await promisedServiceClicks.jsonValue()).toEqual([
+      'web',
+      'facebook'
+    ]);
+    await promisedServiceClicks.dispose();
+    await expect(page).toHaveURL(sourceUrl);
+    expect(f.mutations).toEqual([]);
   });
-  await settleTourView(page);
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  await page.clock.fastForward(40_000);
-  await page.evaluate(() => {
-    Reflect.deleteProperty(document, 'hidden');
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  await settleTourView(page);
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'paused'
-  );
-  expect(f.mutations).toEqual([]);
-});
 
-test('revoking the session cancels a running service tour before another account signs in', async ({
-  page
-}) => {
-  const f = await fixtures(page);
-  await page.clock.install();
-  await openEmbeddedDelivery(page);
-  await hook(page, 'tour-play').click();
-  await expectTourScreen(page, 'dossier');
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'running'
-  );
-  f.signedIn = false;
-  await page.route('**/api/admin/dashboard', (route) =>
-    route.fulfill({ status: 401, json: {} })
-  );
-  await page.locator('[data-og7="dashboard-refresh"]').click();
-  await expect(page).toHaveURL(/\/admin\/login\?/);
-  await expect(embeddedFeature(page)).toHaveCount(0);
-  await expect(hook(page, 'tour-play')).toHaveCount(0);
-  await page.clock.fastForward(60_000);
-  f.signedIn = true;
-  f.accountId = 'guidance-tour-owner-b';
-  await page.unroute('**/api/admin/dashboard');
-  await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
-  await expect(hook(page, 'tour-status')).toHaveAttribute(
-    'data-og7-state',
-    'stopped'
-  );
-  await expect(embeddedFeature(page)).toHaveCount(0);
-  await expect(hook(page, 'tour-pause')).toBeDisabled();
-  expect(f.mutations).toEqual([]);
-});
+  for (const [language, width] of [
+    ['fr-CA', 1440],
+    ['en', 390]
+  ] as const) {
+    test(`promised service links open from the keyboard and pause the tour in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const f = await fixtures(page, language);
+      await page.setViewportSize({ width, height: 864 });
+      await page.clock.install();
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await openEmbeddedDelivery(page);
+      await freezeTourTime(page);
+      const sourceUrl = page.url();
+      await hook(page, 'tour-play').click();
+      await settleTourView(page);
+      await page.clock.fastForward(20_000);
+      await settleTourView(page);
+      await expectTourScreen(page, 'accord');
+
+      for (const [id, screen] of [
+        ['web', 'web'],
+        ['facebook', 'contenu']
+      ] as const) {
+        const service = embeddedFeature(page).locator(
+          `a[data-og7="service-demo-promised-service"][data-og7-id="${id}"]`
+        );
+        await expect(service).toHaveAttribute(
+          'href',
+          `/demo/prestations/dossier/atelier-boreal/${screen}`
+        );
+        await expect(service).toHaveAccessibleName(/\S/);
+        await service.focus();
+        await page.keyboard.press('Enter');
+        await settleTourView(page);
+        await expectTourScreen(page, screen);
+        await expect(hook(page, 'tour-status')).toHaveAttribute(
+          'data-og7-state',
+          'paused'
+        );
+        await page.clock.fastForward(40_000);
+        await expectTourScreen(page, screen);
+        await hook(page, 'tour-play').click();
+        await settleTourView(page);
+        await expectTourScreen(page, 'accord');
+        await expect(hook(page, 'tour-status')).toHaveAttribute(
+          'data-og7-state',
+          'running'
+        );
+      }
+
+      await expect(page).toHaveURL(sourceUrl);
+      expect(f.mutations).toEqual([]);
+    });
+  }
+
+  test('the service tour pauses when a promised service link is unavailable', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openEmbeddedDelivery(page);
+    await freezeTourTime(page);
+    const sourceUrl = page.url();
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await page.clock.fastForward(20_000);
+    await settleTourView(page);
+    await expectTourScreen(page, 'accord');
+    await embeddedFeature(page)
+      .locator('[data-og7="service-demo-promised-service"][data-og7-id="web"]')
+      .evaluate((link) => link.remove());
+    await page.clock.fastForward(20_000);
+    await settleTourView(page);
+    await expectTourScreen(page, 'accord');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await page.clock.fastForward(60_000);
+    await settleTourView(page);
+    await expectTourScreen(page, 'accord');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await expect(page).toHaveURL(sourceUrl);
+    expect(f.mutations).toEqual([]);
+  });
+
+  test('hiding the guide and navigating service screens pause the tour without discarding local work', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openEmbeddedDelivery(page);
+    await freezeTourTime(page);
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await hook(page, 'toggle').click();
+    await settleTourView(page);
+    await page.clock.fastForward(40_000);
+    await hook(page, 'toggle').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await hook(page, 'discovery-mode').click();
+    await settleTourView(page);
+    await page.clock.fastForward(40_000);
+    await hook(page, 'service-delivery-mode').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await embeddedFeature(page)
+      .locator('[data-og7="service-demo-step"][data-og7-id="contenu"]')
+      .click();
+    await settleTourView(page);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await embeddedFeature(page)
+      .getByRole('link', { name: 'Corriger le contenu', exact: true })
+      .click();
+    await settleTourView(page);
+    const editor = embeddedFeature(page).locator(
+      '[data-og7="service-demo-editor-text"]'
+    );
+    const draft = 'Ce brouillon reste disponible pendant une visite en pause.';
+    await editor.fill(draft);
+    await settleTourView(page);
+    await page.clock.fastForward(60_000);
+    await expect(editor).toHaveValue(draft);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await expect(page).toHaveURL(dashboardPath);
+    expect(f.mutations).toEqual([]);
+  });
+
+  test('Play selects the first synthetic dossier and Stop resets its complete tour', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openEmbeddedDelivery(page);
+    const feature = embeddedFeature(page);
+    await feature
+      .locator(
+        '[data-og7="service-demo-open-dossier"][data-og7-id="collectif-rivages"]'
+      )
+      .click();
+    await freezeTourTime(page);
+    const selectDossier = async (id: string) => {
+      await feature
+        .getByRole('link', { name: 'Prestations de services', exact: true })
+        .click();
+      await settleTourView(page);
+      await feature
+        .locator(`[data-og7="service-demo-open-dossier"][data-og7-id="${id}"]`)
+        .click();
+      await settleTourView(page);
+    };
+    const expectFirstDossier = async () => {
+      await expect(
+        feature.getByRole('link', { name: 'Atelier Boréal', exact: true })
+      ).toBeVisible();
+    };
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expectFirstDossier();
+    await page.clock.fastForward(20_000);
+    await settleTourView(page);
+    await expectTourScreen(page, 'accord');
+    await selectDossier('studio-canopée');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'accord');
+    await expectFirstDossier();
+    await selectDossier('collectif-rivages');
+    await hook(page, 'tour-stop').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expectFirstDossier();
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'stopped'
+    );
+    await selectDossier('studio-canopée');
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expectFirstDossier();
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'running'
+    );
+    await expect(page).toHaveURL(dashboardPath);
+    expect(f.mutations).toEqual([]);
+  });
+
+  test('a modal and a hidden browser tab pause service playback until Play is requested again', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openEmbeddedDelivery(page);
+    await freezeTourTime(page);
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await page.locator('[data-og7="admin-search-open"]').click();
+    await settleTourView(page);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await page.clock.fastForward(40_000);
+    await page.keyboard.press('Escape');
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await hook(page, 'tour-play').click();
+    await settleTourView(page);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'running'
+    );
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        value: true
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settleTourView(page);
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    await page.clock.fastForward(40_000);
+    await page.evaluate(() => {
+      Reflect.deleteProperty(document, 'hidden');
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settleTourView(page);
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'paused'
+    );
+    expect(f.mutations).toEqual([]);
+  });
+
+  test('revoking the session cancels a running service tour before another account signs in', async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.clock.install();
+    await openEmbeddedDelivery(page);
+    await hook(page, 'tour-play').click();
+    await expectTourScreen(page, 'dossier');
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'running'
+    );
+    f.signedIn = false;
+    await page.route('**/api/admin/dashboard', (route) =>
+      route.fulfill({ status: 401, json: {} })
+    );
+    await page.locator('[data-og7="dashboard-refresh"]').click();
+    await expect(page).toHaveURL(/\/admin\/login\?/);
+    await expect(embeddedFeature(page)).toHaveCount(0);
+    await expect(hook(page, 'tour-play')).toHaveCount(0);
+    await page.clock.fastForward(60_000);
+    f.signedIn = true;
+    f.accountId = 'guidance-tour-owner-b';
+    await page.unroute('**/api/admin/dashboard');
+    await page.goto(dashboardPath);
+    await hook(page, 'toggle').click();
+    await expect(hook(page, 'tour-status')).toHaveAttribute(
+      'data-og7-state',
+      'stopped'
+    );
+    await expect(embeddedFeature(page)).toHaveCount(0);
+    await expect(hook(page, 'tour-pause')).toBeDisabled();
+    expect(f.mutations).toEqual([]);
+  });
+}
 
 test('the embedded draft survives discovery and guide collapse without intercepting save outside the feature', async ({
   page

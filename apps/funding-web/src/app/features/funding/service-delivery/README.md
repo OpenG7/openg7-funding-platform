@@ -30,21 +30,30 @@ l’ouverture de cet espace ou d’un dossier synthétique précis. La rubrique
 administrative, son URL, ses paramètres et son fragment restent en place.
 La disposition s'adapte à la largeur disponible sur mobile.
 
-Sous **Prestations**, **Play** ouvre la démonstration complète sur le premier
-dossier synthétique, `atelier-boreal`, depuis Découvrir si nécessaire. Ses 25 écrans
-présentent le résumé et l'accord, la préparation du contenu avec les cinq onglets
-de l'éditeur, l'aperçu et l'approbation de préparation, puis la demande d'accord,
+La visite automatique est **temporairement désactivée** : Play, Pause et Arrêt
+sont masqués et leur démarrage est bloqué. La navigation manuelle et les liens
+des prestations restent utilisables. Pour réactiver le code conservé, passer
+`SERVICE_DELIVERY_TOUR_ENABLED` à `true` dans la
+[configuration du guide](../config/admin-guide-features.ts).
+
+Une fois réactivé, **Play** ouvre la démonstration complète sur le premier
+dossier synthétique, `atelier-boreal`, depuis Découvrir si nécessaire. Ses 26 étapes
+présentent le résumé et l'accord. La visite active le lien **Présentation sur le
+site**, consulte sa visibilité, puis revient aux prestations promises et active
+le lien **Facebook**. Ces deux cartes sont aussi des liens utilisables au clavier.
+Elle poursuit la préparation du contenu avec les cinq onglets de l'éditeur,
+l'aperçu et l'approbation de préparation, puis la demande d'accord,
 son aperçu d'envoi, l'accord reçu, les conditions, le contact et la confirmation
 d'autorisation. La visite se poursuit avec la publication, sa planification, la
-confirmation d'envoi et le résultat, puis la fiche Web, sa visibilité, les preuves
-et l'historique.
+confirmation d'envoi et le résultat, puis les preuves et l'historique.
 
 Chaque écran reste affiché 20 secondes ; la visite se termine après l'historique,
 sans boucle. **Pause** conserve l'étape et le délai restant ; **Play** reprend ce
 scénario sur le premier dossier, même si un autre a été ouvert manuellement.
 **Arrêt** revient au résumé du premier dossier et remet la visite au début, sans
-effacer les brouillons. Les écrans sont consultés sans activation automatique de
-leurs commandes : la visite n'enregistre, n'approuve et n'envoie rien, ni ne
+effacer les brouillons. Seuls les liens de navigation vers les prestations sont
+activés automatiquement. Un lien absent ou différent de la cible synthétique
+attendue met la visite en pause. La visite n'enregistre, n'approuve et n'envoie rien, ni ne
 déclare une prestation accomplie. Elle n'appelle aucune API métier.
 
 Le composant embarqué expose les signaux en lecture seule `tourState`
@@ -127,5 +136,6 @@ et les [parcours navigateur](../../../../../../../tests/playwright/service-demo.
 vérifient les points d'entrée, les routes et les comportements. Les tests Node de
 navigation utilisent `dist` et demandent d'abord `yarn build`.
 Les [tests du guide administratif](../../../../../../../tests/playwright/admin-guidance.spec.ts)
-couvrent les commandes de visite et leur cadence sur le Web compilé avec des
-fixtures, sans API métier.
+vérifient la désactivation et la navigation manuelle sur le Web compilé avec des
+fixtures, sans API métier. Les scénarios de lecture et de cadence restent conservés
+et sont sélectionnés lorsque la visite est réactivée.

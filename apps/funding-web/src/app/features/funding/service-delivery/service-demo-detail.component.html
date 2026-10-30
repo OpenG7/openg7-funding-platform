@@ -594,20 +594,34 @@
       <div class="panel">
         <h2>{{ t('titles.agreement') }}</h2>
         <p>{{ t('copy.agreementDescription') }}</p>
-        <div class="check-row">
+        <a
+          class="check-row"
+          [routerLink]="state.href('web')"
+          queryParamsHandling="preserve"
+          data-og7="service-demo-promised-service"
+          data-og7-id="web"
+        >
           <span>01</span>
           <div>
             <h3>{{ t('titles.web') }}</h3>
             <p>{{ t('copy.promisedWeb') }}</p>
           </div>
-        </div>
-        <div class="check-row">
+          <span class="chevron" aria-hidden="true">›</span>
+        </a>
+        <a
+          class="check-row"
+          [routerLink]="state.href('contenu')"
+          queryParamsHandling="preserve"
+          data-og7="service-demo-promised-service"
+          data-og7-id="facebook"
+        >
           <span>02</span>
           <div>
             <h3>Facebook</h3>
             <p>{{ t('copy.promisedSocial') }}</p>
           </div>
-        </div>
+          <span class="chevron" aria-hidden="true">›</span>
+        </a>
         <p class="notice">{{ t('copy.offerDisclaimer') }}</p>
         <div class="detail-actions">
           <a

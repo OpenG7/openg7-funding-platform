@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   HostListener,
   afterRenderEffect,
   computed,
@@ -12,6 +13,8 @@ import {
   signal,
   viewChild
 } from '@angular/core';
+
+import { SERVICE_DELIVERY_TOUR_ENABLED } from '../config/admin-guide-features.js';
 
 import { ServiceDemoShellComponent } from './service-demo-shell.component.js';
 import {
@@ -28,6 +31,9 @@ import {
 const TOUR_PAGES = [
   '',
   'accord',
+  'web',
+  'confirmer-visibilite',
+  'accord',
   'contenu',
   ...SERVICE_DEMO_EDITOR_TABS.map((tab) => `corriger/${tab}`),
   'apercu',
@@ -43,8 +49,6 @@ const TOUR_PAGES = [
   'planifier',
   'confirmer-envoi',
   'resultat',
-  'web',
-  'confirmer-visibilite',
   'preuves',
   'historique'
 ] as const;
@@ -98,11 +102,13 @@ export class ServiceDeliveryEmbeddedComponent {
   readonly preserveTourFocus = signal(false);
   private readonly navigation = inject(ServiceDemoNavigation);
   private readonly document = inject(DOCUMENT);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly shell = viewChild(ServiceDemoShellComponent);
   private timer: number | undefined;
   private deadline = 0;
   private remaining = TOUR_DELAY;
   private tourUrl = '';
+  private activatingTourLink = false;
 
   constructor() {
     afterRenderEffect(() => {
@@ -138,6 +144,7 @@ export class ServiceDeliveryEmbeddedComponent {
   playTour(): void {
     const view = this.document.defaultView;
     if (
+      !SERVICE_DELIVERY_TOUR_ENABLED ||
       !view ||
       !this.active() ||
       this.document.hidden ||
@@ -151,8 +158,8 @@ export class ServiceDeliveryEmbeddedComponent {
     }
     this.preserveTourFocus.set(true);
     this.currentTourState.set('running');
-    this.showTourStep();
-    this.scheduleStep();
+    if (this.showTourStep()) this.scheduleStep();
+    else this.pauseTour();
   }
 
   pauseTour(): void {
@@ -164,6 +171,10 @@ export class ServiceDeliveryEmbeddedComponent {
   }
 
   stopTour(): void {
+    if (!SERVICE_DELIVERY_TOUR_ENABLED) {
+      this.pauseTour();
+      return;
+    }
     this.clearTimer();
     this.currentTourState.set('stopped');
     this.currentTourStep.set(0);
@@ -178,14 +189,42 @@ export class ServiceDeliveryEmbeddedComponent {
   @HostListener('keydown')
   @HostListener('input')
   onInteraction(): void {
+    if (this.activatingTourLink) return;
     this.pauseTour();
     this.preserveTourFocus.set(false);
   }
 
-  private showTourStep(): void {
-    const page = TOUR_PAGES[this.tourStep()]!;
-    this.tourUrl = `/demo/prestations/dossier/${TOUR_DOSSIER}${page ? '/' + page : ''}`;
+  private showTourStep(step = this.tourStep()): boolean {
+    const page = TOUR_PAGES[step]!;
+    const target = `/demo/prestations/dossier/${TOUR_DOSSIER}${page ? '/' + page : ''}`;
+    if (
+      this.navigation.data()['detail'] === 'accord' &&
+      (page === 'web' || page === 'contenu')
+    ) {
+      const service = page === 'web' ? 'web' : 'facebook';
+      const link = this.element.nativeElement.querySelector<HTMLAnchorElement>(
+        `a[data-og7="service-demo-promised-service"][data-og7-id="${service}"]`
+      );
+      // Activate only the visible, exact synthetic service link, never a command.
+      if (
+        !link ||
+        link.getAttribute('href') !== target ||
+        link.closest('[hidden]') ||
+        link.getClientRects().length === 0
+      )
+        return false;
+      this.tourUrl = target;
+      this.activatingTourLink = true;
+      try {
+        link.click();
+      } finally {
+        this.activatingTourLink = false;
+      }
+      return this.navigation.url() === target;
+    }
+    this.tourUrl = target;
     void this.navigation.navigate(this.tourUrl);
+    return true;
   }
 
   private scheduleStep(): void {
@@ -195,6 +234,7 @@ export class ServiceDeliveryEmbeddedComponent {
     this.timer = view.setTimeout(() => {
       this.timer = undefined;
       if (
+        !SERVICE_DELIVERY_TOUR_ENABLED ||
         !this.active() ||
         this.document.hidden ||
         this.document.querySelector('dialog[open]')
@@ -207,8 +247,13 @@ export class ServiceDeliveryEmbeddedComponent {
         this.currentTourState.set('completed');
         return;
       }
-      this.currentTourStep.update((step) => step + 1);
-      this.showTourStep();
+      const next = this.tourStep() + 1;
+      if (!this.showTourStep(next)) {
+        this.pauseTour();
+        this.remaining = TOUR_DELAY;
+        return;
+      }
+      this.currentTourStep.set(next);
       this.scheduleStep();
     }, this.remaining);
   }

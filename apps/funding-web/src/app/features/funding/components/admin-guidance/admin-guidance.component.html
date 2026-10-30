@@ -107,7 +107,7 @@
             </nav>
             <section
               class="tour-controls"
-              [hidden]="guidance.mode() !== 'discovery'"
+              [hidden]="!serviceTourEnabled || guidance.mode() !== 'discovery'"
               [attr.aria-label]="t('tour.title')"
             >
               <p class="tour-title">{{ t('tour.title') }}</p>
@@ -117,6 +117,7 @@
                   class="admin-button"
                   data-og7="admin-guidance-tour-play"
                   [disabled]="
+                    !serviceTourEnabled ||
                     tourState() === 'running' ||
                     tourPlayRequested() ||
                     serviceDeliveryLoading() ||
@@ -130,7 +131,7 @@
                   type="button"
                   class="admin-button"
                   data-og7="admin-guidance-tour-pause"
-                  [disabled]="tourState() !== 'running'"
+                  [disabled]="!serviceTourEnabled || tourState() !== 'running'"
                   (click)="serviceTour()?.pauseTour()"
                 >
                   <span aria-hidden="true">Ⅱ</span>{{ t('tour.pause') }}
@@ -140,8 +141,9 @@
                   class="admin-button"
                   data-og7="admin-guidance-tour-stop"
                   [disabled]="
-                    !tourPlayRequested() &&
-                    (!serviceTour() || tourState() === 'stopped')
+                    !serviceTourEnabled ||
+                    (!tourPlayRequested() &&
+                      (!serviceTour() || tourState() === 'stopped'))
                   "
                   (click)="stopServiceTour()"
                 >

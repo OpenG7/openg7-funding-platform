@@ -185,9 +185,17 @@ contenu restent en place. Sur petit écran, la disposition se réorganise dans l
 panneau. Les changements de page et les filtres de la démo restent en mémoire
 dans cet espace, sans navigation administrative ni opération métier.
 
-Sous **Prestations**, **Play** ouvre le premier dossier synthétique et parcourt
-les 25 écrans de sa mission : accord, préparation du contenu et aperçu,
-autorisation, publication et résultat, visibilité Web, preuves et historique.
+La visite automatique est **temporairement désactivée** : les commandes Play,
+Pause et Arrêt sont masquées, sans empêcher la navigation manuelle dans Prestations.
+Le code et la cadence restent conservés pour une réactivation ultérieure dans la
+[configuration du guide](../../apps/funding-web/src/app/features/funding/config/admin-guide-features.ts).
+
+Une fois réactivé, **Play** ouvre le premier dossier synthétique et parcourt
+les 26 étapes de sa mission. Depuis l'accord, la visite ouvre le lien de la
+prestation Web, consulte sa visibilité, revient aux prestations promises et ouvre
+le lien Facebook. Elle poursuit le contenu et son aperçu, l'autorisation, la
+publication et son résultat, les preuves et l'historique. Ces deux cartes de
+prestations sont également accessibles au clavier ; un clic manuel suspend la visite.
 Chaque écran reste affiché 20 secondes ; l'historique termine la visite, sans
 boucle. **Pause** conserve l'étape et le délai restant ; **Play** reprend ce scénario
 sur le premier dossier, même après un changement manuel de dossier. **Arrêt**
