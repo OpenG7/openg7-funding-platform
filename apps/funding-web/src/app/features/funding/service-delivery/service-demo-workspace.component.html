@@ -17,11 +17,17 @@
       <section>
         <header class="section-heading">
           <h2>{{ 'serviceDemo.summary.services' | translate }}</h2>
-          <a class="text-link" [routerLink]="state.href('accord')"
+          <a
+            class="text-link"
+            [routerLink]="state.href('accord')"
+            queryParamsHandling="preserve"
             >{{ 'serviceDemo.agreement' | translate }} ↗</a
           >
         </header>
-        <a class="service-card" [routerLink]="state.href('web')"
+        <a
+          class="service-card"
+          [routerLink]="state.href('web')"
+          queryParamsHandling="preserve"
           ><span class="service-icon"><openg7-admin-icon name="cloud" /></span>
           <div>
             <h3>{{ 'serviceDemo.web' | translate }}</h3>
@@ -32,7 +38,10 @@
           </div>
           <span class="chevron" aria-hidden="true">›</span></a
         >
-        <a class="service-card selected" [routerLink]="state.href('contenu')"
+        <a
+          class="service-card selected"
+          [routerLink]="state.href('contenu')"
+          queryParamsHandling="preserve"
           ><span class="service-icon facebook-icon" aria-hidden="true">f</span>
           <div>
             <h3>{{ 'serviceDemo.facebook' | translate }}</h3>
@@ -60,7 +69,10 @@
           <div>
             <strong>{{ 'serviceDemo.summary.aiTitle' | translate }}</strong>
             <p>{{ 'serviceDemo.summary.aiHint' | translate }}</p>
-            <a class="text-link" [routerLink]="state.href('proposition')"
+            <a
+              class="text-link"
+              [routerLink]="state.href('proposition')"
+              queryParamsHandling="preserve"
               >{{ 'serviceDemo.summary.aiAction' | translate }} →</a
             >
           </div>
@@ -70,6 +82,7 @@
         <openg7-service-demo-preview /><a
           class="proof-link"
           [routerLink]="state.href('preuves')"
+          queryParamsHandling="preserve"
           ><openg7-admin-icon name="audit" />
           <div>
             <strong>{{ 'serviceDemo.proofs' | translate }}</strong
@@ -81,13 +94,17 @@
     </div>
     <ng-template openg7ServiceDemoActions
       ><div class="footer-actions">
-        <a class="button" [routerLink]="state.href('historique')"
+        <a
+          class="button"
+          [routerLink]="state.href('historique')"
+          queryParamsHandling="preserve"
           ><openg7-admin-icon name="clock" />{{
             'serviceDemo.history' | translate
           }}</a
         ><a
           class="button primary"
           [routerLink]="state.href(state.dossier().stage)"
+          queryParamsHandling="preserve"
           data-og7="service-demo-next"
           >{{ 'serviceDemo.nextActions.' + state.dossier().stage | translate }}
           <openg7-admin-icon name="arrow"
@@ -119,7 +136,10 @@
           </header>
           @if (page() === 'contenu') {
             @for (check of contentChecks; track check.key) {
-              <a class="check-row" [routerLink]="state.href(check.target)"
+              <a
+                class="check-row"
+                [routerLink]="state.href(check.target)"
+                queryParamsHandling="preserve"
                 ><span class="check-symbol" aria-hidden="true"
                   ><openg7-admin-icon name="check" /></span
                 ><openg7-admin-icon [name]="check.icon" /><span
@@ -136,7 +156,10 @@
             }
           } @else if (page() === 'autorisation') {
             @for (check of authorizationChecks; track check.key) {
-              <a class="check-row" [routerLink]="state.href(check.target)"
+              <a
+                class="check-row"
+                [routerLink]="state.href(check.target)"
+                queryParamsHandling="preserve"
                 ><span class="check-symbol" aria-hidden="true"
                   ><openg7-admin-icon name="check" /></span
                 ><openg7-admin-icon [name]="check.icon" /><span
@@ -153,7 +176,10 @@
             }
           } @else {
             @for (check of publicationChecks; track check.key) {
-              <a class="check-row" [routerLink]="state.href(check.target)"
+              <a
+                class="check-row"
+                [routerLink]="state.href(check.target)"
+                queryParamsHandling="preserve"
                 ><span class="check-symbol neutral" aria-hidden="true"
                   ><openg7-admin-icon [name]="check.icon" /></span
                 ><span
@@ -180,7 +206,10 @@
           </div>
         </div>
         @if (page() === 'publication') {
-          <a class="proof-link" [routerLink]="state.href('web')"
+          <a
+            class="proof-link"
+            [routerLink]="state.href('web')"
+            queryParamsHandling="preserve"
             ><openg7-admin-icon name="cloud" />
             <div>
               <strong>{{ 'serviceDemo.web' | translate }}</strong
@@ -233,6 +262,7 @@
               )
             "
             [queryParams]="{ retour: page() }"
+            queryParamsHandling="merge"
             >{{
               (page() === 'autorisation'
                 ? 'serviceDemo.requestCorrection'
@@ -251,6 +281,7 @@
               )
             "
             data-og7="service-demo-next"
+            queryParamsHandling="preserve"
             >{{ 'serviceDemo.tasks.' + page() + '.action' | translate }}
             <openg7-admin-icon name="arrow"
           /></a>

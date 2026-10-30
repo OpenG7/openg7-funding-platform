@@ -16,30 +16,9 @@ import detailEn from './i18n/service-demo-detail.en.json' with { type: 'json' };
 import detailFr from './i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
 import navigationEn from './i18n/service-demo-navigation.en.json' with { type: 'json' };
 import navigationFr from './i18n/service-demo-navigation.fr-CA.json' with { type: 'json' };
+import { DEMO_DOSSIERS } from './service-demo-fixtures.js';
 
-export const DEMO_DOSSIERS = [
-  {
-    id: 'atelier-boreal',
-    name: 'Atelier Boréal',
-    initials: 'AB',
-    stage: 'contenu',
-    tone: 'blue'
-  },
-  {
-    id: 'collectif-rivages',
-    name: 'Collectif Rivages',
-    initials: 'CR',
-    stage: 'autorisation',
-    tone: 'amber'
-  },
-  {
-    id: 'studio-canopée',
-    name: 'Studio Canopée',
-    initials: 'SC',
-    stage: 'publication',
-    tone: 'green'
-  }
-] as const;
+export { DEMO_DOSSIERS };
 
 export interface ServiceDemoContent {
   readonly text: string;
@@ -50,6 +29,12 @@ export interface ServiceDemoContent {
   readonly imageIncluded: boolean;
   readonly imageAsset: 'panorama' | 'companion';
   readonly imageAlt: string;
+}
+
+function demoImageSource(asset: ServiceDemoContent['imageAsset']): string {
+  return asset === 'companion'
+    ? 'assets/admin-guide-princess-lion.webp'
+    : 'assets/admin-guide-panorama.webp';
 }
 
 interface ServiceDemoDraft extends ServiceDemoContent {
@@ -105,11 +90,7 @@ export class ServiceDemoState {
   readonly imageAsset = signal<'panorama' | 'companion'>('panorama');
   readonly imageAlt = signal('');
   readonly previewMode = signal<'standard' | 'compact'>('standard');
-  readonly previewImage = computed(() =>
-    this.imageAsset() === 'companion'
-      ? 'assets/admin-guide-princess-lion.webp'
-      : 'assets/admin-guide-panorama.webp'
-  );
+  readonly previewImage = computed(() => demoImageSource(this.imageAsset()));
   readonly savedContent = computed(() =>
     this.savedVersions().get(this.currentId())
   );
@@ -123,9 +104,11 @@ export class ServiceDemoState {
   });
   readonly query = signal('');
   readonly filter = signal('all');
+  readonly returnTo = signal<string | null>(null);
   readonly listParams = computed(() => ({
     q: this.query() || null,
-    etat: this.filter() === 'all' ? null : this.filter()
+    etat: this.filter() === 'all' ? null : this.filter(),
+    ...(this.returnTo() ? { returnTo: this.returnTo() } : {})
   }));
   readonly page = signal('');
   readonly editorTab = signal('texte');
@@ -176,6 +159,21 @@ export class ServiceDemoState {
     return `/demo/prestations/dossier/${encodeURIComponent(this.currentId())}${page ? '/' + page : ''}`;
   }
 
+  /** Read each visit's illustration without selecting or changing its dossier. */
+  mediaForDossier(id: string): readonly { readonly src: string }[] {
+    if (!DEMO_DOSSIERS.some((dossier) => dossier.id === id)) return [];
+    const content =
+      id === this.currentId()
+        ? {
+            imageIncluded: this.imageIncluded(),
+            imageAsset: this.imageAsset()
+          }
+        : this.drafts().get(id);
+    return content?.imageIncluded === false
+      ? []
+      : [{ src: demoImageSource(content?.imageAsset ?? 'panorama') }];
+  }
+
   selectDossier(id: string): void {
     if (
       id === this.currentId() ||
@@ -197,6 +195,7 @@ export class ServiceDemoState {
     this.applyDraft(this.currentId());
     this.query.set('');
     this.filter.set('all');
+    this.returnTo.set(null);
     this.previewMode.set('standard');
   }
 

@@ -1760,6 +1760,8 @@
       },
       "modeLabel": "Guide type",
       "discoveryMode": "Discover",
+      "serviceDeliveryMode": "Service delivery",
+      "serviceDeliveryUnavailable": "Service delivery could not be loaded. Retry without leaving your section.",
       "paymentMode": "Follow a payment",
       "automaticMode": "Dossier preparation",
       "workflowsMode": "Explore the journeys",

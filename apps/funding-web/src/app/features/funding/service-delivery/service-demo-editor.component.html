@@ -290,9 +290,12 @@
       queryParamsHandling="preserve"
       >{{ 'serviceDemoEditor.restore' | translate }}</a
     >
-    <a class="button" [routerLink]="state.href(returnPage())">{{
-      'serviceDemoEditor.returnTo.' + returnPage() | translate
-    }}</a>
+    <a
+      class="button"
+      [routerLink]="state.href(returnPage())"
+      queryParamsHandling="preserve"
+      >{{ 'serviceDemoEditor.returnTo.' + returnPage() | translate }}</a
+    >
     <button
       type="button"
       class="button primary"

@@ -4,8 +4,6 @@ import {
   computed,
   inject
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminIconComponent } from '../components/admin-ui/admin-icon.component.js';
@@ -13,6 +11,8 @@ import { FundingI18nService } from '../services/funding-i18n.service.js';
 
 import en from './i18n/service-demo-editor.en.json' with { type: 'json' };
 import fr from './i18n/service-demo-editor.fr-CA.json' with { type: 'json' };
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
+import { ServiceDemoNavigation } from './service-demo-navigation.js';
 import { ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
 import { ServiceDemoTabsDirective } from './service-demo-tabs.directive.js';
@@ -186,10 +186,7 @@ const events = [
 })
 export class ServiceDemoHistoryComponent {
   readonly state = inject(ServiceDemoState);
-  private readonly route = inject(ActivatedRoute);
-  private readonly query = toSignal(this.route.queryParamMap, {
-    initialValue: this.route.snapshot.queryParamMap
-  });
+  private readonly query = inject(ServiceDemoNavigation).query;
   readonly filters = [
     'tout',
     'modifications',

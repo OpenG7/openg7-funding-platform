@@ -11,6 +11,7 @@ import type {
 
 import { expect, sampledFrames, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
   installAdminController
@@ -49,7 +50,7 @@ for (const [locale, theme, width, height] of [
   ['en', 'night', 390, 667],
   ['fr-CA', 'graphite', 390, 844]
 ] as const) {
-  test(`the redesigned guide keeps named modes and context usable in ${locale} ${theme} at ${width} by ${height}`, async ({
+  test(`the guide keeps discovery and service delivery usable in ${locale} ${theme} at ${width} by ${height}`, async ({
     page
   }, testInfo) => {
     const f = await fixtures(page, locale);
@@ -84,48 +85,44 @@ for (const [locale, theme, width, height] of [
     await expect(guide).toHaveAccessibleName(guideName);
     await expect(hook(page, 'toggle')).toHaveAccessibleName(openGuideName);
     await hook(page, 'toggle').click();
-    const labels =
-      locale === 'en'
-        ? [
-            'Discover',
-            'Follow a payment',
-            'Dossier preparation',
-            'Explore the journeys'
-          ]
-        : [
-            'Découvrir',
-            'Suivi d’un paiement',
-            'Préparation des dossiers',
-            'Explorer les parcours'
-          ];
-    const modeIds = ['discovery', 'payment', 'automatic', 'workflows'];
-    for (const modeId of modeIds) {
-      await hook(page, modeId + '-mode').click();
-      await expect(hook(page, modeId + '-mode')).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      );
-      const modes = hook(page, 'modes').getByRole('button');
-      await expect(modes).toHaveCount(4);
-      for (const [index, label] of labels.entries()) {
-        const mode = modes.nth(index);
-        await expect(mode).toHaveAccessibleName(label);
-        await expect(mode.locator('span')).toBeVisible();
-        await expect(mode.locator('span')).toHaveText(label);
-      }
-      await expect(hook(page, 'page')).toBeVisible();
-      await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1
-        )
-      ).toBe(true);
+    const discoveryLabel = locale === 'en' ? 'Discover' : 'Découvrir';
+    const serviceDeliveryLabel =
+      locale === 'en' ? 'Service delivery' : 'Prestations';
+    const modes = hook(page, 'modes');
+    await expect(modes.getByRole('button')).toHaveCount(2);
+    await expect(hook(page, 'discovery-mode')).toHaveAccessibleName(
+      discoveryLabel
+    );
+    await expect(hook(page, 'discovery-mode').locator('span')).toBeVisible();
+    await expect(hook(page, 'discovery-mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(modes.getByRole('link')).toHaveCount(0);
+    await expect(hook(page, 'service-delivery-mode')).toHaveAccessibleName(
+      serviceDeliveryLabel
+    );
+    await expect(
+      hook(page, 'service-delivery-mode').locator('span')
+    ).toBeVisible();
+    await expect(hook(page, 'service-delivery-mode')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    for (const removed of ['payment', 'automatic', 'workflows']) {
+      await expect(hook(page, removed + '-mode')).toHaveCount(0);
     }
-    await hook(page, 'discovery-mode').click();
-    await hook(page, 'next').focus();
-    await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.98 });
+    await expectEmptyDiscovery(page);
+    await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    await hook(page, 'discovery-mode').focus();
     await page.keyboard.press('Enter');
-    await expectStep(page, 'choose');
+    await expectEmptyDiscovery(page);
+    await expect(hook(page, 'discovery-mode')).toBeFocused();
     const audit = await new AxeBuilder({ page })
       .include('[data-og7="admin-guidance"]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
@@ -138,6 +135,308 @@ for (const [locale, theme, width, height] of [
     expect(f.mutations).toEqual([]);
   });
 }
+
+for (const [locale, width, height, sourcePath] of [
+  ['fr-CA', 1440, 900, dashboardPath],
+  ['en', 1440, 900, attentionPath],
+  ['fr-CA', 390, 844, attentionPath],
+  ['en', 390, 844, dashboardPath]
+] as const) {
+  test(`service delivery stays inside the administrative guide in ${locale} at ${width}px`, async ({
+    page
+  }) => {
+    const f = await fixtures(page, locale);
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${sourcePath}?contributionId=${paymentId}#guide-context`);
+    const sourceUrl = page.url();
+    const main = await page.locator('#admin-main').elementHandle();
+    expect(main).not.toBeNull();
+    await hook(page, 'toggle').click();
+    await expect(hook(page, 'panel')).toBeVisible();
+    const guide = page.locator('[data-og7="admin-guidance"]');
+    const initialBounds = await guide.boundingBox();
+    expect(initialBounds).not.toBeNull();
+    const expectStableBounds = async () => {
+      const bounds = await guide.boundingBox();
+      expect(bounds).not.toBeNull();
+      for (const dimension of ['x', 'y', 'width', 'height'] as const) {
+        expect(bounds![dimension]).toBeCloseTo(initialBounds![dimension], 0);
+      }
+    };
+    const entry = hook(page, 'service-delivery-mode');
+    await expect(entry).toHaveAccessibleName(
+      locale === 'en' ? 'Service delivery' : 'Prestations'
+    );
+    await entry.focus();
+    await page.keyboard.press('Enter');
+    const feature = embeddedFeature(page);
+    await expect(feature).toBeVisible();
+    await expectStableBounds();
+    await expect(
+      hook(page, 'content').locator('[data-og7="service-delivery-embedded"]')
+    ).toBeVisible();
+    await expect(entry).toHaveAttribute('aria-pressed', 'true');
+    await expect(hook(page, 'discovery-mode')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    await expect(feature.locator('iframe')).toHaveCount(0);
+    await expect(
+      feature.locator('[data-og7="service-demo-list"]')
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: locale === 'en' ? 'Service delivery' : 'Prestations de services',
+        exact: true
+      })
+    ).toBeVisible();
+    await expect(page).toHaveURL(sourceUrl);
+    await expectStableBounds();
+    expect(await main!.evaluate((node) => node.isConnected)).toBe(true);
+    if (locale === 'en' && width === 390) {
+      const audit = await new AxeBuilder({ page })
+        .include('[data-og7="admin-guidance"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(audit.violations).toEqual([]);
+    }
+    if (locale === 'fr-CA' && width === 1440) {
+      const search = feature.locator('[data-og7="service-demo-search"]');
+      await search.fill('Boréal');
+      await expect(
+        feature.locator('[data-og7="service-demo-open-dossier"]')
+      ).toHaveCount(1);
+      await expect(page).toHaveURL(sourceUrl);
+      await search.fill('');
+      await feature
+        .locator('[data-og7="service-demo-filter"][data-og7-id="contenu"]')
+        .click();
+      await expect(
+        feature.locator('[data-og7="service-demo-open-dossier"]')
+      ).toHaveCount(1);
+      await expect(page).toHaveURL(sourceUrl);
+    }
+    await feature
+      .locator(
+        '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
+      )
+      .click();
+    await expect(feature.locator('[data-og7="service-demo-list"]')).toHaveCount(
+      0
+    );
+    await expect(
+      feature.locator('[data-og7="service-demo-dossier"]')
+    ).toBeVisible();
+    await expect(page).toHaveURL(sourceUrl);
+    await feature
+      .getByRole('link')
+      .filter({
+        has: page.getByRole('heading', {
+          name:
+            locale === 'en'
+              ? 'Website presentation'
+              : 'Présentation sur le site',
+          exact: true
+        })
+      })
+      .click();
+    await expect(
+      page.locator('[data-og7="service-demo-detail"][data-og7-id="web"]')
+    ).toBeVisible();
+    await expect(page).toHaveURL(sourceUrl);
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name:
+          locale === 'en' ? 'Website presentation' : 'Présentation sur le site',
+        exact: true
+      })
+    ).toBeVisible();
+    expect(await main!.evaluate((node) => node.isConnected)).toBe(true);
+    expect(
+      await feature.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1
+      )
+    ).toBe(true);
+    await expectStableBounds();
+    const back = feature.locator('[data-og7="service-demo-exit"]');
+    await back.focus();
+    await page.keyboard.press('Enter');
+    await expect(feature).toBeHidden();
+    await expect(page).toHaveURL(sourceUrl);
+    await expect(hook(page, 'panel')).toBeVisible();
+    await expect(hook(page, 'discovery-mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expectEmptyDiscovery(page);
+    await expect(hook(page, 'discovery-mode')).toBeFocused();
+    await expectStableBounds();
+    expect(f.mutations).toEqual([]);
+  });
+}
+
+function embeddedFeature(page: Page): Locator {
+  return page.locator('[data-og7="service-delivery-embedded"]');
+}
+
+async function openEmbeddedDelivery(page: Page, path = dashboardPath) {
+  await page.goto(path);
+  await hook(page, 'toggle').click();
+  await hook(page, 'service-delivery-mode').click();
+  await expect(embeddedFeature(page)).toBeVisible();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+}
+
+async function openEmbeddedEditor(page: Page) {
+  await embeddedFeature(page)
+    .locator(
+      '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
+    )
+    .click();
+  await page
+    .locator('[data-og7="service-demo-step"][data-og7-id="contenu"]')
+    .click();
+  await embeddedFeature(page)
+    .getByRole('link', { name: 'Corriger le contenu', exact: true })
+    .click();
+  await expect(
+    page.locator('[data-og7="service-demo-editor-text"]')
+  ).toBeVisible();
+}
+
+test('the embedded draft survives discovery and guide collapse without intercepting save outside the feature', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  await openEmbeddedDelivery(page);
+  await openEmbeddedEditor(page);
+  const feature = embeddedFeature(page);
+  const editor = feature.locator('[data-og7="service-demo-editor-text"]');
+  const draft = 'Brouillon local conservé dans le guide administratif.';
+  await editor.fill(draft);
+  const originalEditor = await editor.elementHandle();
+  expect(originalEditor).not.toBeNull();
+  const saveOutside = async () => {
+    const background = page.locator('#admin-main');
+    await background.focus();
+    return background.evaluate((element) => {
+      const event = new KeyboardEvent('keydown', {
+        key: 's',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+  };
+  expect(await saveOutside()).toBe(false);
+
+  await hook(page, 'discovery-mode').click();
+  await expectEmptyDiscovery(page);
+  await expect(hook(page, 'discovery-mode')).toBeFocused();
+  await expect(feature).toBeHidden();
+  expect(await originalEditor!.evaluate((node) => node.isConnected)).toBe(true);
+  await hook(page, 'service-delivery-mode').click();
+  await expect(editor).toHaveValue(draft);
+  await hook(page, 'toggle').click();
+  await expect(feature).toBeHidden();
+  expect(await originalEditor!.evaluate((node) => node.isConnected)).toBe(true);
+
+  expect(await saveOutside()).toBe(false);
+  await hook(page, 'toggle').click();
+  await hook(page, 'service-delivery-mode').click();
+  await expect(editor).toHaveValue(draft);
+  await expect(
+    feature.locator('[data-og7="service-demo-editor-saved"]')
+  ).toBeHidden();
+  await editor.focus();
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(
+    feature.locator('[data-og7="service-demo-editor-saved"]')
+  ).toBeVisible();
+
+  await feature.locator('[data-og7="service-demo-exit"]').click();
+  await expectEmptyDiscovery(page);
+  await expect(hook(page, 'discovery-mode')).toBeFocused();
+  await expect(feature).toBeHidden();
+  await hook(page, 'service-delivery-mode').click();
+  await expect(editor).toHaveValue(draft);
+  expect(await originalEditor!.evaluate((node) => node.isConnected)).toBe(true);
+  await expect(page).toHaveURL(dashboardPath);
+  expect(f.mutations).toEqual([]);
+});
+
+test('a collapsed embedded draft still warns before a browser reload', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  await openEmbeddedDelivery(page);
+  await openEmbeddedEditor(page);
+  const editor = page.locator('[data-og7="service-demo-editor-text"]');
+  const draft =
+    'Ne pas perdre ce brouillon en rechargeant la page administrative.';
+  await editor.fill(draft);
+  await hook(page, 'toggle').click();
+  const nativeDialog = page.waitForEvent('dialog');
+  await page.evaluate(() => {
+    setTimeout(() => location.reload(), 0);
+  });
+  const dialog = await nativeDialog;
+  expect(dialog.type()).toBe('beforeunload');
+  await dialog.dismiss();
+  await hook(page, 'toggle').click();
+  await hook(page, 'service-delivery-mode').click();
+  await expect(editor).toHaveValue(draft);
+  await expect(page).toHaveURL(dashboardPath);
+  expect(f.mutations).toEqual([]);
+});
+
+test('administrative navigation protects an embedded draft and clears it only after confirmed departure', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  await openEmbeddedDelivery(page);
+  await openEmbeddedEditor(page);
+  const editor = page.locator('[data-og7="service-demo-editor-text"]');
+  const draft = 'Le changement de rubrique exige une confirmation de perte.';
+  await editor.fill(draft);
+  await hook(page, 'toggle').click();
+  const destination = page.locator(`a[href="${attentionPath}"]`).first();
+  await destination.click();
+  const confirmation = page.getByRole('dialog', {
+    name: 'Quitter la démo ?',
+    exact: true
+  });
+  await expect(confirmation).toBeVisible();
+  await expect(embeddedFeature(page)).toBeVisible();
+  await expect(confirmation).toContainText('Atelier Boréal');
+  await expect(page).toHaveURL(dashboardPath);
+  await confirmation.locator('[data-og7="service-demo-exit-stay"]').click();
+  await expect(confirmation).toBeHidden();
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveValue(draft);
+  await hook(page, 'toggle').click();
+  await destination.click();
+  await expect(confirmation).toBeVisible();
+  await confirmation.locator('[data-og7="service-demo-exit-confirm"]').click();
+  await expect(page).toHaveURL(attentionPath);
+  await expect(embeddedFeature(page)).toHaveCount(0);
+  if (!(await hook(page, 'panel').isVisible()))
+    await hook(page, 'toggle').click();
+  await hook(page, 'service-delivery-mode').click();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+  await expect(
+    page.locator('[data-og7="service-demo-draft-badge"]')
+  ).toHaveCount(0);
+  await openEmbeddedEditor(page);
+  await expect(
+    page.locator('[data-og7="service-demo-editor-text"]')
+  ).not.toHaveValue(draft);
+  expect(f.mutations).toEqual([]);
+});
 
 const paymentId = '10000000-0000-4000-8000-000000000701';
 const otherPaymentId = '10000000-0000-4000-8000-000000000702';
@@ -350,7 +649,14 @@ async function openAutomatic(page: Page) {
     await expect(hook(page, 'panel')).toBeVisible();
   else if (!(await hook(page, 'panel').isVisible()))
     await hook(page, 'toggle').click();
-  await hook(page, 'automatic-mode').click();
+  // The payment link has already restored its bookmark. The next load exercises
+  // the retained preparation preference rather than following that link again.
+  await page.evaluate(() => {
+    const url = new URL(location.href);
+    url.searchParams.delete('paymentJourney');
+    history.replaceState(history.state, '', url);
+  });
+  await restoreLegacyGuideMode(page, 'automatic');
   await page
     .locator('[data-og7="automatic-view"][data-og7-id="other"]')
     .click();
@@ -408,12 +714,12 @@ test('a targeted preparation completed behind records keeps focus and requires a
   page
 }) => {
   const fixture = await fixtures(page);
-  const originalUrl = `${attentionPath}?contributionId=${paymentId}&paymentJourney=${paymentId}`;
+  const originalUrl = `${attentionPath}?contributionId=${paymentId}`;
   fixture.journeys.set(
     paymentId,
     pendingAutomaticJourney('stripe_failed', originalUrl, 'attention-panel')
   );
-  await page.goto(originalUrl);
+  await page.goto(`${originalUrl}&paymentJourney=${paymentId}`);
   await openAutomatic(page);
   await automaticHook(page, 'scope').selectOption('payment');
   let release!: () => void;
@@ -746,7 +1052,7 @@ test('an invalid payment identifier is ignored and following payments stays opti
   const fixture = await fixtures(page);
   await page.goto(`${dashboardPath}?paymentJourney=private@example.test`);
   await hook(page, 'toggle').click();
-  await hook(page, 'payment-mode').click();
+  await restoreLegacyGuideMode(page, 'payment');
   await expect(paymentHook(page, 'state')).toHaveAttribute(
     'data-og7-id',
     'idle'
@@ -794,7 +1100,7 @@ test('a payment bookmark belongs to its signed-in account and revoked sessions c
   await expect(hook(page, 'toggle')).toHaveAttribute('aria-expanded', 'false');
   expect(await stored(page, fixture.accountId)).toBeNull();
   await hook(page, 'toggle').click();
-  await hook(page, 'payment-mode').click();
+  await restoreLegacyGuideMode(page, 'payment');
   await expect(paymentHook(page, 'state')).toHaveAttribute(
     'data-og7-id',
     'idle'
@@ -888,8 +1194,17 @@ test('English mobile payment guidance remains keyboard accessible without horizo
   expect(fixture.mutations).toEqual([]);
 });
 
-async function expectStep(page: Page, id: 'read' | 'choose' | 'verify') {
-  await expect(hook(page, 'step')).toHaveAttribute('data-og7-id', id);
+async function expectEmptyDiscovery(page: Page) {
+  await expect(hook(page, 'discovery-mode')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  const content = hook(page, 'content');
+  await expect(content).toBeVisible();
+  await expect(content).toHaveText('', { useInnerText: true });
+  await expect(content.locator(':visible')).toHaveCount(0);
+  await expect(hook(page, 'page')).toHaveCount(0);
+  await expect(page.locator(highlighted)).toHaveCount(0);
 }
 
 async function expectGoldenZone(zone: Locator) {
@@ -1053,61 +1368,7 @@ async function forget(page: Page) {
   await hook(page, 'forget').click();
 }
 
-async function expectShownLandmarkUncovered(page: Page) {
-  // The guide may move and finish aligning a nested scrollport on the next frame.
-  await expect(async () => {
-    const placement = await page.evaluate(() => {
-      const guide = document.querySelector('[data-og7="admin-guidance"]');
-      const target = document.activeElement;
-      if (!guide || !(target instanceof HTMLElement)) return null;
-      const layout = guide.closest('[data-og7="admin-layout"]');
-      const content = Array.from(
-        layout?.querySelectorAll(
-          '#admin-main, [data-og7="controller-radial-slot"][data-og7-controller-owner], [data-og7="controller-deck-slot"][data-og7-controller-owner]'
-        ) ?? []
-      );
-      const card = guide.getBoundingClientRect();
-      const landmark = target.getBoundingClientRect();
-      const x = landmark.left + landmark.width / 2;
-      const y = landmark.top + Math.min(landmark.height / 2, 12);
-      const foreground = document.elementFromPoint(x, y);
-      return {
-        inContent:
-          layout !== null &&
-          target.closest('[data-og7="admin-layout"]') === layout &&
-          content.some(
-            (region) =>
-              region.closest('[data-og7="admin-layout"]') === layout &&
-              region.contains(target)
-          ),
-        cardTop: card.top,
-        cardBottom: card.bottom,
-        pointX: x,
-        pointY: y,
-        pointOutsideCard:
-          x < card.left || x > card.right || y < card.top || y > card.bottom,
-        unobscured: foreground !== null && target.contains(foreground),
-        viewportWidth: innerWidth,
-        viewportHeight: innerHeight
-      };
-    });
-    expect(placement).not.toBeNull();
-    expect(placement!.inContent).toBe(true);
-    expect(placement!.cardTop).toBeGreaterThanOrEqual(-1);
-    expect(placement!.cardBottom).toBeLessThanOrEqual(
-      placement!.viewportHeight + 1
-    );
-    expect(placement!.pointX).toBeGreaterThanOrEqual(0);
-    expect(placement!.pointX).toBeLessThan(placement!.viewportWidth);
-    expect(placement!.pointY).toBeGreaterThanOrEqual(0);
-    expect(placement!.pointY).toBeLessThan(placement!.viewportHeight);
-    expect(placement!.pointOutsideCard).toBe(true);
-    expect(placement!.unobscured).toBe(true);
-  }).toPass({ timeout: 7000 });
-  await expect(hook(page, 'toggle')).toBeInViewport({ ratio: 1 });
-}
-
-test('guidance is opt-in, keyboard-operable and only focuses landmarks', async ({
+test('discovery opens from the keyboard with an empty content area and no automatic focus transfer', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1115,147 +1376,104 @@ test('guidance is opt-in, keyboard-operable and only focuses landmarks', async (
   const toggle = hook(page, 'toggle');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(hook(page, 'panel')).toHaveCount(0);
-  await expect(page.locator('h1')).toBeVisible();
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expect(hook(page, 'panel')).toBeVisible();
-  await expectStep(page, 'read');
-  await hook(page, 'next').focus();
+  await expectEmptyDiscovery(page);
+  await expect(toggle).toBeFocused();
+  const discovery = hook(page, 'discovery-mode');
+  await discovery.focus();
   await page.keyboard.press('Enter');
-  await expectStep(page, 'choose');
-  await hook(page, 'previous').focus();
-  await page.keyboard.press('Enter');
-  await expectStep(page, 'read');
-  await hook(page, 'show').focus();
-  await page.keyboard.press('Enter');
-  await expectShownLandmarkUncovered(page);
-  await expect(hook(page, 'step')).toBeInViewport({ ratio: 1 });
-  await expect(hook(page, 'next')).toBeInViewport({ ratio: 1 });
-  await hook(page, 'next').focus();
-  await page.keyboard.press('Enter');
-  await expectStep(page, 'choose');
-  await hook(page, 'next').focus();
-  await page.keyboard.press('Enter');
-  await expectStep(page, 'verify');
-  await expect(hook(page, 'step')).toBeFocused();
-  await hook(page, 'restart').focus();
-  await page.keyboard.press('Enter');
-  await expectStep(page, 'read');
-  await expect(hook(page, 'step')).toBeFocused();
-  expect(await stored(page)).toEqual({
-    enabled: true,
-    bookmark: { pageId: 'dashboard', step: 0, paused: false }
-  });
+  await expectEmptyDiscovery(page);
+  await sampledFrames(page);
+  await expect(discovery).toBeFocused();
+  expect(fixture.paymentRequests).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('pause survives navigation and reload and resumes a safe page without dossier parameters', async ({
+test('legacy paused discovery preferences remain inert across navigation and reload', async ({
   page
 }) => {
   const fixture = await fixtures(page);
-  await page.goto(
-    attentionPath + '?itemId=private-dossier&email=private@example.test#private'
-  );
-  await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
-  await expectStep(page, 'choose');
-  await hook(page, 'pause').click();
-  await expect(hook(page, 'paused')).toBeVisible();
-  await navigate(page, dashboardPath);
-  await expect(hook(page, 'paused')).toBeVisible();
-  await page.reload();
-  await expect(hook(page, 'paused')).toBeVisible();
-  expect(await stored(page)).toEqual({
+  const retained = {
     enabled: true,
     bookmark: { pageId: 'attention', step: 1, paused: true }
-  });
-  await hook(page, 'resume').click();
+  };
+  await page.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, JSON.stringify(value)),
+    { key: storagePrefix + fixture.accountId, value: retained }
+  );
+  await page.goto(
+    dashboardPath + '?itemId=synthetic-private-dossier#synthetic'
+  );
+  await expectEmptyDiscovery(page);
+  await navigate(page, attentionPath);
+  await expectEmptyDiscovery(page);
+  await hook(page, 'discovery-mode').focus();
+  await page.keyboard.press('Enter');
+  await sampledFrames(page);
+  await expect(hook(page, 'discovery-mode')).toBeFocused();
+  expect(await stored(page)).toEqual(retained);
+  await page.reload();
+  await expectEmptyDiscovery(page);
   await expect(page).toHaveURL(attentionPath);
-  await expectStep(page, 'choose');
-  await expect(hook(page, 'paused')).toHaveCount(0);
-  expect(await stored(page)).toEqual({
-    enabled: true,
-    bookmark: { pageId: 'attention', step: 1, paused: false }
-  });
+  expect(await stored(page)).toEqual(retained);
+  expect(fixture.paymentRequests).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('resume here replaces only the local bookmark and forgetting resets the aid', async ({
-  page
-}) => {
-  const fixture = await fixtures(page);
-  await page.goto(attentionPath);
-  await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
-  await hook(page, 'pause').click();
-  await navigate(page, dashboardPath);
-  await hook(page, 'resume-here').click();
-  await expect(page).toHaveURL(dashboardPath);
-  await expectStep(page, 'read');
-  expect(await stored(page)).toEqual({
-    enabled: true,
-    bookmark: { pageId: 'dashboard', step: 0, paused: false }
-  });
-  await hook(page, 'next').click();
-  await hook(page, 'next').click();
-  await hook(page, 'restart').click();
-  await expectStep(page, 'read');
-  await forget(page);
-  await expect(hook(page, 'panel')).toHaveCount(0);
-  expect(await stored(page)).toBeNull();
-  await expect(hook(page, 'toggle')).toBeFocused();
-  expect(fixture.mutations).toEqual([]);
-});
-
-test('hiding the aid preserves its bookmark but keeps it off after reload', async ({
+test('collapsing discovery preserves preferences and stays collapsed after reload', async ({
   page
 }) => {
   await fixtures(page);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
+  await expectEmptyDiscovery(page);
+  const retained = (await stored(page)).bookmark;
   await hook(page, 'toggle').click();
   await expect(hook(page, 'panel')).toHaveCount(0);
   await page.reload();
   await expect(hook(page, 'panel')).toHaveCount(0);
-  expect(await stored(page)).toEqual({
-    enabled: false,
-    bookmark: { pageId: 'dashboard', step: 1, paused: false }
-  });
+  expect(await stored(page)).toEqual({ enabled: false, bookmark: retained });
   await hook(page, 'toggle').click();
-  await expectStep(page, 'choose');
+  await expectEmptyDiscovery(page);
+  expect((await stored(page)).bookmark).toEqual(retained);
 });
 
-test('different signed-in accounts never inherit one another’s guidance', async ({
+test('discovery preferences remain isolated between signed-in accounts', async ({
   page
 }) => {
   const fixture = await fixtures(page);
+  await page.addInitScript(
+    (key) =>
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          enabled: true,
+          bookmark: { pageId: 'attention', step: 1, paused: true }
+        })
+      ),
+    storagePrefix + fixture.accountId
+  );
   await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
-  await hook(page, 'pause').click();
-  const firstBookmark = await stored(page);
+  await expectEmptyDiscovery(page);
+  const retained = await stored(page);
   fixture.accountId = 'guidance-owner-b';
   await page.reload();
   await expect(hook(page, 'toggle')).toBeVisible();
   await expect(hook(page, 'panel')).toHaveCount(0);
   await hook(page, 'toggle').click();
-  await expectStep(page, 'read');
-  expect(await stored(page, 'guidance-owner-b')).toEqual({
-    enabled: true,
-    bookmark: { pageId: 'dashboard', step: 0, paused: false }
-  });
-  expect(await stored(page)).toEqual(firstBookmark);
+  await expectEmptyDiscovery(page);
+  expect((await stored(page, fixture.accountId)).enabled).toBe(true);
+  expect(await stored(page)).toEqual(retained);
   fixture.accountId = 'guidance-owner-a';
   await page.reload();
-  await expect(hook(page, 'paused')).toBeVisible();
-  await hook(page, 'resume').click();
-  await expectStep(page, 'choose');
+  await expectEmptyDiscovery(page);
+  expect(await stored(page)).toEqual(retained);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('blocked browser persistence keeps a visible warning and a bookmark during in-app navigation', async ({
+test('blocked persistence leaves discovery empty during in-app navigation', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1281,52 +1499,43 @@ test('blocked browser persistence keeps a visible warning and a bookmark during 
   }, storagePrefix);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await expect(hook(page, 'storage-warning')).toBeVisible();
-  await hook(page, 'next').click();
-  await hook(page, 'pause').click();
+  await expectEmptyDiscovery(page);
   await navigate(page, attentionPath);
-  await expect(hook(page, 'paused')).toBeVisible();
-  await expect(hook(page, 'storage-warning')).toBeVisible();
-  await hook(page, 'resume').click();
-  await expect(page).toHaveURL(dashboardPath);
-  await expectStep(page, 'choose');
-  await forget(page);
-  await expect(hook(page, 'panel')).toHaveCount(0);
+  await expectEmptyDiscovery(page);
+  expect(fixture.paymentRequests).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('a missing landmark falls back to the main content without losing the step', async ({
-  page
-}) => {
-  const fixture = await fixtures(page);
-  await page.goto(dashboardPath + '/pilotage');
-  await hook(page, 'toggle').click();
-  await expectStep(page, 'read');
-  // With no decision selected, the dossier summary is deliberately absent.
-  await expect(page.locator('[data-og7="pilot-summary"]')).toHaveCount(0);
-  await hook(page, 'show').click();
-  await expect(page.locator(highlighted)).toHaveCount(1);
-  await expectGoldenZone(page.locator('h1'));
-  expect(
-    await page.evaluate(() =>
-      document.getElementById('admin-main')?.contains(document.activeElement)
-    )
-  ).toBe(true);
-  await expect(hook(page, 'panel').getByRole('status')).toBeVisible();
-  await expectStep(page, 'read');
-  await hook(page, 'next').click();
-  await expectStep(page, 'choose');
-  await expect(page.locator(highlighted)).toHaveCount(0);
-  expect(fixture.mutations).toEqual([]);
-});
-
-test('failed erasure is disclosed while the local aid stays hidden for the visit', async ({
+test('a retained payment mode keeps its storage warning after a refused write and discovery stays empty', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
+  await restoreLegacyGuideMode(page, 'payment');
+  await page.evaluate((prefix) => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith(prefix))
+        throw new DOMException('Blocked', 'SecurityError');
+      return set.call(this, key, value);
+    };
+  }, storagePrefix);
   await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
+  await expect(hook(page, 'panel')).toBeHidden();
+  await hook(page, 'toggle').click();
+  await expect(hook(page, 'storage-warning')).toBeVisible();
+  await hook(page, 'discovery-mode').click();
+  await expectEmptyDiscovery(page);
+  expect(fixture.paymentRequests).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('failed erasure from another mode remains disclosed outside the empty discovery panel', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(dashboardPath);
+  await restoreLegacyGuideMode(page, 'payment');
   const retained = await stored(page);
   await page.evaluate((prefix) => {
     const remove = Storage.prototype.removeItem;
@@ -1343,19 +1552,18 @@ test('failed erasure is disclosed while the local aid stays hidden for the visit
   ).toContainText('peut réapparaître au rechargement');
   await expect(hook(page, 'toggle')).toBeFocused();
   expect(await stored(page)).toEqual(retained);
-  await navigate(page, attentionPath);
-  await expect(hook(page, 'panel')).toHaveCount(0);
+  await hook(page, 'toggle').click();
+  await expectEmptyDiscovery(page);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('a revoked session removes guidance before another account signs in', async ({
+test('revoking a session removes the empty discovery panel before another account signs in', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
   await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
-  await hook(page, 'pause').click();
+  await expectEmptyDiscovery(page);
   const retained = await stored(page);
   fixture.signedIn = false;
   await page.route('**/api/admin/dashboard', (route) =>
@@ -1372,65 +1580,201 @@ test('a revoked session removes guidance before another account signs in', async
   await page.goto(dashboardPath);
   await expect(hook(page, 'toggle')).toBeVisible();
   await expect(hook(page, 'panel')).toHaveCount(0);
-  expect(await stored(page, 'guidance-owner-b')).toBeNull();
+  expect(await stored(page, fixture.accountId)).toBeNull();
   expect(fixture.mutations).toEqual([]);
 });
 
-for (const [language, width] of [
-  ['fr-CA', 1440],
-  ['en', 320]
+for (const [name, invalid] of [
+  ['malformed JSON', '{'],
+  [
+    'unknown page',
+    JSON.stringify({
+      enabled: true,
+      bookmark: { pageId: 'unknown', step: 0, paused: true }
+    })
+  ],
+  [
+    'out-of-bounds step',
+    JSON.stringify({
+      enabled: true,
+      bookmark: { pageId: 'dashboard', step: 999, paused: false }
+    })
+  ]
 ] as const) {
-  test(`showing a landmark gives its whole zone a static golden halo with reduced motion in ${language} at ${width}px`, async ({
-    page
-  }) => {
-    const fixture = await fixtures(page, language);
-    await page.setViewportSize({ width, height: 900 });
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto(dashboardPath);
-    await hook(page, 'toggle').click();
-    const bookmark = await stored(page);
-    const metrics = page.locator('[data-og7="cockpit-metrics"]');
-    await hook(page, 'show').click();
-    await expectGoldenZone(metrics);
-    await expectShownLandmarkUncovered(page);
-    expect(
-      await metrics.evaluate((element) => element.getAnimations().length)
-    ).toBe(0);
-    expect(await stored(page)).toEqual(bookmark);
-    await page.screenshot({
-      path: `test-results/admin-guidance-gold-preview-${width === 1440 ? 'desktop' : 'mobile'}.png`
-    });
-    await hook(page, 'next').click();
-    await expect(page.locator(highlighted)).toHaveCount(0);
-    await hook(page, 'show').click();
-    await expectGoldenZone(page.locator('[data-og7="cockpit-systems"]'));
-    await hook(page, 'pause').click();
-    await expect(page.locator(highlighted)).toHaveCount(0);
-    await hook(page, 'resume').click();
-    await hook(page, 'show').click();
-    await expect(page.locator(highlighted)).toHaveCount(1);
-    await hook(page, 'toggle').click();
-    await expect(page.locator(highlighted)).toHaveCount(0);
-    await hook(page, 'toggle').click();
-    if (width === 1440) {
-      await hook(page, 'show').click();
-      await expect(page.locator(highlighted)).toHaveCount(1);
-      await navigate(page, attentionPath);
-      await expect(page.locator(highlighted)).toHaveCount(0);
+  test(
+    'invalid guidance state opens only an empty discovery panel: ' + name,
+    async ({ page }) => {
+      await fixtures(page);
+      await page.addInitScript(
+        ({ key, value }) => localStorage.setItem(key, value),
+        { key: storagePrefix + 'guidance-owner-a', value: invalid }
+      );
+      const errors: string[] = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(dashboardPath);
+      await expect(hook(page, 'panel')).toHaveCount(0);
+      await hook(page, 'toggle').click();
+      await expectEmptyDiscovery(page);
+      expect((await stored(page)).enabled).toBe(true);
+      expect(errors).toEqual([]);
     }
-    expect(fixture.mutations).toEqual([]);
-  });
+  );
 }
 
-test('the golden pulse is gentle, finishes, and stops immediately for reduced motion', async ({
+for (const language of ['fr-CA', 'en']) {
+  for (const width of [1440, 320]) {
+    test(
+      'empty discovery remains keyboard accessible in ' +
+        language +
+        ' at ' +
+        width +
+        'px',
+      async ({ page }) => {
+        const fixture = await fixtures(page, language);
+        await page.setViewportSize({ width, height: 480 });
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.goto(dashboardPath);
+        await hook(page, 'toggle').click();
+        await expectEmptyDiscovery(page);
+        const discovery = hook(page, 'discovery-mode');
+        await discovery.focus();
+        await page.keyboard.press('Enter');
+        await expect(discovery).toBeFocused();
+        await expect(discovery).toBeInViewport({ ratio: 0.98 });
+        const audit = await new AxeBuilder({ page })
+          .include('[data-og7="admin-guidance-panel"]')
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze();
+        expect(audit.violations).toEqual([]);
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          )
+          .toBe(true);
+        expect(fixture.mutations).toEqual([]);
+      }
+    );
+  }
+}
+
+for (const width of [1440, 320]) {
+  test(
+    'empty discovery keeps its floating shell and finite entrance at ' +
+      width +
+      'px',
+    async ({ page }) => {
+      const fixture = await fixtures(page);
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 480 });
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.goto(dashboardPath);
+      await hook(page, 'toggle').click();
+      await expectEmptyDiscovery(page);
+      const card = page.locator('[data-og7="admin-guidance"]');
+      await expect(card).not.toHaveCSS('animation-name', 'none');
+      expect(
+        await card.evaluate((element) =>
+          getComputedStyle(element)
+            .animationIterationCount.split(',')
+            .every((count) => Number(count.trim()) === 1)
+        )
+      ).toBe(true);
+      await expect
+        .poll(() =>
+          card.evaluate(
+            (element) =>
+              element
+                .getAnimations()
+                .filter(
+                  (animation) =>
+                    animation.playState === 'running' || animation.pending
+                ).length
+          )
+        )
+        .toBe(0);
+      const initial = (await card.boundingBox())!;
+      await page.evaluate(() =>
+        window.scrollTo({
+          top: document.documentElement.scrollHeight,
+          behavior: 'instant'
+        })
+      );
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+      const afterScroll = (await card.boundingBox())!;
+      expect(afterScroll.x).toBeCloseTo(initial.x, 0);
+      expect(afterScroll.y).toBeCloseTo(initial.y, 0);
+      const retained = await stored(page);
+      await hook(page, 'move').click();
+      await expect(card).toHaveAttribute('data-og7-placement', 'bottom');
+      await expectEmptyDiscovery(page);
+      expect(await stored(page)).toEqual(retained);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await expect(card).toHaveCSS('animation-name', 'none');
+      await page.keyboard.press('Control+k');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('searchbox')).toBeFocused();
+      expect(
+        await card.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const foreground = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2
+          );
+          return document.querySelector('dialog[open]')?.contains(foreground);
+        })
+      ).toBe(true);
+      await page.keyboard.press('Escape');
+      await expect(dialog).not.toBeVisible();
+      await expectEmptyDiscovery(page);
+      expect(fixture.mutations).toEqual([]);
+    }
+  );
+}
+
+test('empty discovery remains available in Pilotage concentration without revealing a landmark', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await installAdminController(page);
+  await page.setViewportSize({ width: 320, height: 480 });
+  await page.goto(dashboardPath + '/pilotage');
+  const controller = adminController(page);
+  await controller.ready();
+  // Pilotage owns navigation until the shared guide is explicitly selected.
+  await hook(page, 'toggle').click();
+  await expectEmptyDiscovery(page);
+  const retained = (await stored(page)).bookmark;
+  await controller.activate(hook(page, 'toggle'));
+  const concentration = page.locator('[data-og7="pilot-focus"]');
+  await concentration.click();
+  await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+  // Select the shared guide before using its global controller shortcut.
+  await hook(page, 'toggle').focus();
+  await controller.release();
+  await controller.press('Y');
+  await expectEmptyDiscovery(page);
+  await expect(hook(page, 'toggle')).toBeFocused();
+  expect((await stored(page)).bookmark).toEqual(retained);
+  await controller.press('B');
+  await expect(hook(page, 'panel')).toHaveCount(0);
+  await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('the golden pulse for a payment is gentle, finishes, and stops immediately for reduced motion', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
-  await hook(page, 'show').click();
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('stripe_failed', dashboardPath, 'cockpit-metrics')
+  );
+  await page.goto(dashboardPath + '?paymentJourney=' + paymentId);
+  await paymentHook(page, 'show').click();
   const zone = page.locator('[data-og7="cockpit-metrics"]');
   await expectGoldenZone(zone);
   const pulse = await zone.evaluate((element) =>
@@ -1472,7 +1816,7 @@ test('the golden pulse is gentle, finishes, and stops immediately for reduced mo
     )
     .toBe(0);
   await expectGoldenZone(zone);
-  await hook(page, 'show').click();
+  await paymentHook(page, 'show').click();
   await expect
     .poll(() => zone.evaluate((element) => element.getAnimations().length))
     .toBeGreaterThan(0);
@@ -1481,12 +1825,13 @@ test('the golden pulse is gentle, finishes, and stops immediately for reduced mo
     .poll(() => zone.evaluate((element) => element.getAnimations().length))
     .toBe(0);
   await expectGoldenZone(zone);
-  await hook(page, 'next').click();
+  await hook(page, 'discovery-mode').click();
+  await expectEmptyDiscovery(page);
   await expect(page.locator(highlighted)).toHaveCount(0);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('all visible repeated zones are highlighted without selecting a dossier and their styles are restored', async ({
+test('all visible repeated payment zones are highlighted without selecting a dossier and their styles are restored', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -1532,7 +1877,15 @@ test('all visible repeated zones are highlighted without selecting a dossier and
     route.fulfill({ json: contributions })
   );
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(dashboardPath + '/contributions');
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney(
+      'stripe_failed',
+      dashboardPath + '/contributions',
+      'contribution-row'
+    )
+  );
+  await page.goto(dashboardPath + '/contributions?paymentJourney=' + paymentId);
   const rows = page.locator('[data-og7="contribution-row"]');
   await expect(rows).toHaveCount(3);
   await rows.nth(2).evaluate((element) => {
@@ -1571,10 +1924,7 @@ test('all visible repeated zones are highlighted without selecting a dossier and
   );
   await expect(detail).toHaveCount(0);
   const originalUrl = page.url();
-  await hook(page, 'toggle').click();
-  await hook(page, 'next').click();
-  await expectStep(page, 'choose');
-  await hook(page, 'show').click();
+  await paymentHook(page, 'show').click();
   await expect(page.locator(highlighted)).toHaveCount(2);
   await expectGoldenZone(rows.nth(0));
   await expectGoldenZone(rows.nth(1));
@@ -1582,7 +1932,8 @@ test('all visible repeated zones are highlighted without selecting a dossier and
   await expect(rows.nth(0)).toBeFocused();
   await expect(detail).toHaveCount(0);
   expect(page.url()).toBe(originalUrl);
-  await hook(page, 'next').click();
+  await hook(page, 'discovery-mode').click();
+  await expectEmptyDiscovery(page);
   await expect(page.locator(highlighted)).toHaveCount(0);
   expect(
     await rows.evaluateAll((elements) =>
@@ -1600,489 +1951,6 @@ test('all visible repeated zones are highlighted without selecting a dossier and
   ).toEqual(originalStyles);
   expect(fixture.mutations).toEqual([]);
 });
-
-for (const [name, invalid] of [
-  ['malformed JSON', '{'],
-  [
-    'unknown page',
-    JSON.stringify({
-      enabled: true,
-      bookmark: { pageId: 'unknown', step: 0, paused: true }
-    })
-  ],
-  [
-    'out-of-bounds step',
-    JSON.stringify({
-      enabled: true,
-      bookmark: { pageId: 'dashboard', step: 999, paused: false }
-    })
-  ]
-] as const) {
-  test(`invalid guidance state is discarded safely: ${name}`, async ({
-    page
-  }) => {
-    await fixtures(page);
-    await page.addInitScript(
-      ({ key, value }) => {
-        localStorage.setItem(key, value);
-      },
-      { key: storagePrefix + 'guidance-owner-a', value: invalid }
-    );
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto(dashboardPath);
-    await expect(hook(page, 'panel')).toHaveCount(0);
-    await hook(page, 'toggle').click();
-    await expectStep(page, 'read');
-    expect(await stored(page)).toEqual({
-      enabled: true,
-      bookmark: { pageId: 'dashboard', step: 0, paused: false }
-    });
-    expect(errors).toEqual([]);
-  });
-}
-
-for (const language of ['fr-CA', 'en']) {
-  for (const width of [1440, 320]) {
-    test(`guidance remains readable, accessible and keyboard reachable in ${language} at ${width}px`, async ({
-      page
-    }) => {
-      const fixture = await fixtures(page, language);
-      await page.setViewportSize({ width, height: 480 });
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-      await page.goto(dashboardPath);
-      await hook(page, 'toggle').click();
-      await expect(hook(page, 'page')).toContainText('Cockpit');
-      await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
-      await expect(page.locator('[data-og7="admin-guidance"]')).toHaveCSS(
-        'animation-name',
-        'none'
-      );
-      if (language === 'fr-CA') {
-        await page.setViewportSize({ width, height: 900 });
-        await page.screenshot({
-          path: `test-results/admin-guidance-preview-${width === 1440 ? 'desktop' : 'mobile'}.png`
-        });
-        await page.setViewportSize({ width, height: 480 });
-      }
-      const audit = await new AxeBuilder({ page })
-        .include('[data-og7="admin-guidance-panel"]')
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
-        .analyze();
-      expect(audit.violations).toEqual([]);
-      await hook(page, 'show').focus();
-      await page.keyboard.press('Enter');
-      await expectGoldenZone(page.locator('[data-og7="cockpit-metrics"]'));
-      await expectShownLandmarkUncovered(page);
-      await hook(page, 'next').focus();
-      await expect(hook(page, 'next')).toBeFocused();
-      // Chromium's rounded intersection can clip less than one CSS pixel of
-      // the 44px control inside the scrollable card (44 * 0.02 = 0.88px).
-      await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.98 });
-      await page.keyboard.press('Enter');
-      await expectStep(page, 'choose');
-      await expect(page.locator(highlighted)).toHaveCount(0);
-      await hook(page, 'pause').focus();
-      await page.keyboard.press('Enter');
-      await expect(hook(page, 'paused')).toBeVisible();
-      await hook(page, 'resume').focus();
-      await page.keyboard.press('Enter');
-      await expectStep(page, 'choose');
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1
-        )
-      ).toBe(true);
-      expect(fixture.mutations).toEqual([]);
-    });
-  }
-}
-
-for (const width of [1440, 320]) {
-  test(`floating guidance keeps its place, can move away from controls and animates only once at ${width}px`, async ({
-    page
-  }) => {
-    const fixture = await fixtures(page);
-    await page.setViewportSize({ width, height: width === 1440 ? 900 : 480 });
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto(dashboardPath);
-    await hook(page, 'toggle').click();
-    const card = page.locator('[data-og7="admin-guidance"]');
-    await expect(card).not.toHaveCSS('animation-name', 'none');
-    expect(
-      await card.evaluate((element) =>
-        getComputedStyle(element)
-          .animationIterationCount.split(',')
-          .every((count) => Number(count.trim()) === 1)
-      )
-    ).toBe(true);
-    await expect
-      .poll(() =>
-        card.evaluate(
-          (element) =>
-            element
-              .getAnimations()
-              .filter(
-                (animation) =>
-                  animation.playState === 'running' || animation.pending
-              ).length
-        )
-      )
-      .toBe(0);
-    const initial = (await card.boundingBox())!;
-    await page.evaluate(() =>
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: 'instant'
-      })
-    );
-    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
-    const afterScroll = (await card.boundingBox())!;
-    expect(afterScroll.x).toBeCloseTo(initial.x, 0);
-    expect(afterScroll.y).toBeCloseTo(initial.y, 0);
-    await hook(page, 'next').click();
-    await expectStep(page, 'choose');
-    const retained = await stored(page);
-    const beforeMove = (await card.boundingBox())!;
-    await hook(page, 'move').click();
-    await expect
-      .poll(async () => (await card.boundingBox())!.y)
-      .toBeGreaterThan(beforeMove.y + 1);
-    await expectStep(page, 'choose');
-    expect(await stored(page)).toEqual(retained);
-    await hook(page, 'show').click();
-    await expectShownLandmarkUncovered(page);
-    await hook(page, 'next').focus();
-    await page.keyboard.press('Enter');
-    await expectStep(page, 'verify');
-
-    const refresh = page.locator('[data-og7="dashboard-refresh"]');
-    await refresh.evaluate((element) =>
-      element.scrollIntoView({ block: 'start', behavior: 'instant' })
-    );
-    const response = page.waitForResponse(
-      (candidate) =>
-        new URL(candidate.url()).pathname === '/api/admin/dashboard' &&
-        candidate.request().method() === 'GET'
-    );
-    await refresh.click();
-    expect((await response).status()).toBe(200);
-    await expectStep(page, 'verify');
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(card).toHaveCSS('animation-name', 'none');
-    await page.keyboard.press('Control+k');
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('searchbox')).toBeFocused();
-    expect(
-      await card.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const foreground = document.elementFromPoint(
-          rect.left + rect.width / 2,
-          rect.top + rect.height / 2
-        );
-        return document.querySelector('dialog[open]')?.contains(foreground);
-      })
-    ).toBe(true);
-    await page.keyboard.press('Escape');
-    await expect(dialog).not.toBeVisible();
-    await expectStep(page, 'verify');
-    expect(fixture.mutations).toEqual([]);
-  });
-}
-
-test('guidance remains available in Pilotage concentration on a short mobile screen', async ({
-  page
-}) => {
-  const fixture = await fixtures(page);
-  await page.setViewportSize({ width: 320, height: 480 });
-  await page.goto(dashboardPath + '/pilotage');
-  await hook(page, 'toggle').click();
-  const retained = (await stored(page)).bookmark;
-  // Reducing the floating card clears covered controls on a narrow screen.
-  await hook(page, 'toggle').click();
-  expect((await stored(page)).bookmark).toEqual(retained);
-  const concentration = page.locator('[data-og7="pilot-focus"]');
-  await concentration.evaluate((element) =>
-    element.scrollIntoView({ block: 'start', behavior: 'instant' })
-  );
-  await concentration.click();
-  await expect(page.locator('[data-og7="pilot-focus"]')).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
-  await hook(page, 'toggle').click();
-  await expectStep(page, 'read');
-  expect((await stored(page)).bookmark).toEqual(retained);
-  await expect(hook(page, 'toggle')).toBeVisible();
-  await expect(hook(page, 'panel')).toBeVisible();
-  await hook(page, 'pause').click();
-  await expect(hook(page, 'paused')).toBeVisible();
-  await hook(page, 'resume').click();
-  await expectStep(page, 'read');
-  await hook(page, 'show').click();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth + 1
-    )
-  ).toBe(true);
-  await expect(page.locator('[data-og7="pilot-focus"]')).toBeVisible();
-  await hook(page, 'toggle').click();
-  expect((await stored(page)).bookmark).toEqual(retained);
-  await concentration.evaluate((element) =>
-    element.scrollIntoView({ block: 'start', behavior: 'instant' })
-  );
-  await concentration.click();
-  await expect(page.locator('[data-og7="pilot-focus"]')).toHaveAttribute(
-    'aria-pressed',
-    'false'
-  );
-  await hook(page, 'toggle').click();
-  await expectStep(page, 'read');
-  expect((await stored(page)).bookmark).toEqual(retained);
-  expect(fixture.mutations).toEqual([]);
-});
-
-for (const { width, concentrated, placement } of [
-  { width: 1920, concentrated: false, placement: 'top' },
-  { width: 1920, concentrated: false, placement: 'bottom' },
-  { width: 1440, concentrated: false, placement: 'top' },
-  { width: 1440, concentrated: false, placement: 'bottom' },
-  { width: 390, concentrated: false, placement: 'top' },
-  { width: 390, concentrated: true, placement: 'bottom' }
-] as const) {
-  test(`showing a golden Pilotage zone clears the action bar and nested scroll frame at ${width}px, ${placement}, concentration ${concentrated}`, async ({
-    page
-  }, testInfo) => {
-    const fixture = await fixtures(page);
-    const id = '10000000-0000-4000-8000-000000000761';
-    fixture.pilotage.total = 1;
-    fixture.pilotage.domains.publications = 1;
-    fixture.pilotage.decisions = [
-      {
-        id: 'publication:' + id,
-        domain: 'publications',
-        kind: 'publication_draft',
-        targetId: id,
-        version: '1',
-        title: 'Dossier synthétique du guide',
-        severity: 'this_week',
-        dueAt: generatedAt,
-        detailsUrl: dashboardPath + '/publications/drafts',
-        facts: [],
-        actions: [{ id: 'publication.approve', blocked: null }],
-        publication: {
-          id,
-          feedId: 'openg7:facebook',
-          kind: 'news',
-          batchId: null,
-          message: Array.from(
-            { length: 40 },
-            (_, index) => `Paragraphe synthétique ${index + 1} à examiner.`
-          ).join('\n'),
-          scheduledAt: generatedAt,
-          mediaId: null,
-          mediaUrl: null,
-          mediaAlt: null,
-          accountId: 'synthetic-account',
-          mode: 'mock',
-          autoManaged: false,
-          sponsors: [],
-          version: 1,
-          status: 'draft',
-          attempts: 0,
-          nextAttemptAt: null,
-          externalPostId: null,
-          externalPostUrl: null,
-          errorCode: null,
-          approvedAt: null,
-          publishedAt: null
-        }
-      }
-    ];
-    await page.setViewportSize({ width, height: 900 });
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto(dashboardPath + '/pilotage');
-    if (concentrated) await page.locator('[data-og7="pilot-focus"]').click();
-    const summary = page.locator('[data-og7="pilot-summary"]');
-    const frame = page.locator('[data-og7="pilot-scroll"]');
-    await expect(summary).toBeVisible();
-    expect(await frame.evaluate((element) => element.scrollTop)).toBe(0);
-    const initialSummary = (await summary.boundingBox())!;
-    const initialFrame = (await frame.boundingBox())!;
-    expect(initialSummary.y).toBeGreaterThan(
-      initialFrame.y + initialFrame.height
-    );
-    await hook(page, 'toggle').click();
-    if (placement === 'bottom') await hook(page, 'move').click();
-    await expect(page.locator('[data-og7="admin-guidance"]')).toHaveAttribute(
-      'data-og7-placement',
-      placement
-    );
-    if (width >= 1440) {
-      // Both command surfaces reserve space in the shared layout. The floating
-      // guide must respect those same reservations after the content is projected.
-      await expect
-        .poll(() =>
-          page.locator('[data-og7="admin-guidance"]').evaluate((element) => {
-            const guide = element.getBoundingClientRect();
-            return Array.from(
-              document.querySelectorAll(
-                '[data-og7="controller-radial-slot"], [data-og7="controller-deck-slot"]'
-              )
-            )
-              .filter((slot) => slot.getClientRects().length > 0)
-              .every((slot) => {
-                const rect = slot.getBoundingClientRect();
-                return (
-                  Math.min(guide.right, rect.right) -
-                    Math.max(guide.left, rect.left) <=
-                    1 ||
-                  Math.min(guide.bottom, rect.bottom) -
-                    Math.max(guide.top, rect.top) <=
-                    1
-                );
-              });
-          })
-        )
-        .toBe(true);
-    }
-    const bookmark = await stored(page);
-    await hook(page, 'show').click();
-    await expectGoldenZone(summary);
-    await expect
-      .poll(() => frame.evaluate((element) => element.scrollTop))
-      .toBeGreaterThan(0);
-    await expect(async () => {
-      const visibility = await summary.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const frame = element
-          .closest('[data-og7="pilot-scroll"]')!
-          .getBoundingClientRect();
-        const commandSurfaces = Array.from(
-          document.querySelectorAll(
-            '[data-og7="controller-radial-slot"], [data-og7="controller-deck-slot"], [data-og7="pilot-controls"]'
-          )
-        )
-          .map((surface) => surface.getBoundingClientRect())
-          .filter((bounds) => bounds.width > 0 && bounds.height > 0);
-        const card = document
-          .querySelector('[data-og7="admin-guidance"]')!
-          .getBoundingClientRect();
-        const focused = document.activeElement as HTMLElement;
-        const heading = focused.getBoundingClientRect();
-        let top = Math.max(0, frame.top);
-        const intro = document.querySelector('[data-og7="pilot-intro"]');
-        const introBounds = intro?.getBoundingClientRect();
-        // A sticky heading occupies part of the scrollport. Reserve its actual
-        // visible bounds before deciding whether the whole zone can fit.
-        if (
-          intro &&
-          introBounds &&
-          getComputedStyle(intro).position === 'sticky' &&
-          introBounds.left < rect.right &&
-          introBounds.right > rect.left &&
-          introBounds.top <= top &&
-          introBounds.bottom > top
-        )
-          top = introBounds.bottom;
-        const bottom = Math.min(
-          innerHeight,
-          frame.bottom,
-          ...commandSurfaces
-            .filter(
-              (surface) =>
-                rect.left < surface.right && rect.right > surface.left
-            )
-            .map((surface) => surface.top)
-        );
-        const cardCrossesZone =
-          rect.left < card.right && rect.right > card.left;
-        // The reveal algorithm reserves 12px at each viewport edge and another
-        // 12px beside the floating card. A zone that fits only without those
-        // margins uses the heading fallback; focus and hit testing still apply.
-        const readableTop = top + 12;
-        const readableBottom = bottom - 12;
-        const cardOverlapsSpace =
-          cardCrossesZone &&
-          card.bottom > readableTop &&
-          card.top < readableBottom;
-        const availableHeight = cardOverlapsSpace
-          ? Math.max(
-              Math.min(readableBottom, card.top - 12) - readableTop,
-              readableBottom - Math.max(readableTop, card.bottom + 12)
-            )
-          : readableBottom - readableTop;
-        const wholeZoneFits = rect.height <= availableHeight;
-        const points = [
-          {
-            x: heading.left + heading.width / 2,
-            y: heading.top + Math.min(heading.height / 2, 12)
-          }
-        ];
-        if (wholeZoneFits) {
-          points.push({ x: rect.left + rect.width / 2, y: rect.bottom - 3 });
-        }
-        return {
-          zone: { top: rect.top, bottom: rect.bottom, height: rect.height },
-          viewport: { top, bottom, availableHeight },
-          card: { top: card.top, bottom: card.bottom },
-          heading: { top: heading.top, bottom: heading.bottom },
-          hitPoints: points.map(({ x, y }) => {
-            const front = document.elementFromPoint(x, y);
-            return {
-              x,
-              y,
-              front: front?.tagName,
-              hook: front?.getAttribute('data-og7'),
-              parentHook: front?.parentElement?.getAttribute('data-og7')
-            };
-          }),
-          focusedWithin: element.contains(focused),
-          wholeZoneFits,
-          wholeZoneVisible: rect.top >= top + 6 && rect.bottom <= bottom - 6,
-          wholeZoneClearsCard:
-            !cardCrossesZone ||
-            rect.bottom <= card.top - 6 ||
-            rect.top >= card.bottom + 6,
-          pointsVisible: points.every(({ x, y }) => {
-            const front = document.elementFromPoint(x, y);
-            return (
-              y >= top &&
-              y < bottom &&
-              front !== null &&
-              element.contains(front)
-            );
-          })
-        };
-      });
-      expect(visibility, JSON.stringify(visibility)).toMatchObject({
-        focusedWithin: true,
-        pointsVisible: true
-      });
-      if (visibility.wholeZoneFits) {
-        expect(visibility).toMatchObject({
-          wholeZoneVisible: true,
-          wholeZoneClearsCard: true
-        });
-      }
-    }).toPass({ timeout: 7000 });
-    await expectStep(page, 'read');
-    expect(await stored(page)).toEqual(bookmark);
-    await page.screenshot({
-      path: testInfo.outputPath('gold-zone-above-pilotage-actions.png')
-    });
-    // A target inside the bar must itself remain reachable without activating it.
-    await hook(page, 'next').click();
-    await hook(page, 'show').click();
-    const details = page.locator('[data-og7="pilot-details"]');
-    await expectGoldenZone(details);
-    await expectShownLandmarkUncovered(page);
-    await expect(details).toBeFocused();
-    await expect(page.getByRole('dialog')).toBeHidden();
-    expect(fixture.mutations).toEqual([]);
-  });
-}
 
 test('all protected admin workspaces retain guidance, including unavailable data', async ({
   page
@@ -2116,8 +1984,7 @@ test('all protected admin workspaces retain guidance, including unavailable data
     await page.goto(dashboardPath + suffix);
     await expect(hook(page, 'toggle')).toBeVisible();
     await expect(hook(page, 'panel')).toBeVisible();
-    await expect(hook(page, 'page')).not.toBeEmpty();
-    await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
+    await expectEmptyDiscovery(page);
   }
   expect(fixture.mutations).toEqual([]);
 });
@@ -2213,10 +2080,7 @@ for (const [workspaceId, suffix] of automaticWorkspaces) {
       'awaiting_confirmation'
     );
     await expect(page).toHaveURL((url) => url.pathname === path);
-    await expect(hook(page, 'automatic-mode')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(hook(page, 'automatic-mode')).toHaveCount(0);
     await expect(automaticHook(page, 'human-step')).toBeVisible();
     await expect(
       page.locator('[data-og7="admin-automatic"]')
@@ -2292,8 +2156,8 @@ test('automatic preparation discards a late payment response after pause and nev
       'attention-panel'
     )
   );
-  const originalUrl = `${dashboardPath}?paymentJourney=${paymentId}`;
-  await page.goto(originalUrl);
+  const originalUrl = dashboardPath;
+  await page.goto(`${originalUrl}?paymentJourney=${paymentId}`);
   await openAutomatic(page);
   await automaticHook(page, 'scope').selectOption('payment');
   let release = () => {};
@@ -2567,7 +2431,7 @@ test('automatic payment preparation stops on forbidden reads and shows no stale 
   );
   await expect(automaticHook(page, 'complete')).toHaveCount(0);
   await expect(automaticHook(page, 'prepare')).toHaveCount(0);
-  await expect(page).toHaveURL(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await expect(page).toHaveURL(dashboardPath);
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -2678,7 +2542,8 @@ test('automatic preparation can start and pause through the shared simulated Xbo
   const controller = adminController(page);
   await controller.ready();
   await controller.activate(hook(page, 'toggle'));
-  await controller.activate(hook(page, 'automatic-mode'));
+  await restoreLegacyGuideMode(page, 'automatic');
+  await controller.ready();
   await controller.activate(
     page.locator('[data-og7="automatic-view"][data-og7-id="other"]')
   );
@@ -2690,6 +2555,8 @@ test('automatic preparation can start and pause through the shared simulated Xbo
     'data-og7-id',
     'awaiting_confirmation'
   );
+  // Navigation focuses the administrative page; Y explicitly rejoins the guide.
+  await controller.press('Y');
   await controller.activate(automaticHook(page, 'pause'));
   await expect(automaticHook(page, 'state')).toHaveAttribute(
     'data-og7-id',

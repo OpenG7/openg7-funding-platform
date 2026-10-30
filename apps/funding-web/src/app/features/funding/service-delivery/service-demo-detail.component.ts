@@ -6,13 +6,14 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { FundingI18nService } from '../services/funding-i18n.service.js';
 
 import enTranslations from './i18n/service-demo-detail.en.json' with { type: 'json' };
 import frTranslations from './i18n/service-demo-detail.fr-CA.json' with { type: 'json' };
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
+import { ServiceDemoNavigation } from './service-demo-navigation.js';
+import { DEMO_DETAIL_PAGES } from './service-demo-pages.js';
 import { ServiceDemoPreviewComponent } from './service-demo-preview.component.js';
 import { ServiceDemoActionsDirective } from './service-demo-actions.directive.js';
 import { ServiceDemoTransitionDirective } from './service-demo-transition.directive.js';
@@ -21,158 +22,7 @@ import {
   type ServiceDemoContent
 } from './service-demo-state.js';
 
-/** Presentation destinations only: these pages never authorize or execute an operation. */
-export const DEMO_DETAIL_PAGES = [
-  {
-    path: 'apercu',
-    titleKey: 'serviceDemoDetail.titles.preview',
-    parent: 'contenu'
-  },
-  {
-    path: 'preuves',
-    titleKey: 'serviceDemoDetail.titles.evidence',
-    parent: ''
-  },
-  {
-    path: 'accord',
-    titleKey: 'serviceDemoDetail.titles.agreement',
-    parent: ''
-  },
-  { path: 'controle', titleKey: 'serviceDemoDetail.titles.check', parent: '' },
-  {
-    path: 'proposition',
-    titleKey: 'serviceDemoDetail.titles.proposal',
-    parent: 'corriger/texte'
-  },
-  {
-    path: 'comparer',
-    titleKey: 'serviceDemoDetail.titles.compare',
-    parent: 'historique'
-  },
-  {
-    path: 'commentaire',
-    titleKey: 'serviceDemoDetail.titles.comment',
-    parent: 'historique'
-  },
-  {
-    path: 'demander-correction',
-    titleKey: 'serviceDemoDetail.titles.requestCorrection',
-    parent: 'contenu'
-  },
-  {
-    path: 'demander-accord',
-    titleKey: 'serviceDemoDetail.titles.requestAgreement',
-    parent: 'autorisation'
-  },
-  {
-    path: 'preuve',
-    titleKey: 'serviceDemoDetail.titles.attachment',
-    parent: 'autorisation'
-  },
-  {
-    path: 'accord-recu',
-    titleKey: 'serviceDemoDetail.titles.receivedAgreement',
-    parent: 'autorisation'
-  },
-  {
-    path: 'conditions',
-    titleKey: 'serviceDemoDetail.titles.conditions',
-    parent: 'autorisation'
-  },
-  {
-    path: 'contact',
-    titleKey: 'serviceDemoDetail.titles.contact',
-    parent: 'autorisation'
-  },
-  {
-    path: 'planifier',
-    titleKey: 'serviceDemoDetail.titles.schedule',
-    parent: 'publication'
-  },
-  {
-    path: 'confirmer-envoi',
-    titleKey: 'serviceDemoDetail.titles.confirmDelivery',
-    parent: 'publication'
-  },
-  {
-    path: 'resultat',
-    titleKey: 'serviceDemoDetail.titles.result',
-    parent: 'publication'
-  },
-  {
-    path: 'reconcilier',
-    titleKey: 'serviceDemoDetail.titles.reconcile',
-    parent: 'resultat'
-  },
-  {
-    path: 'attester',
-    titleKey: 'serviceDemoDetail.titles.attest',
-    parent: 'reconcilier'
-  },
-  { path: 'web', titleKey: 'serviceDemoDetail.titles.web', parent: '' },
-  {
-    path: 'confirmer-visibilite',
-    titleKey: 'serviceDemoDetail.titles.confirmVisibility',
-    parent: 'web'
-  },
-  {
-    path: 'approuver-preparation',
-    titleKey: 'serviceDemoDetail.titles.approvePreparation',
-    parent: ''
-  },
-  {
-    path: 'autres-actions',
-    titleKey: 'serviceDemoDetail.titles.more',
-    parent: ''
-  },
-  {
-    path: 'quitter',
-    titleKey: 'serviceDemoDetail.titles.leave',
-    parent: 'corriger/texte'
-  },
-  {
-    path: 'conflit',
-    titleKey: 'serviceDemoDetail.titles.conflict',
-    parent: 'corriger/texte'
-  },
-  {
-    path: 'indisponible',
-    titleKey: 'serviceDemoDetail.titles.unavailable',
-    parent: ''
-  },
-  {
-    path: 'medias',
-    titleKey: 'serviceDemoDetail.titles.media',
-    parent: 'corriger/image'
-  },
-  { path: 'guide', titleKey: 'serviceDemoDetail.titles.guide', parent: '' },
-  {
-    path: 'destinations',
-    titleKey: 'serviceDemoDetail.titles.destinations',
-    parent: ''
-  },
-  { path: 'filtres', titleKey: 'serviceDemoDetail.titles.filters', parent: '' },
-  {
-    path: 'retablir',
-    titleKey: 'serviceDemoDetail.titles.restore',
-    parent: 'historique'
-  },
-  {
-    path: 'annuler-autorisation',
-    titleKey: 'serviceDemoDetail.titles.revoke',
-    parent: 'publication'
-  },
-  {
-    path: 'apercu-envoi',
-    titleKey: 'serviceDemoDetail.titles.messagePreview',
-    parent: 'demander-accord'
-  },
-  {
-    path: 'confirmer-autorisation',
-    titleKey: 'serviceDemoDetail.titles.confirmAgreement',
-    parent: 'autorisation'
-  }
-] as const;
+export { DEMO_DETAIL_PAGES };
 
 @Component({
   selector: 'openg7-service-demo-detail',
@@ -297,14 +147,9 @@ export const DEMO_DETAIL_PAGES = [
 export class ServiceDemoDetailComponent {
   readonly state = inject(ServiceDemoState);
   readonly pages = DEMO_DETAIL_PAGES;
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly data = toSignal(this.route.data, {
-    initialValue: this.route.snapshot.data
-  });
-  private readonly query = toSignal(this.route.queryParamMap, {
-    initialValue: this.route.snapshot.queryParamMap
-  });
+  private readonly navigation = inject(ServiceDemoNavigation);
+  private readonly data = this.navigation.data;
+  private readonly query = this.navigation.query;
   readonly page = computed(() => String(this.data()['detail'] ?? 'apercu'));
   readonly definition = computed(() =>
     DEMO_DETAIL_PAGES.find((page) => page.path === this.page())
@@ -470,8 +315,7 @@ export class ServiceDemoDetailComponent {
   }
 
   chooseComparison(value: string): void {
-    void this.router.navigate([], {
-      relativeTo: this.route,
+    void this.navigation.navigate([], {
       queryParams: {
         comparaison: value === 'exemple' ? 'exemple' : 'conserve'
       },

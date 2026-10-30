@@ -8,6 +8,7 @@
     "removeFilter": "Remove stage filter",
     "filesTitle": "Files",
     "nextAction": "Next intervention",
-    "localDraft": "Local draft"
+    "localDraft": "Local draft",
+    "openMedia": "View media for {{name}}"
   }
 }

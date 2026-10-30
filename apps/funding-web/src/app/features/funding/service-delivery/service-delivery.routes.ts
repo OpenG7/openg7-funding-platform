@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import {
@@ -12,6 +12,18 @@ import { ServiceDemoListComponent } from './service-demo-list.component.js';
 import { ServiceDemoShellComponent } from './service-demo-shell.component.js';
 import { DEMO_DOSSIERS, ServiceDemoState } from './service-demo-state.js';
 import { ServiceDemoWorkspaceComponent } from './service-demo-workspace.component.js';
+import { ServiceDemoLinkDirective as RouterLink } from './service-demo-link.directive.js';
+import { ServiceDemoNavigation } from './service-demo-navigation.js';
+import {
+  SERVICE_DEMO_STEPS,
+  SERVICE_DEMO_EDITOR_TABS,
+  SERVICE_DEMO_LIST_DATA,
+  SERVICE_DEMO_SUMMARY_DATA,
+  SERVICE_DEMO_EDITOR_DATA,
+  SERVICE_DEMO_HISTORY_DATA,
+  SERVICE_DEMO_MISSING_DATA,
+  serviceDemoStepData
+} from './service-demo-pages.js';
 
 @Component({
   selector: 'openg7-service-demo-missing',
@@ -19,31 +31,27 @@ import { ServiceDemoWorkspaceComponent } from './service-demo-workspace.componen
   imports: [RouterLink, TranslatePipe],
   template: `<section class="empty-state" data-og7="service-demo-missing">
     <p>{{ 'serviceDemo.missingHint' | translate }}</p>
-    <a class="button primary" routerLink="/demo/prestations">{{
-      'serviceDemo.backList' | translate
-    }}</a>
+    <a
+      class="button primary"
+      routerLink="/demo/prestations"
+      queryParamsHandling="preserve"
+      >{{ 'serviceDemo.backList' | translate }}</a
+    >
   </section>`
 })
 class ServiceDemoMissingComponent {}
 
-const steps: Routes = ['contenu', 'autorisation', 'publication'].map(
-  (page) => ({
-    path: page,
-    component: ServiceDemoWorkspaceComponent,
-    data: {
-      page,
-      titleKey: `serviceDemo.tasks.${page}.title`,
-      parent: '',
-      icon: page === 'autorisation' ? 'audit' : 'publications'
-    }
-  })
-);
+const steps: Routes = SERVICE_DEMO_STEPS.map((page) => ({
+  path: page,
+  component: ServiceDemoWorkspaceComponent,
+  data: serviceDemoStepData(page)
+}));
 
 export const serviceDeliveryRoutes: Routes = [
   {
     path: '',
     component: ServiceDemoShellComponent,
-    providers: [ServiceDemoState],
+    providers: [ServiceDemoState, ServiceDemoNavigation],
     canDeactivate: [
       (component: ServiceDemoShellComponent) => component.canLeave()
     ],
@@ -52,7 +60,7 @@ export const serviceDeliveryRoutes: Routes = [
         path: '',
         pathMatch: 'full',
         component: ServiceDemoListComponent,
-        data: { list: true, titleKey: 'serviceDemo.title' }
+        data: SERVICE_DEMO_LIST_DATA
       },
       {
         path: 'dossier/:id',
@@ -73,7 +81,7 @@ export const serviceDeliveryRoutes: Routes = [
             path: '',
             pathMatch: 'full',
             component: ServiceDemoWorkspaceComponent,
-            data: { page: '', titleKey: 'serviceDemo.summary.title' }
+            data: SERVICE_DEMO_SUMMARY_DATA
           },
           ...steps,
           { path: 'corriger', pathMatch: 'full', redirectTo: 'corriger/texte' },
@@ -81,27 +89,17 @@ export const serviceDeliveryRoutes: Routes = [
             path: 'corriger/:tab',
             canMatch: [
               (_route, segments) =>
-                ['texte', 'image', 'liens', 'mentions', 'options'].includes(
-                  segments[1]?.path ?? ''
+                SERVICE_DEMO_EDITOR_TABS.some(
+                  (tab) => tab === segments[1]?.path
                 )
             ],
             component: ServiceDemoEditorComponent,
-            data: {
-              page: 'corriger',
-              titleKey: 'serviceDemoEditor.title',
-              parent: 'contenu',
-              icon: 'settings'
-            }
+            data: SERVICE_DEMO_EDITOR_DATA
           },
           {
             path: 'historique',
             component: ServiceDemoHistoryComponent,
-            data: {
-              page: 'historique',
-              titleKey: 'serviceDemo.history',
-              parent: '',
-              icon: 'clock'
-            }
+            data: SERVICE_DEMO_HISTORY_DATA
           },
           ...DEMO_DETAIL_PAGES.map((detail) => ({
             path: detail.path,
@@ -117,7 +115,7 @@ export const serviceDeliveryRoutes: Routes = [
       {
         path: '**',
         component: ServiceDemoMissingComponent,
-        data: { missing: true, titleKey: 'serviceDemo.missingTitle' }
+        data: SERVICE_DEMO_MISSING_DATA
       }
     ]
   }

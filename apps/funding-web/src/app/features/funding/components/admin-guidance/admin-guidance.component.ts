@@ -13,8 +13,10 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
+import type { ServiceDeliveryEmbeddedComponent } from '../../service-delivery/index.js';
+import { AdminGuideNavigationService } from '../../services/admin-guide-navigation.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
@@ -39,7 +41,7 @@ import {
 @Component({
   selector: 'openg7-admin-guidance',
   standalone: true,
-  imports: [RouterLink, AdminIconComponent, AdminPaymentJourneyComponent],
+  imports: [AdminIconComponent, AdminPaymentJourneyComponent],
   host: { '[class.active]': 'guidance.available() && guidance.enabled()' },
   templateUrl: './admin-guidance.component.html',
   styleUrls: [
@@ -58,6 +60,30 @@ export class AdminGuidanceComponent {
   readonly automaticError = signal(false);
   readonly workflowLoading = signal(false);
   readonly workflowError = signal(false);
+  readonly serviceDeliverySelected = signal(false);
+  readonly serviceDeliveryLoading = signal(false);
+  readonly serviceDeliveryError = signal(false);
+  private readonly serviceDeliveryRequested = signal(false);
+  private readonly serviceDeliveryLoadAttempt = signal(0);
+  private readonly serviceDeliveryRetrySource = signal<string | null>(null);
+  readonly canRetryServiceDelivery = computed(
+    () =>
+      this.serviceDeliveryError() &&
+      this.serviceDeliveryRetrySource() !== null &&
+      this.serviceDeliveryLoadAttempt() < ADMIN_GUIDANCE_LOAD_RETRIES
+  );
+  private readonly serviceDeliveryComponent =
+    signal<ComponentRef<ServiceDeliveryEmbeddedComponent> | null>(null);
+  readonly serviceDeliveryLoaded = computed(
+    () => this.serviceDeliveryComponent() !== null
+  );
+  private readonly departures = inject(AdminGuideNavigationService);
+  private readonly admin = inject(FundingAdminService);
+  private readonly serviceDeliveryIdentity = computed(() => {
+    const identity = this.admin.identity();
+    return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}`;
+  });
+  private loadedServiceDeliveryIdentity = '';
   private readonly automaticLoadAttempt = signal(0);
   private readonly workflowLoadAttempt = signal(0);
   private readonly automaticRetrySource = signal<string | null>(null);
@@ -92,19 +118,88 @@ export class AdminGuidanceComponent {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly card = viewChild<ElementRef<HTMLElement>>('card');
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
-  private readonly resume = viewChild<ElementRef<HTMLAnchorElement>>('resume');
-  private readonly heading = viewChild<ElementRef<HTMLElement>>('stepHeading');
+  private readonly discovery =
+    viewChild<ElementRef<HTMLButtonElement>>('discovery');
   private readonly automaticHost = viewChild('automaticHost', {
     read: ViewContainerRef
   });
   private readonly workflowHost = viewChild('workflowHost', {
     read: ViewContainerRef
   });
-  private focusResume = false;
+  private readonly serviceDeliveryHost = viewChild('serviceDeliveryHost', {
+    read: ViewContainerRef
+  });
+  private focusServiceDelivery = false;
   private releaseHighlight: (() => void) | undefined;
   private frame = 0;
 
   constructor() {
+    afterRenderEffect((onCleanup) => {
+      const identity = this.serviceDeliveryIdentity();
+      if (
+        this.loadedServiceDeliveryIdentity &&
+        identity !== this.loadedServiceDeliveryIdentity
+      ) {
+        this.serviceDeliveryRequested.set(false);
+        this.serviceDeliverySelected.set(false);
+      }
+      this.loadedServiceDeliveryIdentity = identity;
+      const host = this.serviceDeliveryHost();
+      if (!host || !this.serviceDeliveryRequested()) return;
+      const attempt = this.serviceDeliveryLoadAttempt();
+      const retrySource = untracked(this.serviceDeliveryRetrySource);
+      let current = true;
+      let release: (() => void) | undefined;
+      this.serviceDeliveryLoading.set(true);
+      this.serviceDeliveryError.set(false);
+      onCleanup(() => {
+        current = false;
+        release?.();
+        this.serviceDeliveryComponent.set(null);
+        this.serviceDeliveryLoading.set(false);
+      });
+      const load =
+        attempt && retrySource
+          ? loadGuidanceChunkRetry<ServiceDeliveryEmbeddedComponent>(
+              retrySource,
+              this.document.baseURI,
+              attempt,
+              'ServiceDeliveryEmbeddedComponent'
+            )
+          : import('../../service-delivery/index.js').then(
+              (module) => module.ServiceDeliveryEmbeddedComponent
+            );
+      void load
+        .then((componentType) => {
+          if (!current || !this.guidance.available()) return;
+          const component = host.createComponent(componentType);
+          this.serviceDeliveryComponent.set(component);
+          const unregister = this.departures.register({
+            hasLocalWork: () => component.instance.hasLocalWork(),
+            canLeave: () => component.instance.canLeave(),
+            cancelLeave: () => component.instance.cancelLeave(),
+            reveal: () => this.openServiceDelivery()
+          });
+          release = () => {
+            unregister();
+            component.destroy();
+          };
+          component.instance.closeRequested.subscribe(() =>
+            this.selectDiscovery()
+          );
+          this.serviceDeliveryLoading.set(false);
+          component.changeDetectorRef.markForCheck();
+        })
+        .catch((error: unknown) => {
+          if (!current) return;
+          release?.();
+          this.serviceDeliveryRetrySource.set(
+            guidanceChunkRetrySource(error, this.document.baseURI)
+          );
+          this.serviceDeliveryLoading.set(false);
+          this.serviceDeliveryError.set(true);
+        });
+    });
     afterRenderEffect((onCleanup) => {
       const host = this.workflowHost();
       if (!host) return;
@@ -213,28 +308,51 @@ export class AdminGuidanceComponent {
     });
     afterRenderEffect(() => {
       this.guidance.page();
-      this.guidance.step();
       this.guidance.snapshot();
       this.guidance.mode();
+      if (this.guidance.mode() !== 'discovery')
+        this.serviceDeliverySelected.set(false);
+      const embedded = this.serviceDeliveryComponent();
+      if (
+        this.serviceDeliverySelected() &&
+        embedded &&
+        this.focusServiceDelivery
+      ) {
+        this.focusServiceDelivery = false;
+        (embedded.location.nativeElement as HTMLElement)
+          .querySelector<HTMLElement>('#service-demo-heading')
+          ?.focus({ preventScroll: true });
+      }
       this.journey.data();
       this.clearHighlight();
       this.missing.set(false);
-      if (this.focusResume && this.resume()) {
-        this.focusResume = false;
-        this.resume()!.nativeElement.focus();
-      }
-      if (
-        this.guidance.resumeTarget() === this.guidance.page()?.id &&
-        this.heading()
-      ) {
-        this.heading()!.nativeElement.focus({ preventScroll: true });
-        this.guidance.resumeTarget.set(null);
-      }
     });
     inject(DestroyRef).onDestroy(() => this.clearHighlight());
   }
   t(key: string, params?: Record<string, unknown>): string {
     return this.i18n.t('admin.guidance.' + key, params);
+  }
+  openServiceDelivery(): void {
+    if (!this.guidance.available()) return;
+    if (!this.guidance.enabled()) this.guidance.toggle();
+    this.guidance.setMode('discovery');
+    this.focusServiceDelivery = true;
+    this.serviceDeliverySelected.set(true);
+    this.serviceDeliveryRequested.set(true);
+    this.clearHighlight();
+  }
+  selectDiscovery(): void {
+    this.serviceDeliverySelected.set(false);
+    this.focusServiceDelivery = false;
+    this.guidance.setMode('discovery');
+    this.guidance.resumeTarget.set(null);
+    if (this.guidance.enabled())
+      this.discovery()?.nativeElement.focus({ preventScroll: true });
+  }
+  retryServiceDelivery(): void {
+    if (!this.canRetryServiceDelivery() || this.serviceDeliveryLoading())
+      return;
+    this.serviceDeliveryLoadAttempt.update((attempt) => attempt + 1);
   }
   retryAutomatic(): void {
     if (
@@ -262,18 +380,6 @@ export class AdminGuidanceComponent {
     if (!this.guidance.enabled()) this.guidance.toggle();
     this.guidance.setMode('automatic');
   }
-  move(direction: number): void {
-    this.guidance.move(direction);
-    this.guidance.resumeTarget.set(this.guidance.page()?.id ?? null);
-  }
-  restart(): void {
-    this.guidance.restart();
-    this.guidance.resumeTarget.set(this.guidance.page()?.id ?? null);
-  }
-  pause(): void {
-    this.focusResume = true;
-    this.guidance.pause();
-  }
   forget(): void {
     this.guidance.forget();
     this.toggle()?.nativeElement.focus();
@@ -282,8 +388,10 @@ export class AdminGuidanceComponent {
     this.clearHighlight();
     this.placement.update((value) => (value === 'top' ? 'bottom' : 'top'));
   }
-  show(hook = this.guidance.step()?.target): void {
+  show(hook?: string): void {
     this.clearHighlight();
+    if (this.serviceDeliverySelected() || this.guidance.mode() === 'discovery')
+      return;
     if (hook && !/^[a-z0-9-]+$/.test(hook)) return;
     const layout = this.element.nativeElement.closest<HTMLElement>(
       '[data-og7="admin-layout"]'

@@ -120,9 +120,11 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ### Explorer les six parcours en navigation libre
 
-Dans **Guide administratif → Explorer les parcours**, choisir librement un parcours puis une étape
-numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
-son résultat attendu et son emplacement actuel.
+Le rendu historique **Explorer les parcours** reste compatible avec les repères
+déjà mémorisés, mais son sélecteur est retiré du menu du Guide administratif.
+Dans ce rendu, choisir librement un parcours puis une étape numérotée, ou utiliser
+**Étape précédente / suivante**. Le guide décrit l’action, son résultat attendu
+et son emplacement actuel.
 Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
 la fiche publique et le suivi historique manuel. Le volet **Emplacement actuel /
 Organisation proposée** présente encore des pistes futures marquées à réaliser,
@@ -151,42 +153,51 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 ### Guide administratif
 
 Le bouton **Guide administratif**, sous la barre commune, accompagne les 20 rubriques
-administratives authentifiées. Les quatre modes **Découvrir**, **Suivi d’un paiement**,
-**Préparation des dossiers** et **Explorer les parcours** gardent des libellés
-visibles. La rubrique courante reste affichée dans tous les modes. Le rail devient
-une grille sur petit écran ; il défile avec le contenu lorsque la hauteur est limitée.
+administratives authentifiées. Son menu présente **Découvrir**, puis **Prestations**,
+avec leurs libellés visibles. Les sélecteurs **Suivi d’un paiement**,
+**Préparation des dossiers** et **Explorer les parcours** sont retirés du rail.
+Leurs rendus contextuels et repères historiques restent compatibles :
+**Suivre ce paiement**, depuis Contributions, et **Vérifier un nouveau lot**, dans la barre
+commune, conservent leur accès métier. La rubrique courante reste affichée dans
+ces rendus contextuels. Le rail devient une grille sur petit écran ; il défile avec le contenu
+lorsque la hauteur est limitée.
+
+**Prestations** affiche la démonstration complète dans la zone à droite du menu
+du guide, avec sa liste de dossiers, ses étapes et son éditeur. Le composant est
+chargé à la demande ; la rubrique administrative, son URL, ses paramètres et son
+contenu restent en place. Sur petit écran, la disposition se réorganise dans le
+panneau. Les changements de page et les filtres de la démo restent en mémoire
+dans cet espace, sans navigation administrative ni opération métier.
+
+La fenêtre garde les mêmes dimensions entre les onglets ; seul son contenu
+défile. Sa taille reste limitée à l'écran et à l'espace réservé aux manettes.
+
+Revenir à **Découvrir** ou réduire le guide masque l'espace sans détruire ses
+brouillons ; sa réouverture retrouve la page et les saisies. Quitter réellement
+la rubrique administrative demande confirmation si la démo contient des saisies
+locales. Une sortie annulée les conserve ; le rechargement et la fermeture du
+navigateur gardent leur avertissement natif. L'accès direct à `/demo/prestations`
+reste disponible comme démo autonome, avec ses propres brouillons.
+
 La bannière et le portrait princesse/lion sont décoratifs, masqués aux technologies
-d’assistance et réduits sur petit écran. **Découvrir** affiche **Vous êtes ici**,
-une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
-correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
-et un halo dorés. Trois pulsations douces accompagnent le clic, puis l'or reste
-fixe jusqu'au changement d'étape, à la pause ou à la fermeture. La préférence
-de réduction des mouvements supprime la pulsation, même modifiée en cours de
-lecture. Les styles initiaux reviennent au retrait du repère ; aucun contrôle
-métier n'est activé. Le défilement tient compte des conteneurs imbriqués, de la
-barre de commandes du pilotage et de son introduction fixe en Concentration.
-Il expose la zone entière si elle tient dans l'espace disponible ; sinon,
-son début et son titre restent visibles. Ouvert, le guide flotte dans une carte ombrée.
-**Placer en haut / Placer en bas** déplace la carte pour dégager la lecture ;
-les panneaux de confirmation conservent leur priorité. Une brève animation
-d'entrée respecte la préférence de réduction des mouvements et ne se répète
-pas pendant la lecture. Les étapes suivantes restent volontaires. Ce repère
-reste accessible dans le mode Concentration du pilotage. Sur un écran étroit,
-réduire temporairement la carte dégage les contrôles recouverts ; la rouvrir
-retrouve la même étape.
+d’assistance et réduits sur petit écran. **Découvrir** conserve une zone de contenu
+entièrement vide, réservée à un futur journal du jour. Aucun journal, texte
+provisoire, étape, bouton de reprise ou information de mémorisation n’y est affiché.
+Les anciens repères sauvegardés ne rétablissent pas le parcours de découverte ni
+son focus. L’espace **Prestations** reste conservé et masqué lors de ce retour,
+afin de retrouver ses brouillons à sa réouverture.
+
+Les rendus contextuels conservent leurs contrôles et leurs repères. Le contour
+et le halo dorés, le défilement vers les zones de travail et la réduction des
+mouvements restent applicables à ces parcours. Ouvert, le guide flotte dans une
+carte ombrée. **Placer en haut / Placer en bas** déplace la carte pour dégager la
+lecture ; les panneaux de confirmation conservent leur priorité. La carte reste
+accessible en Concentration. La réduire puis la rouvrir conserve le contexte.
 
 Un échec de chargement différé propose **Réessayer le chargement** dans la carte.
 Ce réessai conserve les repères et ne démarre pas de passage.
 Il est borné à trois tentatives sur les fichiers de l’application. Une erreur
 non récupérable localement invite à recharger la page.
-
-Dans ce guide de découverte, **Faire une pause** garde la rubrique et l'étape.
-**Reprendre mon repère** revient
-à cette rubrique, sans paramètres de recherche ou identifiants de dossier.
-**Continuer ici** permet de repartir dans une autre rubrique. Réduire le guide
-conserve le repère ; **Effacer mon repère**, dans les informations de mémorisation,
-le retire. Le guide ne confirme aucune opération ; le résultat d'une action se
-vérifie dans son écran habituel.
 
 **Parcours du paiement** suit le travail restant sur un paiement précis. Depuis
 **Contributions**, **Suivre ce paiement** ouvre ce mode dans la carte flottante.
@@ -242,11 +253,13 @@ et sa pause ainsi que le parcours exploré, son étape et sa pause sont mémoris
 dans ce navigateur, par compte OIDC,
 dans la clé `og7-admin-guidance:v1:<compte>`. Aucun statut de paiement, référence,
 résultat d'action, contenu de dossier, saisie ou information de santé n'est conservé.
-Le mode token partage ces repères entre ses utilisateurs. Un stockage bloqué conserve le repère
-en mémoire pendant la visite et affiche sa limite ; un effacement refusé est
-signalé séparément. Les guides de découverte détaillés restent disponibles.
+Le mode token partage ces repères entre ses utilisateurs. Les anciens repères de
+découverte restent acceptés pour compatibilité, sans afficher de contenu dans
+**Découvrir**. Un stockage bloqué conserve les préférences en mémoire pendant la
+visite ; les autres modes affichent sa limite. Un effacement refusé reste signalé
+dans le cadre commun du guide.
 
-La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
+La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie le panneau Découvrir vide, les autres modes, les comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
 FR/EN, clavier, mobile, concentration et présence dans les 20 rubriques. Elle
 vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
@@ -264,8 +277,8 @@ publication ou paiement de production.
 
 ### Préparation des dossiers par lot
 
-La commande de démarrage, dans l'en-tête ou **Guide administratif → Préparation des dossiers**,
-lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
+La commande **Vérifier un nouveau lot**, dans la barre commune, ouvre la préparation
+contextuelle et lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les publications promises doivent toutes être présentes. Les devises

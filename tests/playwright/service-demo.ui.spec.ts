@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 
 const base = '/demo/prestations';
 const dossier = `${base}/dossier/atelier-boreal`;
@@ -11,7 +11,11 @@ async function expectSingleLineText(
   label: Locator,
   container = label
 ): Promise<void> {
-  const text = await label.evaluate((element) => {
+  const containerElement = await container.elementHandle();
+  expect(containerElement).not.toBeNull();
+  const text = await label.evaluate(async (element, containerElement) => {
+    if (!containerElement) throw new Error('Text container is unavailable');
+    await element.ownerDocument.fonts.ready;
     const range = element.ownerDocument.createRange();
     range.selectNodeContents(element);
     const lines = new Set(
@@ -20,13 +24,19 @@ async function expectSingleLineText(
         .map((rectangle) => Math.round(rectangle.top))
     );
     const bounds = range.getBoundingClientRect();
-    return { lines: lines.size, left: bounds.left, right: bounds.right };
-  });
-  const box = await container.boundingBox();
-  expect(box).not.toBeNull();
+    const box = containerElement.getBoundingClientRect();
+    return {
+      lines: lines.size,
+      left: bounds.left,
+      right: bounds.right,
+      containerLeft: box.left,
+      containerRight: box.right
+    };
+  }, containerElement);
+  await containerElement?.dispose();
   expect(text.lines).toBe(1);
-  expect(text.left).toBeGreaterThanOrEqual(box!.x - 1);
-  expect(text.right).toBeLessThanOrEqual(box!.x + box!.width + 1);
+  expect(text.left).toBeGreaterThanOrEqual(text.containerLeft - 1);
+  expect(text.right).toBeLessThanOrEqual(text.containerRight + 1);
 }
 
 async function acceptLocalWorkLoss(
@@ -52,6 +62,112 @@ async function openLocalProof(page: Page): Promise<void> {
     page.locator('[data-og7="service-demo-detail"][data-og7-id="preuve"]')
   ).toBeVisible();
 }
+
+test('conserve le retour administratif dans les actions, onglets et filtres de la démo', async ({
+  page
+}) => {
+  const returnTo = '/admin/fundraiser/publications/drafts';
+  const browserDialogs: string[] = [];
+  page.on('dialog', async (dialog) => {
+    browserDialogs.push(dialog.type());
+    await dialog.dismiss();
+  });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${base}?returnTo=${encodeURIComponent(returnTo)}`);
+  const exit = page.locator('[data-og7="service-demo-exit"]');
+  await expect(exit).toHaveAttribute('href', returnTo);
+  await expect(exit).toHaveAccessibleName('Retour à l’administration');
+  await page
+    .getByRole('link', { name: 'Vérifier le contenu', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-contenu"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page
+    .getByRole('link', { name: 'Corriger le contenu', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-editor"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  expect(new URL(page.url()).searchParams.get('retour')).toBe('contenu');
+  for (const tab of ['image', 'liens', 'texte']) {
+    await page
+      .locator(`[data-og7="service-demo-editor-tab"][data-og7-id="${tab}"]`)
+      .click();
+    await expect(
+      page.locator(`[data-og7="service-demo-editor-tab"][data-og7-id="${tab}"]`)
+    ).toHaveAttribute('aria-current', 'page');
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+    expect(new URL(page.url()).searchParams.get('retour')).toBe('contenu');
+  }
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: /OpenG7/ })
+    .click();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.locator('[data-og7="service-demo-search"]').fill('rivages');
+  const authorization = page.locator(
+    '[data-og7="service-demo-filter"][data-og7-id="autorisation"]'
+  );
+  await authorization.click();
+  await expect(authorization).toHaveAttribute('aria-current', 'page');
+  await expect(
+    page.locator('[data-og7="service-demo-open-dossier"]')
+  ).toHaveCount(1);
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.reload();
+  await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
+  await expect(page.locator('[data-og7="service-demo-search"]')).toHaveValue(
+    'rivages'
+  );
+  await expect(authorization).toHaveAttribute('aria-current', 'page');
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await expect(exit).toHaveAttribute('href', returnTo);
+  await expect(exit).toHaveAccessibleName('Retour à l’administration');
+  await page.locator('[data-og7="service-demo-language"]').click();
+  await expect(exit).toHaveAccessibleName('Back to administration');
+  await expect(exit).toHaveAttribute('href', returnTo);
+  expect(browserDialogs).toEqual([]);
+});
+
+test('ignore les destinations de retour externes, ambiguës ou contenant des paramètres', async ({
+  page
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  for (const returnTo of [
+    'https://example.test/admin/fundraiser',
+    '//example.test/admin/fundraiser',
+    '/admin/fundraiser-evil',
+    '/admin/fundraiser/../publications',
+    '/admin/fundraiser/%2e%2e/publications',
+    '%2Fadmin%2Ffundraiser%2Fpublications',
+    '/admin/fundraiser/publications?draft=synthetic',
+    '/admin/fundraiser/publications#synthetic'
+  ]) {
+    await test.step(returnTo, async () => {
+      await page.goto(`${base}?returnTo=${encodeURIComponent(returnTo)}`);
+      await expect(
+        page.locator('[data-og7="service-demo-list"]')
+      ).toBeVisible();
+      const exit = page.locator('[data-og7="service-demo-exit"]');
+      await expect(exit).toHaveAttribute('href', '/admin/fundraiser');
+      await expect(exit).toHaveAccessibleName('Quitter');
+      expect(
+        await page
+          .locator('[data-og7="service-demo"] a[href]')
+          .evaluateAll((links) =>
+            links
+              .map((link) => (link as HTMLAnchorElement).href)
+              .filter((href) => new URL(href).origin !== location.origin)
+          )
+      ).toEqual([]);
+    });
+  }
+});
 
 test('explore un dossier et conserve le brouillon entre les onglets', async ({
   page
@@ -159,7 +275,11 @@ test('représente la recherche et les filtres dans l’URL et affiche le vide', 
     page.locator('[data-og7="service-demo-open-dossier"]')
   ).toHaveCount(1);
   await page.locator('[data-og7="service-demo-open-dossier"]').click();
-  await expect(page).toHaveURL(/dossier\/collectif-rivages$/);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === `${base}/dossier/collectif-rivages` &&
+      url.searchParams.get('etat') === 'autorisation'
+  );
   await page.goBack();
   await expect(page).toHaveURL(/etat=autorisation/);
   await expect(
@@ -347,6 +467,7 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
   page
 }) => {
   test.setTimeout(60000);
+  const returnTo = '/admin/fundraiser/publications/drafts';
   const errors: string[] = [];
   const apiRequests: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -390,7 +511,9 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
     'confirmer-autorisation'
   ];
   for (const destination of destinations) {
-    const response = await page.goto(`${dossier}/${destination}`);
+    const response = await page.goto(
+      `${dossier}/${destination}?returnTo=${encodeURIComponent(returnTo)}`
+    );
     expect(response?.status(), destination).toBe(200);
     await expect(
       page.locator(
@@ -400,6 +523,21 @@ test('parcourt les destinations de détail sans erreur ni traduction manquante',
     await expect(page.locator('[data-og7="service-demo"]')).not.toContainText(
       /serviceDemo(?:Editor|Detail|History)?\./
     );
+    const brokenReturns = await page
+      .locator('[data-og7="service-demo"] a[href]')
+      .evaluateAll(
+        (links, expected) =>
+          links
+            .map((link) => new URL((link as HTMLAnchorElement).href))
+            .filter(
+              (url) =>
+                url.pathname.startsWith('/demo/prestations') &&
+                url.searchParams.get('returnTo') !== expected
+            )
+            .map((url) => url.pathname),
+        returnTo
+      );
+    expect(brokenReturns, destination).toEqual([]);
   }
   expect(errors).toEqual([]);
   expect(apiRequests).toEqual([]);
@@ -493,7 +631,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
   await page
     .locator('[data-og7="service-demo-step"][data-og7-id="publication"]')
     .click();
-  await page.locator(`a[href="${dossier}/planifier"]`).first().click();
+  await page.getByRole('link', { name: /Horaire envisagé/ }).click();
   await page.getByLabel('Date et heure locales').fill('2026-11-06T09:15');
   await page.getByLabel('Fuseau horaire').selectOption('Europe/Paris');
   await page
@@ -561,7 +699,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
   await page
     .locator('[data-og7="service-demo-step"][data-og7-id="publication"]')
     .click();
-  await page.locator(`a[href="${dossier}/planifier"]`).first().click();
+  await page.getByRole('link', { name: /Horaire envisagé/ }).click();
   await expect(page.getByLabel('Date et heure locales')).toHaveValue(
     '2026-11-06T09:15'
   );
@@ -1166,6 +1304,286 @@ for (const language of ['fr-CA', 'en'] as const) {
   });
 }
 
+test('ouvre le média du dossier au clavier avec les paramètres et sans appel métier', async ({
+  page
+}) => {
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/'))
+      apiRequests.push(
+        request.method() + ' ' + new URL(request.url()).pathname
+      );
+  });
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  const returnTo = '/admin/fundraiser/publications/drafts';
+  await page.goto(
+    `${base}?q=bor%C3%A9al&etat=contenu&returnTo=${encodeURIComponent(returnTo)}`
+  );
+  const row = page.locator(
+    '[data-og7="service-demo-dossier"][data-og7-id="atelier-boreal"]'
+  );
+  const preview = row.locator('[data-og7="dossier-media-preview"]');
+  const open = preview.locator('[data-og7="dossier-media-open"]');
+  const image = preview.locator('[data-og7="dossier-media-image"]');
+  await expect(preview).toBeVisible();
+  await expect(image).toHaveCount(1);
+  await expect(image).toHaveAttribute('src', /admin-guide-panorama\.webp$/);
+  await expect(preview.locator('[data-og7="dossier-media-extra"]')).toHaveCount(
+    0
+  );
+  await expect(open).toHaveAccessibleName(/Atelier Boréal/);
+  await page.locator('[data-og7="service-demo-language"]').click();
+  await expect(open).toHaveAccessibleName('View media for Atelier Boréal');
+  await page.locator('[data-og7="service-demo-language"]').click();
+  await expect(open).toHaveAccessibleName(
+    'Consulter les médias du dossier Atelier Boréal'
+  );
+  const target = new URL(
+    (await open.getAttribute('href')) as string,
+    page.url()
+  );
+  expect(target.pathname).toBe(`${dossier}/medias`);
+  expect(target.searchParams.get('q')).toBe('boréal');
+  expect(target.searchParams.get('etat')).toBe('contenu');
+  expect(target.searchParams.get('returnTo')).toBe(returnTo);
+  await open.focus();
+  await expect(open).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.locator('[data-og7="service-demo-detail"][data-og7-id="medias"]')
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('q')).toBe('boréal');
+  expect(new URL(page.url()).searchParams.get('etat')).toBe('contenu');
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: /OpenG7/ })
+    .click();
+  await expect(row).toBeVisible();
+  await expect(page.locator('[data-og7="service-demo-dossier"]')).toHaveCount(
+    1
+  );
+  await expect(
+    page.locator('[data-og7="service-demo-filter"][data-og7-id="contenu"]')
+  ).toHaveAttribute('aria-current', 'page');
+  expect(apiRequests).toEqual([]);
+});
+
+test('respecte le visuel et son retrait dans le brouillon propre à chaque dossier', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.goto(`${dossier}/corriger/image`);
+  await page
+    .locator('[data-og7="service-demo-editor-image"][data-og7-id="companion"]')
+    .check();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: /OpenG7/ })
+    .click();
+  const row = page.locator(
+    '[data-og7="service-demo-dossier"][data-og7-id="atelier-boreal"]'
+  );
+  await expect(row.locator('[data-og7="dossier-media-image"]')).toHaveAttribute(
+    'src',
+    /admin-guide-princess-lion\.webp$/
+  );
+  for (const id of ['collectif-rivages', 'studio-canopée']) {
+    await expect(
+      page.locator(
+        `[data-og7="service-demo-dossier"][data-og7-id="${id}"] [data-og7="dossier-media-image"]`
+      )
+    ).toHaveAttribute('src', /admin-guide-panorama\.webp$/);
+  }
+  await row.locator('[data-og7="dossier-media-open"]').click();
+  await page
+    .getByRole('checkbox', {
+      name: 'Inclure le visuel de démonstration dans le brouillon'
+    })
+    .uncheck();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: /OpenG7/ })
+    .click();
+  await expect(row.locator('[data-og7="dossier-media-preview"]')).toBeHidden();
+  await expect(row.locator('[data-og7="dossier-media-image"]')).toHaveCount(0);
+  await expect(row.locator('[data-og7="dossier-media-open"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="dossier-media-image"]')).toHaveCount(2);
+  await expect(
+    row.getByRole('link', { name: 'Vérifier le contenu', exact: true })
+  ).toBeVisible();
+  await row.locator('[data-og7="service-demo-open-dossier"]').click();
+  await expect(page).toHaveURL(new RegExp(`${dossier}$`));
+});
+
+test('retire les aperçus inaccessibles et conserve les interventions utilisables', async ({
+  page
+}) => {
+  let mediaRequests = 0;
+  await page.route('**/assets/admin-guide-panorama.webp', async (route) => {
+    mediaRequests++;
+    await route.fulfill({ status: 404, body: '' });
+  });
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.goto(base);
+  await expect(page.locator('[data-og7="service-demo-dossier"]')).toHaveCount(
+    3
+  );
+  await expect(page.locator('[data-og7="dossier-media-image"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="dossier-media-open"]')).toHaveCount(0);
+  expect(mediaRequests).toBeGreaterThan(0);
+  const requestsAfterFailure = mediaRequests;
+  const action = page
+    .locator('[data-og7="service-demo-dossier"][data-og7-id="atelier-boreal"]')
+    .getByRole('link', { name: 'Vérifier le contenu', exact: true });
+  await action.focus();
+  await expect(action).toBeFocused();
+  expect(mediaRequests).toBe(requestsAfterFailure);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-og7="service-demo-contenu"]')).toBeVisible();
+});
+
+test('garde l’identité, le badge et l’intervention immobiles pendant la consultation des médias', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.goto(base);
+  const row = page.locator(
+    '[data-og7="service-demo-dossier"][data-og7-id="atelier-boreal"]'
+  );
+  const preview = row.locator('[data-og7="dossier-media-preview"]');
+  const open = row.locator('[data-og7="dossier-media-open"]');
+  const fixed = [
+    row.locator('[data-og7="service-demo-open-dossier"]'),
+    row.getByText('Contenu à vérifier', { exact: true }),
+    row.getByRole('link', { name: 'Vérifier le contenu', exact: true }),
+    row
+      .getByRole('link', { name: 'Vérifier le contenu', exact: true })
+      .locator('openg7-admin-icon')
+  ];
+  await expect(open).toBeVisible();
+  // Capture the resting layout after the existing badge entrance has settled.
+  // Hover and focus still exercise the real media transitions below.
+  await row.evaluate(async (element) => {
+    await element.ownerDocument.fonts.ready;
+    await Promise.allSettled(
+      element
+        .getAnimations({ subtree: true })
+        .filter(
+          (animation) => animation.effect?.getTiming().iterations !== Infinity
+        )
+        .map((animation) => animation.finished)
+    );
+  });
+  const resting = await Promise.all(
+    fixed.map((element) => element.boundingBox())
+  );
+  for (const box of resting) expect(box).not.toBeNull();
+  const expectFixed = async (): Promise<void> => {
+    for (const [index, element] of fixed.entries()) {
+      const box = await element.boundingBox();
+      expect(box).not.toBeNull();
+      for (const dimension of ['x', 'y', 'width', 'height'] as const)
+        expect(box![dimension]).toBeCloseTo(resting[index]![dimension], 0);
+    }
+  };
+  await open.focus();
+  await expect(open).toBeFocused();
+  await sampledFrames(page, 15);
+  await expectFixed();
+  if (await page.evaluate(() => matchMedia('(hover: hover)').matches)) {
+    await row.hover();
+    await sampledFrames(page, 15);
+    await expectFixed();
+    await fixed[2].hover();
+    await sampledFrames(page, 15);
+    await expectFixed();
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect
+    .poll(() =>
+      preview.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === 'running').length
+      )
+    )
+    .toBe(0);
+  await expectFixed();
+  await fixed[2].focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-og7="service-demo-contenu"]')).toBeVisible();
+});
+
+test('préserve les actions et la largeur de page avec les aperçus sur écran étroit ou tactile', async ({
+  page
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('openg7.language', 'fr-CA')
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(base);
+  for (const width of [320, 640, 1024, 1920]) {
+    await test.step(`${width} pixels`, async () => {
+      await page.setViewportSize({ width, height: 1080 });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth + 1
+          )
+        )
+        .toBe(true);
+      const rows = page.locator('[data-og7="service-demo-dossier"]');
+      await expect(rows).toHaveCount(3);
+      for (const row of await rows.all()) {
+        const title = row.locator('[data-og7="service-demo-open-dossier"]');
+        const action = row.getByRole('link').last();
+        await expect(title).toBeVisible();
+        await expect(action).toBeVisible();
+        for (const target of [title, action]) {
+          const bounds = await target.boundingBox();
+          expect(bounds).not.toBeNull();
+          expect(bounds!.x).toBeGreaterThanOrEqual(0);
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+        }
+        const preview = row.locator('[data-og7="dossier-media-preview"]');
+        if (width === 320) await expect(preview).toBeHidden();
+        if (width === 1920) await expect(preview).toBeVisible();
+        if (await preview.isVisible()) {
+          const mediaBounds = await preview.boundingBox();
+          const actionBounds = await action.boundingBox();
+          expect(mediaBounds).not.toBeNull();
+          expect(actionBounds).not.toBeNull();
+          expect(mediaBounds!.x + mediaBounds!.width).toBeLessThanOrEqual(
+            actionBounds!.x + 1
+          );
+        }
+      }
+    });
+  }
+  await page.setViewportSize({ width: 320, height: 1080 });
+  await page
+    .locator(
+      '[data-og7="service-demo-open-dossier"][data-og7-id="atelier-boreal"]'
+    )
+    .click();
+  await expect(page).toHaveURL(new RegExp(`${dossier}$`));
+});
+
 test('annule une sortie en attente quand le retour navigateur reste dans la démo', async ({
   page
 }) => {
@@ -1324,11 +1742,13 @@ for (const language of ['fr-CA', 'en'] as const) {
       { width: 640, height: 450 }
     ]) {
       await page.setViewportSize(viewport);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth + 1
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth + 1
+          )
         )
-      ).toBe(true);
+        .toBe(true);
       const steps = page.locator('[data-og7="service-demo-step"]');
       await expect(steps).toHaveCount(3);
       for (const step of await steps.all()) {

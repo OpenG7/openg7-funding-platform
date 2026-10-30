@@ -10,34 +10,54 @@
 .guidance {
   margin: var(--admin-guidance-margin, 0.75rem 1.75rem 0);
 }
+.guidance [hidden] {
+  display: none !important;
+}
+.service-delivery-slot {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 .guidance.open {
   @apply tw:fixed tw:m-0 tw:flex tw:flex-col;
   container: guidance / inline-size;
   inset-block-start: 6rem;
   inset-inline-end: var(--admin-guidance-inline-end, 1.25rem);
   width: min(
-    54rem,
+    90rem,
     calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
+  );
+  height: var(
+    --admin-guidance-max-height,
+    min(49rem, 70dvh, calc(100dvh - 7.5rem))
   );
   max-height: var(
     --admin-guidance-max-height,
-    min(42rem, 70dvh, calc(100dvh - 7.5rem))
+    min(49rem, 70dvh, calc(100dvh - 7.5rem))
   );
   border: 1px solid var(--admin-border);
   border-radius: 1.15rem;
   background: var(--admin-panel, var(--admin-bg));
-  box-shadow: var(--admin-shadow-raised);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--admin-border) 45%, transparent),
+    0 3px 8px rgb(23 43 80 / 10%),
+    var(--admin-shadow-raised);
   overflow: hidden;
 }
-.guidance.open.automatic {
-  width: min(
-    76rem,
-    calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
-  );
-  max-height: var(
-    --admin-guidance-max-height,
-    min(49rem, calc(100dvh - 7.5rem))
-  );
+.guidance-content.service-delivery-content {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+.guidance-content.service-delivery-content:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+.guidance-content.service-delivery-content[hidden] {
+  display: none;
 }
 .guidance.open.at-bottom {
   inset-block-start: auto;
@@ -292,6 +312,13 @@ p {
     overflow: visible;
     scrollbar-gutter: auto;
   }
+  .service-delivery .guidance-body {
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .service-delivery .mode-rail {
+    gap: 0;
+  }
 }
 @container guidance (max-width: 32rem) {
   .open .guidance-bar {
@@ -329,11 +356,11 @@ p {
   }
 }
 @media (max-width: 480px) {
-  .guidance.open,
-  .guidance.open.automatic {
+  .guidance.open {
     inset-block-start: 0.75rem;
     inset-inline-end: var(--admin-guidance-inline-end, 0.75rem);
     width: calc(100% - var(--admin-guidance-reserved-width, 0px) - 1.5rem);
+    height: var(--admin-guidance-max-height, min(70dvh, calc(100dvh - 1.5rem)));
     max-height: var(
       --admin-guidance-max-height,
       min(70dvh, calc(100dvh - 1.5rem))
