@@ -1,0 +1,115 @@
+{
+  "activityHubJournal": {
+    "title": "Activity journal",
+    "subtitle": "Explore fictional events, their origins and the items that need your attention.",
+    "metricTitle": "The items behind this count",
+    "metricCopy": "One row per distinct item, showing its latest event within the selected period. Multiple events for the same item count only once.",
+    "results": "{{count}} events",
+    "entityResults": "{{count}} distinct items",
+    "availableResults": "{{count}} available events",
+    "availableEntityResults": "{{count}} available distinct items",
+    "sourceLoading": "Simulated loading",
+    "sourceUnavailable": "Unavailable",
+    "loadingCopy": "Simulation: activities are loading. The event count remains unknown.",
+    "unavailableCopy": "Simulation: the activity source is unavailable. No event count can be determined for this snapshot.",
+    "mediaUnavailableCopy": "Simulation: the media source is unavailable. The activity count for this type remains unknown.",
+    "partialNote": "Simulation: the media source is unavailable. The list and count cover only the other available sources.",
+    "partialEmptyTitle": "No result among the available sources",
+    "partialEmptyCopy": "Media data is missing from this snapshot. These filters return no events from the other sources; the journal remains incomplete.",
+    "demo": "Local demonstration · Snapshot of October 28, 2026 at 14:30 Toronto time. No real event or change.",
+    "filters": "Filter activity",
+    "search": "Search the journal",
+    "searchHint": "A file, an event, an author…",
+    "kind": "Activity type",
+    "allKinds": "All types",
+    "period": "Period",
+    "origin": "Origin",
+    "allOrigins": "All origins",
+    "attentionOnly": "Needs review only",
+    "attention": "Needs review",
+    "reset": "Reset filters",
+    "emptyTitle": "No activity matches these filters",
+    "emptyCopy": "Change the period, remove a filter or try a different keyword.",
+    "kinds": {
+      "ready": "Files ready for review",
+      "media": "Media examined",
+      "rules": "Rules updated",
+      "preparation": "Preparations to review"
+    },
+    "periods": {
+      "today": "Today · October 28",
+      "week": "This week · October 26–28",
+      "all": "Full demo history"
+    },
+    "origins": {
+      "human": "Human intervention",
+      "automatic": "Automatic processing"
+    },
+    "actors": {
+      "human": "Review team · Demo",
+      "automatic": "Demonstration process"
+    },
+    "events": {
+      "readyBoreal": {
+        "title": "The Atelier Boréal file is ready for review",
+        "summary": "The demonstration materials have been gathered; human review is still required.",
+        "detail": "A fictional member of the review team gathered the content of the Atelier Boréal file. This event illustrates moving to a checking stage; it expresses no approval.\n\nOpen the demonstration file to explore its content, media and permissions. No real administrative data has changed."
+      },
+      "mediaBoreal": {
+        "title": "Atelier Boréal’s media needs a check",
+        "summary": "A fictional automated check flags a permission question to review.",
+        "detail": "Media item DEMO-MEDIA-BOREAL-01 also appears in an October 27 event. It is the same item: the media count includes it only once and shows its latest state here.\n\nThe automatic flag is a local example. It validates neither consent, eligibility nor publication. A responsible person must examine permissions before any real use."
+      },
+      "rulesMedia": {
+        "title": "A media rule reference has been updated",
+        "summary": "The scenario illustrates the link between media and its file’s permissions.",
+        "detail": "This row describes a fictional change to rule DEMO-REGLE-MEDIA-01 in the Collectif Rivages file. It helps explore the context of an automated intervention.\n\nThe prototype changes no platform rule. An applicable rule never replaces checking media eligibility and permission for its exact use."
+      },
+      "preparationRivages": {
+        "title": "The Collectif Rivages preparation is ready to read",
+        "summary": "A fictional draft has been prepared for human review, without approval or delivery.",
+        "detail": "A demonstration team member organized the information in DEMO-PREPARATION-RIVAGES-01. This signpost only indicates that a draft can be reviewed.\n\nPreparation, review, consent and publication authorization remain separate. Opening this detail or consulting the guide grants no permission and triggers no delivery."
+      },
+      "readyRivages": {
+        "title": "The Collectif Rivages file was gathered for review",
+        "summary": "A fictional human intervention prepared the file’s materials.",
+        "detail": "This October 27 event completes the demonstration journal. File DEMO-DOSSIER-RIVAGES is counted once among the week’s files.\n\nThe file link opens the local Service Delivery journey. It neither reads nor changes a real administrative file."
+      },
+      "mediaBorealEarlier": {
+        "title": "First reading of Atelier Boréal’s media",
+        "summary": "A fictional person examined this media on October 27, before the following day’s flag.",
+        "detail": "The journal retains this earlier event and the October 28 flag for the same media item DEMO-MEDIA-BOREAL-01. The journal shows both events; the media count includes only one item.\n\nThis first reading does not authorize publication. A change to content or context requires checking the applicable conditions again."
+      },
+      "mediaRivages": {
+        "title": "Collectif Rivages media was examined in the scenario",
+        "summary": "The fictional process reports no additional issue for this item.",
+        "detail": "DEMO-MEDIA-RIVAGES-01 represents a second distinct media item in the week’s examples. Its result illustrates an automated check without a flag.\n\nThe absence of a flag in this fixture proves no real compliance and does not authorize publication."
+      },
+      "rulesConsent": {
+        "title": "A consent reference still needs checking",
+        "summary": "A fictional person noted a scope question in the Studio Canopée file.",
+        "detail": "Scenario DEMO-REGLE-CONSENTEMENT-02 retains a question to examine about content usage conditions. It changes no consent.\n\nFile permissions, media eligibility and publication authorization must be checked separately in the appropriate real workflow."
+      },
+      "mediaCanopee": {
+        "title": "Studio Canopée media has been reviewed",
+        "summary": "A fictional human reading completes the early-week examples.",
+        "detail": "Media item DEMO-MEDIA-CANOPEE-01 is distinct from the Boréal and Rivages media. Its October 26 event belongs to the demonstration week.\n\nThis illustrated reading changes no server status, consent or visibility. All data remains synthetic."
+      },
+      "readyCanopee": {
+        "title": "The Studio Canopée file is awaiting review",
+        "summary": "The scenario gathers the materials to check before any decision.",
+        "detail": "DEMO-DOSSIER-CANOPEE represents the third distinct file ready for review in the illustrated week. The signpost invites readers to consult its context.\n\nIt validates neither payment, consent nor administrative approval. Opening this event prepares or executes no publication."
+      },
+      "preparationBorealEarlier": {
+        "title": "An earlier Atelier Boréal preparation appears in the history",
+        "summary": "Dated October 23, this example appears in the full history and falls outside the current week.",
+        "detail": "DEMO-PREPARATION-BOREAL-01 helps distinguish period boundaries. Its event predates October 26, so it contributes to none of the displayed weekly counts.\n\nThis past preparation is fictional. It represents neither an earlier approval, a delivery nor evidence of completion."
+      },
+      "mediaCanopeeRefresh": {
+        "title": "New Studio Canopée media needs a reading",
+        "summary": "The local update adds a distinct media item at 14:30 in the demonstration snapshot.",
+        "detail": "The simulated update adds DEMO-MEDIA-CANOPEE-02 only once during the visit. This new item increases the weekly media count by one.\n\nThe prototype contacts no provider and processes no file. The flag and its time are prepared in fixtures, with no real event."
+      }
+    }
+  }
+}

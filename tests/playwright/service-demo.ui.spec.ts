@@ -63,6 +63,64 @@ async function openLocalProof(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
+for (const [language, width] of [
+  ['fr-CA', 1440],
+  ['en', 390]
+] as const) {
+  test(`promised services open their own screens from the keyboard in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const returnTo = '/admin/fundraiser/publications/drafts';
+    const apiRequests: string[] = [];
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname.startsWith('/api/'))
+        apiRequests.push(
+          request.method() + ' ' + new URL(request.url()).pathname
+        );
+    });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const agreementUrl = `${dossier}/accord?returnTo=${encodeURIComponent(returnTo)}`;
+
+    for (const [service, destination, label] of [
+      [
+        'web',
+        'web',
+        language === 'en' ? /Website presentation/ : /Présentation sur le site/
+      ],
+      ['facebook', 'contenu', /Facebook/]
+    ] as const) {
+      await page.goto(agreementUrl);
+      const link = page.locator(
+        `[data-og7="service-demo-promised-service"][data-og7-id="${service}"]`
+      );
+      await expect(link).toHaveRole('link');
+      await expect(link).toHaveAccessibleName(label);
+      const target = new URL((await link.getAttribute('href'))!, page.url());
+      expect(target.origin).toBe(new URL(page.url()).origin);
+      expect(target.pathname).toBe(`${dossier}/${destination}`);
+      expect([...target.searchParams]).toEqual([['returnTo', returnTo]]);
+      await link.focus();
+      await expect(link).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(target.href);
+      await expect(
+        page.locator(
+          destination === 'web'
+            ? '[data-og7="service-demo-detail"][data-og7-id="web"]'
+            : '[data-og7="service-demo-contenu"]'
+        )
+      ).toBeVisible();
+    }
+
+    expect(apiRequests).toEqual([]);
+  });
+}
+
 test('conserve le retour administratif dans les actions, onglets et filtres de la démo', async ({
   page
 }) => {

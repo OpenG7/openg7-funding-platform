@@ -1,0 +1,298 @@
+:host {
+  display: block;
+  min-width: 0;
+  color: #12315d;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+h2,
+h3,
+p {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #2876b0;
+  outline-offset: 3px;
+}
+.journal {
+  padding: 22px;
+  border: 1px solid #dce8f5;
+  border-radius: 12px;
+  background: #fff;
+}
+.journal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.journal-heading h2 {
+  font:
+    700 26px/1.2 Georgia,
+    'Times New Roman',
+    serif;
+}
+.journal-heading p,
+.demo-note {
+  margin-top: 7px;
+  color: #52688a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.result-count {
+  flex-shrink: 0;
+  padding-top: 6px;
+  color: #52688a;
+  font-size: 12px;
+}
+.demo-note {
+  padding: 10px 12px;
+  border-left: 3px solid #b78305;
+  border-radius: 3px;
+  background: #fffbf1;
+  font-size: 12px;
+}
+.filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 22px;
+}
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #3e567b;
+  font-size: 12px;
+}
+.search-field {
+  flex: 1 1 225px;
+}
+.filters input,
+.filters select,
+.attention-button {
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #b4c9df;
+  border-radius: 7px;
+  background: #fff;
+  color: #254c77;
+  font-size: 13px;
+}
+.filters input {
+  width: 100%;
+  min-width: 0;
+}
+.filters input::placeholder {
+  color: #586e8d;
+}
+.filters select {
+  max-width: 100%;
+}
+.filters select:disabled {
+  opacity: 1;
+  color: #445d7c;
+  background: #f1f5fa;
+  cursor: default;
+}
+.attention-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.attention-button[aria-pressed='true'] {
+  border-color: #aa7c26;
+  background: #fff6df;
+  color: #745115;
+}
+.attention-button:hover,
+.reset-button:hover {
+  background: #f0f6fc;
+}
+.attention-button openg7-admin-icon {
+  width: 17px;
+  height: 17px;
+}
+.reset-button {
+  min-height: 40px;
+  padding: 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #275d92;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.activity-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.activity-list li {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 12px;
+  align-items: start;
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid #e0e9f4;
+  border-radius: 10px;
+  background: #fcfdff;
+}
+.kind-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #146fad;
+  background: #eaf5ff;
+}
+.kind-icon[data-kind='media'] {
+  color: #27703b;
+  background: #edf7ef;
+}
+.kind-icon[data-kind='rules'] {
+  color: #6742b7;
+  background: #f1edfc;
+}
+.kind-icon[data-kind='preparation'] {
+  color: #916300;
+  background: #fff5dc;
+}
+.kind-icon openg7-admin-icon {
+  width: 22px;
+  height: 22px;
+}
+.activity-meta,
+.activity-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 13px;
+  color: #53698a;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.activity-meta time {
+  font-variant-numeric: tabular-nums;
+}
+.attention-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #785011;
+}
+.activity-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.activity-copy h3 {
+  margin-top: 7px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.activity-copy h3 button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #153a67;
+  font: inherit;
+  text-align: left;
+}
+.activity-copy h3 button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.activity-copy p {
+  margin-top: 6px;
+  color: #435d80;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.activity-source {
+  margin-top: 10px;
+}
+.row-arrow {
+  align-self: center;
+  color: #3d6896;
+  font-size: 25px;
+}
+.empty-state {
+  padding: 35px 20px;
+  border: 1px dashed #b9cce2;
+  border-radius: 10px;
+  text-align: center;
+}
+.empty-state > openg7-admin-icon {
+  color: #547496;
+  font-size: 24px;
+}
+.empty-state h3 {
+  margin-top: 14px;
+  font:
+    700 22px/1.3 Georgia,
+    'Times New Roman',
+    serif;
+}
+.empty-state p {
+  max-width: 440px;
+  margin: 9px auto 0;
+  color: #52688a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .journal {
+    padding: 16px 12px;
+  }
+  .journal-heading {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .journal-heading h2 {
+    font-size: 23px;
+  }
+  .filters {
+    gap: 10px;
+  }
+  .search-field {
+    flex-basis: 100%;
+  }
+  .filters label:not(.search-field) {
+    flex: 1 1 130px;
+  }
+  .activity-list li {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px 10px;
+  }
+  .kind-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .kind-icon openg7-admin-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .row-arrow {
+    display: none;
+  }
+}

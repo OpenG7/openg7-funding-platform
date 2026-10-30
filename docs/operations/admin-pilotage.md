@@ -162,12 +162,58 @@ commune, conservent leur accès métier. La rubrique courante reste affichée da
 ces rendus contextuels. Le rail devient une grille sur petit écran ; il défile avec le contenu
 lorsque la hauteur est limitée.
 
+**Découvrir** charge à la demande le module d’actualités et d’inspirations dans
+la zone à droite du menu. Il présente le journal synthétique, les repères, les
+ressources, les compteurs détaillables et le briefing de lecture. Le bandeau,
+les commandes de réduction et de placement, le rail et le défilement restent
+ceux du guide ; le module injecté ne recrée pas une fenêtre ou un `main`.
+Sa [référence propriétaire](../../apps/funding-web/src/app/features/funding/activity-hub/README.md)
+décrit les données fictives, les scénarios et les limites. Aucune API métier ni
+télémétrie globale des utilisateurs n’est ajoutée par cette injection.
+
+L’instance reste montée et masquée lorsqu’on choisit **Prestations**, un rendu
+contextuel ou qu’on réduit le guide. Retrouver **Découvrir** conserve lectures,
+favoris, filtres et briefing de la visite. Ses détails modaux se ferment quand
+le module devient invisible. Le chargement initial ne déplace pas le focus
+depuis le contrôle Découvrir. Une déconnexion ou un changement de session détruit
+l’instance, réinitialise les essais et ignore les chargements tardifs.
+
 **Prestations** affiche la démonstration complète dans la zone à droite du menu
 du guide, avec sa liste de dossiers, ses étapes et son éditeur. Le composant est
 chargé à la demande ; la rubrique administrative, son URL, ses paramètres et son
 contenu restent en place. Sur petit écran, la disposition se réorganise dans le
 panneau. Les changements de page et les filtres de la démo restent en mémoire
 dans cet espace, sans navigation administrative ni opération métier.
+
+La visite automatique est **temporairement désactivée** : les commandes Play,
+Pause et Arrêt sont masquées, sans empêcher la navigation manuelle dans Prestations.
+Le code et la cadence restent conservés pour une réactivation ultérieure dans la
+[configuration du guide](../../apps/funding-web/src/app/features/funding/config/admin-guide-features.ts).
+
+Une fois réactivé, **Play** ouvre le premier dossier synthétique et parcourt
+les 26 étapes de sa mission. Depuis l'accord, la visite ouvre le lien de la
+prestation Web, consulte sa visibilité, revient aux prestations promises et ouvre
+le lien Facebook. Elle poursuit le contenu et son aperçu, l'autorisation, la
+publication et son résultat, les preuves et l'historique. Ces deux cartes de
+prestations sont également accessibles au clavier ; un clic manuel suspend la visite.
+Chaque écran reste affiché 20 secondes ; l'historique termine la visite, sans
+boucle. **Pause** conserve l'étape et le délai restant ; **Play** reprend ce scénario
+sur le premier dossier, même après un changement manuel de dossier. **Arrêt**
+revient au résumé du premier dossier et réinitialise la visite sans effacer les
+brouillons. Revenir à Découvrir, réduire le guide, masquer l'onglet, ouvrir un
+dialogue ou intervenir dans la démo suspend la visite. La reprise reste volontaire ;
+une fin de session détruit son timer. Le parcours consulte les écrans sans
+enregistrement, approbation ou envoi automatique, ni prestation déclarée accomplie.
+Son
+[contrat public](../../apps/funding-web/src/app/features/funding/service-delivery/README.md#accès-depuis-le-guide-administratif)
+est décrit dans la référence de la feature Prestations.
+
+Depuis Découvrir, **Prestations** retrouve cet espace tel quel ; un lien de
+dossier synthétique transmet sa cible au contrat public `openDossier()` après
+chargement si nécessaire. Seuls les trois dossiers de démonstration sont
+acceptés. Les brouillons séparés par dossier sont conservés. L’URL de la rubrique
+hôte, sa recherche et son fragment restent inchangés ; une ouverture volontaire
+dans un autre onglet conserve l’URL autonome de la démo.
 
 La fenêtre garde les mêmes dimensions entre les onglets ; seul son contenu
 défile. Sa taille reste limitée à l'écran et à l'espace réservé aux manettes.
@@ -180,12 +226,11 @@ navigateur gardent leur avertissement natif. L'accès direct à `/demo/prestatio
 reste disponible comme démo autonome, avec ses propres brouillons.
 
 La bannière et le portrait princesse/lion sont décoratifs, masqués aux technologies
-d’assistance et réduits sur petit écran. **Découvrir** conserve une zone de contenu
-entièrement vide, réservée à un futur journal du jour. Aucun journal, texte
-provisoire, étape, bouton de reprise ou information de mémorisation n’y est affiché.
-Les anciens repères sauvegardés ne rétablissent pas le parcours de découverte ni
-son focus. L’espace **Prestations** reste conservé et masqué lors de ce retour,
-afin de retrouver ses brouillons à sa réouverture.
+d’assistance et réduits sur petit écran. Les anciens repères sauvegardés ne
+rétablissent pas l’ancien parcours de découverte ni son focus. Les deux espaces
+conservent leur état de visite lorsqu’ils sont masqués. Les lectures et favoris
+de Découvrir ne constituent pas des brouillons métier et ne demandent aucune
+confirmation de départ supplémentaire.
 
 Les rendus contextuels conservent leurs contrôles et leurs repères. Le contour
 et le halo dorés, le défilement vers les zones de travail et la réduction des
@@ -254,12 +299,13 @@ dans ce navigateur, par compte OIDC,
 dans la clé `og7-admin-guidance:v1:<compte>`. Aucun statut de paiement, référence,
 résultat d'action, contenu de dossier, saisie ou information de santé n'est conservé.
 Le mode token partage ces repères entre ses utilisateurs. Les anciens repères de
-découverte restent acceptés pour compatibilité, sans afficher de contenu dans
-**Découvrir**. Un stockage bloqué conserve les préférences en mémoire pendant la
+découverte restent acceptés pour compatibilité, sans rétablir l’ancien parcours.
+Les lectures et favoris du module Découvrir restent en mémoire dans son instance
+et ne sont pas ajoutés à cette clé. Un stockage bloqué conserve les préférences en mémoire pendant la
 visite ; les autres modes affichent sa limite. Un effacement refusé reste signalé
 dans le cadre commun du guide.
 
-La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie le panneau Découvrir vide, les autres modes, les comptes,
+La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, couvre les modes du guide, les comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
 FR/EN, clavier, mobile, concentration et présence dans les 20 rubriques. Elle
 vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement

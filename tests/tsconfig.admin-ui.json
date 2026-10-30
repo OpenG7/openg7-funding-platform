@@ -4,6 +4,9 @@
     "noEmit": true
   },
   "include": [
+    "playwright/activity-hub-embedded.ui.spec.ts",
+    "playwright/activity-hub-journal.ui.spec.ts",
+    "playwright/activity-hub.ui.spec.ts",
     "playwright/service-demo.ui.spec.ts",
     "playwright/admin-audit-ui.spec.ts",
     "playwright/admin-transparency-ui.spec.ts",

@@ -1,0 +1,40 @@
+{
+  "activityHubExperience": {
+    "briefingTitle": "Mon briefing",
+    "journalTitle": "Journal des activités",
+    "activityTitle": "Détail de l’activité",
+    "activityIntro": "Exemple fictif · Aucun changement réel",
+    "occurredAt": "Date et heure",
+    "origin": "Origine",
+    "actor": "Acteur",
+    "entity": "Élément concerné",
+    "reference": "Référence de l’événement",
+    "dossier": "Consulter le dossier de démonstration",
+    "guide": "Comprendre cette activité",
+    "backActivity": "Retour à l’activité",
+    "statesLabel": "Scénarios de démonstration",
+    "scenarioLabel": "État des données opérationnelles",
+    "scenarios": {
+      "normal": "Données disponibles",
+      "empty": "Instantané vide",
+      "loading": "Chargement simulé",
+      "partial": "Données partielles",
+      "unavailable": "Source indisponible"
+    },
+    "status": {
+      "normal": "Simulation : les activités et compteurs de cet instantané fictif sont disponibles.",
+      "empty": "Simulation : l’instantané ne contient aucune activité. Les compteurs disponibles valent zéro.",
+      "loading": "Simulation : les activités et compteurs sont en cours de chargement. Aucune valeur n’est encore confirmée.",
+      "partial": "Simulation : seules certaines données sont disponibles. Les compteurs sans source restent indisponibles.",
+      "unavailable": "Simulation : la source opérationnelle est indisponible. Les activités et compteurs ne peuvent pas être déterminés."
+    },
+    "retry": "Réessayer la simulation",
+    "finishLoading": "Terminer le chargement simulé",
+    "lastRefresh": "Dernier instantané",
+    "unavailable": "Indisponible",
+    "loading": "Chargement simulé",
+    "emptyDiary": "Aucune activité dans cet instantané",
+    "journalDescription": "Activités fictives de la plateforme et interventions humaines, avec leur contexte.",
+    "defaultDate": "28 octobre 2026"
+  }
+}

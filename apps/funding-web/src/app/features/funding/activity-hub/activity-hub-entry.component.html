@@ -1,0 +1,75 @@
+<article
+  [class.featured]="featured()"
+  [class.read]="read()"
+  [attr.data-category]="entry().category"
+  data-og7="activity-hub-card"
+  [attr.data-og7-id]="entry().id"
+>
+  @if (featured()) {
+    <div class="feature-art" aria-hidden="true">
+      <span class="art-orbit orbit-one"></span>
+      <span class="art-orbit orbit-two"></span>
+      <span class="art-orbit orbit-three"></span>
+      <span class="art-core"><openg7-admin-icon name="sponsors" /></span>
+      <span class="art-star"><openg7-admin-icon name="assistant" /></span>
+      <span class="art-label">{{ 'activityHub.collective' | translate }}</span>
+    </div>
+  }
+  <div class="entry-copy">
+    <div class="entry-meta">
+      <span class="category">{{
+        'activityHub.sections.' + entry().category | translate
+      }}</span>
+      @if (featured()) {
+        <span class="feature-label">{{
+          'activityHub.featured' | translate
+        }}</span>
+      }
+      <span class="read-indicator" [class.is-read]="read()">
+        @if (read()) {
+          <openg7-admin-icon name="check" />
+        }
+        {{ (read() ? 'activityHub.read' : 'activityHub.unread') | translate }}
+      </span>
+    </div>
+    <h3>
+      <button
+        type="button"
+        (click)="opened.emit()"
+        data-og7="activity-hub-open"
+      >
+        {{ entry().titleKey | translate }}
+      </button>
+    </h3>
+    <p>{{ entry().summaryKey | translate }}</p>
+    <footer>
+      <div class="entry-byline">
+        <span>{{ entry().authorKey | translate }}</span>
+        <span class="entry-date"
+          ><time [attr.datetime]="entry().date">{{ dateLabel() }}</time
+          ><span aria-hidden="true"> · </span
+          >{{
+            'activityHub.readingTime' | translate: { minutes: entry().minutes }
+          }}</span
+        >
+      </div>
+      <button
+        class="save-button"
+        type="button"
+        [attr.aria-pressed]="saved()"
+        [attr.aria-label]="
+          (saved() ? 'activityHub.unsaveEntry' : 'activityHub.saveEntry')
+            | translate: { title: (entry().titleKey | translate) }
+        "
+        (click)="saveToggled.emit()"
+        data-og7="activity-hub-save"
+      >
+        <openg7-admin-icon
+          [name]="saved() ? 'check' : 'publications'"
+        /><span>{{
+          (saved() ? 'activityHub.saved' : 'activityHub.save') | translate
+        }}</span>
+      </button>
+    </footer>
+  </div>
+</article>

@@ -70,6 +70,7 @@ export async function loadGuidanceChunkRetry<T>(
     | 'AdminWorkflowGuideComponent'
     | 'AdminAutomaticComponent'
     | 'ServiceDeliveryEmbeddedComponent'
+    | 'ActivityHubEmbeddedComponent'
 ): Promise<Type<T>> {
   const target = guidanceChunkRetryUrl(source, baseURI, attempt);
   if (!target) throw new TypeError('Guidance module retry unavailable');

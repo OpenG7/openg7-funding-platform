@@ -545,7 +545,7 @@ for (const validContext of [true, false]) {
   });
 }
 
-test('a failed lazy workflow chunk can retry locally and return to empty discovery without a business action', async ({
+test('a failed lazy workflow chunk can retry locally and return to the discovery hub without a business action', async ({
   page
 }) => {
   const f = await fixtures(page);
@@ -582,8 +582,10 @@ test('a failed lazy workflow chunk can retry locally and return to empty discove
   await hook(page, 'admin-guidance-discovery-mode').click();
   await expect(panel.getByRole('alert')).toHaveCount(0);
   const content = hook(page, 'admin-guidance-content');
-  await expect(content).toHaveText('', { useInnerText: true });
-  await expect(content.locator(':visible')).toHaveCount(0);
+  await expect(
+    content.locator('[data-og7="activity-hub-embedded"]')
+  ).toBeVisible();
+  await expect(content.locator('[data-og7="activity-hub"]')).toBeVisible();
   await expect(hook(page, 'admin-guidance-discovery-mode')).toBeFocused();
   await expect(page.locator(highlighted)).toHaveCount(0);
   expect(page.url()).toBe(currentUrl);

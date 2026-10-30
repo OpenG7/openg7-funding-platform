@@ -1,0 +1,36 @@
+{
+  "activityHubBriefing": {
+    "eyebrow": "Votre point de départ",
+    "title": "Mon briefing",
+    "subtitle": "Retrouvez les lectures récentes, reprenez vos favoris et gardez vos repères utiles à portée de main.",
+    "visitLabel": "Dernière visite simulée",
+    "visits": {
+      "previousDay": "26 octobre 2026",
+      "morning": "27 octobre 2026",
+      "current": "28 octobre 2026"
+    },
+    "dayComparison": "La visite est simulée. Les contenus disposent d’une date journalière : la sélection compare les jours, sans déduire une heure de publication.",
+    "read": "Lus",
+    "total": "Disponibles",
+    "remaining": "À lire",
+    "newTitle": "Depuis votre visite simulée",
+    "newCopy": "Les trois contenus non lus les plus récents, datés après le jour sélectionné.",
+    "newCount": "{{count}} contenus non lus depuis ce repère",
+    "emptyNew": "Aucun contenu non lu daté après ce jour. Choisissez un repère plus ancien ou explorez le fil.",
+    "browseAll": "Explorer tout le fil",
+    "savedTitle": "Reprendre votre parcours",
+    "savedCopy": "Jusqu’à deux favoris à lire, conservés pendant cette visite.",
+    "savedCount": "{{count}} favoris restent à lire",
+    "emptySaved": "Votre sélection commence dans le fil : gardez une lecture en favori pour la retrouver ici.",
+    "allSavedRead": "Tous vos favoris disponibles ont été consultés. Retrouvez-les dans votre sélection.",
+    "browseSaved": "Voir mes favoris",
+    "guidesTitle": "Vos guides de référence",
+    "guidesCopy": "Quatre repères pour comprendre un dossier et préparer la suite.",
+    "guideRead": "Déjà consulté",
+    "guideUnread": "À découvrir",
+    "emptyGuides": "Aucun guide n’est disponible dans cette sélection.",
+    "minutes": "{{count}} min de lecture",
+    "snapshot": "Repère fixe de la démonstration : 28 octobre 2026.",
+    "localNotice": "La date simulée, les lectures et les favoris restent propres à cette visite. Ouvrir un contenu le marque comme lu ; aucun suivi de connexion ni historique réel n’est utilisé."
+  }
+}

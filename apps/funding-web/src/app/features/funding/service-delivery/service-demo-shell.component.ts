@@ -12,6 +12,7 @@ import {
   afterNextRender,
   afterRenderEffect,
   inject,
+  input,
   output,
   untracked,
   signal
@@ -90,6 +91,7 @@ const demoPages = new Set([
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ServiceDemoShellComponent {
+  readonly preserveFocus = input(false);
   readonly state = inject(ServiceDemoState);
   readonly navigation = inject(ServiceDemoNavigation);
   readonly closeRequested = output<void>();
@@ -218,7 +220,8 @@ export class ServiceDemoShellComponent {
             : this.element.nativeElement.querySelector<HTMLElement>(
                 '#service-demo-heading'
               );
-          focusTarget?.focus({ preventScroll: true });
+          if (!this.preserveFocus())
+            focusTarget?.focus({ preventScroll: true });
           this.scrollport()?.scrollTo(0, this.viewPositions.get(url) ?? 0);
         },
         { injector: this.injector }

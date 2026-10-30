@@ -1,0 +1,653 @@
+<div
+  class="activity-hub"
+  [class.at-bottom]="dockedBottom()"
+  [class.is-collapsed]="collapsed()"
+  [class.embedded]="embedded()"
+  data-og7="activity-hub"
+>
+  <div class="guide-window">
+    <a
+      class="skip-link"
+      href="#admin-main"
+      [hidden]="collapsed() || embedded()"
+      (click)="skipToContent($event)"
+      >{{ 'activityHub.skip' | translate }}</a
+    >
+    @if (!embedded()) {
+      <header class="workspace-header">
+        <div class="guide-identity">
+          <p class="guide-title">
+            <openg7-admin-icon name="assistant" />{{
+              'activityHub.guide.title' | translate
+            }}
+          </p>
+          <p class="guide-subtitle">
+            {{ 'activityHub.guide.subtitle' | translate }}
+          </p>
+        </div>
+        <div class="window-actions">
+          <button
+            class="window-button"
+            type="button"
+            data-og7="activity-hub-collapse"
+            [attr.aria-expanded]="!collapsed()"
+            aria-controls="activity-hub-body"
+            (click)="toggleCollapsed()"
+          >
+            <openg7-admin-icon name="assistant" />{{
+              (collapsed()
+                ? 'activityHub.guide.expand'
+                : 'activityHub.guide.reduce'
+              ) | translate
+            }}
+          </button>
+          <button
+            class="window-button"
+            type="button"
+            data-og7="activity-hub-dock"
+            [attr.aria-pressed]="dockedBottom()"
+            (click)="dockedBottom.set(!dockedBottom())"
+          >
+            {{
+              (dockedBottom()
+                ? 'activityHub.guide.dockTop'
+                : 'activityHub.guide.dockBottom'
+              ) | translate
+            }}
+          </button>
+          <button
+            class="language-button"
+            type="button"
+            data-og7="activity-hub-language"
+            [attr.aria-label]="'activityHub.language' | translate"
+            (click)="i18n.toggleLanguage()"
+          >
+            {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
+          </button>
+          <a
+            class="back-link"
+            routerLink="/admin/fundraiser"
+            [attr.aria-label]="'activityHub.backAdmin' | translate"
+            ><openg7-admin-icon name="logout"
+          /></a>
+        </div>
+      </header>
+    }
+    <div class="guide-body" id="activity-hub-body" [hidden]="collapsed()">
+      @if (!embedded()) {
+        <aside class="sidebar">
+          <nav
+            class="primary-navigation"
+            [attr.aria-label]="'activityHub.navigation' | translate"
+          >
+            <button
+              class="discover-link"
+              type="button"
+              data-og7="activity-hub-section"
+              data-og7-id="overview"
+              [attr.aria-current]="section() === 'overview' ? 'page' : null"
+              (click)="selectSection('overview')"
+            >
+              <openg7-admin-icon name="dashboard" />{{
+                'activityHub.guide.discover' | translate
+              }}
+            </button>
+            <a routerLink="/demo/prestations"
+              ><openg7-admin-icon name="publications" />{{
+                'activityHub.guide.services' | translate
+              }}</a
+            >
+          </nav>
+          <details
+            class="explore-navigation"
+            [open]="section() !== 'overview'"
+            data-og7="activity-hub-explore"
+          >
+            <summary>{{ 'activityHub.guide.explore' | translate }}</summary>
+            <nav [attr.aria-label]="'activityHub.guide.explore' | translate">
+              @for (item of sections; track item.id) {
+                @if (item.id !== 'overview') {
+                  <button
+                    type="button"
+                    data-og7="activity-hub-section"
+                    [attr.data-og7-id]="item.id"
+                    [attr.aria-current]="section() === item.id ? 'page' : null"
+                    (click)="selectSection(item.id)"
+                  >
+                    <openg7-admin-icon [name]="item.icon" /><span>{{
+                      (item.id === 'briefing'
+                        ? 'activityHubExperience.briefingTitle'
+                        : 'activityHub.sections.' + item.id
+                      ) | translate
+                    }}</span>
+                    @if (item.id === 'saved') {
+                      <span class="nav-count">{{ savedIds().size }}</span>
+                    }
+                  </button>
+                }
+              }
+            </nav>
+          </details>
+          <figure class="sidebar-illustration">
+            <img
+              src="/assets/admin-guide-princess-lion.webp"
+              width="1024"
+              height="1536"
+              [alt]="'activityHub.guide.portraitAlt' | translate"
+            />
+            <figcaption>
+              «&nbsp;{{ 'activityHub.guide.sidebarQuote' | translate }}&nbsp;»
+            </figcaption>
+            <span class="gold-rule" aria-hidden="true"
+              ><openg7-admin-icon name="assistant"
+            /></span>
+          </figure>
+        </aside>
+      }
+      <div
+        #content
+        class="hub-content"
+        [id]="embedded() ? 'activity-hub-content' : 'admin-main'"
+        [attr.role]="embedded() ? 'region' : 'main'"
+        [attr.aria-label]="'activityHub.title' | translate"
+        tabindex="-1"
+      >
+        @if (embedded()) {
+          <nav
+            class="embedded-section-nav"
+            [class.is-active]="active()"
+            [attr.aria-label]="'activityHub.navigation' | translate"
+          >
+            @for (item of sections; track item.id) {
+              <button
+                type="button"
+                data-og7="activity-hub-section"
+                [attr.data-og7-id]="item.id"
+                [style.--hub-nav-index]="$index"
+                [attr.aria-current]="section() === item.id ? 'page' : null"
+                (click)="selectSection(item.id)"
+              >
+                <openg7-admin-icon [name]="item.icon" />
+                <span>{{
+                  (item.id === 'briefing'
+                    ? 'activityHubExperience.briefingTitle'
+                    : 'activityHub.sections.' + item.id
+                  ) | translate
+                }}</span>
+                @if (item.id === 'saved') {
+                  <span class="nav-count">{{ savedIds().size }}</span>
+                }
+              </button>
+            }
+          </nav>
+        }
+        <section
+          class="discover-hero"
+          data-og7="activity-hub-hero"
+          [class.archive-hero]="section() !== 'overview'"
+          aria-labelledby="activity-hub-title"
+        >
+          <div class="discover-copy">
+            <div class="today-line">
+              <span class="sun" aria-hidden="true">☀</span
+              ><span>{{ 'activityHub.guide.today' | translate }}</span
+              ><time datetime="2026-10-28">{{
+                'activityHub.guide.date' | translate
+              }}</time>
+            </div>
+            @if (embedded()) {
+              <h2 class="hero-title" id="activity-hub-title">
+                {{ headingKey() | translate }}
+              </h2>
+            } @else {
+              <h1 class="hero-title" id="activity-hub-title">
+                {{ headingKey() | translate }}
+              </h1>
+            }
+            <p class="hero-lead">
+              {{ 'activityHub.guide.heroLead' | translate }}
+            </p>
+            <p class="hero-description">
+              {{ 'activityHub.guide.heroCopy' | translate }}
+            </p>
+          </div>
+          <div class="hero-motto">
+            <p>{{ 'activityHub.guide.heroMotto' | translate }}</p>
+            <span class="gold-rule" aria-hidden="true"
+              ><openg7-admin-icon name="assistant"
+            /></span>
+          </div>
+        </section>
+        @if (scenario() !== 'normal') {
+          <ng-container [ngTemplateOutlet]="dataStatus" />
+        }
+        @if (section() === 'overview') {
+          <openg7-activity-hub-dashboard
+            [refreshed]="refreshed()"
+            [activities]="activities()"
+            [metrics]="metrics()"
+            [scenario]="scenario()"
+            (opened)="open($event)"
+            (sectionRequested)="selectSection($event)"
+            (activityOpened)="openActivity($event)"
+            (metricRequested)="openMetric($event)"
+          />
+        } @else if (section() === 'journal') {
+          <openg7-activity-hub-journal
+            [activities]="activities()"
+            [scenario]="scenario()"
+            [metricKind]="metricKind()"
+            (activityOpened)="openActivity($event)"
+            (resetRequested)="metricKind.set(null)"
+          />
+        } @else if (section() !== 'briefing') {
+          <section
+            class="archive"
+            [attr.aria-label]="
+              (section() === 'all'
+                ? 'activityHub.guide.archiveTitle'
+                : 'activityHub.sections.' + section()
+              ) | translate
+            "
+          >
+            <header class="archive-heading">
+              <div>
+                <h2>
+                  {{
+                    (section() === 'all'
+                      ? 'activityHub.guide.archiveTitle'
+                      : 'activityHub.sections.' + section()
+                    ) | translate
+                  }}
+                </h2>
+                @if (section() !== 'all') {
+                  <p>
+                    {{ 'activityHub.descriptions.' + section() | translate }}
+                  </p>
+                }
+              </div>
+              <span class="results-count" role="status" aria-live="polite">{{
+                'activityHub.results'
+                  | translate: { count: visibleEntries().length }
+              }}</span>
+            </header>
+            <div
+              class="filters"
+              role="search"
+              [attr.aria-label]="'activityHub.searchLabel' | translate"
+            >
+              <label class="search-field"
+                ><span class="sr-only">{{
+                  'activityHub.searchLabel' | translate
+                }}</span
+                ><openg7-admin-icon name="search" /><input
+                  type="search"
+                  data-og7="activity-hub-search"
+                  [value]="query()"
+                  (input)="query.set($any($event.target).value)"
+                  [placeholder]="
+                    'activityHub.searchPlaceholder' | translate
+                  " /></label
+              ><label class="theme-field"
+                ><span class="sr-only">{{
+                  'activityHub.themeLabel' | translate
+                }}</span
+                ><select
+                  data-og7="activity-hub-theme"
+                  [value]="theme()"
+                  (change)="setTheme($any($event.target).value)"
+                >
+                  <option value="all">
+                    {{ 'activityHub.allThemes' | translate }}
+                  </option>
+                  @for (item of themes; track item) {
+                    <option [value]="item">
+                      {{ 'activityHub.themes.' + item | translate }}
+                    </option>
+                  }
+                </select></label
+              ><button
+                class="unread-button"
+                type="button"
+                data-og7="activity-hub-unread"
+                [attr.aria-pressed]="unreadOnly()"
+                (click)="unreadOnly.set(!unreadOnly())"
+              >
+                <span class="unread-dot" aria-hidden="true"></span
+                >{{ 'activityHub.unreadOnly' | translate }}
+              </button>
+            </div>
+            @if (hasFilters()) {
+              <div class="filter-summary">
+                <span>{{ 'activityHub.filtered' | translate }}</span
+                ><button
+                  class="text-button"
+                  type="button"
+                  data-og7="activity-hub-reset"
+                  (click)="resetFilters()"
+                >
+                  {{ 'activityHub.reset' | translate }}
+                </button>
+              </div>
+            }
+            <div class="entry-grid">
+              @for (entry of visibleEntries(); track entry.id) {
+                <openg7-activity-hub-entry
+                  [entry]="entry"
+                  [saved]="savedIds().has(entry.id)"
+                  [read]="readIds().has(entry.id)"
+                  [dateLabel]="dateLabel(entry)"
+                  (opened)="open(entry)"
+                  (saveToggled)="toggleSaved(entry)"
+                />
+              }
+            </div>
+            @if (!visibleEntries().length) {
+              <div class="empty-state" data-og7="activity-hub-empty">
+                <openg7-admin-icon name="search" />
+                <h3>
+                  {{
+                    (section() === 'saved' && !hasFilters()
+                      ? 'activityHub.emptySavedTitle'
+                      : 'activityHub.emptyTitle'
+                    ) | translate
+                  }}
+                </h3>
+                <p>
+                  {{
+                    (section() === 'saved' && !hasFilters()
+                      ? 'activityHub.emptySavedCopy'
+                      : 'activityHub.emptyCopy'
+                    ) | translate
+                  }}
+                </p>
+                @if (hasFilters()) {
+                  <button
+                    class="outline-button"
+                    type="button"
+                    (click)="resetFilters()"
+                  >
+                    {{ 'activityHub.reset' | translate }}
+                  </button>
+                } @else {
+                  <button
+                    class="outline-button"
+                    type="button"
+                    (click)="selectSection('overview')"
+                  >
+                    {{ 'activityHub.discover' | translate }}
+                  </button>
+                }
+              </div>
+            }
+            <div class="reading-progress">
+              <span>{{ 'activityHub.yourReading' | translate }}</span
+              ><progress
+                [value]="readCount()"
+                [max]="entries().length"
+                [attr.aria-label]="'activityHub.yourReading' | translate"
+              ></progress
+              ><small>{{
+                'activityHub.readingProgress'
+                  | translate: { read: readCount(), total: entries().length }
+              }}</small>
+            </div>
+          </section>
+        }
+        <openg7-activity-hub-briefing
+          [hidden]="section() !== 'briefing'"
+          [entries]="entries()"
+          [readIds]="readIds()"
+          [savedIds]="savedIds()"
+          (opened)="open($event)"
+          (sectionRequested)="selectSection($event)"
+        />
+        <footer class="demo-footer">
+          @if (scenario() === 'normal') {
+            <ng-container [ngTemplateOutlet]="dataStatus" />
+          }
+          <p data-og7="activity-hub-notice">
+            {{ 'activityHub.guide.demoShort' | translate }}
+          </p>
+          <div>
+            <button
+              class="footer-button"
+              type="button"
+              data-og7="activity-hub-browse"
+              (click)="
+                selectSection(section() === 'overview' ? 'all' : 'overview')
+              "
+            >
+              {{
+                (section() === 'overview'
+                  ? 'activityHub.guide.archiveTitle'
+                  : 'activityHub.guide.backDiscover'
+                ) | translate
+              }}<openg7-admin-icon name="arrow" /></button
+            ><button
+              class="footer-button"
+              type="button"
+              data-og7="activity-hub-refresh"
+              [disabled]="
+                refreshed() ||
+                scenario() === 'loading' ||
+                scenario() === 'unavailable'
+              "
+              (click)="refresh()"
+            >
+              <openg7-admin-icon [name]="refreshed() ? 'check' : 'refresh'" />{{
+                (refreshed() ? 'activityHub.upToDate' : 'activityHub.refresh')
+                  | translate
+              }}
+            </button>
+          </div>
+        </footer>
+        <details class="scenario-tools" data-og7="activity-hub-scenarios">
+          <summary>
+            {{ 'activityHubExperience.statesLabel' | translate }}
+          </summary>
+          <label
+            >{{ 'activityHubExperience.scenarioLabel' | translate }}
+            <select
+              data-og7="activity-hub-scenario"
+              [value]="scenario()"
+              (change)="setScenario($any($event.target).value)"
+            >
+              @for (state of scenarios; track state) {
+                <option [value]="state">
+                  {{ 'activityHubExperience.scenarios.' + state | translate }}
+                </option>
+              }
+            </select>
+          </label>
+        </details>
+      </div>
+    </div>
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {{ announcement() }}
+    </p>
+  </div>
+  <openg7-admin-drawer
+    [opened]="!!selected() || !!selectedActivity()"
+    [title]="
+      selectedActivity()
+        ? (selectedActivity()!.titleKey | translate)
+        : selected()
+          ? (selected()!.titleKey | translate)
+          : ('activityHub.detail' | translate)
+    "
+    [closeLabel]="'activityHub.close' | translate"
+    (closed)="close()"
+  >
+    @if (selectedActivity(); as activity) {
+      <article
+        class="activity-detail"
+        data-og7="activity-hub-activity-detail"
+        [attr.data-og7-id]="activity.id"
+        tabindex="-1"
+      >
+        <p class="detail-note">
+          {{ 'activityHubExperience.activityIntro' | translate }}
+        </p>
+        <p class="detail-lead">{{ activity.summaryKey | translate }}</p>
+        <dl class="activity-facts">
+          <div>
+            <dt>{{ 'activityHubExperience.occurredAt' | translate }}</dt>
+            <dd>
+              <time [attr.datetime]="activity.occurredAt">{{
+                activityDate(activity.occurredAt)
+              }}</time>
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'activityHubExperience.origin' | translate }}</dt>
+            <dd>
+              {{ 'activityHubJournal.origins.' + activity.origin | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'activityHubExperience.actor' | translate }}</dt>
+            <dd>{{ activity.actorKey | translate }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'activityHubExperience.entity' | translate }}</dt>
+            <dd>{{ activity.entityId }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'activityHubExperience.reference' | translate }}</dt>
+            <dd>{{ activity.id }}</dd>
+          </div>
+        </dl>
+        <p>{{ activity.detailKey | translate }}</p>
+        <div class="activity-detail-actions">
+          @if (embedded()) {
+            <a
+              class="outline-button"
+              data-og7="activity-hub-activity-dossier"
+              [href]="'/demo/prestations/dossier/' + activity.targetDossierId"
+              (click)="requestServiceDelivery($event, activity.targetDossierId)"
+              >{{ 'activityHubExperience.dossier' | translate
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+          } @else {
+            <a
+              class="outline-button"
+              data-og7="activity-hub-activity-dossier"
+              [routerLink]="[
+                '/demo/prestations/dossier',
+                activity.targetDossierId
+              ]"
+              >{{ 'activityHubExperience.dossier' | translate
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+          }
+          <button
+            class="outline-button"
+            type="button"
+            data-og7="activity-hub-activity-guide"
+            (click)="openActivityGuide()"
+          >
+            {{ 'activityHubExperience.guide' | translate
+            }}<openg7-admin-icon name="publications" />
+          </button>
+        </div>
+      </article>
+    } @else if (selected(); as entry) {
+      <article
+        class="reading-detail"
+        data-og7="activity-hub-detail"
+        [attr.data-og7-id]="entry.id"
+        tabindex="-1"
+      >
+        @if (guideOrigin()) {
+          <button
+            class="text-button context-return"
+            type="button"
+            data-og7="activity-hub-back-activity"
+            (click)="returnToActivity()"
+          >
+            {{ 'activityHubExperience.backActivity' | translate }}
+          </button>
+        }
+        <div class="detail-meta">
+          <span>{{ 'activityHub.sections.' + entry.category | translate }}</span
+          ><time [attr.datetime]="entry.date">{{ dateLabel(entry) }}</time
+          ><span>{{
+            'activityHub.readingTime' | translate: { minutes: entry.minutes }
+          }}</span>
+        </div>
+        <p class="detail-lead">{{ entry.summaryKey | translate }}</p>
+        @for (
+          paragraph of (entry.bodyKey | translate).split('\n\n');
+          track $index
+        ) {
+          <p>{{ paragraph }}</p>
+        }
+        <div class="detail-author">
+          <span>{{ entry.authorKey | translate }}</span
+          ><span class="detail-theme">{{
+            'activityHub.themes.' + entry.theme | translate
+          }}</span>
+        </div>
+        <button
+          class="outline-button"
+          type="button"
+          [attr.aria-pressed]="savedIds().has(entry.id)"
+          (click)="toggleSaved(entry)"
+        >
+          <openg7-admin-icon
+            [name]="savedIds().has(entry.id) ? 'check' : 'publications'"
+          />{{
+            (savedIds().has(entry.id)
+              ? 'activityHub.unsave'
+              : 'activityHub.save'
+            ) | translate
+          }}
+        </button>
+        <p class="detail-note">{{ 'activityHub.detailNote' | translate }}</p>
+      </article>
+    }
+  </openg7-admin-drawer>
+  <ng-template #dataStatus>
+    <div
+      class="data-state"
+      [class.is-normal]="scenario() === 'normal'"
+      [attr.data-state]="scenario()"
+      data-og7="activity-hub-data-status"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <span>{{
+        'activityHubExperience.status.' + scenario() | translate
+      }}</span>
+      <span class="snapshot"
+        >{{ 'activityHubExperience.lastRefresh' | translate }}
+        <time
+          data-og7="activity-hub-last-refresh"
+          [attr.datetime]="lastRefresh()"
+          >{{ activityDate(lastRefresh()) }}</time
+        ></span
+      >
+      @if (
+        scenario() === 'loading' ||
+        scenario() === 'partial' ||
+        scenario() === 'unavailable'
+      ) {
+        <button
+          class="outline-button"
+          type="button"
+          data-og7="activity-hub-retry"
+          (click)="setScenario('normal')"
+        >
+          {{
+            (scenario() === 'loading'
+              ? 'activityHubExperience.finishLoading'
+              : 'activityHubExperience.retry'
+            ) | translate
+          }}
+        </button>
+      }
+    </div>
+  </ng-template>
+</div>

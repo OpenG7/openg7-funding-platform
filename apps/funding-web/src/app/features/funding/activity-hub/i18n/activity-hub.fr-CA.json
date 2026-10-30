@@ -1,0 +1,239 @@
+{
+  "activityHub": {
+    "title": "Actualités et inspirations",
+    "subtitle": "Prenez le pouls d’OpenG7, faites le plein d’idées et retrouvez les ressources utiles à votre quotidien.",
+    "workspace": "Espace administration",
+    "hubName": "Le Fil OpenG7",
+    "hubHint": "Observer. Découvrir. S’inspirer.",
+    "eyebrow": "L’espace de veille des administrateurs",
+    "demo": "DÉMO",
+    "demoNotice": "Démonstration · Contenus fictifs et préférences conservées uniquement pendant cette visite.",
+    "skip": "Aller au contenu",
+    "language": "Changer de langue",
+    "backAdmin": "Administration",
+    "navigation": "Rubriques du Fil OpenG7",
+    "sections": {
+      "overview": "Vue d’ensemble",
+      "journal": "Journal dynamique",
+      "inspirations": "Inspirations",
+      "news": "Nouveautés",
+      "resources": "Ressources",
+      "saved": "Mes favoris"
+    },
+    "descriptions": {
+      "journal": "Les échanges, apprentissages et moments de vie de la communauté, au fil des jours.",
+      "inspirations": "Des idées à faire circuler et des pistes pour imaginer la suite ensemble.",
+      "news": "Des aperçus et des propositions pour suivre l’évolution de la plateforme.",
+      "resources": "Des repères pratiques à consulter et à garder sous la main.",
+      "saved": "Votre sélection personnelle pour retrouver une idée ou poursuivre une lecture pendant cette visite."
+    },
+    "sidebarNote": "Une idée prend de la valeur quand elle circule. Gardez ce qui vous parle, revenez-y à votre rythme.",
+    "otherDemo": "Explorer les prestations",
+    "refresh": "Simuler une actualisation",
+    "upToDate": "Démo à jour",
+    "refreshedNotice": "{{count}} nouveaux contenus fictifs ont été ajoutés au fil.",
+    "summary": "L’activité en bref",
+    "period": "Semaine du 26 octobre 2026 · Démo",
+    "toDiscover": "À découvrir",
+    "results": "{{count}} contenus",
+    "searchLabel": "Rechercher dans les contenus",
+    "searchPlaceholder": "Un sujet, une idée, une ressource…",
+    "themeLabel": "Filtrer par thème",
+    "allThemes": "Tous les thèmes",
+    "unreadOnly": "Non lus",
+    "filtered": "Filtres actifs",
+    "reset": "Réinitialiser les filtres",
+    "featured": "À la une",
+    "collective": "L’intelligence du collectif",
+    "read": "Lu",
+    "unread": "À lire",
+    "readingTime": "{{minutes}} min de lecture",
+    "save": "Garder en favori",
+    "saved": "En favori",
+    "unsave": "Retirer des favoris",
+    "saveEntry": "Garder en favori : {{title}}",
+    "unsaveEntry": "Retirer des favoris : {{title}}",
+    "savedNotice": "Ajouté aux favoris : {{title}}",
+    "unsavedNotice": "Retiré des favoris : {{title}}",
+    "emptyTitle": "Aucun contenu pour ces filtres",
+    "emptyCopy": "Essayez un autre mot-clé ou élargissez les filtres pour retrouver le fil.",
+    "emptySavedTitle": "Votre sélection commence ici",
+    "emptySavedCopy": "Gardez un contenu en favori pour le retrouver ici pendant cette visite.",
+    "discover": "Découvrir le fil",
+    "feedFooter": "Vous avez parcouru les contenus de cette sélection.",
+    "digestEyebrow": "Le regard de la semaine",
+    "digestTitle": "Les idées font leur chemin",
+    "digestCopy": "Dans cette édition fictive : des échanges à écouter, des idées à croiser et quelques repères pour rendre nos outils plus accessibles.",
+    "openJournal": "Parcourir le journal",
+    "recentActivity": "Dans le journal",
+    "yourReading": "Votre parcours de lecture",
+    "readingProgress": "{{read}} contenus consultés sur {{total}}",
+    "visitOnly": "Ce repère est propre à votre visite et repart à zéro au rechargement.",
+    "footer": "Un espace pour rester curieux et avancer ensemble.",
+    "detail": "Lire le contenu",
+    "close": "Fermer",
+    "detailNote": "Contenu fictif de démonstration. Vos lectures et favoris restent en mémoire pour cette visite.",
+    "guideReading": "Lecture du guide",
+    "guide": {
+      "title": "Guide administratif OpenG7",
+      "subtitle": "Se repérer, comprendre et préparer chaque intervention.",
+      "discover": "Découvrir",
+      "today": "Aujourd’hui",
+      "date": "Mercredi 28 octobre 2026",
+      "minutes": "min",
+      "metrics": {
+        "ready": "dossiers en cours",
+        "media": "médias traités",
+        "rules": "règles à jour",
+        "preparation": "préparation prête"
+      },
+      "heroLead": "Le journal vivant d’OpenG7 : comprendre, suivre et s’inspirer.",
+      "heroCopy": "Restez informé des activités récentes, découvrez les bonnes pratiques et explorez les ressources pour tirer le meilleur d’OpenG7 au quotidien.",
+      "heroMotto": "Mieux comprendre aujourd’hui pour bâtir demain.",
+      "reduce": "Réduire le guide",
+      "expand": "Ouvrir le guide",
+      "dockBottom": "Placer en bas",
+      "dockTop": "Replacer en haut",
+      "explore": "Explorer les rubriques",
+      "services": "Prestations",
+      "sidebarQuote": "Des outils au service d’un impact durable.",
+      "journalTitle": "Journal du jour",
+      "journalSubtitle": "Les dernières activités de la plateforme.",
+      "allActivity": "Voir toute l’activité",
+      "takeawaysTitle": "À retenir aujourd’hui",
+      "takeawaysSubtitle": "Trois points clés pour vos interventions.",
+      "quoteTitle": "Citation du jour",
+      "quote": "La technologie ne remplace pas le jugement. Elle lui donne de la portée.",
+      "quoteFoot": "Bâtir, c’est rendre le prochain geste plus simple que le précédent.",
+      "resourcesTitle": "Nouveautés à découvrir",
+      "resourcesSubtitle": "Des guides et conseils pour approfondir vos connaissances.",
+      "allResources": "Voir toutes les ressources",
+      "readGuide": "Lire le guide",
+      "weekTitle": "Cette semaine",
+      "weekSubtitle": "Cap sur l’essentiel.",
+      "archiveTitle": "Explorer le fil",
+      "backDiscover": "Retour à Découvrir",
+      "readingSummary": "Vos lectures",
+      "inspirations": "Inspirations",
+      "resources": "Ressources",
+      "unread": "À découvrir",
+      "demoShort": "Démonstration · Activité fictive",
+      "tools": "Outils de lecture",
+      "portraitAlt": "Une reine et un lion blanc devant un paysage de montagnes et un château.",
+      "takeaways": {
+        "media": {
+          "title": "Les médias suivent les autorisations du dossier",
+          "copy": "Vérifiez les autorisations applicables avant de préparer l’utilisation d’un média."
+        },
+        "context": {
+          "title": "Les actions s’adaptent au contexte",
+          "copy": "Les informations du dossier aident à comprendre les interventions proposées."
+        },
+        "human": {
+          "title": "La validation humaine reste requise",
+          "copy": "Relisez et vérifiez toute préparation avant d’autoriser une action réelle."
+        }
+      },
+      "diary": {
+        "ready": "2 dossiers fictifs sont prêts pour révision.",
+        "media": "17 médias de démonstration ont été examinés ; 3 restent à vérifier.",
+        "rules": "Une règle d’héritage des autorisations illustre le fonctionnement du dossier.",
+        "preparation": "La préparation de démonstration est prête pour une revue humaine."
+      },
+      "resourceCards": {
+        "exceptions": {
+          "title": "Revue média par exceptions",
+          "copy": "Repérer les médias qui demandent une vérification particulière.",
+          "body": "La revue par exceptions consiste à faire ressortir les médias qui demandent une attention particulière : source à préciser, autorisation à vérifier ou contenu modifié depuis la dernière lecture. Dans cet exemple, les repères visuels aident à distinguer ce qui a été examiné de ce qui reste à comprendre.\n\nPour chaque média, vérifiez son lien avec le dossier, le périmètre du consentement et les conditions d’utilisation. Une autorisation au niveau du dossier ne dispense pas de vérifier l’admissibilité du média concerné. Toute préparation reste soumise à la revue humaine et à une autorisation explicite avant publication."
+        },
+        "context": {
+          "title": "Comment fonctionne le Context Controller",
+          "copy": "Comprendre comment le contexte du dossier guide les actions proposées.",
+          "body": "Dans cette illustration, le Context Controller est un repère visuel qui relie le dossier consulté, l’étape en cours et les actions pertinentes. L’objectif est de comprendre pourquoi une proposition apparaît et quelles informations manquent avant de pouvoir l’examiner. Il présente un principe d’interface, sans connexion à un contrôleur réel.\n\nAvant de suivre une action proposée, relisez la cible, le contexte et l’état du dossier. Une suggestion aide à se repérer ; la personne responsable vérifie les droits, les conditions applicables et le résultat attendu, puis confirme l’intervention dans son écran propriétaire."
+        },
+        "human": {
+          "title": "Préremplissage IA et validation humaine",
+          "copy": "Préparer les informations, puis garder une revue humaine avant toute action.",
+          "body": "Le préremplissage IA illustre une aide à la préparation : organiser des informations, proposer un brouillon et signaler les points à vérifier. Dans ce guide, il s’agit d’un principe visuel. Aucun modèle connecté ne consulte de dossier réel ni ne produit une décision administrative.\n\nLa revue humaine consiste à comparer la proposition aux informations du dossier, corriger les faits et vérifier les autorisations. Une préparation n’accorde aucun droit supplémentaire. La personne habilitée garde la responsabilité de la décision et confirme explicitement toute action sensible dans le parcours prévu."
+        },
+        "services": {
+          "title": "Comprendre les prestations d’un dossier",
+          "copy": "Explorer les étapes de contenu, de consentement et de publication.",
+          "body": "Une prestation peut se lire à travers trois étapes distinctes : préparer le contenu, vérifier le consentement et examiner les conditions de publication. Le dossier rassemble les repères nécessaires pour comprendre le texte, les médias et la destination envisagée. Chaque étape répond à une question précise avant de passer à la suivante.\n\nDans le parcours illustratif, commencez par relire le contenu, puis examinez les autorisations applicables et les éléments encore à vérifier. Un brouillon préparé reste distinct d’un contenu approuvé. Une publication réelle exigerait une autorisation administrative explicite portant sur le contenu et sa destination."
+        }
+      }
+    },
+    "themes": {
+      "community": "Communauté",
+      "product": "Plateforme",
+      "practice": "Bonnes pratiques"
+    },
+    "authors": {
+      "editorial": "Équipe éditoriale · Démo",
+      "community": "Équipe communauté · Démo",
+      "product": "Équipe plateforme · Démo"
+    },
+    "entries": {
+      "sharedWorkshop": {
+        "title": "Un atelier partagé, des idées qui circulent",
+        "summary": "Et si un rendez-vous court permettait de croiser les regards et de faire émerger la prochaine bonne idée ?",
+        "body": "Imaginez un atelier réunissant les personnes qui animent la communauté et celles qui conçoivent les outils. Chacune arrive avec une question concrète, un exemple et une piste à explorer. Ce récit fictif illustre un format possible pour partager les apprentissages au sein d’OpenG7.\n\nLe principe : écouter avant de proposer, garder une trace courte des idées et choisir ensemble une petite expérience. Une inspiration à adapter à votre contexte ; aucun atelier réel ni résultat obtenu n’est annoncé ici."
+      },
+      "weeklyRoundup": {
+        "title": "Le point de la semaine, en quelques repères",
+        "summary": "Une sélection de sujets à relire, de pistes à explorer et de ressources à garder sous la main.",
+        "body": "Dans cette édition fictive, le fil rassemble trois angles de lecture : les échanges de la communauté, les idées pour la plateforme et les pratiques utiles au quotidien. L’objectif est de retrouver rapidement le contexte sans parcourir toutes les rubriques.\n\nCommencez par une inspiration, ouvrez une ressource utile puis revenez aux nouveautés. Ce résumé éditorial ne représente ni les opérations réelles d’OpenG7 ni un journal d’audit."
+      },
+      "clearerNavigation": {
+        "title": "Une navigation plus lisible, à explorer",
+        "summary": "Un aperçu de regroupement des contenus pour retrouver plus facilement ce qui mérite votre attention.",
+        "body": "Cette nouveauté de démonstration présente une piste : réunir les contenus sous des rubriques aux rôles clairs, tout en conservant un accès transversal par thème. Un même sujet pourrait ainsi être retrouvé par son format ou par son contexte.\n\nLa proposition reste à éprouver avec les personnes qui utiliseront cet espace. Elle ne constitue pas une annonce de livraison sur la plateforme réelle."
+      },
+      "keyboardPaths": {
+        "title": "Parcourir un espace au clavier",
+        "summary": "Quelques repères pour vérifier que la lecture et les actions restent accessibles sans souris.",
+        "body": "Commencez par le lien d’accès au contenu, puis parcourez les contrôles avec Tab. Le focus doit rester visible et l’ordre suivre celui de la lecture. Vérifiez qu’une recherche, un filtre et l’ouverture d’un article disposent chacun d’un nom compréhensible.\n\nDans une fenêtre de lecture, Échap doit permettre de revenir au contenu et le focus doit retrouver le contrôle d’origine. Cette fiche de démonstration fournit des points de vérification, sans prétendre certifier l’accessibilité de l’ensemble de la plateforme."
+      },
+      "listeningNotes": {
+        "title": "Écouter les questions avant de choisir les réponses",
+        "summary": "Un exemple de note courte pour conserver le contexte d’un échange et les questions qui restent ouvertes.",
+        "body": "Une bonne note peut commencer par ce que l’on cherche à comprendre. Dans cet exemple fictif, l’équipe consigne une question de navigation, un besoin de contexte et une suggestion de lecture. Les observations restent distinctes des solutions proposées.\n\nCe format facilite la reprise de la discussion et évite de présenter une hypothèse comme une décision. Aucun échange privé, retour utilisateur réel ou renseignement personnel n’est reproduit ici."
+      },
+      "ideaLibrary": {
+        "title": "Une petite bibliothèque d’idées utiles",
+        "summary": "Classer les inspirations par question à résoudre plutôt que par ordre d’arrivée.",
+        "body": "Et si chaque inspiration répondait à une question simple : mieux expliquer, mieux accueillir ou mieux retrouver ? Cette bibliothèque imaginaire privilégie quelques idées accompagnées de leur contexte plutôt qu’une collection de liens sans repères.\n\nPour chaque idée, gardez une phrase sur son intérêt et une autre sur ce qu’il faudrait vérifier avant de l’adapter. Le favori sert alors de point de retour pendant votre visite, sans valider l’idée ni lancer un projet."
+      },
+      "shortBriefings": {
+        "title": "Préparer un point d’équipe en cinq minutes",
+        "summary": "Un canevas de lecture simple : ce qui a changé, ce qui mérite un échange et ce qu’il faut retrouver.",
+        "body": "Choisissez un sujet récent, une question ouverte et une ressource utile. Présentez le contexte en quelques phrases et indiquez clairement ce que vous attendez de l’échange : comprendre, compléter ou proposer.\n\nTerminez avec un repère pour la suite, sans attribuer automatiquement une action ou une décision à quelqu’un. Ce canevas fictif peut servir de support à une discussion ; il ne crée aucune tâche réelle."
+      },
+      "demoPreview": {
+        "title": "Un aperçu du nouvel espace de lecture",
+        "summary": "Découvrir comment journal, inspirations et ressources peuvent partager un même point d’entrée.",
+        "body": "Cet aperçu montre une façon de rapprocher la veille et la lecture quotidienne des administrateurs. La vue d’ensemble donne des repères, tandis que les rubriques permettent de se concentrer sur un type de contenu.\n\nLes articles, dates et auteurs présentés sont synthétiques. La recherche, la lecture et les favoris permettent d’essayer le parcours, sans connexion à des données administratives réelles."
+      },
+      "fieldNotebook": {
+        "title": "Le carnet des petites observations",
+        "summary": "Donner une place aux détails qui aideront à comprendre un besoin plus tard.",
+        "body": "Un libellé ambigu, un chemin trop long, une explication qui manque : les petites observations peuvent nourrir une discussion utile. Ce carnet fictif propose de les noter avec leur contexte et la question qu’elles soulèvent.\n\nUne observation ne prouve pas à elle seule un problème général. Croisez les points de vue avant de choisir une suite, et conservez seulement les informations nécessaires à la compréhension du sujet."
+      },
+      "accessibleStories": {
+        "title": "Des récits que l’on peut lire à son rythme",
+        "summary": "S’inspirer d’un format court, structuré et facile à reprendre entre deux activités.",
+        "body": "Ce récit imaginaire commence par une idée claire, développe un exemple puis propose une question à garder en tête. Les paragraphes restent courts et les titres aident à retrouver sa place.\n\nLe format peut inspirer de futurs contenus internes : un contexte explicite, des mots concrets et une durée de lecture indicative. Il ne représente pas un témoignage réel ni une validation éditoriale."
+      },
+      "communityQuestions": {
+        "title": "Trois questions pour ouvrir la discussion",
+        "summary": "Un nouveau repère de démonstration : comprendre le besoin, partager le contexte et imaginer une suite.",
+        "body": "Qu’est-ce qui vous aiderait aujourd’hui ? Quel contexte manque pour comprendre le sujet ? Quelle petite piste pourrait être explorée ensuite ? Ces questions fictives illustrent un contenu ajouté lors de l’actualisation simulée du fil.\n\nElles invitent à la discussion sans présumer d’une réponse ou d’un consensus. L’actualisation ajoute uniquement des exemples locaux ; elle ne consulte aucun service externe."
+      },
+      "readingChecklist": {
+        "title": "Avant de partager une ressource",
+        "summary": "Vérifier le contexte, la clarté et l’utilité d’une lecture avant de la recommander à l’équipe.",
+        "body": "Relisez le titre et vérifiez qu’il décrit bien le contenu. Résumez l’intérêt pour l’équipe, identifiez ce qui reste à confirmer et assurez-vous que le texte peut être compris sans connaître la conversation d’origine.\n\nCe repère de démonstration aide à préparer une recommandation. L’ajout aux favoris conserve un choix pendant la visite ; il ne partage, n’approuve et ne publie aucun contenu."
+      }
+    }
+  }
+}

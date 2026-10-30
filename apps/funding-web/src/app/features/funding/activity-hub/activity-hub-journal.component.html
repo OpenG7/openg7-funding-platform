@@ -1,0 +1,211 @@
+<section
+  class="journal"
+  aria-labelledby="activity-journal-heading"
+  [attr.aria-busy]="scenario() === 'loading'"
+>
+  <header class="journal-heading">
+    <div>
+      <h2 id="activity-journal-heading">
+        {{
+          (metricKind()
+            ? 'activityHubJournal.metricTitle'
+            : 'activityHubJournal.title'
+          ) | translate
+        }}
+      </h2>
+      <p>
+        {{
+          (metricKind()
+            ? 'activityHubJournal.metricCopy'
+            : 'activityHubJournal.subtitle'
+          ) | translate
+        }}
+      </p>
+    </div>
+    <span
+      class="result-count"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      >{{
+        resultLabelKey() | translate: { count: visibleActivities().length }
+      }}</span
+    >
+  </header>
+  <p class="demo-note">{{ 'activityHubJournal.demo' | translate }}</p>
+  @if (partialSelection()) {
+    <p class="demo-note" data-og7="activity-hub-activity-partial-note">
+      {{ 'activityHubJournal.partialNote' | translate }}
+    </p>
+  }
+  <div
+    class="filters"
+    role="search"
+    [attr.aria-label]="'activityHubJournal.filters' | translate"
+  >
+    <label class="search-field"
+      ><span>{{ 'activityHubJournal.search' | translate }}</span
+      ><input
+        type="search"
+        data-og7="activity-hub-activity-search"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+        [placeholder]="'activityHubJournal.searchHint' | translate"
+    /></label>
+    <label
+      ><span>{{ 'activityHubJournal.kind' | translate }}</span
+      ><select
+        data-og7="activity-hub-activity-kind"
+        [value]="effectiveKind()"
+        [disabled]="!!metricKind()"
+        (change)="setKind($any($event.target).value)"
+      >
+        <option value="all" [selected]="effectiveKind() === 'all'">
+          {{ 'activityHubJournal.allKinds' | translate }}
+        </option>
+        @for (kind of kinds; track kind) {
+          <option [value]="kind" [selected]="effectiveKind() === kind">
+            {{ 'activityHubJournal.kinds.' + kind | translate }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      ><span>{{ 'activityHubJournal.period' | translate }}</span
+      ><select
+        data-og7="activity-hub-activity-period"
+        [value]="period()"
+        (change)="setPeriod($any($event.target).value)"
+      >
+        @for (period of periods; track period) {
+          <option [value]="period" [selected]="this.period() === period">
+            {{ 'activityHubJournal.periods.' + period | translate }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      ><span>{{ 'activityHubJournal.origin' | translate }}</span
+      ><select
+        data-og7="activity-hub-activity-origin"
+        [value]="origin()"
+        (change)="setOrigin($any($event.target).value)"
+      >
+        <option value="all" [selected]="origin() === 'all'">
+          {{ 'activityHubJournal.allOrigins' | translate }}
+        </option>
+        @for (origin of origins; track origin) {
+          <option [value]="origin" [selected]="this.origin() === origin">
+            {{ 'activityHubJournal.origins.' + origin | translate }}
+          </option>
+        }
+      </select></label
+    >
+    <button
+      class="attention-button"
+      type="button"
+      data-og7="activity-hub-activity-attention"
+      [attr.aria-pressed]="attentionOnly()"
+      (click)="attentionOnly.set(!attentionOnly())"
+    >
+      <openg7-admin-icon name="warning" />{{
+        'activityHubJournal.attentionOnly' | translate
+      }}
+    </button>
+    <button
+      class="reset-button"
+      type="button"
+      data-og7="activity-hub-activity-reset"
+      (click)="reset()"
+    >
+      {{ 'activityHubJournal.reset' | translate }}
+    </button>
+  </div>
+  <ol class="activity-list" data-og7="activity-hub-activity-list">
+    @for (activity of visibleActivities(); track activity.id) {
+      <li
+        data-og7="activity-hub-activity-row"
+        [attr.data-og7-id]="activity.id"
+        [attr.data-entity-id]="activity.entityId"
+      >
+        <span class="kind-icon" [attr.data-kind]="activity.kind"
+          ><openg7-admin-icon [name]="icon(activity.kind)"
+        /></span>
+        <div class="activity-copy">
+          <div class="activity-meta">
+            <time [attr.datetime]="activity.occurredAt">{{
+              dateLabel(activity)
+            }}</time
+            ><span>{{
+              'activityHubJournal.kinds.' + activity.kind | translate
+            }}</span
+            ><span>{{
+              'activityHubJournal.origins.' + activity.origin | translate
+            }}</span>
+            @if (activity.attention) {
+              <span class="attention-badge">{{
+                'activityHubJournal.attention' | translate
+              }}</span>
+            }
+          </div>
+          <h3>
+            <button
+              type="button"
+              data-og7="activity-hub-activity-open"
+              (click)="activityOpened.emit(activity)"
+            >
+              {{ activity.titleKey | translate }}
+            </button>
+          </h3>
+          <p>{{ activity.summaryKey | translate }}</p>
+          <div class="activity-source">
+            <span>{{ activity.actorKey | translate }}</span
+            ><span>{{ activity.entityId }}</span>
+          </div>
+        </div>
+        <span class="row-arrow" aria-hidden="true">›</span>
+      </li>
+    }
+  </ol>
+  @if (sourceUnavailable()) {
+    <div
+      class="empty-state"
+      data-og7="activity-hub-activity-unavailable"
+      role="status"
+    >
+      <openg7-admin-icon
+        [name]="scenario() === 'loading' ? 'clock' : 'warning'"
+      />
+      <h3>
+        {{
+          (scenario() === 'loading'
+            ? 'activityHubJournal.sourceLoading'
+            : 'activityHubJournal.sourceUnavailable'
+          ) | translate
+        }}
+      </h3>
+      <p>
+        {{
+          (scenario() === 'loading'
+            ? 'activityHubJournal.loadingCopy'
+            : scenario() === 'partial'
+              ? 'activityHubJournal.mediaUnavailableCopy'
+              : 'activityHubJournal.unavailableCopy'
+          ) | translate
+        }}
+      </p>
+    </div>
+  } @else if (!visibleActivities().length && partialSelection()) {
+    <div class="empty-state" data-og7="activity-hub-activity-partial-empty">
+      <openg7-admin-icon name="warning" />
+      <h3>{{ 'activityHubJournal.partialEmptyTitle' | translate }}</h3>
+      <p>{{ 'activityHubJournal.partialEmptyCopy' | translate }}</p>
+    </div>
+  } @else if (!visibleActivities().length) {
+    <div class="empty-state" data-og7="activity-hub-activity-empty">
+      <openg7-admin-icon name="search" />
+      <h3>{{ 'activityHubJournal.emptyTitle' | translate }}</h3>
+      <p>{{ 'activityHubJournal.emptyCopy' | translate }}</p>
+    </div>
+  }
+</section>
