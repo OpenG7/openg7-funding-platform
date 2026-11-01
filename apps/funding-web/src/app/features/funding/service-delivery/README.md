@@ -23,9 +23,11 @@ avec une autre instance.
 
 ## Accès depuis le guide administratif
 
-Le menu du Guide administratif propose **Prestations** juste après **Découvrir**.
+Le menu du Guide administratif propose **Prestations en démo** juste après **Découvrir**.
 Ce bouton charge le composant public dans la zone à droite du menu, au sein du
-guide. **Découvrir** accueille le module d’actualités et peut aussi demander
+guide. Le titre **Démonstration des prestations** et la mention des trois dossiers
+d’exemple distinguent cet espace du registre administratif réel des prestations.
+**Découvrir** accueille le module d’actualités et peut aussi demander
 l’ouverture de cet espace ou d’un dossier synthétique précis. La rubrique
 administrative, son URL, ses paramètres et son fragment restent en place.
 La disposition s'adapte à la largeur disponible sur mobile.
@@ -92,8 +94,10 @@ n’est transmis à une autre identité.
 
 Le retrait des sélecteurs de suivi d'un paiement, de préparation et d'exploration
 des parcours concerne le rail du guide. Leurs rendus contextuels, les préférences
-historiques et les accès métier depuis Contributions ou **Vérifier un nouveau lot** restent
-compatibles. La démo ne charge aucun dossier réel et n'exécute aucune de ces
+historiques et l'accès métier depuis Contributions restent compatibles. Le bouton
+**Guide** de la barre commune ouvre **Découvrir** ; la vérification d'un nouveau
+lot reste une commande explicite du suivi historique. La démo ne charge aucun
+dossier réel et n'exécute aucune de ces
 opérations.
 
 ## Démo autonome

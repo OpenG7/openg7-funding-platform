@@ -177,6 +177,11 @@ export class AdminPilotageReadController {
     if (this.calendarState() === 'loading') this.calendarState.set('idle');
   }
 
+  invalidateReadContext(): void {
+    this.loadRequest++;
+    this.invalidatePanelReads();
+  }
+
   async loadDetails(acceptLatest = false): Promise<boolean> {
     const decision = this.selected();
     if (

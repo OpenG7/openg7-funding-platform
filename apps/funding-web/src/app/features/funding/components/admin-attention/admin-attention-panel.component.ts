@@ -75,12 +75,8 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
     'publication_ready',
     'publication_slot_upcoming'
   ] as const;
-  readonly priorities = [
-    'urgent',
-    'today',
-    'this_week',
-    'informational'
-  ] as const;
+  readonly actionPriorities = ['urgent', 'today', 'this_week'] as const;
+  readonly priorities = [...this.actionPriorities, 'informational'] as const;
   private readonly admin = inject(FundingAdminService);
   private readonly i18n = inject(FundingI18nService);
   private readonly route = inject(ActivatedRoute);

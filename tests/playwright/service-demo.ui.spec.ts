@@ -135,6 +135,15 @@ test('conserve le retour administratif dans les actions, onglets et filtres de l
   );
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`${base}?returnTo=${encodeURIComponent(returnTo)}`);
+  await expect(
+    page.getByRole('heading', {
+      name: 'Démonstration des prestations',
+      exact: true
+    })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="service-demo-summary"]')).toHaveText(
+    '3 dossiers d’exemple · Site web et Facebook'
+  );
   const exit = page.locator('[data-og7="service-demo-exit"]');
   await expect(exit).toHaveAttribute('href', returnTo);
   await expect(exit).toHaveAccessibleName('Retour à l’administration');
@@ -693,7 +702,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
   await page.getByLabel('Date et heure locales').fill('2026-11-06T09:15');
   await page.getByLabel('Fuseau horaire').selectOption('Europe/Paris');
   await page
-    .getByRole('link', { name: 'Prestations de services', exact: true })
+    .getByRole('link', { name: 'Démonstration des prestations', exact: true })
     .click();
   await expect(
     page.locator(
@@ -721,7 +730,7 @@ test('garde un brouillon distinct par dossier pendant la visite puis le réiniti
     .locator('[data-og7="service-demo-editor-text"]')
     .fill('Texte distinct du Collectif Rivages.');
   await page
-    .getByRole('link', { name: 'Prestations de services', exact: true })
+    .getByRole('link', { name: 'Démonstration des prestations', exact: true })
     .click();
   await page
     .locator(
@@ -1180,7 +1189,7 @@ test('garde les notes et noms de pièces locaux sans les mélanger entre les dos
     page.locator('[data-og7="service-demo-detail"][data-og7-id="preuve"]')
   ).toContainText('accord-local-demo.txt');
   await page
-    .getByRole('link', { name: 'Prestations de services', exact: true })
+    .getByRole('link', { name: 'Démonstration des prestations', exact: true })
     .click();
   await page
     .locator(
@@ -1195,7 +1204,7 @@ test('garde les notes et noms de pièces locaux sans les mélanger entre les dos
     page.locator('[data-og7="service-demo-detail"][data-og7-id="preuve"]')
   ).not.toContainText('accord-local-demo.txt');
   await page
-    .getByRole('link', { name: 'Prestations de services', exact: true })
+    .getByRole('link', { name: 'Démonstration des prestations', exact: true })
     .click();
   await page
     .locator(

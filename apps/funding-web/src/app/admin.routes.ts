@@ -185,6 +185,13 @@ export const adminRoutes: Routes = protectWorkspaceNavigation([
     canMatch: [adminSessionRequired],
     children: [
       {
+        path: 'programme',
+        loadComponent: () =>
+          import('./features/funding/pages/admin-editorial-programme-page/admin-editorial-programme-page.component.js').then(
+            (m) => m.AdminEditorialProgrammePageComponent
+          )
+      },
+      {
         path: 'automation',
         canDeactivate: [adminPublicationNavigationGuard],
         runGuardsAndResolvers: 'paramsOrQueryParamsChange',

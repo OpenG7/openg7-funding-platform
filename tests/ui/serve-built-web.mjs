@@ -96,7 +96,7 @@ export const createBuiltWebServer = (apiHandler) =>
         const clientRoute =
           /^\/demo\/actualites\/?$/.test(pathname) ||
           isServiceDemoRoute(pathname) ||
-          /^\/(?:admin\/(?:login|oidc-setup|auth\/callback|fundraiser(?:\/(?:pilotage|attention|assistant|contributions|sponsors(?:\/quality)?|campaigns|invoices|publications(?:\/(?:drafts|batches|calendar|automation))?|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
+          /^\/(?:admin\/(?:login|oidc-setup|auth\/callback|fundraiser(?:\/(?:pilotage|attention|assistant|contributions|sponsors(?:\/quality)?|campaigns|invoices|publications(?:\/(?:drafts|batches|calendar|automation|programme))?|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
             pathname
           );
         status = clientRoute ? 200 : 404;

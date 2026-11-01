@@ -22,7 +22,7 @@ export interface PilotageCommandPorts {
     unresolved: WritableSignal<string>;
   };
   actorId(): string;
-  storage(): Pick<Storage, 'setItem' | 'removeItem'> | null;
+  storage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   requestId(): string;
   resetInput(): void;
   settleCommand(): void;
@@ -32,7 +32,7 @@ export interface PilotageCommandPorts {
   refresh(): Promise<void>;
 }
 
-/** Page-local command/receipt lifecycle; panels, inputs and counters belong to the page. */
+/** Shared command/receipt lifecycle; each workspace owns its presentation state. */
 export class AdminPilotageCommandWorkflow {
   constructor(private readonly ports: PilotageCommandPorts) {}
 
@@ -72,7 +72,7 @@ export class AdminPilotageCommandWorkflow {
       );
       const status = (error as { status?: number })?.status;
       if (status && [400, 401, 403, 409].includes(status)) {
-        this.clearUnresolved(storageKey);
+        this.clearUnresolved(storageKey, requestId);
         if (status === 401 || status === 403) this.ports.denyWrites();
       }
     } finally {
@@ -144,7 +144,7 @@ export class AdminPilotageCommandWorkflow {
       receipt.status === 'failed' ||
       receipt.reviewedAt
     ) {
-      this.clearUnresolved(storageKey);
+      this.clearUnresolved(storageKey, receipt.requestId);
       if (receipt.status === 'completed') this.ports.confirmed();
       await this.ports.refresh();
       if (receipt.status !== 'completed' && !receipt.reviewedAt)
@@ -152,10 +152,13 @@ export class AdminPilotageCommandWorkflow {
     }
   }
 
-  private clearUnresolved(storageKey: string): void {
-    this.ports.state.unresolved.set('');
+  private clearUnresolved(storageKey: string, requestId: string): void {
+    if (this.ports.state.unresolved() === requestId)
+      this.ports.state.unresolved.set('');
     try {
-      this.ports.storage()?.removeItem(storageKey);
+      const storage = this.ports.storage();
+      if (storage?.getItem(storageKey) === requestId)
+        storage.removeItem(storageKey);
     } catch {
       /* Optional storage. */
     }

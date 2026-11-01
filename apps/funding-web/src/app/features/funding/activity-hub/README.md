@@ -16,6 +16,11 @@ La frontière publique `index.ts` expose la page autonome et
 `ActivityHubEmbeddedComponent`. Le workspace et ses composants de présentation
 restent internes à la feature ; les consommateurs passent par cet index.
 
+Le bouton **Guide** de la barre administrative ouvre toujours **Découvrir**, y
+compris depuis **Prestations**, un rendu contextuel ou un guide réduit, sans
+lancer de vérification de lot. Le focus rejoint le contrôle **Découvrir** après
+le rendu. Les états conservés de chaque onglet restent disponibles.
+
 L’hôte charge le composant embarqué à la première ouverture de **Découvrir**.
 Il fournit déjà le bandeau, les commandes de réduction et de placement, le rail
 et le défilement du contenu. Le module injecté n’ajoute pas de fenêtre, de rail

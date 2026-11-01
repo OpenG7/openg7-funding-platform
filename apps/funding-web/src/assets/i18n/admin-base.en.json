@@ -1346,6 +1346,9 @@
     },
     "attention": {
       "title": "To do",
+      "queueTitle": "Active interventions",
+      "globalCountsHelp": "Entire queue · counts before filters.",
+      "examineDecision": "Review decision",
       "todayTitle": "To do today",
       "help": "Interventions are ordered by priority. A task disappears when its underlying condition is resolved.",
       "todayHelp": "Priorities and deadlines · Toronto time.",
@@ -1760,7 +1763,7 @@
       },
       "modeLabel": "Guide type",
       "discoveryMode": "Discover",
-      "serviceDeliveryMode": "Service delivery",
+      "serviceDeliveryMode": "Services demo",
       "tour": {
         "title": "Service delivery tour",
         "play": "Play",
@@ -1839,9 +1842,7 @@
     },
     "shell": {
       "skip": "Skip to main content",
-      "startPass": "Check a new batch",
-      "startPassCountUnavailable": "Dossier count unavailable.",
-      "startPassDossierCount": "Dossiers to process: {{count}}",
+      "guide": "Guide",
       "workspace": "Builders Fund · Administration",
       "identity": "Administration",
       "toEnglish": "Switch administration language to English",
@@ -3154,6 +3155,8 @@
       "showQueue": "Show queue",
       "hideQueue": "Hide queue",
       "title": "Control desk",
+      "targetUnavailable": "This decision is no longer available or could not be loaded. Open its record or return to the queue.",
+      "backToQueue": "Return to queue",
       "overview": "Overview",
       "pendingDecisions": "To review",
       "inThisSpace": "In this workspace",
@@ -3404,6 +3407,7 @@
       "acknowledgeIncident": "Record findings and resume the control desk",
       "audit": "View audit",
       "programme": "My week",
+      "programmeHelp": "Prepare the calendar, copy and editorial preferences for your publications.",
       "fiveMinutes": "Five-minute session",
       "sessionDecisions": "decisions completed",
       "endSession": "End session"
@@ -3425,6 +3429,20 @@
       "forbidden": "Configuration and its tests are reserved for the owner."
     },
     "programme": {
+      "guidance": {
+        "read": {
+          "title": "Read the briefing",
+          "body": "Review ready, scheduled and blocked publications. A priority opens its decision in the control desk."
+        },
+        "choose": {
+          "title": "Prepare the week",
+          "body": "Choose the calendar, a text variant or preferences. Proposals stay private until confirmation."
+        },
+        "verify": {
+          "title": "Check the proposal",
+          "body": "Review changes and their consequences before confirming. Check an uncertain receipt before issuing another command."
+        }
+      },
       "views": {
         "brief": "My briefing",
         "calendar": "Compose the week",

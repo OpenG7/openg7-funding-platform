@@ -11,6 +11,10 @@ import { extractStructuredPreparationPublications } from '../../packages/funding
 import { expect, test } from './support/test.js';
 import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
+import {
   controllerId,
   controllerJourneysFixtures,
   controllerPath
@@ -336,6 +340,7 @@ test('source and review URL fragments preserve the publication dossier context f
 test('pausing, closing and normal dossier navigation remove the workflow highlight without trapping navigation or editing', async ({
   page
 }) => {
+  await installAdminController(page);
   const f = await fixtures(page);
   await open(page);
   await journey(page, 'agreement').click();
@@ -364,7 +369,11 @@ test('pausing, closing and normal dossier navigation remove the workflow highlig
   );
   await hook(page, 'admin-guidance-toggle').click();
   await expect(page.locator(highlighted)).toHaveCount(0);
-  await hook(page, 'admin-guidance-toggle').click();
+  await expect(hook(page, 'admin-shell-guide')).toBeFocused();
+  // Y reopens the retained workflow; Guide deliberately selects Discover.
+  const controller = adminController(page);
+  await controller.ready();
+  await controller.press('Y');
   await expect(hook(page, 'workflow-guide')).toBeVisible();
   await expect(step(page, 'qualification')).toHaveAttribute(
     'aria-current',

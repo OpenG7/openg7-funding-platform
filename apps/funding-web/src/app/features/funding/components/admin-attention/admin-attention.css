@@ -238,7 +238,7 @@ footer small {
 
 @container attention-panel (min-width: 42rem) {
   .attention-summary {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

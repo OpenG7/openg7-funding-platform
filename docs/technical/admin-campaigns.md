@@ -113,6 +113,13 @@ distinctes de la version de préparation et d'une preuve historique.
 
 ## Liste et préparation
 
+La recherche, l’état du suivi et le canal restent visibles dans les filtres.
+**Filtres avancés** déplie la destination, le tri et son ordre, au clavier comme
+à la souris. Des critères personnalisés y sont signalés ; replier cette zone
+conserve les valeurs et le bouton **Appliquer** transmet toujours tous les critères.
+La démo du Guide porte le titre **Démonstration des prestations** et utilise des
+dossiers fictifs ; elle ne remplace pas ce registre des engagements réels.
+
 Une ligne représente une obligation de l’offre acceptée, identifiée par dossier,
 canal, destination et numéro de publication. Plusieurs publications promises donnent
 plusieurs lignes, même sans brouillon. La quantité vient de l’accord enregistré,

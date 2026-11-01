@@ -96,6 +96,12 @@ export class AdminCampaignsPageComponent {
   ] as const;
   readonly sorts = ['preparation', 'paid_at', 'due_at'] as const;
   readonly filters = signal<CampaignFilters>(this.filterDraft(this.c.query()));
+  readonly advancedFiltersActive = computed(
+    () =>
+      !!this.filters().target ||
+      this.filters().sort !== 'preparation' ||
+      this.filters().direction !== 'desc'
+  );
   readonly grouped = signal(true);
   readonly groups = computed(() =>
     groupCampaignRows(this.c.data()?.items ?? [], this.grouped())

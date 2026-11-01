@@ -479,13 +479,20 @@ for (const presentResult of ['manual', 'unavailable']) {
   });
 }
 
-test('all twenty administration categories have an explicit safe local destination', () => {
-  assert.equal(ADMIN_GUIDANCE_PAGES.length, 20);
+test('all registered administration categories have an explicit safe local destination', () => {
+  assert.equal(ADMIN_GUIDANCE_PAGES.length, 21);
   assert.ok(
     ADMIN_GUIDANCE_PAGES.some(
       (page) =>
         page.id === 'sponsorsQuality' &&
         page.path === '/admin/fundraiser/sponsors/quality'
+    )
+  );
+  assert.ok(
+    ADMIN_GUIDANCE_PAGES.some(
+      (page) =>
+        page.id === 'programme' &&
+        page.path === '/admin/fundraiser/publications/programme'
     )
   );
   for (const page of ADMIN_GUIDANCE_PAGES) {
@@ -498,6 +505,26 @@ test('all twenty administration categories have an explicit safe local destinati
     assert.ok(!('command' in result));
   }
   assert.throws(() => automaticPagePlan('unregistered-category'));
+});
+
+test('the editorial programme page plan only navigates and leaves its actions for manual review', async () => {
+  const programme = automaticPagePlan('programme');
+  assert.deepEqual(programme, {
+    key: 'programme',
+    pageId: 'programme',
+    adminUrl: '/admin/fundraiser/publications/programme',
+    reason: 'page:programme',
+    target: 'programme-brief',
+    state: 'action_required'
+  });
+  const f = fixture(programme);
+  f.state.presentResult = 'manual';
+  await f.run.start();
+  assert.equal(f.snapshot().phase, 'awaiting_confirmation');
+  assert.equal(f.calls('navigate').length, 1);
+  assert.equal(f.calls('navigate')[0].plan.adminUrl, programme.adminUrl);
+  assert.equal(f.calls('present').length, 1);
+  assert.equal(f.calls('present')[0].preparationId, undefined);
 });
 
 test('a local destination preserves its query and fragment without permitting another route or origin', () => {

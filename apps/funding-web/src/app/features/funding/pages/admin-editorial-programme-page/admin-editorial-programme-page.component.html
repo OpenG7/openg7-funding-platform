@@ -1,0 +1,79 @@
+<openg7-admin-layout>
+  <section class="programme-page" data-og7="publications-programme">
+    <a routerLink="/admin/fundraiser/publications" class="admin-link">
+      ← {{ 'admin.publications.back' | translate }}
+    </a>
+    <header>
+      <h1>{{ 'admin.pilotage.programme' | translate }}</h1>
+      <p>
+        <strong>{{ 'admin.modes.prepare' | translate }}</strong> ·
+        {{ 'admin.pilotage.programmeHelp' | translate }}
+      </p>
+    </header>
+    @if (error()) {
+      <div class="notice" role="alert">
+        {{ errorLabel(error()) }}
+        @if (!queue()) {
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="programme-retry-queue"
+            (click)="loadQueue()"
+            [disabled]="queueLoading() || busy()"
+          >
+            {{ 'admin.pilotage.refresh' | translate }}
+          </button>
+        }
+      </div>
+    }
+    @if (unresolved()) {
+      <section class="notice" role="status">
+        <p>{{ 'admin.pilotage.uncertain' | translate }}</p>
+        <button
+          class="admin-button"
+          type="button"
+          (click)="recover()"
+          [disabled]="busy()"
+        >
+          {{ 'admin.pilotage.checkReceipt' | translate }}
+        </button>
+        @if (receipt()?.status === 'uncertain' && queue()?.writable) {
+          <p>{{ 'admin.pilotage.incidentHelp' | translate }}</p>
+          <a routerLink="/admin/fundraiser/audit" class="admin-link">{{
+            'admin.pilotage.audit' | translate
+          }}</a>
+          <label for="programme-incident-reason">{{
+            'admin.pilotage.incidentReason' | translate
+          }}</label>
+          <textarea
+            id="programme-incident-reason"
+            [(ngModel)]="incidentReason"
+            minlength="10"
+            maxlength="500"
+          ></textarea>
+          <button
+            class="admin-button"
+            type="button"
+            (click)="acknowledgeIncident()"
+            [disabled]="busy() || incidentReason.trim().length < 10"
+          >
+            {{ 'admin.pilotage.acknowledgeIncident' | translate }}
+          </button>
+        }
+      </section>
+    }
+    @if (receipt()?.status === 'completed') {
+      <p class="notice" role="status" data-og7="pilot-receipt">
+        {{ 'admin.pilotage.receipts.' + receipt()?.code | translate }}
+      </p>
+    }
+    <openg7-editorial-programme
+      [queue]="queue()"
+      [disabled]="busy() || !!unresolved() || !queue()?.writable"
+      (command)="command($event)"
+      (review)="reviewDecision($event)"
+      (session)="startSession()"
+      (contextChanged)="controller.reset()"
+    />
+  </section>
+</openg7-admin-layout>

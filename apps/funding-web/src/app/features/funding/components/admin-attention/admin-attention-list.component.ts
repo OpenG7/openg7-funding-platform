@@ -82,7 +82,10 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
                 class="admin-button"
                 [routerLink]="destination(item)"
                 [attr.aria-label]="
-                  ('admin.attention.open' | translate) +
+                  ((decision(item)
+                    ? 'admin.attention.examineDecision'
+                    : 'admin.attention.open'
+                  ) | translate) +
                   ' · ' +
                   ('admin.attention.types.' + item.type | translate) +
                   ' · ' +
@@ -92,7 +95,11 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
                     '')
                 "
               >
-                {{ 'admin.attention.open' | translate
+                {{
+                  (decision(item)
+                    ? 'admin.attention.examineDecision'
+                    : 'admin.attention.open'
+                  ) | translate
                 }}<openg7-admin-icon name="arrow" />
               </a>
             }
@@ -136,10 +143,24 @@ export class AdminAttentionListComponent {
         }).format(new Date(value))
       : '';
   }
+  decision(item: AdminAttentionItem): boolean {
+    return (
+      item.type === 'sponsorship_needs_review' ||
+      item.type === 'email_delivery_failed'
+    );
+  }
   destination(item: AdminAttentionItem): UrlTree {
     const url = item.adminUrl?.startsWith('/admin/fundraiser/')
       ? item.adminUrl
       : '/admin/fundraiser/attention';
+    if (this.decision(item))
+      return this.router.createUrlTree(['/admin/fundraiser/pilotage'], {
+        queryParams: {
+          decisionId: item.id,
+          returnTo: this.returnTo(),
+          dossier: url
+        }
+      });
     const tree = this.router.parseUrl(url);
     tree.queryParams = { ...tree.queryParams, returnTo: this.returnTo() };
     return tree;

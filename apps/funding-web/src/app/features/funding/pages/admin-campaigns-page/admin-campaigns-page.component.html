@@ -89,41 +89,6 @@
             (input)="setFilter('search', $event)"
           />
         </label>
-        <label>
-          {{ t('filters.channel') }}
-          <select
-            data-og7="campaigns-channel"
-            (change)="setFilter('channel', $event)"
-          >
-            <option value="" [selected]="!filters().channel">
-              {{ t('filters.allChannels') }}
-            </option>
-            @for (channel of channels; track channel) {
-              <option
-                [value]="channel"
-                [selected]="filters().channel === channel"
-              >
-                {{ t('channels.' + channel) }}
-              </option>
-            }
-          </select>
-        </label>
-        <label>
-          {{ t('filters.target') }}
-          <select
-            data-og7="campaigns-target"
-            (change)="setFilter('target', $event)"
-          >
-            <option value="" [selected]="!filters().target">
-              {{ t('filters.allTargets') }}
-            </option>
-            @for (target of targets; track target) {
-              <option [value]="target" [selected]="filters().target === target">
-                {{ t('targets.' + target) }}
-              </option>
-            }
-          </select>
-        </label>
         <label class="workflow-state-field">
           {{ t('filters.state') }}
           <select
@@ -147,27 +112,22 @@
           </select>
         </label>
         <label>
-          {{ t('filters.sort') }}
+          {{ t('filters.channel') }}
           <select
-            data-og7="campaigns-sort"
-            (change)="setFilter('sort', $event)"
+            data-og7="campaigns-channel"
+            (change)="setFilter('channel', $event)"
           >
-            @for (sort of sorts; track sort) {
-              <option [value]="sort" [selected]="filters().sort === sort">
-                {{ t('sorts.' + sort) }}
+            <option value="" [selected]="!filters().channel">
+              {{ t('filters.allChannels') }}
+            </option>
+            @for (channel of channels; track channel) {
+              <option
+                [value]="channel"
+                [selected]="filters().channel === channel"
+              >
+                {{ t('channels.' + channel) }}
               </option>
             }
-          </select>
-        </label>
-        <label>
-          {{ t('filters.direction') }}
-          <select
-            data-og7="campaigns-direction"
-            [value]="filters().direction"
-            (change)="setFilter('direction', $event)"
-          >
-            <option value="desc">{{ t('directions.desc') }}</option>
-            <option value="asc">{{ t('directions.asc') }}</option>
           </select>
         </label>
         <button
@@ -177,6 +137,65 @@
         >
           <openg7-admin-icon name="search" />{{ t('filters.apply') }}
         </button>
+        <details
+          class="advanced-filters"
+          data-og7="campaigns-advanced-filters"
+          [open]="advancedFiltersActive()"
+        >
+          <summary data-og7="campaigns-advanced-toggle">
+            {{ t('filters.advanced') }}
+            @if (advancedFiltersActive()) {
+              <span class="advanced-active">{{
+                t('filters.advancedActive')
+              }}</span>
+            }
+          </summary>
+          <div class="advanced-fields">
+            <label>
+              {{ t('filters.target') }}
+              <select
+                data-og7="campaigns-target"
+                (change)="setFilter('target', $event)"
+              >
+                <option value="" [selected]="!filters().target">
+                  {{ t('filters.allTargets') }}
+                </option>
+                @for (target of targets; track target) {
+                  <option
+                    [value]="target"
+                    [selected]="filters().target === target"
+                  >
+                    {{ t('targets.' + target) }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label>
+              {{ t('filters.sort') }}
+              <select
+                data-og7="campaigns-sort"
+                (change)="setFilter('sort', $event)"
+              >
+                @for (sort of sorts; track sort) {
+                  <option [value]="sort" [selected]="filters().sort === sort">
+                    {{ t('sorts.' + sort) }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label>
+              {{ t('filters.direction') }}
+              <select
+                data-og7="campaigns-direction"
+                [value]="filters().direction"
+                (change)="setFilter('direction', $event)"
+              >
+                <option value="desc">{{ t('directions.desc') }}</option>
+                <option value="asc">{{ t('directions.asc') }}</option>
+              </select>
+            </label>
+          </div>
+        </details>
       </form>
 
       <section

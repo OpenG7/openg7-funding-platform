@@ -1,7 +1,8 @@
 {
   "serviceDemo": {
-    "title": "Service delivery",
-    "subtitle": "Find each file and its next intervention.",
+    "title": "Service delivery demo",
+    "subtitle": "Explore a fictional file and prepare a local draft.",
+    "exampleSummary": "{{count}} example files · Website and Facebook",
     "workspace": "Preparation workspace",
     "skip": "Skip to content",
     "demoTag": "Interactive demo",
@@ -19,7 +20,6 @@
     "comment": "Add an internal comment",
     "back": "Back",
     "backList": "Back to services",
-    "fixtureLabel": "3 demonstration files",
     "draftChanged": "Draft changed · in memory",
     "draftSaved": "Draft kept for this visit",
     "localOnly": "Local exploration only",
@@ -34,14 +34,6 @@
         "title": "Publication",
         "hint": "Destination and timing"
       }
-    },
-    "metrics": {
-      "total": "Files to follow",
-      "dossiers": "files",
-      "services": "Planned services",
-      "promised": "services",
-      "next": "Next interventions",
-      "interventions": "to explore"
     },
     "search": "Search files…",
     "resultCount": "{{count}} result(s)",
