@@ -8,10 +8,17 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  type UrlTree
+} from '@angular/router';
 import type {
   PilotAction,
   PilotCommand,
@@ -26,10 +33,6 @@ import { AdminGuideComponent } from '../../components/admin-guide/admin-guide.co
 import { PILOTAGE_GUIDE } from '../../components/admin-pilotage/pilotage-guides.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
-import {
-  EditorialProgrammeComponent,
-  type ProgrammeCommand
-} from '../../components/admin-pilotage/editorial-programme.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
@@ -62,8 +65,8 @@ import type {
   ControllerActionRequest,
   ControllerContext
 } from '../../models/context-controller.models.js';
+import { AdminPilotageCommandWorkflow } from '../../services/admin-pilotage-command-workflow.js';
 
-import { AdminPilotageCommandWorkflow } from './admin-pilotage-command-workflow.js';
 import { AdminPilotageReadController } from './admin-pilotage-read.controller.js';
 import {
   matchesControllerContext,
@@ -82,7 +85,6 @@ type Panel =
   | 'help'
   | 'settings'
   | 'incident'
-  | 'programme'
   | 'appearance';
 
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
@@ -103,7 +105,6 @@ type Panel =
     AdminLayoutComponent,
     AdminAutomaticPreparationDirective,
     FundingModerationActionsComponent,
-    EditorialProgrammeComponent,
     AdminGuideComponent,
     ContextControllerComponent,
     ContextControllerActionComponent,
@@ -144,9 +145,15 @@ export class AdminPilotagePageComponent {
     this.controller.reset();
   }
   private readonly guide = viewChild(AdminGuideComponent);
-  private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  readonly targetedDecision = signal(false);
+  readonly targetUnavailable = signal(false);
+  readonly targetDossier = signal<UrlTree | null>(null);
+  readonly targetReturn = signal<UrlTree | null>(null);
+  private requestedDecisionId = '';
+  private readonly pendingTarget = signal<string | null>(null);
   private releaseController: (() => void) | undefined;
   private confirmationFocusFrame = 0;
   readonly panel = signal<Panel>('');
@@ -217,8 +224,6 @@ export class AdminPilotagePageComponent {
     { id: 'publications', icon: 'publications' },
     { id: 'sponsors', icon: 'sponsors' },
     { id: 'email', icon: 'email' },
-    { id: 'invoices', icon: 'invoices' },
-    { id: 'contributions', icon: 'contributions' },
     { id: 'projects', icon: 'expenses' },
     { id: 'operations', icon: 'settings' }
   ];
@@ -427,6 +432,18 @@ export class AdminPilotagePageComponent {
 
   constructor() {
     effect(() => {
+      const id = this.pendingTarget();
+      if (id !== null && !this.busy())
+        untracked(() => {
+          this.pendingTarget.set(null);
+          if (id) void this.openTargetDecision(id);
+          else {
+            this.close();
+            void this.load(true);
+          }
+        });
+    });
+    effect(() => {
       this.inspection.current();
       this.controller.reset();
     });
@@ -447,41 +464,22 @@ export class AdminPilotagePageComponent {
         ) as { id?: string; domain?: string; page?: number } | null;
         if (saved?.domain && this.domains.some((d) => d.id === saved.domain))
           this.domain.set(saved.domain as PilotDomain);
-        this.reads.restoreSelection(
-          typeof saved?.id === 'string' ? saved.id : ''
-        );
+        if (!this.route.snapshot.queryParamMap.get('decisionId'))
+          this.reads.restoreSelection(
+            typeof saved?.id === 'string' ? saved.id : ''
+          );
         this.unresolved.set(
           storage.getItem(this.commands.receiptStorageKey()) ?? ''
         );
-        void this.load(
-          true,
-          Number.isSafeInteger(saved?.page) ? saved!.page! : 1
-        );
+        if (!this.route.snapshot.queryParamMap.get('decisionId'))
+          void this.load(
+            true,
+            Number.isSafeInteger(saved?.page) ? saved!.page! : 1
+          );
       } catch {
-        void this.load(true);
+        if (!this.route.snapshot.queryParamMap.get('decisionId'))
+          void this.load(true);
       }
-      this.releaseController = this.controller.attach(
-        (intent) => this.claimController(intent),
-        { priority: 100, keyboard: true }
-      );
-      let globalNavigation = this.globalNavigationActive();
-      let controllerZone = this.document.activeElement?.closest(
-        '[data-controller-zone]'
-      );
-      const focusChanged = () => {
-        const next = this.globalNavigationActive();
-        const nextZone = this.document.activeElement?.closest(
-          '[data-controller-zone]'
-        );
-        if (next !== globalNavigation || nextZone !== controllerZone)
-          this.controller.reset();
-        globalNavigation = next;
-        controllerZone = nextZone;
-      };
-      this.document.addEventListener('focusin', focusChanged);
-      destroy.onDestroy(() =>
-        this.document.removeEventListener('focusin', focusChanged)
-      );
       try {
         const saved = JSON.parse(
           this.document.defaultView!.sessionStorage.getItem(
@@ -504,6 +502,64 @@ export class AdminPilotagePageComponent {
       } catch {
         /* Optional session context. */
       }
+      this.route.queryParamMap
+        .pipe(takeUntilDestroyed(destroy))
+        .subscribe((params) => {
+          const id = params.get('decisionId') ?? '';
+          const returnTo = this.adminLink(params.get('returnTo'));
+          this.targetReturn.set(
+            returnTo ?? this.router.parseUrl('/admin/fundraiser/attention')
+          );
+          const dossier = this.adminLink(params.get('dossier'));
+          if (dossier && returnTo)
+            dossier.queryParams = {
+              ...dossier.queryParams,
+              returnTo: this.router.serializeUrl(returnTo)
+            };
+          this.targetDossier.set(dossier);
+          if (id && id !== this.requestedDecisionId) {
+            this.reads.invalidateReadContext();
+            this.requestedDecisionId = id;
+            this.pendingTarget.set(id);
+          } else if (!id && this.requestedDecisionId) {
+            this.reads.invalidateReadContext();
+            this.requestedDecisionId = '';
+            this.pendingTarget.set('');
+            this.targetedDecision.set(false);
+            this.targetUnavailable.set(false);
+          }
+          if (params.get('session') === '1') {
+            this.startSession();
+            void this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: { session: null },
+              queryParamsHandling: 'merge',
+              replaceUrl: true
+            });
+          }
+        });
+      this.releaseController = this.controller.attach(
+        (intent) => this.claimController(intent),
+        { priority: 100, keyboard: true }
+      );
+      let globalNavigation = this.globalNavigationActive();
+      let controllerZone = this.document.activeElement?.closest(
+        '[data-controller-zone]'
+      );
+      const focusChanged = () => {
+        const next = this.globalNavigationActive();
+        const nextZone = this.document.activeElement?.closest(
+          '[data-controller-zone]'
+        );
+        if (next !== globalNavigation || nextZone !== controllerZone)
+          this.controller.reset();
+        globalNavigation = next;
+        controllerZone = nextZone;
+      };
+      this.document.addEventListener('focusin', focusChanged);
+      destroy.onDestroy(() =>
+        this.document.removeEventListener('focusin', focusChanged)
+      );
       const sessionTimer = setInterval(
         () =>
           this.sessionElapsed.set(
@@ -568,8 +624,41 @@ export class AdminPilotagePageComponent {
       this.document.getElementById('admin-main')?.focus();
     }
   }
-  programmeCommand(command: ProgrammeCommand): void {
-    void this.commands.send(command);
+  private async openTargetDecision(id: string): Promise<void> {
+    this.reads.invalidateReadContext();
+    this.close();
+    this.targetedDecision.set(true);
+    this.targetUnavailable.set(false);
+    this.reads.restoreSelection('');
+    this.domain.set('');
+    this.choose(null);
+    this.state.set(null);
+    this.loading.set(true);
+    const snapshot = await this.reads.lookup(id);
+    if (this.requestedDecisionId !== id) return;
+    const decision = snapshot?.decisions.find((item) => item.id === id);
+    if (snapshot && decision) {
+      const focused = await this.reads.focusDecision(snapshot, decision, '');
+      if (this.requestedDecisionId !== id) return;
+      if (focused) this.document.getElementById('admin-main')?.focus();
+      else this.targetUnavailable.set(true);
+    } else {
+      this.targetUnavailable.set(true);
+    }
+    this.loading.set(false);
+  }
+  private adminLink(value: string | null): UrlTree | null {
+    if (
+      !value ||
+      !/^\/admin\/fundraiser(?:\/|\?|$)/.test(value) ||
+      value.includes('\\')
+    )
+      return null;
+    try {
+      return this.router.parseUrl(value);
+    } catch {
+      return null;
+    }
   }
   t(key: string): string {
     return this.i18n.t('admin.pilotage.' + key);
@@ -607,6 +696,10 @@ export class AdminPilotagePageComponent {
     return translated !== existing ? translated : this.t('errors.generic');
   }
   async load(replace = false, page = this.state()?.page ?? 1): Promise<void> {
+    if (this.targetedDecision() && !this.selected()) {
+      if (replace) await this.openTargetDecision(this.requestedDecisionId);
+      return;
+    }
     if (replace) await this.replaceRead(this.reads.load(true, page));
     else await this.reads.load(false, page);
   }
@@ -927,7 +1020,7 @@ export class AdminPilotagePageComponent {
       active?.matches('input,textarea,select')
     )
       return false;
-    if (this.guideActive() || this.programme()?.guide()?.active()) {
+    if (this.guideActive()) {
       this.intent(intent);
       return true;
     }
@@ -968,11 +1061,7 @@ export class AdminPilotagePageComponent {
       }
       return;
     }
-    if (
-      this.guide()?.handleIntent(intent) ||
-      this.programme()?.guide()?.handleIntent(intent)
-    )
-      return;
+    if (this.guide()?.handleIntent(intent)) return;
     // The shared navigation and search own their focus; cockpit shortcuts
     // must never act on a decision while the user is using those controls.
     if (this.globalNavigationActive()) {

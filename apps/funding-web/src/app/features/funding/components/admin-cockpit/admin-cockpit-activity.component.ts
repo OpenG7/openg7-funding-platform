@@ -29,6 +29,11 @@ import { createCockpitBlock } from './cockpit-block.js';
         <h2 id="cockpit-activity-title">
           {{ 'admin.cockpit.activity' | translate }}
         </h2>
+        @if (showContributionsLink()) {
+          <a routerLink="/admin/fundraiser/contributions">{{
+            'admin.nav.contributions' | translate
+          }}</a>
+        }
         <openg7-admin-cockpit-status
           [state]="block.state()"
           [stale]="block.stale()"
@@ -89,6 +94,7 @@ import { createCockpitBlock } from './cockpit-block.js';
 export class AdminCockpitActivityComponent {
   readonly refreshKey = input(0);
   readonly refreshLabel = input<string | null>(null);
+  readonly showContributionsLink = input(false);
   readonly block = createCockpitBlock('activity', this.refreshKey);
   readonly router = inject(Router);
   readonly i18n = inject(FundingI18nService);

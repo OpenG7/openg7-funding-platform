@@ -112,6 +112,11 @@
     >
       <section class="intro" data-og7="pilot-intro">
         <div class="intro-copy">
+          @if (targetedDecision() && !targetUnavailable()) {
+            <a [routerLink]="targetReturn()" data-og7="pilot-target-return"
+              >← {{ t('backToQueue') }}</a
+            >
+          }
           <p class="eyebrow">
             <span class="eyebrow-mark" aria-hidden="true"></span>
             {{ t('fund') }} <span aria-hidden="true">/</span>
@@ -126,17 +131,18 @@
           </p>
         </div>
         <div class="intro-actions">
-          <button
-            type="button"
+          <a
             class="programme-button"
             data-og7="open-programme"
-            (click)="open('programme')"
-            [disabled]="busy()"
+            [routerLink]="
+              busy() ? null : '/admin/fundraiser/publications/programme'
+            "
+            [attr.aria-disabled]="busy() || null"
           >
             <openg7-admin-icon name="clock" />
             {{ t('programme') }}
             <openg7-admin-icon name="arrow" />
-          </button>
+          </a>
           <openg7-admin-guide
             guideId="pilotage"
             [accountId]="admin.identity()?.id ?? 'token'"
@@ -218,13 +224,21 @@
           <dd>{{ metrics().decisions }}</dd>
           <dd class="stat-context">{{ t('duringVisit') }}</dd>
         </div>
-        <div class="overview-stat stat-details">
-          <dt><openg7-admin-icon name="search" />{{ t('detailsOpened') }}</dt>
-          <dd>{{ metrics().details }}</dd>
-          <dd class="stat-context">{{ t('duringVisit') }}</dd>
-        </div>
       </dl>
       <div class="announcements" aria-live="polite" aria-atomic="true">
+        @if (targetUnavailable()) {
+          <p class="alert" data-og7="pilot-target-unavailable">
+            {{ t('targetUnavailable') }}
+            @if (targetDossier(); as dossier) {
+              <a [routerLink]="dossier">{{
+                i18n.t('admin.programme.openDossier')
+              }}</a>
+            }
+            <a [routerLink]="targetReturn()" data-og7="pilot-target-return">{{
+              t('backToQueue')
+            }}</a>
+          </p>
+        }
         @if (sessionStart()) {
           <p class="alert">
             {{ t('fiveMinutes') }} · {{ sessionElapsed() }} min ·
@@ -621,7 +635,6 @@
 </openg7-admin-layout>
 
 <openg7-admin-drawer
-  [wide]="panel() === 'programme'"
   [fixedFooter]="panel() === 'details'"
   [opened]="!!panel()"
   [title]="t(panel() || 'details')"
@@ -636,15 +649,6 @@
         [resolved]="appearance.resolved()"
         [storageUnavailable]="appearance.storageUnavailable()"
         (changed)="appearance.update($event); controller.reset()"
-      />
-    } @else if (panel() === 'programme') {
-      <openg7-editorial-programme
-        [queue]="state()"
-        [disabled]="busy() || !!unresolved() || !state()?.writable"
-        (command)="programmeCommand($event)"
-        (review)="reviewDecision($event)"
-        (session)="startSession()"
-        (contextChanged)="controller.reset()"
       />
     }
     @if (panel() === 'incident') {

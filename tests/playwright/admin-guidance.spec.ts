@@ -35,6 +35,7 @@ const automaticWorkspaces = [
   ['campaigns', '/campaigns'],
   ['invoices', '/invoices'],
   ['publications', '/publications'],
+  ['programme', '/publications/programme'],
   ['drafts', '/publications/drafts'],
   ['batches', '/publications/batches'],
   ['calendar', '/publications/calendar'],
@@ -47,10 +48,10 @@ const automaticWorkspaces = [
 ] as const;
 const generatedAt = '2026-10-14T12:00:00Z';
 
-for (const [locale, theme, width, height] of [
-  ['fr-CA', 'mineral', 1536, 864],
-  ['en', 'night', 390, 667],
-  ['fr-CA', 'graphite', 390, 844]
+for (const [locale, theme, width, height, sourcePath] of [
+  ['fr-CA', 'mineral', 1536, 864, dashboardPath],
+  ['en', 'night', 390, 667, attentionPath],
+  ['fr-CA', 'graphite', 390, 844, dashboardPath + '/setup']
 ] as const) {
   test(`the guide keeps discovery and service delivery usable in ${locale} ${theme} at ${width} by ${height}`, async ({
     page
@@ -68,7 +69,7 @@ for (const [locale, theme, width, height] of [
     }, theme);
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto(dashboardPath);
+    await page.goto(sourcePath);
     const guide = page.locator('[data-og7="admin-guidance"]');
     const guideName =
       locale === 'en'
@@ -76,20 +77,25 @@ for (const [locale, theme, width, height] of [
         : 'Guide administratif OpenG7';
     const openGuideName =
       locale === 'en' ? 'Administrative guide' : 'Guide administratif';
-    await expect(guide).toHaveAccessibleName(guideName);
-    await expect(hook(page, 'toggle')).toHaveAccessibleName(openGuideName);
-    await hook(page, 'toggle').click();
+    await expect(shellGuide(page)).toHaveAccessibleName('Guide');
+    await expect(hook(page, 'toggle')).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: openGuideName, exact: true })
+    ).toHaveCount(0);
+    await shellGuide(page).click();
     await expect(guide).toHaveAccessibleName(guideName);
     await expect(hook(page, 'toggle')).toHaveAccessibleName(
       locale === 'en' ? 'Collapse the guide' : 'Réduire le guide'
     );
     await hook(page, 'toggle').click();
-    await expect(guide).toHaveAccessibleName(guideName);
-    await expect(hook(page, 'toggle')).toHaveAccessibleName(openGuideName);
-    await hook(page, 'toggle').click();
+    await expect(guide).toBeHidden();
+    await expect(hook(page, 'toggle')).toBeHidden();
+    await expect(shellGuide(page)).toBeFocused();
+    await shellGuide(page).press('Enter');
+    await expect(hook(page, 'discovery-mode')).toBeFocused();
     const discoveryLabel = locale === 'en' ? 'Discover' : 'Découvrir';
     const serviceDeliveryLabel =
-      locale === 'en' ? 'Service delivery' : 'Prestations';
+      locale === 'en' ? 'Services demo' : 'Prestations en démo';
     const modes = hook(page, 'modes');
     await expect(modes.getByRole('button')).toHaveCount(2);
     await expect(hook(page, 'discovery-mode')).toHaveAccessibleName(
@@ -168,7 +174,7 @@ for (const [locale, width, height, sourcePath] of [
     const sourceUrl = page.url();
     const main = await page.locator('#admin-main').elementHandle();
     expect(main).not.toBeNull();
-    await hook(page, 'toggle').click();
+    await shellGuide(page).click();
     await expect(hook(page, 'panel')).toBeVisible();
     const guide = page.locator('[data-og7="admin-guidance"]');
     const initialBounds = await guide.boundingBox();
@@ -182,7 +188,7 @@ for (const [locale, width, height, sourcePath] of [
     };
     const entry = hook(page, 'service-delivery-mode');
     await expect(entry).toHaveAccessibleName(
-      locale === 'en' ? 'Service delivery' : 'Prestations'
+      locale === 'en' ? 'Services demo' : 'Prestations en démo'
     );
     await entry.focus();
     await page.keyboard.press('Enter');
@@ -203,7 +209,10 @@ for (const [locale, width, height, sourcePath] of [
     ).toBeVisible();
     await expect(
       page.getByRole('heading', {
-        name: locale === 'en' ? 'Service delivery' : 'Prestations de services',
+        name:
+          locale === 'en'
+            ? 'Service delivery demo'
+            : 'Démonstration des prestations',
         exact: true
       })
     ).toBeVisible();
@@ -299,7 +308,7 @@ function embeddedFeature(page: Page): Locator {
 
 async function openEmbeddedDelivery(page: Page, path = dashboardPath) {
   await page.goto(path);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await hook(page, 'service-delivery-mode').click();
   await expect(embeddedFeature(page)).toBeVisible();
   await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
@@ -408,7 +417,7 @@ if (!SERVICE_DELIVERY_TOUR_ENABLED) {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(dashboardPath);
       const sourceUrl = page.url();
-      await hook(page, 'toggle').click();
+      await shellGuide(page).click();
       await expectDiscoveryHub(page);
       for (const control of ['play', 'pause', 'stop']) {
         await expect(hook(page, 'tour-' + control)).toBeHidden();
@@ -475,7 +484,7 @@ if (SERVICE_DELIVERY_TOUR_ENABLED) {
     const f = await fixtures(page);
     await page.goto(`${dashboardPath}?contributionId=${paymentId}#guided-tour`);
     const sourceUrl = page.url();
-    await hook(page, 'toggle').click();
+    await shellGuide(page).click();
     await expectDiscoveryHub(page);
     await expect(embeddedFeature(page)).toHaveCount(0);
     await hook(page, 'tour-play').focus();
@@ -693,7 +702,8 @@ if (SERVICE_DELIVERY_TOUR_ENABLED) {
     await hook(page, 'toggle').click();
     await settleTourView(page);
     await page.clock.fastForward(40_000);
-    await hook(page, 'toggle').click();
+    await shellGuide(page).click();
+    await hook(page, 'service-delivery-mode').click();
     await settleTourView(page);
     await expectTourScreen(page, 'dossier');
     await expect(hook(page, 'tour-status')).toHaveAttribute(
@@ -760,7 +770,10 @@ if (SERVICE_DELIVERY_TOUR_ENABLED) {
     await freezeTourTime(page);
     const selectDossier = async (id: string) => {
       await feature
-        .getByRole('link', { name: 'Prestations de services', exact: true })
+        .getByRole('link', {
+          name: 'Démonstration des prestations',
+          exact: true
+        })
         .click();
       await settleTourView(page);
       await feature
@@ -893,7 +906,7 @@ if (SERVICE_DELIVERY_TOUR_ENABLED) {
     f.accountId = 'guidance-tour-owner-b';
     await page.unroute('**/api/admin/dashboard');
     await page.goto(dashboardPath);
-    await hook(page, 'toggle').click();
+    await shellGuide(page).click();
     await expect(hook(page, 'tour-status')).toHaveAttribute(
       'data-og7-state',
       'stopped'
@@ -944,7 +957,7 @@ test('the embedded draft survives discovery and guide collapse without intercept
   expect(await originalEditor!.evaluate((node) => node.isConnected)).toBe(true);
 
   expect(await saveOutside()).toBe(false);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await hook(page, 'service-delivery-mode').click();
   await expect(editor).toHaveValue(draft);
   await expect(
@@ -985,7 +998,7 @@ test('a collapsed embedded draft still warns before a browser reload', async ({
   const dialog = await nativeDialog;
   expect(dialog.type()).toBe('beforeunload');
   await dialog.dismiss();
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await hook(page, 'service-delivery-mode').click();
   await expect(editor).toHaveValue(draft);
   await expect(page).toHaveURL(dashboardPath);
@@ -1022,8 +1035,7 @@ test('administrative navigation protects an embedded draft and clears it only af
   await confirmation.locator('[data-og7="service-demo-exit-confirm"]').click();
   await expect(page).toHaveURL(attentionPath);
   await expect(embeddedFeature(page)).toHaveCount(0);
-  if (!(await hook(page, 'panel').isVisible()))
-    await hook(page, 'toggle').click();
+  if (!(await hook(page, 'panel').isVisible())) await shellGuide(page).click();
   await hook(page, 'service-delivery-mode').click();
   await expect(page.locator('[data-og7="service-demo-list"]')).toBeVisible();
   await expect(
@@ -1233,6 +1245,10 @@ function hook(page: Page, name: string) {
   return page.locator(`[data-og7="admin-guidance-${name}"]`);
 }
 
+function shellGuide(page: Page) {
+  return page.locator('[data-og7="admin-shell-guide"]');
+}
+
 function paymentHook(page: Page, name: string) {
   return page.locator(`[data-og7="payment-journey-${name}"]`);
 }
@@ -1242,11 +1258,11 @@ function automaticHook(page: Page, name: string) {
 }
 
 async function openAutomatic(page: Page) {
-  await expect(hook(page, 'toggle')).toBeVisible();
+  await expect(shellGuide(page)).toBeVisible();
   if (new URL(page.url()).searchParams.has('paymentJourney'))
     await expect(hook(page, 'panel')).toBeVisible();
   else if (!(await hook(page, 'panel').isVisible()))
-    await hook(page, 'toggle').click();
+    await shellGuide(page).click();
   // The payment link has already restored its bookmark. The next load exercises
   // the retained preparation preference rather than following that link again.
   await page.evaluate(() => {
@@ -1649,7 +1665,7 @@ test('an invalid payment identifier is ignored and following payments stays opti
 }) => {
   const fixture = await fixtures(page);
   await page.goto(`${dashboardPath}?paymentJourney=private@example.test`);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await restoreLegacyGuideMode(page, 'payment');
   await expect(paymentHook(page, 'state')).toHaveAttribute(
     'data-og7-id',
@@ -1695,9 +1711,10 @@ test('a payment bookmark belongs to its signed-in account and revoked sessions c
   await expect(paymentHook(page, 'complete')).toBeVisible();
   fixture.accountId = 'guidance-owner-b';
   await page.goto(attentionPath);
-  await expect(hook(page, 'toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(shellGuide(page)).toHaveAttribute('aria-expanded', 'false');
+  await expect(hook(page, 'toggle')).toBeHidden();
   expect(await stored(page, fixture.accountId)).toBeNull();
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await restoreLegacyGuideMode(page, 'payment');
   await expect(paymentHook(page, 'state')).toHaveAttribute(
     'data-og7-id',
@@ -1968,20 +1985,21 @@ async function forget(page: Page) {
   await hook(page, 'forget').click();
 }
 
-test('discovery opens from the keyboard with a local activity workspace and no automatic focus transfer', async ({
+test('the shell Guide opens discovery from the keyboard and focuses its mode control', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
-  const toggle = hook(page, 'toggle');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  const guide = shellGuide(page);
+  await expect(guide).toHaveAttribute('aria-expanded', 'false');
+  await expect(hook(page, 'toggle')).toBeHidden();
   await expect(hook(page, 'panel')).toHaveCount(0);
-  await toggle.focus();
+  await guide.focus();
   await page.keyboard.press('Enter');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(guide).toHaveAttribute('aria-expanded', 'true');
   await expectDiscoveryHub(page);
-  await expect(toggle).toBeFocused();
   const discovery = hook(page, 'discovery-mode');
+  await expect(discovery).toBeFocused();
   await discovery.focus();
   await page.keyboard.press('Enter');
   await expectDiscoveryHub(page);
@@ -2027,7 +2045,7 @@ test('collapsing discovery preserves preferences and stays collapsed after reloa
 }) => {
   await fixtures(page);
   await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   const retained = (await stored(page)).bookmark;
   await hook(page, 'toggle').click();
@@ -2035,7 +2053,7 @@ test('collapsing discovery preserves preferences and stays collapsed after reloa
   await page.reload();
   await expect(hook(page, 'panel')).toHaveCount(0);
   expect(await stored(page)).toEqual({ enabled: false, bookmark: retained });
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   expect((await stored(page)).bookmark).toEqual(retained);
 });
@@ -2060,9 +2078,10 @@ test('discovery preferences remain isolated between signed-in accounts', async (
   const retained = await stored(page);
   fixture.accountId = 'guidance-owner-b';
   await page.reload();
-  await expect(hook(page, 'toggle')).toBeVisible();
+  await expect(hook(page, 'toggle')).toBeHidden();
+  await expect(shellGuide(page)).toBeVisible();
   await expect(hook(page, 'panel')).toHaveCount(0);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   expect((await stored(page, fixture.accountId)).enabled).toBe(true);
   expect(await stored(page)).toEqual(retained);
@@ -2098,7 +2117,7 @@ test('blocked persistence leaves discovery usable during in-app navigation', asy
     };
   }, storagePrefix);
   await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   await navigate(page, attentionPath);
   await expectDiscoveryHub(page);
@@ -2110,7 +2129,7 @@ test('a retained payment mode keeps its storage warning after a refused write an
   page
 }) => {
   const fixture = await fixtures(page);
-  await page.goto(dashboardPath);
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
   await restoreLegacyGuideMode(page, 'payment');
   await page.evaluate((prefix) => {
     const set = Storage.prototype.setItem;
@@ -2120,13 +2139,11 @@ test('a retained payment mode keeps its storage warning after a refused write an
       return set.call(this, key, value);
     };
   }, storagePrefix);
-  await hook(page, 'toggle').click();
-  await expect(hook(page, 'panel')).toBeHidden();
-  await hook(page, 'toggle').click();
+  await paymentHook(page, 'pause').click();
   await expect(hook(page, 'storage-warning')).toBeVisible();
   await hook(page, 'discovery-mode').click();
   await expectDiscoveryHub(page);
-  expect(fixture.paymentRequests).toEqual([]);
+  expect(new Set(fixture.paymentRequests)).toEqual(new Set([paymentId]));
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -2147,12 +2164,13 @@ test('failed erasure from another mode remains disclosed outside the discovery w
   }, storagePrefix);
   await forget(page);
   await expect(hook(page, 'panel')).toHaveCount(0);
+  await expect(hook(page, 'toggle')).toBeHidden();
   await expect(
     page.locator('[data-og7="admin-guidance"]').getByRole('status')
   ).toContainText('peut réapparaître au rechargement');
-  await expect(hook(page, 'toggle')).toBeFocused();
+  await expect(shellGuide(page)).toBeFocused();
   expect(await stored(page)).toEqual(retained);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   expect(fixture.mutations).toEqual([]);
 });
@@ -2162,7 +2180,7 @@ test('revoking a session removes the discovery workspace panel before another ac
 }) => {
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   const retained = await stored(page);
   fixture.signedIn = false;
@@ -2178,7 +2196,8 @@ test('revoking a session removes the discovery workspace panel before another ac
   fixture.accountId = 'guidance-owner-b';
   await page.unroute('**/api/admin/dashboard');
   await page.goto(dashboardPath);
-  await expect(hook(page, 'toggle')).toBeVisible();
+  await expect(hook(page, 'toggle')).toBeHidden();
+  await expect(shellGuide(page)).toBeVisible();
   await expect(hook(page, 'panel')).toHaveCount(0);
   expect(await stored(page, fixture.accountId)).toBeNull();
   expect(fixture.mutations).toEqual([]);
@@ -2213,7 +2232,7 @@ for (const [name, invalid] of [
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(dashboardPath);
       await expect(hook(page, 'panel')).toHaveCount(0);
-      await hook(page, 'toggle').click();
+      await shellGuide(page).click();
       await expectDiscoveryHub(page);
       expect((await stored(page)).enabled).toBe(true);
       expect(errors).toEqual([]);
@@ -2234,7 +2253,7 @@ for (const language of ['fr-CA', 'en']) {
         await page.setViewportSize({ width, height: 480 });
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(dashboardPath);
-        await hook(page, 'toggle').click();
+        await shellGuide(page).click();
         await expectDiscoveryHub(page);
         const discovery = hook(page, 'discovery-mode');
         await discovery.focus();
@@ -2269,7 +2288,7 @@ for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 480 });
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto(dashboardPath);
-      await hook(page, 'toggle').click();
+      await shellGuide(page).click();
       await expectDiscoveryHub(page);
       const card = page.locator('[data-og7="admin-guidance"]');
       await expect(card).not.toHaveCSS('animation-name', 'none');
@@ -2343,15 +2362,28 @@ test('discovery workspace remains available in Pilotage concentration without re
   const controller = adminController(page);
   await controller.ready();
   // Pilotage owns navigation until the shared guide is explicitly selected.
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   await expectDiscoveryHub(page);
   const retained = (await stored(page)).bookmark;
   await controller.activate(hook(page, 'toggle'));
   const concentration = page.locator('[data-og7="pilot-focus"]');
   await concentration.click();
   await expect(concentration).toHaveAttribute('aria-pressed', 'true');
-  // Select the shared guide before using its global controller shortcut.
-  await hook(page, 'toggle').focus();
+  await expect(shellGuide(page)).toBeHidden();
+  // The visible controller cue selects the shared controls while the header is hidden.
+  const controllerCue = page.locator('[data-og7="controller-menu-open"]');
+  await expect(controllerCue).toBeVisible();
+  await controllerCue.focus();
+  await controller.release();
+  await controller.press('Y');
+  await expectDiscoveryHub(page);
+  await expect(hook(page, 'toggle')).toBeFocused();
+  expect((await stored(page)).bookmark).toEqual(retained);
+  await controller.activate(hook(page, 'toggle'));
+  await expect(hook(page, 'panel')).toBeHidden();
+  await expect(page.locator('#admin-main')).toBeFocused();
+  await expect(shellGuide(page)).toBeHidden();
+  await controllerCue.focus();
   await controller.release();
   await controller.press('Y');
   await expectDiscoveryHub(page);
@@ -2359,6 +2391,7 @@ test('discovery workspace remains available in Pilotage concentration without re
   expect((await stored(page)).bookmark).toEqual(retained);
   await controller.press('B');
   await expect(hook(page, 'panel')).toBeHidden();
+  await expect(page.locator('#admin-main')).toBeFocused();
   await expect(concentration).toHaveAttribute('aria-pressed', 'true');
   expect(fixture.mutations).toEqual([]);
 });
@@ -2558,7 +2591,7 @@ test('all protected admin workspaces retain guidance, including unavailable data
   test.setTimeout(90000);
   const fixture = await fixtures(page);
   await page.goto(dashboardPath);
-  await hook(page, 'toggle').click();
+  await shellGuide(page).click();
   for (const suffix of [
     '',
     '/pilotage',
@@ -2571,6 +2604,7 @@ test('all protected admin workspaces retain guidance, including unavailable data
     '/campaigns',
     '/invoices',
     '/publications',
+    '/publications/programme',
     '/publications/drafts',
     '/publications/batches',
     '/publications/calendar',
@@ -3141,7 +3175,7 @@ test('automatic preparation can start and pause through the shared simulated Xbo
   await page.goto(dashboardPath);
   const controller = adminController(page);
   await controller.ready();
-  await controller.activate(hook(page, 'toggle'));
+  await controller.activate(shellGuide(page));
   await restoreLegacyGuideMode(page, 'automatic');
   await controller.ready();
   await controller.activate(

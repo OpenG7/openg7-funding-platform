@@ -511,6 +511,32 @@ test('media ownership releases URLs and ignores older success and failure after 
   );
 });
 
+test('a targeted context invalidates a previous global read before selecting its exact dossier', async () => {
+  const f = fixture();
+  const lateGlobal = deferred();
+  const target = decision('target');
+  let first = true;
+  f.ports.admin.pilotage = async () => {
+    if (first) {
+      first = false;
+      return lateGlobal.promise;
+    }
+    return snapshot([target]);
+  };
+  const previous = f.read.load(true);
+  f.read.invalidateReadContext();
+  const targeted = await f.read.lookup(target.id);
+  assert.equal(await f.read.focusDecision(targeted, target, ''), true);
+  lateGlobal.resolve(snapshot([decision('unrelated')]));
+  assert.equal(await previous, false);
+  assert.equal(f.read.selected().id, target.id);
+  assert.deepEqual(
+    f.read.state().decisions.map((item) => item.id),
+    [target.id]
+  );
+  assert.equal(f.read.loading(), false);
+});
+
 test('a current media failure is explicit and a dossier without media clears the fallback', async () => {
   const f = fixture();
   const pending = deferred();

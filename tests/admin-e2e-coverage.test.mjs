@@ -130,10 +130,58 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 22);
+  assert.equal(discovered.length, 23);
   assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
   assert.ok(discovered.includes('/admin/fundraiser/sponsors/quality'));
   assert.ok(discovered.includes('/admin/fundraiser/publications/calendar'));
+  assert.ok(discovered.includes('/admin/fundraiser/publications/programme'));
+  const nginx = readFileSync('apps/funding-web/nginx.conf', 'utf8');
+  const location = nginx
+    .split('\n')
+    .find((line) => line.trimStart().startsWith('location ~ ^/(?:admin/'));
+  assert.ok(
+    location,
+    'production client routes must have an explicit Nginx location'
+  );
+  const expression = new RegExp(
+    location.trim().slice('location ~ '.length, -' {'.length)
+  );
+  for (const route of discovered.filter(
+    (route) => route !== '/admin/oidc-setup'
+  )) {
+    assert.ok(
+      expression.test(route),
+      `Nginx must serve the declared route ${route}`
+    );
+    assert.ok(
+      expression.test(route + '/'),
+      `Nginx must allow a trailing slash for ${route}`
+    );
+    assert.equal(
+      expression.test(route + '/unknown-descendant'),
+      false,
+      `unknown descendants of ${route} keep their 404`
+    );
+  }
+  const coverage = JSON.parse(
+    readFileSync('tests/admin-e2e-coverage.json', 'utf8')
+  );
+  assert.deepEqual([...coverage.routes].sort(), [...discovered].sort());
+  assert.ok(
+    coverage.guarantees.some(
+      (guarantee) =>
+        guarantee.routes.includes('/admin/fundraiser/publications/programme') &&
+        guarantee.evidence.some(
+          (proof) =>
+            proof.level === 'e2e' &&
+            proof.file ===
+              'tests/identity/editorial-programme-journey.spec.ts' &&
+            proof.title ===
+              'weekly programme: preview, discard, stale plan, lost response, renewed approval and expired session'
+        )
+    ),
+    'the editorial programme route retains its real role, confirmation and receipt journey'
+  );
   const extra = source.replace(
     "path: 'fundraiser/access'",
     "path: 'fundraiser/new-capability'"

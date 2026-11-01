@@ -4,26 +4,16 @@ import {
   Component,
   OnInit,
   PLATFORM_ID,
-  computed,
   inject,
   signal
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type {
-  AdminContributionRecord,
-  AdminDashboardResponse
-} from '@openg7/funding-core';
+import type { AdminDashboardResponse } from '@openg7/funding-core';
 
-import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
-import { AdminCelebrationsComponent } from '../../components/admin-celebrations/admin-celebrations.component.js';
-import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminAttentionPanelComponent } from '../../components/admin-attention/admin-attention-panel.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import {
-  AdminBadgeComponent,
-  type AdminBadgeTone
-} from '../../components/admin-ui/admin-badge.component.js';
+import { AdminBadgeComponent } from '../../components/admin-ui/admin-badge.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminCockpitMetricsComponent } from '../../components/admin-cockpit/admin-cockpit-metrics.component.js';
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
@@ -39,9 +29,6 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   selector: 'openg7-admin-dashboard-page',
   standalone: true,
   imports: [
-    AdminAssistantContextComponent,
-    AdminCelebrationsComponent,
-    AdminSponsorshipProgressComponent,
     RouterLink,
     TranslatePipe,
     AdminLayoutComponent,
@@ -67,15 +54,11 @@ export class AdminDashboardPageComponent implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   readonly i18n = inject(FundingI18nService);
   readonly attentionRefresh = signal(0);
-  readonly currentSponsorshipId = signal<string | undefined>(undefined);
   readonly dashboard = signal<AdminDashboardResponse | null>(null);
   readonly readError = signal('');
   readonly state = signal<
     'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable'
   >('idle');
-  readonly recentContributions = computed(
-    () => this.dashboard()?.recent_contributions ?? []
-  );
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) void this.loadDashboard();
@@ -123,51 +106,6 @@ export class AdminDashboardPageComponent implements OnInit {
         this.state.set('error');
       }
     }
-  }
-
-  contributionTypeLabel(contribution: AdminContributionRecord): string {
-    return this.i18n.t(
-      contribution.contribution_type === 'sponsorship_interest'
-        ? 'admin.dashboard.sponsorship'
-        : 'admin.dashboard.contribution'
-    );
-  }
-
-  displayName(contribution: AdminContributionRecord): string {
-    return (
-      contribution.sponsor_company_name ||
-      contribution.public_name ||
-      this.i18n.t('admin.dashboard.unnamed')
-    );
-  }
-
-  paymentLabel(status: string): string {
-    const known = [
-      'paid',
-      'pending',
-      'refunded',
-      'failed',
-      'disputed',
-      'cancelled',
-      'expired'
-    ];
-    return this.i18n.t(
-      'admin.dashboard.payment.' + (known.includes(status) ? status : 'unknown')
-    );
-  }
-
-  paymentTone(status: string): AdminBadgeTone {
-    if (status === 'paid') return 'success';
-    if (status === 'disputed' || status === 'failed') return 'danger';
-    if (status === 'pending') return 'warning';
-    return 'neutral';
-  }
-
-  formatMoney(amount: number, currency: string): string {
-    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
-      style: 'currency',
-      currency
-    }).format(amount);
   }
 
   formatCount(count: number): string {

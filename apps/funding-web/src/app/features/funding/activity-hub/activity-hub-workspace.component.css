@@ -1086,6 +1086,11 @@ progress::-moz-progress-bar {
   padding: 0;
 }
 
+.embedded .demo-footer,
+.embedded .scenario-tools {
+  padding-inline: 16px;
+}
+
 .embedded-section-nav {
   display: flex;
   flex-wrap: wrap;

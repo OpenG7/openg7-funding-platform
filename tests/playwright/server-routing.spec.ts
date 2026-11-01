@@ -8,6 +8,7 @@ test('Nginx serves known routes and returns localized HTTP 404 documents for unk
     '/en/fonds-des-batisseurs',
     '/admin/login',
     '/admin/oidc-setup',
+    '/admin/fundraiser/publications/programme',
     '/fonds-des-batisseurs/suivi-commandite'
   ]) {
     expect((await request.get(path)).status(), path).toBe(200);
@@ -16,6 +17,7 @@ test('Nginx serves known routes and returns localized HTTP 404 documents for unk
     '/missing-public-page',
     '/en/missing-public-page',
     '/admin/missing-page',
+    '/admin/fundraiser/publications/programme/missing-page',
     '/404',
     '/en/404'
   ]) {

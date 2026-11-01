@@ -242,31 +242,6 @@
       padding: 14px;
     }
 
-    .metrics article {
-      grid-template-columns: 18px minmax(0, 1fr);
-      column-gap: 6px;
-      padding: 12px 8px;
-    }
-
-    .metric-icon {
-      grid-row: 1 / 3;
-      width: 18px;
-      height: 18px;
-    }
-
-    .metrics strong {
-      grid-column: 2;
-      display: block;
-      margin-top: 5px;
-      font-size: 24px;
-      white-space: normal;
-    }
-
-    .metrics article > span,
-    .metrics small {
-      font-size: 11px;
-    }
-
     .list-result-summary {
       width: 100%;
       justify-content: space-between;
@@ -309,16 +284,5 @@
     openg7-service-demo-help {
       margin-inline: 12px;
     }
-  }
-}
-
-@container service-delivery (max-width: 26rem) {
-  .service-delivery-embedded .service-demo.embedded .metrics {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .service-delivery-embedded .service-demo.embedded .metrics article + article {
-    border-inline-start: 0;
-    border-top: 1px solid #e3ebf5;
   }
 }

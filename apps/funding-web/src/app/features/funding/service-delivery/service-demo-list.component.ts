@@ -60,7 +60,6 @@ export class ServiceDemoListComponent {
         : DEMO_DOSSIERS.filter((dossier) => dossier.stage === id).length
   }));
   readonly totalDossiers = DEMO_DOSSIERS.length;
-  readonly totalServices = DEMO_DOSSIERS.length * 2;
   readonly hasFilters = computed(
     () => this.query().length > 0 || this.selectedFilter() !== 'all'
   );

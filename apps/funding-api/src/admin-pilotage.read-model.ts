@@ -52,7 +52,6 @@ export async function loadAdminPilotageState(
   const publicationState =
     publicationResult.status === 'fulfilled' ? publicationResult.value : null;
   const representedSponsors = new Set<string>();
-  const representedBatches = new Set<string>();
   if (!publicationState) missing.push('publications');
   else {
     for (const p of publicationState.deliveries) {
@@ -61,10 +60,10 @@ export async function loadAdminPilotageState(
           p.status
         )
       ) {
-        if (p.batchId) representedBatches.add(p.batchId);
         for (const s of p.sponsors) representedSponsors.add(s.id);
       }
-      if (!['draft', 'blocked', 'uncertain'].includes(p.status)) continue;
+      // Uncertain deliveries require reconciliation in their owning dossier.
+      if (!['draft', 'blocked'].includes(p.status)) continue;
       const feed = publicationState.feeds.find((f) => f.id === p.feedId);
       const blocked =
         p.status !== 'draft'
@@ -87,12 +86,7 @@ export async function loadAdminPilotageState(
         targetId: p.id,
         version: String(p.version),
         title: p.message.split('\n')[0]!.slice(0, 140),
-        severity:
-          p.status === 'uncertain'
-            ? 'urgent'
-            : p.status === 'blocked'
-              ? 'today'
-              : 'this_week',
+        severity: p.status === 'blocked' ? 'today' : 'this_week',
         dueAt: p.scheduledAt,
         detailsUrl:
           '/admin/fundraiser/publications/automation?deliveryId=' + p.id,
@@ -101,14 +95,11 @@ export async function loadAdminPilotageState(
           { label: 'account', value: p.accountId || '—' },
           { label: 'mode', value: p.mode }
         ],
-        actions:
-          p.status === 'uncertain'
-            ? []
-            : [
-                { id: 'publication.approve', blocked },
-                { id: 'publication.reject', blocked: null },
-                { id: 'publication.edit', blocked: null }
-              ],
+        actions: [
+          { id: 'publication.approve', blocked },
+          { id: 'publication.reject', blocked: null },
+          { id: 'publication.edit', blocked: null }
+        ],
         publication: p
       });
     }
@@ -125,7 +116,11 @@ export async function loadAdminPilotageState(
     missing.push(
       ...attentionResult.value.missingSources.map((s) => 'attention:' + s)
     );
-    const items = attentionResult.value.items;
+    const items = attentionResult.value.items.filter(
+      (item) =>
+        item.type === 'sponsorship_needs_review' ||
+        item.type === 'email_delivery_failed'
+    );
     const sponsorIds = [
       ...new Set(
         items.flatMap((i) => (i.sponsorshipId ? [i.sponsorshipId] : []))
@@ -151,28 +146,13 @@ export async function loadAdminPilotageState(
     const emails =
       emailResult.status === 'fulfilled' ? emailResult.value : { rows: [] };
     for (const item of items) {
-      const isPublication = item.type.startsWith('publication_');
-      if (
-        isPublication &&
-        item.type !== 'publication_reliability_incident' &&
-        (representedSponsors.has(item.sponsorshipId ?? '') ||
-          representedBatches.has(String(item.facts['reference'] ?? '')))
-      )
-        continue;
       if (
         item.type === 'sponsorship_needs_review' &&
         representedSponsors.has(item.sponsorshipId ?? '')
       )
         continue;
-      const domain: PilotDomain = item.type.startsWith('sponsorship_')
-        ? 'sponsors'
-        : isPublication
-          ? 'publications'
-          : item.type.startsWith('email_')
-            ? 'email'
-            : item.type.startsWith('invoice_')
-              ? 'invoices'
-              : 'contributions';
+      const domain: PilotDomain =
+        item.type === 'sponsorship_needs_review' ? 'sponsors' : 'email';
       const sponsor = sponsors.rows.find((s) => s.id === item.sponsorshipId);
       const email = emails.rows.find((e) => e.id === item.emailQueueId);
       const card: PilotDecision = {
@@ -206,32 +186,31 @@ export async function loadAdminPilotageState(
           presentationId: sponsor.media_id,
           presentationApproved: sponsor.photo
         };
-      if (item.type === 'sponsorship_needs_review' && sponsor)
+      if (
+        item.type === 'sponsorship_needs_review' &&
+        (sponsor || sponsorResult.status === 'rejected')
+      )
         card.actions = [
           {
             id: 'sponsor.approve',
-            blocked: !sponsor.photo
-              ? 'SPONSOR_MEDIA_REQUIRED'
-              : sponsor.status !== 'paid'
-                ? 'PAYMENT_REQUIRED'
-                : null
+            blocked: !sponsor
+              ? 'READ_ONLY'
+              : !sponsor.photo
+                ? 'SPONSOR_MEDIA_REQUIRED'
+                : sponsor.status !== 'paid'
+                  ? 'PAYMENT_REQUIRED'
+                  : null
           },
-          { id: 'sponsor.reject', blocked: null }
+          { id: 'sponsor.reject', blocked: sponsor ? null : 'READ_ONLY' }
         ];
       if (email && email.status === 'failed')
         card.actions = [{ id: 'email.retry', blocked: null }];
-      if (item.type.startsWith('stripe_event_'))
-        card.inspection = {
-          kind: 'stripe',
-          id: String(item.facts['reference'])
-        };
-      if (item.type === 'invoice_missing')
-        card.inspection = {
-          kind: 'invoice',
-          id: String(item.facts['contributionId']),
-          contributionId: String(item.facts['contributionId'])
-        };
-      decisions.push(card);
+      else if (
+        item.type === 'email_delivery_failed' &&
+        emailResult.status === 'rejected'
+      )
+        card.actions = [{ id: 'email.retry', blocked: 'READ_ONLY' }];
+      if (card.actions.length) decisions.push(card);
     }
   } else missing.push('attention');
   if (projectResult.status === 'fulfilled')

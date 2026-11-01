@@ -52,7 +52,8 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
   const programme = (page: Page) =>
     page.locator('[data-og7="editorial-programme"]');
   const calendar = async (page: Page) => {
-    await page.locator('[data-og7="open-programme"]').click();
+    if (!(await programme(page).isVisible()))
+      await page.locator('[data-og7="open-programme"]').click();
     await expect(programme(page)).toHaveAttribute('aria-busy', 'false');
     await programme(page)
       .getByRole('button', { name: 'Composer la semaine', exact: true })
@@ -476,7 +477,8 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         })
         .click();
       await owner.setViewportSize({ width: 390, height: 844 });
-      await owner.locator('[data-og7="open-programme"]').click();
+      if (!(await programme(owner).isVisible()))
+        await owner.locator('[data-og7="open-programme"]').click();
       await expect(programme(owner)).toHaveAttribute('aria-busy', 'false');
       await programme(owner)
         .getByRole('button', { name: 'Rehearsal', exact: true })
@@ -489,7 +491,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
       ).toContainText('Actualité fictive A');
       expect(
         await owner
-          .locator('dialog[open]')
+          .locator('[data-og7="publications-programme"]')
           .evaluate((element) => element.scrollWidth <= element.clientWidth)
       ).toBe(true);
       await info.attach('programme-mobile', {

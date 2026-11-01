@@ -37,7 +37,7 @@ function page(
 export const ADMIN_GUIDANCE_PAGES: readonly AdminGuidancePage[] = [
   page('dashboard', '', 'admin.nav.dashboard', [
     'cockpit-metrics',
-    'cockpit-systems',
+    'dashboard-supervision',
     'cockpit-activity'
   ]),
   page('pilotage', '/pilotage', 'admin.nav.pilotage', [
@@ -84,6 +84,13 @@ export const ADMIN_GUIDANCE_PAGES: readonly AdminGuidancePage[] = [
     'publications-page',
     'publication-space'
   ]),
+  page(
+    'programme',
+    '/publications/programme',
+    'admin.pilotage.programme',
+    ['programme-brief', 'programme-compose', 'programme-confirmation'],
+    'admin.programme.guidance'
+  ),
   page(
     'drafts',
     '/publications/drafts',

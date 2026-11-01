@@ -18,6 +18,13 @@ const obligationId = (ordinal: number) =>
   `10000000-0000-4000-8000-${String(5000 + ordinal).padStart(12, '0')}`;
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 
+async function openAdvancedFilters(page: Page): Promise<void> {
+  const filters = hook(page, 'campaigns-advanced-filters');
+  if (!(await filters.evaluate((element) => element.hasAttribute('open')))) {
+    await hook(page, 'campaigns-advanced-toggle').click();
+  }
+}
+
 async function navigate(page: Page, destination: string) {
   await page
     .locator('openg7-admin-nav nav')
@@ -789,6 +796,16 @@ test('campaign filters and pagination are explicit and clear private detail whil
   await expect(hook(page, 'campaign-row')).toHaveCount(4);
   await hook(page, 'campaign-row').first().click();
   await expect(hook(page, 'campaign-detail')).toContainText('Projet local');
+  await expect(hook(page, 'campaigns-search')).toBeVisible();
+  await expect(hook(page, 'campaigns-state')).toBeVisible();
+  await expect(hook(page, 'campaigns-channel')).toBeVisible();
+  await expect(hook(page, 'campaigns-target')).toBeHidden();
+  await expect(hook(page, 'campaigns-sort')).toBeHidden();
+  await expect(hook(page, 'campaigns-direction')).toBeHidden();
+  const advancedToggle = hook(page, 'campaigns-advanced-toggle');
+  await advancedToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(hook(page, 'campaigns-target')).toBeVisible();
   await hook(page, 'campaigns-search').fill('Atelier');
   await hook(page, 'campaigns-channel').selectOption('linkedin');
   await hook(page, 'campaigns-target').selectOption('openg20');
@@ -796,6 +813,13 @@ test('campaign filters and pagination are explicit and clear private detail whil
   await hook(page, 'campaigns-sort').selectOption('due_at');
   await hook(page, 'campaigns-direction').selectOption('asc');
   expect(fixture.queries).toHaveLength(1);
+  await advancedToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(hook(page, 'campaigns-target')).toBeHidden();
+  await expect(advancedToggle).toContainText('Critères personnalisés');
+  await expect(hook(page, 'campaigns-target')).toHaveValue('openg20');
+  await expect(hook(page, 'campaigns-sort')).toHaveValue('due_at');
+  await expect(advancedToggle).toBeFocused();
 
   let release!: () => void;
   fixture.gate = new Promise<void>((resolve) => (release = resolve));
@@ -1101,6 +1125,7 @@ for (const language of ['fr-CA', 'en'] as const) {
     await page.goto(path);
     await expect(hook(page, 'campaign-row')).toHaveCount(4);
     await hook(page, 'campaigns-search').fill('Atelier');
+    await openAdvancedFilters(page);
     await hook(page, 'campaigns-sort').selectOption('paid_at');
     await hook(page, 'campaigns-apply').click();
     await expect
@@ -1346,6 +1371,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.goto(path);
       await expect(hook(page, 'campaign-row')).toHaveCount(4);
       await hook(page, 'campaigns-search').fill('Atelier');
+      await openAdvancedFilters(page);
       await hook(page, 'campaigns-sort').selectOption('paid_at');
       await hook(page, 'campaigns-apply').click();
       await expect

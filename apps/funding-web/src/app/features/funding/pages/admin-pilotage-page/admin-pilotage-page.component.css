@@ -216,7 +216,7 @@ h1 {
   background: var(--admin-success);
 }
 .overview {
-  @apply tw:grid tw:grid-cols-3 tw:min-w-0 tw:rounded-admin-card;
+  @apply tw:grid tw:grid-cols-2 tw:min-w-0 tw:rounded-admin-card;
   margin: 0 0 1.5rem;
   gap: 0;
   background: var(--admin-panel);
@@ -231,9 +231,6 @@ h1 {
 }
 .stat-done {
   --stat-color: var(--admin-success);
-}
-.stat-details {
-  --stat-color: var(--og7-admin-purple);
 }
 .overview dt {
   @apply tw:flex tw:flex-wrap tw:items-center tw:text-admin-caption tw:text-admin-muted tw:min-w-0 tw:wrap-anywhere;

@@ -1,0 +1,33 @@
+.programme-page {
+  max-width: 88rem;
+  margin-inline: auto;
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+header {
+  margin-block: 1rem 1.5rem;
+}
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+header p {
+  color: var(--admin-muted);
+}
+.notice {
+  margin-block: 1rem;
+  padding: 1rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  overflow-wrap: anywhere;
+}
+label,
+textarea {
+  display: block;
+  margin-block: 0.75rem;
+}
+textarea {
+  width: 100%;
+  min-height: 5rem;
+}
