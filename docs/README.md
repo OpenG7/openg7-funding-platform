@@ -49,8 +49,8 @@ la mention Web, 250 CAD pour Facebook et 500 CAD pour LinkedIn. Les sources
 sont `packages/funding-core/src/index.ts` et la configuration Funding du Web.
 Le paiement, le consentement, la revue et la publication restent distincts.
 
-Les [engagements durables](technical/sponsorship-commitments.md) décrivent l'offre
-acceptée avant Checkout et les dossiers historiques à qualifier.
+[Engagements](technical/sponsorship-commitments.md) : offre avant Checkout,
+qualification historique. [Preflight](technical/preflight-connector.md).
 Les [preuves de reconnaissance](technical/sponsorship-fulfilment.md) distinguent
 livraisons attestées, simulations et visibilité actuelle.
 Le [suivi des délais et durées](technical/sponsorship-obligation-timing.md)

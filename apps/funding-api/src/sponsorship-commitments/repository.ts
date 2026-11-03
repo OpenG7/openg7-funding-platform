@@ -9,6 +9,7 @@ import { moderationApprovedSql } from '../moderation/policy.js';
 import { confirmedMediaUsageSql } from '../sponsor-media/usage-policy.js';
 import { SPONSOR_APPROVED_PRESENTATION_SQL } from '../sponsorship-media-eligibility.js';
 import { isValidUuid } from '../business-helpers/request-validation.js';
+import { enqueueActivatedPreflightMission } from '../preflight/repository.js';
 import {
   sponsorshipObligationTimingProjectionSql,
   initializeSponsorshipObligationTiming
@@ -212,7 +213,9 @@ export const activateSponsorshipCommitments = async (
       ]
     );
     const m = commitment.rows[0]!;
-    if (offer && m.offer_id === offer.id)
+    if (offer && m.offer_id === offer.id) {
       await createSponsorshipObligations(db, m.id, c.id, offer.snapshot);
+      await enqueueActivatedPreflightMission(db, m.id);
+    }
   }
 };

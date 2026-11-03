@@ -54,6 +54,13 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [064](../../apps/funding-api/migrations/064_create_preflight_connector.sql)
+ajoute les sources versionnées, l’outbox, les missions suivies, les préparations
+privées et le heartbeat du relais Preflight. Elle ne crée aucune mission pour
+les anciens dossiers et n’active aucun traitement. Appliquer avant d’activer
+le connecteur puis rafraîchir les grants du rôle applicatif avec le runner.
+Les payloads restent immuables. Voir [le contrat et les limites](../technical/preflight-connector.md).
+
 La migration [058](../../apps/funding-api/migrations/058_preparation_assistance.sql)
 ajoute les sources textuelles privées versionnées, jobs locaux durables,
 propositions, revues et reçus idempotents de l’assistance aux accords historiques.

@@ -178,6 +178,11 @@ without double counting during a mode change.
 
 ## Operations and evolution
 
+The [Preflight connector](technical/preflight-connector.md), disabled by default,
+records intent in the transaction and delivers through an independent relay.
+Imports remain private proposals; Funding retains its business authority.
+See the [ADR](decisions/2026-11-02-preflight-connector.md).
+
 Operate production Compose from `/opt/openg7-funding-platform`. Traefik terminates
 TLS and exposes Web/API; PostgreSQL remains private on `data`, without a public
 port. Keep secrets and backups outside Git. Health, correlated logs, webhook

@@ -1,0 +1,23 @@
+{
+  "title": "Préparations OpenG7 Preflight",
+  "authority": "Travail proposé à examiner. Les décisions et la publication restent sous l’autorité de Funding Platform.",
+  "refresh": "Actualiser les préparations",
+  "loading": "Chargement des préparations…",
+  "disabled": "Le connecteur Preflight est désactivé. Aucun travail n’est transmis depuis cette instance Funding.",
+  "configured": "Connecteur configuré. Cet état ne confirme pas la disponibilité actuelle du service distant.",
+  "empty": "Aucune préparation Preflight conservée pour ce dossier. Les résultats apparaîtront après traitement par le worker.",
+  "proposed": "Proposition à examiner",
+  "obsolete": "Obsolète — les données source ont changé",
+  "simulated": "Simulation explicite",
+  "version": "Révision source",
+  "provider": "Fournisseur et modèle",
+  "generated": "Préparée le",
+  "draft": "Consulter le brouillon proposé",
+  "warnings": "Limites et avertissements",
+  "conditions": "Conditions de confirmation",
+  "mission": "Mission",
+  "errors": {
+    "forbidden": "Votre session ne permet pas de consulter ces préparations. Reconnectez-vous avec un accès autorisé.",
+    "unavailable": "Les préparations sont temporairement indisponibles. Vous pouvez réessayer sans modifier le dossier."
+  }
+}
