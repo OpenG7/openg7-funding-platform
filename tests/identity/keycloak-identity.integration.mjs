@@ -128,7 +128,13 @@ const followProviderRedirects = async (exchange, initialResponse, issuer) => {
   return response;
 };
 
-const authorize = async (client, exchange, callback, fields = {}) => {
+const authorize = async (
+  client,
+  exchange,
+  callback,
+  fields = {},
+  expectLogin = true
+) => {
   const verifier = oidc.randomPKCECodeVerifier();
   const state = randomUUID();
   const nonce = randomUUID();
@@ -144,8 +150,10 @@ const authorize = async (client, exchange, callback, fields = {}) => {
   });
   const response = await exchange(url);
   const html = await response.text();
-  assert.equal(response.status, 200);
-  assert.equal(/id="kc-form-login"/.test(html), true);
+  if (expectLogin) {
+    assert.equal(response.status, 200);
+    assert.equal(/id="kc-form-login"/.test(html), true);
+  }
   return { verifier, state, nonce, response, html };
 };
 
@@ -164,7 +172,7 @@ const grant = async (client, response, challenge) => {
 };
 
 test(
-  'real Keycloak import requires password plus OTP and emits MFA only for a completed second factor',
+  'real Keycloak import requires password plus OTP, preserves MFA through SSO and refuses incomplete assurance',
   { timeout: 240_000 },
   async (t) => {
     const docker = await dockerRunner();
@@ -455,8 +463,13 @@ test(
         const claims = await grant(client, success, challenge);
         assert.deepEqual([...claims.amr].sort(), ['mfa', 'pwd']);
         assert.equal(satisfiesMfa(claims, []), true);
-        // Existing Keycloak SSO cookies cannot bypass the required password/OTP flow.
-        await authorize(client, exchange, callback);
+        const sso = await authorize(client, exchange, callback, {}, false);
+        const reused = await grant(client, sso.response, sso);
+        assert.equal(reused.sub, claims.sub);
+        assert.deepEqual([...reused.amr].sort(), ['mfa', 'pwd']);
+        assert.equal(satisfiesMfa(reused, []), true);
+        // Expiration or a fresh-login request must still enter the strict MFA path.
+        await authorize(client, exchange, callback, { prompt: 'login' });
       }
     );
 
@@ -493,6 +506,11 @@ test(
         const claims = await grant(client, success, challenge);
         assert.equal(claims.amr.includes('mfa'), false);
         assert.equal(satisfiesMfa(claims, []), false);
+        const sso = await authorize(client, exchange, callback, {}, false);
+        const reused = await grant(client, sso.response, sso);
+        assert.equal(reused.sub, claims.sub);
+        assert.equal(reused.amr.includes('mfa'), false);
+        assert.equal(satisfiesMfa(reused, []), false);
       }
     );
 
@@ -614,6 +632,21 @@ test(
         assert.equal(deniedCount, 0);
         assert.match(accepted.headers.getSetCookie().join(';'), /HttpOnly/);
 
+        const ssoStart = await exchange(`${origin}/api/admin/auth/start`);
+        assert.equal(ssoStart.status, 303);
+        assert.equal(
+          new URL(ssoStart.headers.get('location')).searchParams.get('prompt'),
+          null
+        );
+        const ssoCode = await exchange(ssoStart.headers.get('location'));
+        assert.equal(ssoCode.status, 302);
+        const ssoAccepted = await exchange(ssoCode.headers.get('location'));
+        assert.equal(ssoAccepted.status, 303);
+        assert.equal(ssoAccepted.headers.get('location'), '/admin/fundraiser');
+        assert.equal(issued.length, 2);
+        assert.equal(issued[0].subject, issued[1].subject);
+        assert.equal(deniedCount, 0);
+
         const freshBrowser = browser();
         const startEnrollment = await freshBrowser(
           `${origin}/api/admin/auth/start`
@@ -658,10 +691,18 @@ test(
         );
         assert.equal(
           issued.length,
-          1,
+          2,
           'Enrollment without an OTP execution must not create an OpenG7 session.'
         );
         assert.equal(deniedCount, 1);
+        const retry = await freshBrowser(`${origin}/api/admin/auth/start`);
+        assert.equal(
+          new URL(retry.headers.get('location')).searchParams.get('prompt'),
+          'login'
+        );
+        const freshLogin = await freshBrowser(retry.headers.get('location'));
+        assert.equal(freshLogin.status, 200);
+        assert.match(await freshLogin.text(), /id="kc-form-login"/);
       }
     );
   }

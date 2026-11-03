@@ -367,6 +367,18 @@ test('new user receives literal temporary credentials and personal actions once;
   }
 });
 
+test('provisioning keeps mandatory OTP enrollment when the managed realm uses the SSO browser flow', async (t) => {
+  const f = fixture(t);
+  f.realm.browserFlow = 'openg7-browser-sso';
+  await f.run();
+  const creation = f.creations()[0];
+  assert.ok(creation);
+  assert.ok(
+    JSON.parse(creation.body).requiredActions.includes('CONFIGURE_TOTP')
+  );
+  assert.equal(f.realm.browserFlow, 'openg7-browser-sso');
+});
+
 test('local provisioning omits OTP enrollment only when the localhost exception is explicitly enabled', async (t) => {
   for (const flag of [undefined, 'false', 'true']) {
     await t.test(flag ?? 'default', async (t) => {
