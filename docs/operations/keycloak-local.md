@@ -70,6 +70,13 @@ Une valeur autre que `true` ou `false`, une cible publique, un fournisseur
 externe, un Compose personnalisé ou la production sont refusés. Le choix ne
 dépend jamais du header `Host` du navigateur.
 
+Le flux local réutilise une session Keycloak par Cookie; sans session, il exige
+le mot de passe. Cette réutilisation permet le SSO avec la console Preflight
+locale lorsqu'elle partage cet override vérifié et ses propres droits. Elle
+n'ajoute aucune preuve MFA : l'API Funding continue de vérifier `amr` contenant
+`pwd`. Le profil de production conserve son exigence MFA. Le guide
+`docs/shared-realm-sso.md` du dépôt Preflight décrit le raccordement local.
+
 Le lanceur attend Keycloak, réconcilie un flow dédié au client local et vérifie
 le résultat avant de démarrer l'application. Il fonctionne aussi sur une base
 identité existante : l'import du realm seul ne suffirait pas. Le realm canonique
@@ -448,8 +455,15 @@ temporaire si demandé, puis enrôler personnellement l'authentificateur.
 Faire ensuite une nouvelle connexion complète mot de passe et OTP : le seul
 enrôlement ne prouve pas le MFA du token courant.
 
-Le flow importé `openg7-password-otp` et son mapper natif produisent `amr`
-contenant `mfa` à partir des facteurs exécutés. Garder
+Le flow importé `openg7-browser-sso` réutilise une session Keycloak existante ;
+sinon son sous-flow `openg7-sso-password-otp` exige les deux facteurs. Le flow
+original `openg7-password-otp` reste réservé au retour arrière et à l'exception
+locale isolée. Son mapper
+natif conserve `amr` contenant `mfa` à partir des facteurs exécutés, pendant au
+plus une heure. Les applications vérifient toujours cette preuve. Une session
+de seul enrôlement ou de l'exception locale sans OTP ne devient pas MFA par SSO ;
+après un refus pour preuve insuffisante, la prochaine connexion Funding force
+un nouveau parcours avec `prompt=login`. Garder
 `FUNDING_ADMIN_OIDC_MFA_ACR` vide ; ne pas remplacer cette preuve par un claim
 constant ni désactiver OTP. Les rôles Keycloak ne donnent aucun rôle OpenG7.
 

@@ -20,6 +20,7 @@ import {
 import { validateLocalPasswordOnly } from './local-password-policy.mjs';
 
 const canonicalFlow = 'openg7-password-otp';
+const realmBrowserFlows = new Set([canonicalFlow, 'openg7-browser-sso']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const failure = () =>
   new Error(
@@ -185,6 +186,45 @@ function verifyExecutions(executions, otpRequirement) {
   return otp;
 }
 
+function verifyLocalExecutions(executions) {
+  if (
+    !Array.isArray(executions) ||
+    executions.length < 1 ||
+    executions.length > 3
+  )
+    throw failure();
+  const password = executions.find(
+    (execution) => execution.providerId === 'auth-username-password-form'
+  );
+  const otp = executions.find(
+    (execution) => execution.providerId === 'auth-otp-form'
+  );
+  const cookie = executions.find(
+    (execution) => execution.providerId === 'auth-cookie'
+  );
+  if (
+    !password ||
+    executions.length !== 1 + Number(Boolean(otp)) + Number(Boolean(cookie)) ||
+    executions.some(
+      (execution) =>
+        !validId(execution.id) || execution.authenticationFlow === true
+    ) ||
+    new Set(executions.map((execution) => execution.id)).size !==
+      executions.length ||
+    !validId(password.authenticationConfig) ||
+    !['REQUIRED', 'ALTERNATIVE'].includes(password.requirement) ||
+    (otp && !['REQUIRED', 'DISABLED'].includes(otp.requirement)) ||
+    (cookie &&
+      (cookie.requirement !== 'ALTERNATIVE' ||
+        cookie.priority !== 0 ||
+        cookie.authenticationConfig)) ||
+    (password.requirement === 'ALTERNATIVE' &&
+      (!cookie || (otp && otp.requirement !== 'DISABLED')))
+  )
+    throw failure();
+  return { password, otp, cookie };
+}
+
 /** Configure only the verified local client; never mutate the canonical realm flow. */
 export async function configureLocalKeycloakMfa({
   root,
@@ -332,7 +372,7 @@ export async function configureLocalKeycloakMfa({
       realm.realm !== 'openg7' ||
       realm.enabled !== true ||
       realm.sslRequired?.toLowerCase() !== 'all' ||
-      realm.browserFlow !== canonicalFlow
+      !realmBrowserFlows.has(realm.browserFlow)
     )
       throw failure();
     const clients = json(
@@ -425,22 +465,66 @@ export async function configureLocalKeycloakMfa({
       if (state.flowId && state.flowId !== flow.id) throw failure();
       state.flowId = flow.id;
       persist(files.state, state);
-      const otp = verifyExecutions(json(await exchange(executionPath(alias))), [
-        'REQUIRED',
-        'DISABLED'
-      ]);
-      if (otp.requirement !== 'DISABLED')
+      const readLocal = async () =>
+        verifyLocalExecutions(json(await exchange(executionPath(alias))));
+      let local = await readLocal();
+      if (local.otp && local.otp.requirement !== 'DISABLED')
         await mutate(
           executionPath(alias),
           'PUT',
-          { id: otp.id, requirement: 'DISABLED' },
+          {
+            id: local.otp.id,
+            requirement: 'DISABLED',
+            priority: local.otp.priority
+          },
           async () => {
-            verifyExecutions(json(await exchange(executionPath(alias))), [
-              'DISABLED'
-            ]);
-            return true;
+            local = await readLocal();
+            return local.otp?.requirement === 'DISABLED';
           }
         );
+      // Keep password REQUIRED until the verified Cookie alternative exists.
+      // These changes affect only this explicitly opted-in localhost override.
+      if (!local.cookie)
+        await mutate(
+          '/admin/realms/openg7/authentication/executions',
+          'POST',
+          {
+            parentFlow: flow.id,
+            authenticator: 'auth-cookie',
+            authenticatorFlow: false,
+            requirement: 'ALTERNATIVE',
+            priority: 0
+          },
+          async () => {
+            local = await readLocal();
+            return Boolean(local.cookie);
+          },
+          [201]
+        );
+      if (
+        local.password.requirement !== 'ALTERNATIVE' ||
+        local.password.priority !== 10
+      )
+        await mutate(
+          executionPath(alias),
+          'PUT',
+          { id: local.password.id, requirement: 'ALTERNATIVE', priority: 10 },
+          async () => {
+            local = await readLocal();
+            return (
+              local.password.requirement === 'ALTERNATIVE' &&
+              local.password.priority === 10 &&
+              Boolean(local.cookie)
+            );
+          }
+        );
+      if (
+        !local.cookie ||
+        local.password.requirement !== 'ALTERNATIVE' ||
+        local.password.priority !== 10 ||
+        (local.otp && local.otp.requirement !== 'DISABLED')
+      )
+        throw failure();
       // Only explicit bootstrap-owner subjects may have their pending OTP action removed.
       const subjects = [
         ...new Set(

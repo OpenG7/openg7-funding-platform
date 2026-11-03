@@ -253,12 +253,80 @@ Un compte existant sans état doit avoir un UUID propriétaire déjà vérifié 
 aucun privilège n'est attribué au seul nom. L'administration nominative de
 Keycloak, sa qualification MFA et le retrait du bootstrap restent distincts.
 
-Le flow `openg7-password-otp` exige mot de passe puis OTP, sans alternative
-Cookie ou fournisseur externe. Le mapper natif `oidc-amr-mapper` produit le
-claim signé de l'ID token à partir des authentificateurs réellement exécutés.
-OpenG7 exige `amr` contenant `mfa`. Le préflight impose
+Le flow navigateur `openg7-browser-sso` réutilise la session du realm avec
+l'étape Cookie ; sinon, son sous-flow dédié `openg7-sso-password-otp` exige mot
+de passe puis OTP. Le flow original `openg7-password-otp` reste conservé pour le
+retour arrière et l'exception locale isolée. Les références des facteurs réellement exécutés sont valables au plus
+une heure, comme la session SSO maximale. Le mapper natif `oidc-amr-mapper`
+produit le claim signé de l'ID token à partir de ces exécutions, y compris lors
+d'un retour SSO. OpenG7 exige toujours `amr` contenant `mfa`. Une session issue
+du seul enrôlement OTP ou de l'exception locale sans OTP reste refusée ; la
+tentative suivante demande une authentification fraîche avec `prompt=login`.
+Le préflight impose
 `FUNDING_ADMIN_OIDC_MFA_ACR` vide pour ce profil ;
 aucun claim constant `mfa`, ACR arbitraire ou relâchement serveur n'est admissible.
+
+Le realm peut ainsi partager les comptes entre Funding et Preflight, avec des
+clients, audiences, droits et sessions applicatives distincts. Le partage du
+realm ne donne aucun droit Funding aux rôles Preflight. Sur un realm existant,
+ajouter et vérifier le flow SSO puis modifier explicitement le binding navigateur
+après sauvegarde ; le redémarrage et l'import Git ne migrent pas ce binding.
+Conserver le flow strict et les contrôles MFA. La recette doit couvrir une
+connexion complète puis le passage entre clients sans ressaisie, ainsi que le
+refus d'une session sans preuve MFA.
+
+Pour un realm existant, l'outil de migration prépare un plan en lecture seule,
+puis applique seulement les étapes manquantes avec `--apply`. Fournir un jeton
+administratif temporaire disposant des droits de lecture et de gestion du realm
+dans un fichier protégé, jamais en argument ou dans un log. Vérifier la cible
+et la sauvegarde de la base identité avant l'application autorisée :
+
+```sh
+node scripts/keycloak-sso.mjs --issuer "$FUNDING_ADMIN_OIDC_ISSUER" --token-file /chemin/prive/admin-token
+node scripts/keycloak-sso.mjs --issuer "$FUNDING_ADMIN_OIDC_ISSUER" --token-file /chemin/prive/admin-token --apply --audit-file /chemin/prive/sso-audit.jsonl
+```
+
+Sans Node installé sur l'hôte, les mêmes scripts s'exécutent dans l'image Node22,
+sans installation npm : leurs dépendances utilisent uniquement les modules
+natifs Node. Depuis la racine du checkout sur Linux, préparer deux répertoires
+protégés distincts pour les entrées et l'audit, accessibles à l'UID courant :
+
+```sh
+docker run --rm --read-only --user "$(id -u):$(id -g)" \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --mount "type=bind,src=$PWD/scripts,dst=/workspace/scripts,readonly" \
+  --mount "type=bind,src=/chemin/prive/sso-inputs,dst=/run/sso,readonly" \
+  --mount "type=bind,src=/chemin/prive/sso-audit,dst=/audit" \
+  node:22-bookworm-slim node /workspace/scripts/keycloak-sso.mjs \
+  --issuer "$FUNDING_ADMIN_OIDC_ISSUER" --token-file /run/sso/admin-token \
+  --ca-file /run/sso/ca.pem
+```
+
+Cette commande prépare le plan ; ajouter `--apply --audit-file /audit/sso-audit.jsonl`
+pour l'application autorisée. Seul le dossier d'audit est monté en écriture.
+Les entrées contiennent uniquement le jeton temporaire protégé et la CA publique,
+pas l'ensemble du `.env`. Le conteneur doit résoudre et joindre le nom HTTPS de
+l'issuer ; pour l'identité locale, configurer son réseau et ce nom DNS avant
+l'exécution. Le certificat doit rester vérifié avec la CA fournie.
+
+Ajouter `--ca-file /chemin/ca.pem` pour la CA locale approuvée. Le plan contacte
+Keycloak sans écriture. L'application vérifie le flow strict, ses facteurs requis
+et la durée maximale SSO d'une heure, puis reproduit les deux étapes strictes
+dans un flow dédié avec des références AMR natives `pwd`/`mfa` configurées pour
+une heure. Elle crée ensuite le wrapper et change le binding. Elle conserve
+comptes, clients, secrets et flow strict original ; une
+configuration inconnue est refusée. Chaque mutation est auditée, puis relue ;
+une réponse incertaine n'est pas rejouée automatiquement. Relancer d'abord le
+plan pour réconcilier un échec. Le retour au binding `openg7-password-otp` se
+fait explicitement dans **Authentication → Bindings**, après vérification de
+la cible ; il préserve les comptes et demande à nouveau les deux facteurs.
+
+Keycloak26.8 masque les valeurs AMR dans ses réponses administratives. L'outil
+conserve donc les configurations de sa copie dédiée par leurs identités gérées
+et refuse les valeurs visibles contradictoires ; il ne présente pas les valeurs
+masquées comme vérifiées. Le résultat indique `signed_mfa_login_test_required` :
+une connexion réelle et un retour SSO doivent encore attester le claim signé
+`amr` contenant `mfa`, ainsi que le refus d'une session issue du seul enrôlement.
 
 1. Ouvrir `https://auth.openg7.org/admin/` et utiliser le compte bootstrap
    temporaire du realm `master`. Créer un administrateur Keycloak nominatif,
