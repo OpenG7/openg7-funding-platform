@@ -1,0 +1,55 @@
+# Optional Funding overlay. Configure the private .env, apply 064, then opt in explicitly.
+# No ports, Stripe keys, email credentials or migration-owner credentials reach this relay.
+services:
+  api:
+    environment:
+      PREFLIGHT_ENABLED: ${PREFLIGHT_ENABLED:-false}
+      PREFLIGHT_URL: ${PREFLIGHT_URL:-}
+      PREFLIGHT_TENANT_ID: ${PREFLIGHT_TENANT_ID:-}
+      PREFLIGHT_TOKEN_URL: ${PREFLIGHT_TOKEN_URL:-}
+      PREFLIGHT_CLIENT_ID: ${PREFLIGHT_CLIENT_ID:-}
+      PREFLIGHT_CLIENT_SECRET: ${PREFLIGHT_CLIENT_SECRET:-}
+      PREFLIGHT_SCOPE: ${PREFLIGHT_SCOPE:-}
+      PREFLIGHT_REQUEST_TIMEOUT_MS: ${PREFLIGHT_REQUEST_TIMEOUT_MS:-10000}
+      PREFLIGHT_MAX_COST_USD: ${PREFLIGHT_MAX_COST_USD:-0.5}
+      PREFLIGHT_ALLOW_INSECURE_LOCAL: ${PREFLIGHT_ALLOW_INSECURE_LOCAL:-false}
+  preflight-connector:
+    profiles: [preflight]
+    image: ${API_IMAGE:-openg7-funding-api:local}
+    build:
+      context: .
+      dockerfile: apps/funding-api/Dockerfile
+    command: [node, dist/apps/funding-api/src/preflight-worker.js]
+    environment:
+      NODE_ENV: production
+      FUNDING_PLATFORM_ENV: ${FUNDING_PLATFORM_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-}
+      PREFLIGHT_ENABLED: ${PREFLIGHT_ENABLED:-false}
+      PREFLIGHT_URL: ${PREFLIGHT_URL:-}
+      PREFLIGHT_TENANT_ID: ${PREFLIGHT_TENANT_ID:-}
+      PREFLIGHT_TOKEN_URL: ${PREFLIGHT_TOKEN_URL:-}
+      PREFLIGHT_CLIENT_ID: ${PREFLIGHT_CLIENT_ID:-}
+      PREFLIGHT_CLIENT_SECRET: ${PREFLIGHT_CLIENT_SECRET:-}
+      PREFLIGHT_SCOPE: ${PREFLIGHT_SCOPE:-}
+      PREFLIGHT_REQUEST_TIMEOUT_MS: ${PREFLIGHT_REQUEST_TIMEOUT_MS:-10000}
+      PREFLIGHT_MAX_COST_USD: ${PREFLIGHT_MAX_COST_USD:-0.5}
+      PREFLIGHT_ALLOW_INSECURE_LOCAL: 'false'
+    networks: [data, edge]
+    restart: on-failure:5
+    init: true
+    stop_grace_period: 45s
+    cpus: '0.50'
+    mem_limit: 256m
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, dist/apps/funding-api/src/preflight-health.js]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

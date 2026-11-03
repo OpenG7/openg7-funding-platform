@@ -1,5 +1,9 @@
 # Administration API
 
+Preflight preparations: GET /api/admin/preflight/preparations?sponsorshipId=UUID
+and GET /api/admin/preflight/status. Authenticated read-only routes, no-store,
+with no approval or publication. See [connector](preflight-connector.md).
+
 `GET /api/admin/contribution-activity` and per-actor
 `POST /api/admin/contribution-activity/present`:
 [activity contract](../operations/contribution-activity.md).

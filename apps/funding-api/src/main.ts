@@ -4,6 +4,8 @@ import type { SponsorFeedChannel } from '@openg7/funding-core';
 import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
+import { loadPreflightConfig } from './preflight/config.js';
+import { assertPreflightSchema } from './preflight/repository.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
 import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
@@ -83,6 +85,10 @@ import { createHttpDispatcher } from './http-composition/dispatcher.js';
 import { createApiRequestListener } from './http-composition/request-listener.js';
 
 const startupConfig = loadApiRuntimeConfig();
+const preflightConfig = loadPreflightConfig();
+if (preflightConfig.enabled && !hasDatabase) {
+  throw new Error('PREFLIGHT_DATABASE_REQUIRED');
+}
 const {
   port,
   stripeSecretKey,
@@ -400,6 +406,7 @@ const publicHandlers = createPublicHttpHandlers({
 });
 
 const adminHandlers = createAdminHttpHandlers({
+  preflightConfig,
   dbPool,
   publicBaseOrigin,
   allowedOrigins,
@@ -475,6 +482,9 @@ const handleRequest = createHttpDispatcher({
 try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
   if (dbPool) {
+    if (preflightConfig.enabled) {
+      await assertPreflightSchema(dbPool);
+    }
     await assertPreparationReadiness(dbPool, 'approve');
     await assertPreparationAssistanceReadiness(dbPool);
     await assertSponsorMediaReadiness(dbPool);

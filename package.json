@@ -23,6 +23,8 @@
     "dev:web": "yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json",
     "dev:web:docker": "node scripts/dev-web-docker.mjs",
     "dev:api": "yarn workspace @openg7/funding-api start",
+    "preflight:worker": "node --env-file=.env dist/apps/funding-api/src/preflight-worker.js",
+    "preflight:health": "node --env-file=.env dist/apps/funding-api/src/preflight-health.js",
     "docker:up": "node scripts/docker-up.mjs",
     "docker:up:dev": "node scripts/docker-up.mjs --environment local",
     "docker:up:dev:token": "node scripts/docker-up.mjs --environment local --auth token",

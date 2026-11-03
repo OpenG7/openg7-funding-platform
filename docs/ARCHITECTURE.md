@@ -183,6 +183,11 @@ conserver la même sémantique et éviter le double comptage lors d'un changemen
 
 ## Exploitation et évolution
 
+Le [connecteur Preflight](technical/preflight-connector.md), désactivé par défaut,
+conserve une intention dans la transaction puis livre par un relais autonome.
+Les imports restent des propositions privées; Funding garde son autorité métier.
+Voir [l’ADR](decisions/2026-11-02-preflight-connector.md).
+
 En production, Compose est exploité depuis `/opt/openg7-funding-platform`.
 Traefik termine TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans
 port public. Secrets et sauvegardes restent hors Git. Santé, logs corrélés, état
