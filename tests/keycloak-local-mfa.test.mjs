@@ -93,9 +93,16 @@ function fixture(t, { intercept, realCertificates = false } = {}) {
     {
       id: 'original-password',
       providerId: 'auth-username-password-form',
-      requirement: 'REQUIRED'
+      requirement: 'REQUIRED',
+      priority: 10,
+      authenticationConfig: 'original-password-reference'
     },
-    { id: 'original-otp', providerId: 'auth-otp-form', requirement: 'REQUIRED' }
+    {
+      id: 'original-otp',
+      providerId: 'auth-otp-form',
+      requirement: 'REQUIRED',
+      priority: 20
+    }
   ];
   const flows = [
     {
@@ -177,6 +184,25 @@ function fixture(t, { intercept, realCertificates = false } = {}) {
       );
       return { status: 201, body: '' };
     }
+    if (url.pathname === '/admin/realms/openg7/authentication/executions') {
+      assert.equal(method, 'POST');
+      const body = JSON.parse(options.body);
+      assert.deepEqual(body, {
+        parentFlow: 'local-flow-id',
+        authenticator: 'auth-cookie',
+        authenticatorFlow: false,
+        requirement: 'ALTERNATIVE',
+        priority: 0
+      });
+      executions.get(localPasswordFlowAlias(client.clientId)).push({
+        id: 'local-cookie',
+        providerId: body.authenticator,
+        authenticationFlow: false,
+        requirement: body.requirement,
+        priority: body.priority
+      });
+      return { status: 201, body: '' };
+    }
     if (url.pathname.endsWith('/executions')) {
       const alias = decodeURIComponent(url.pathname.split('/').at(-2));
       const items = executions.get(alias);
@@ -185,8 +211,25 @@ function fixture(t, { intercept, realCertificates = false } = {}) {
         assert.notEqual(alias, realm.browserFlow);
         const body = JSON.parse(options.body);
         const item = items.find((execution) => execution.id === body.id);
-        assert.equal(item.providerId, 'auth-otp-form');
+        assert.ok(
+          ['auth-otp-form', 'auth-username-password-form'].includes(
+            item.providerId
+          )
+        );
+        if (item.providerId === 'auth-username-password-form') {
+          assert.equal(body.requirement, 'ALTERNATIVE');
+          assert.equal(body.priority, 10);
+          assert.ok(
+            items.some(
+              (execution) =>
+                execution.providerId === 'auth-cookie' &&
+                execution.requirement === 'ALTERNATIVE' &&
+                execution.priority === 0
+            )
+          );
+        }
         item.requirement = body.requirement;
+        item.priority = body.priority;
         return { status: 204, body: '' };
       }
       return json(items);
@@ -273,7 +316,7 @@ test('local password-only flow preserves canonical MFA, real AMR mapper, user OT
     f.executions
       .get(localPasswordFlowAlias(f.client.clientId))
       .map((item) => item.requirement),
-    ['REQUIRED', 'DISABLED']
+    ['ALTERNATIVE', 'DISABLED', 'ALTERNATIVE']
   );
   const audit = readFileSync(join(f.directory(), 'audit.jsonl'), 'utf8');
   for (const value of [
@@ -294,6 +337,150 @@ test('repeated configuration does not duplicate flows or write users/client agai
   assert.deepEqual(await f.run(), { passwordOnly: true, changed: false });
   assert.equal(f.writes().length, writes);
   assert.equal(f.flows.length, 2);
+});
+
+test('existing local password flows migrate to SSO without changing the password reference or source MFA', async (t) => {
+  for (const keepDisabledOtp of [true, false]) {
+    const f = fixture(t);
+    await f.run();
+    const alias = localPasswordFlowAlias(f.client.clientId);
+    const legacy = f.executions
+      .get(alias)
+      .filter(
+        (step) =>
+          step.providerId !== 'auth-cookie' &&
+          (keepDisabledOtp || step.providerId !== 'auth-otp-form')
+      );
+    legacy.find(
+      (step) => step.providerId === 'auth-username-password-form'
+    ).requirement = 'REQUIRED';
+    f.executions.set(alias, legacy);
+    const reference = legacy[0].authenticationConfig;
+    const canonical = clone(f.executions.get('openg7-password-otp'));
+    const writes = f.writes().length;
+    assert.deepEqual(await f.run(), { passwordOnly: true, changed: true });
+    const migrated = f.executions.get(alias);
+    assert.equal(
+      migrated.find((step) => step.providerId === 'auth-cookie').priority,
+      0
+    );
+    const password = migrated.find(
+      (step) => step.providerId === 'auth-username-password-form'
+    );
+    assert.equal(password.requirement, 'ALTERNATIVE');
+    assert.equal(password.priority, 10);
+    assert.equal(password.authenticationConfig, reference);
+    assert.deepEqual(f.executions.get('openg7-password-otp'), canonical);
+    assert.equal(f.writes().length, writes + 2);
+    assert.deepEqual(await f.run(), { passwordOnly: true, changed: false });
+    assert.equal(f.writes().length, writes + 2);
+  }
+});
+
+test('uncertain Cookie creation is reread once and never repeated before enabling local SSO', async (t) => {
+  let interrupted = false;
+  const f = fixture(t, {
+    intercept(options, state) {
+      if (
+        options.method === 'POST' &&
+        options.url.endsWith('/authentication/executions') &&
+        !interrupted
+      ) {
+        interrupted = true;
+        state.executions
+          .get(localPasswordFlowAlias(state.client.clientId))
+          .push({
+            id: 'accepted-cookie',
+            providerId: 'auth-cookie',
+            requirement: 'ALTERNATIVE',
+            priority: 0
+          });
+        throw new Error(
+          'Synthetic private transport failure after acceptance.'
+        );
+      }
+    }
+  });
+  await f.run();
+  assert.equal(
+    f.calls.filter(
+      (call) =>
+        call.method === 'POST' &&
+        call.url.endsWith('/authentication/executions')
+    ).length,
+    1
+  );
+  assert.equal(
+    f.executions
+      .get(localPasswordFlowAlias(f.client.clientId))
+      .find((step) => step.providerId === 'auth-username-password-form')
+      .requirement,
+    'ALTERNATIVE'
+  );
+});
+
+test('a refused Cookie mutation preserves REQUIRED password and does not bind a partial SSO flow', async (t) => {
+  const f = fixture(t, {
+    intercept(options) {
+      if (
+        options.method === 'POST' &&
+        options.url.endsWith('/authentication/executions')
+      )
+        return { status: 403, body: 'Synthetic private refusal.' };
+    }
+  });
+  await assert.rejects(f.run());
+  const local = f.executions.get(localPasswordFlowAlias(f.client.clientId));
+  assert.equal(
+    local.find((step) => step.providerId === 'auth-username-password-form')
+      .requirement,
+    'REQUIRED'
+  );
+  assert.equal(
+    local.some((step) => step.providerId === 'auth-cookie'),
+    false
+  );
+  assert.equal(f.client.authenticationFlowBindingOverrides.browser, undefined);
+});
+
+test('Cookie cannot attest a factor and a password alternative cannot stand alone', async (t) => {
+  for (const corrupt of [
+    (steps) => {
+      steps.find(
+        (step) => step.providerId === 'auth-cookie'
+      ).authenticationConfig = 'forged-factor-reference';
+    },
+    (steps) => {
+      steps.splice(
+        steps.findIndex((step) => step.providerId === 'auth-cookie'),
+        1
+      );
+    },
+    (steps) => {
+      steps.find((step) => step.providerId === 'auth-otp-form').requirement =
+        'REQUIRED';
+    }
+  ]) {
+    const f = fixture(t);
+    await f.run();
+    corrupt(f.executions.get(localPasswordFlowAlias(f.client.clientId)));
+    const writes = f.writes().length;
+    await assert.rejects(f.run());
+    assert.equal(f.writes().length, writes);
+  }
+});
+
+test('the local exception copies the strict flow while preserving the shared realm SSO flow', async (t) => {
+  const f = fixture(t);
+  f.realm.browserFlow = 'openg7-browser-sso';
+  const strict = clone(f.executions.get('openg7-password-otp'));
+  await f.run();
+  assert.equal(f.realm.browserFlow, 'openg7-browser-sso');
+  assert.deepEqual(f.executions.get('openg7-password-otp'), strict);
+  f.env.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY = 'false';
+  await f.run();
+  assert.equal(f.client.authenticationFlowBindingOverrides.browser, undefined);
+  assert.equal(f.realm.browserFlow, 'openg7-browser-sso');
 });
 
 test('false restores the client MFA binding without deleting flow or OTP and supports reactivation', async (t) => {
