@@ -130,10 +130,54 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 22);
+  assert.equal(discovered.length, 23);
   assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
+  assert.ok(discovered.includes('/admin/fundraiser/preflight'));
   assert.ok(discovered.includes('/admin/fundraiser/sponsors/quality'));
   assert.ok(discovered.includes('/admin/fundraiser/publications/calendar'));
+  const nginx = readFileSync('apps/funding-web/nginx.conf', 'utf8');
+  const location = nginx
+    .split('\n')
+    .find((line) => line.trimStart().startsWith('location ~ ^/(?:admin/'));
+  assert.ok(
+    location,
+    'production client routes must have an explicit Nginx location'
+  );
+  const expression = new RegExp(
+    location.trim().slice('location ~ '.length, -' {'.length)
+  );
+  const uiServer = readFileSync('tests/ui/serve-built-web.mjs', 'utf8');
+  const uiRoute = uiServer
+    .split('\n')
+    .find((line) => line.trimStart().startsWith('/^\\/(?:admin\\/'));
+  assert.ok(uiRoute, 'UI direct-entry routes must remain explicit');
+  const uiExpression = new RegExp(uiRoute.trim().slice(1, -'/.test('.length));
+  for (const route of discovered.filter(
+    (route) => route !== '/admin/oidc-setup'
+  )) {
+    for (const [name, matcher] of [
+      ['Nginx', expression],
+      ['UI server', uiExpression]
+    ]) {
+      assert.ok(
+        matcher.test(route),
+        `${name} must serve the declared route ${route}`
+      );
+      assert.ok(
+        matcher.test(route + '/'),
+        `${name} must allow a trailing slash for ${route}`
+      );
+      assert.equal(
+        matcher.test(route + '/unknown-descendant'),
+        false,
+        `${name}: unknown descendants of ${route} keep their 404`
+      );
+    }
+  }
+  const coverage = JSON.parse(
+    readFileSync('tests/admin-e2e-coverage.json', 'utf8')
+  );
+  assert.deepEqual([...coverage.routes].sort(), [...discovered].sort());
   const extra = source.replace(
     "path: 'fundraiser/access'",
     "path: 'fundraiser/new-capability'"

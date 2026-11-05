@@ -184,6 +184,12 @@ The [document resend contract](document-resend-receipts.md) covers confirmed,
 idempotent POSTs and the actor-bound receipt GET, including delivery uncertainty
 and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
+### Preflight
+
+[Workspace](preflight-workspace.md), [inbox](preflight-inbox.md) and
+[local rehearsals](preflight-rehearsals.md) document the private APIs,
+permissions, business authority and independent activation.
+
 ## Sponsorship review admin
 
 Review at `/admin/fundraiser/sponsors`. Private endpoints:

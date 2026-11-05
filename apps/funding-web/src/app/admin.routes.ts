@@ -133,6 +133,14 @@ export const adminRoutes: Routes = protectWorkspaceNavigation([
       )
   },
   {
+    path: 'fundraiser/preflight',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-preflight-page/admin-preflight-page.component.js').then(
+        (m) => m.AdminPreflightPageComponent
+      )
+  },
+  {
     path: 'fundraiser/contributions',
     canMatch: [adminSessionRequired],
     loadComponent: () =>
