@@ -57,6 +57,10 @@ import { SponsorMediaAnalysisService } from '../sponsor-media-analysis/service.j
 import { createSponsorMediaUploadHttpHandler } from '../sponsor-media-upload.http.js';
 import { SponsorMediaUploadService } from '../sponsor-media-upload.service.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
+import { createPreflightInboxHttpHandler } from '../preflight/inbox-routes.js';
+import { createPreflightDeskHttpHandler } from '../preflight/desk-routes.js';
+import { PreflightDeskService } from '../preflight/desk.js';
+import { createPreflightRehearsalHttpHandler } from '../preflight/rehearsal-routes.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
 import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
 import { AdminStripeBackfillError } from '../admin-stripe-backfill.service.js';
@@ -210,6 +214,8 @@ import type {
 /** Bind existing admin ports without constructing services or starting work at import. */
 export const createAdminHttpHandlers = ({
   dbPool,
+  preflightInboxConfig,
+  preflightRehearsalConfig,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,
@@ -469,8 +475,40 @@ export const createAdminHttpHandlers = ({
       reportFailure: (message, error) => console.error(message, error)
     });
 
+  const handlePreflightInboxRequest = createPreflightInboxHttpHandler({
+    publicBaseOrigin,
+    config: preflightInboxConfig ?? {
+      connection: { enabled: false },
+      consoleUrl: null
+    },
+    ensureAdminAuthorization,
+    writeJson
+  });
+  const handlePreflightDeskRequest = createPreflightDeskHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    writeJson,
+    desk: dbPool ? new PreflightDeskService(dbPool) : null
+  });
+  const handlePreflightRehearsalRequest = createPreflightRehearsalHttpHandler({
+    publicBaseOrigin,
+    config: preflightRehearsalConfig ?? { enabled: false, consoleUrl: null },
+    ensureAdminAuthorization,
+    canLaunch: (request) =>
+      adminIdentity
+        ? ['operator', 'owner'].includes(
+            adminIdentity.identity(request)?.role ?? ''
+          )
+        : Boolean(resolveAdminAuthorization(request)),
+    getAdminAuditActor,
+    readBody,
+    writeJson
+  });
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
+      (await handlePreflightDeskRequest(request, response)) ||
+      (await handlePreflightRehearsalRequest(request, response)) ||
+      (await handlePreflightInboxRequest(request, response)) ||
       (await handlePreparationAssistanceRequest(request, response)) ||
       (await handleSponsorshipTimingRequest(request, response)) ||
       (await handleSponsorshipCommitmentsRequest(request, response)) ||

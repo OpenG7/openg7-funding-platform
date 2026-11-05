@@ -395,3 +395,6 @@ export {
 } from './preparation-assistance-summary.js';
 export * from './sponsor-media-analysis.js';
 export * from './sponsor-media-actions.js';
+export * from './preflight-inbox.js';
+export * from './preflight-rehearsal.js';
+export * from './preflight-desk.js';

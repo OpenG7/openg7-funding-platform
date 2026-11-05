@@ -164,7 +164,8 @@ export async function loadAdminCampaignsOnClient(
   db: PoolClient,
   query: AdminCampaignsQuery,
   now = new Date(),
-  ports: AdminCampaignsReadPorts = defaultPorts
+  ports: AdminCampaignsReadPorts = defaultPorts,
+  scope: 'page' | 'snapshot' = 'page'
 ): Promise<AdminCampaignsResponse> {
   const sponsorshipId = query.sponsorshipId?.toLowerCase();
   const obligationId = query.obligationId?.toLowerCase();
@@ -271,10 +272,13 @@ export async function loadAdminCampaignsOnClient(
   );
   const totalItems = filtered.length;
   const totalPages = Math.ceil(totalItems / query.pageSize);
-  const selected = filtered.slice(
-    (query.page - 1) * query.pageSize,
-    query.page * query.pageSize
-  );
+  const selected =
+    scope === 'snapshot'
+      ? filtered
+      : filtered.slice(
+          (query.page - 1) * query.pageSize,
+          query.page * query.pageSize
+        );
   const items: AdminCampaignItem[] = [];
   for (const candidate of selected) {
     const { source } = candidate;
@@ -319,6 +323,91 @@ export async function loadAdminCampaignsOnClient(
       hasPreviousPage: query.page > 1,
       hasNextPage: query.page < totalPages
     }
+  };
+}
+
+export interface AdminCampaignDeskRow {
+  readonly campaign: AdminCampaignItem;
+  readonly amountMinor: string;
+  readonly currency: string;
+  readonly commitmentId: string;
+  readonly commitmentVersion: number;
+  readonly authorizedDelivery: boolean;
+}
+
+/** Reuses the campaign snapshot and its per-dossier caches; no second workflow is evaluated. */
+export async function loadAdminCampaignDeskSnapshot(
+  db: PoolClient,
+  search: string | undefined,
+  now = new Date(),
+  ports: AdminCampaignsReadPorts = defaultPorts
+): Promise<{ generatedAt: string; rows: readonly AdminCampaignDeskRow[] }> {
+  const sources = new Map<string, AdminCampaignSource>();
+  const progress = new Map<string, AdminSponsorshipProgress>();
+  const result = await loadAdminCampaignsOnClient(
+    db,
+    {
+      page: 1,
+      pageSize: 100,
+      sort: 'paid_at',
+      direction: 'desc',
+      ...(search ? { search } : {})
+    },
+    now,
+    {
+      sources: async (client, query) => {
+        const rows = await ports.sources(client, query);
+        for (const row of rows) sources.set(row.contribution_id, row);
+        return rows;
+      },
+      preparation: ports.preparation,
+      progress: async (client, source, date) => {
+        const value = await ports.progress(client, source, date);
+        progress.set(source.contribution_id, value);
+        return value;
+      }
+    },
+    'snapshot'
+  );
+  const authorizedReasons = new Set([
+    'publication_scheduled',
+    'publication_retry_pending',
+    'publication_publishing',
+    'publication_paused',
+    'publication_worker_disabled'
+  ]);
+  return {
+    generatedAt: result.generatedAt,
+    rows: result.items.map((campaign) => {
+      const source = sources.get(campaign.contributionId)!;
+      const facts = progress.get(campaign.contributionId)!;
+      const exactDelivery = facts.publications.find(
+        (publication) =>
+          publication.obligationId === campaign.id &&
+          publication.deliveryId === campaign.workflow.deliveryId &&
+          publication.channel === campaign.channel &&
+          publication.target === campaign.target &&
+          publication.deliveryMode === 'live' &&
+          ['approved', 'publishing'].includes(publication.deliveryStatus ?? '')
+      );
+      const websiteDuration =
+        campaign.channel === 'website' &&
+        campaign.workflow.reason === 'duration_in_progress' &&
+        !!campaign.timing?.startObservation &&
+        campaign.timing.durationState === 'awaiting_review';
+      return {
+        campaign,
+        amountMinor: source.amount_minor,
+        currency: source.currency,
+        commitmentId: source.commitment.id,
+        commitmentVersion: source.commitment.version,
+        authorizedDelivery:
+          websiteDuration ||
+          (!!exactDelivery &&
+            !!campaign.workflow.deliveryId &&
+            authorizedReasons.has(campaign.workflow.reason))
+      };
+    })
   };
 }
 

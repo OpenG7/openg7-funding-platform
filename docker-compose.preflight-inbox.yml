@@ -1,0 +1,39 @@
+# Optional server-side, read-only Preflight inbox. Layer after the existing stack.
+# Local HTTPS/CA transport: docker-compose.identity.local.yml; never disable TLS.
+# This overlay does not activate the producer, relay, worker or database import.
+services:
+  api:
+    environment:
+      PREFLIGHT_INBOX_ENABLED: ${PREFLIGHT_INBOX_ENABLED:-false}
+      PREFLIGHT_ENABLED: 'false'
+      PREFLIGHT_URL: ${PREFLIGHT_URL:-}
+      PREFLIGHT_CONSOLE_URL: ${PREFLIGHT_CONSOLE_URL:-}
+      PREFLIGHT_TENANT_ID: ${PREFLIGHT_TENANT_ID:-}
+      PREFLIGHT_TOKEN_URL: ${PREFLIGHT_TOKEN_URL:-}
+      PREFLIGHT_CLIENT_ID: ${PREFLIGHT_CLIENT_ID:-}
+      PREFLIGHT_CLIENT_SECRET: ''
+      PREFLIGHT_CLIENT_SECRET_FILE: /run/preflight-inbox/client-secret
+      PREFLIGHT_REQUEST_TIMEOUT_MS: ${PREFLIGHT_REQUEST_TIMEOUT_MS:-10000}
+    # Docker Desktop file mounts may report mode 0777 even with private host ACLs.
+    # Stage a private runtime copy as the existing API UID 1000, without logging it.
+    tmpfs:
+      - /run/preflight-inbox:rw,noexec,nosuid,nodev,size=16k,uid=1000,gid=1000,mode=0700
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        if [ "$$PREFLIGHT_INBOX_ENABLED" = "true" ] || [ "$${PREFLIGHT_REHEARSAL_ENABLED:-false}" = "true" ]; then
+        umask 077;
+        cp /run/secrets/funding-preflight-inbox-client /run/preflight-inbox/client-secret;
+        chmod 0400 /run/preflight-inbox/client-secret;
+        fi;
+        exec node dist/apps/funding-api/src/main.js
+    secrets:
+      - source: funding-preflight-inbox-client
+        target: funding-preflight-inbox-client
+
+secrets:
+  funding-preflight-inbox-client:
+    # Private host path only. Protect the file for API UID 1000 before mounting.
+    # Compose file-backed mounts may retain host permissions; runtime copy is 0400.
+    file: ${PREFLIGHT_CLIENT_SECRET_FILE:?Set the protected Preflight service client secret file}
