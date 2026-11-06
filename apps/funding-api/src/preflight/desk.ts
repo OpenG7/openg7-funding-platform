@@ -77,6 +77,14 @@ export function preflightDeskStage(
   )
     return 'delivered';
   if (row.authorizedDelivery) return 'to_deliver';
+  if (item.preparation.serviceDecision?.decision === 'approved')
+    return 'to_deliver';
+  if (
+    ['correction_requested', 'rejected'].includes(
+      item.preparation.serviceDecision?.decision ?? ''
+    )
+  )
+    return 'to_prepare';
   if (
     item.content &&
     ['ready', 'review_required', 'approved'].includes(item.preparation.status)

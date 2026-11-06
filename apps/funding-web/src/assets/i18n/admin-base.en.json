@@ -881,6 +881,8 @@
         "help": "Step-by-step help",
         "details": "Dossier details",
         "overview": "Overview",
+        "identity": "Identity",
+        "tools": "Dossier tools",
         "profile": "Profile & media",
         "publication": "Publication",
         "finances": "Finances",

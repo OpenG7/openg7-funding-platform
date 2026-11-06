@@ -21,7 +21,7 @@
   "stageHelp": {
     "to_prepare": "Prestations à préparer ou à compléter",
     "to_review": "Préparations à examiner par une personne",
-    "to_deliver": "Prestations autorisées, en attente de livraison",
+    "to_deliver": "Préparations approuvées ou prestations autorisées, avant livraison",
     "delivered": "Prestations avec preuve de livraison qualifiée"
   },
   "overview": "Vue d’ensemble",
@@ -97,5 +97,6 @@
     "unknown": "État inconnu"
   },
   "healthHelp": "Une lecture de la boîte ne vérifie pas l’ensemble de la passerelle ou du worker.",
-  "healthChecked": "Dernière lecture confirmée :"
+  "healthChecked": "Dernière lecture confirmée :",
+  "privateApproval": "Préparation approuvée. L’autorisation de publication reste distincte."
 }

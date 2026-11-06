@@ -14,7 +14,11 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
   imports: [TranslatePipe, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="detail-header" data-og7="dossier-header">
+    <header
+      class="detail-header"
+      [class.compact]="compact()"
+      data-og7="dossier-header"
+    >
       <div class="detail-title">
         <span class="sponsor-avatar large" aria-hidden="true">{{
           detail().initials
@@ -98,6 +102,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
   ]
 })
 export class AdminSponsorDetailHeaderComponent {
+  readonly compact = input(false);
   readonly website = input<AdminSponsorshipProgress['website']>();
   readonly detail = input.required<AdminSponsorDetailHeaderView>();
   readonly reviewStatus = input.required<SponsorshipReviewStatus>();

@@ -41,7 +41,6 @@ import {
   AdminIconComponent,
   type AdminIconName
 } from '../admin-ui/admin-icon.component.js';
-import { AdminSponsorshipPreparationComponent } from '../admin-sponsors/admin-sponsorship-preparation.component.js';
 import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
 
 type Stage = PreflightDeskQuery['stage'];
@@ -58,12 +57,7 @@ const stages: readonly PreflightDeskStage[] = [
 @Component({
   selector: 'openg7-admin-preflight-desk',
   standalone: true,
-  imports: [
-    TranslatePipe,
-    RouterLink,
-    AdminIconComponent,
-    AdminSponsorshipPreparationComponent
-  ],
+  imports: [TranslatePipe, RouterLink, AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-preflight-desk.component.html',
   styleUrls: [
@@ -74,13 +68,12 @@ const stages: readonly PreflightDeskStage[] = [
 })
 export class AdminPreflightDeskComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
-  private readonly reviewPanel =
-    viewChild<ElementRef<HTMLElement>>('reviewPanel');
   private readonly summaryTitle =
     viewChild<ElementRef<HTMLElement>>('summaryTitle');
   readonly i18n = inject(FundingI18nService);
@@ -97,24 +90,16 @@ export class AdminPreflightDeskComponent implements OnInit {
   });
   readonly search = signal('');
   readonly expanded = signal<ReadonlySet<string>>(new Set());
-  readonly selection = signal<{
-    order: PreflightDeskOrder;
-    service: PreflightDeskService;
-  } | null>(null);
   readonly stale = signal(false);
   readonly stages = stages;
   readonly summary = computed(() => this.response()?.summary ?? null);
   readonly orders = computed(() => this.response()?.orders ?? []);
-  readonly refreshKey = computed(
-    () => `${this.response()?.generatedAt ?? ''}:${this.admin.dataRevision()}`
-  );
   private requestSerial = 0;
   private request?: AbortController;
   private disposed = false;
   private routeKey = '';
   private currentSession = this.admin.sessionGeneration();
   private revision = this.admin.dataRevision();
-  private reviewTrigger: HTMLElement | null = null;
   private expansionInitialized = false;
 
   constructor() {
@@ -133,7 +118,6 @@ export class AdminPreflightDeskComponent implements OnInit {
         this.currentSession = session;
         this.invalidate();
         this.response.set(null);
-        this.selection.set(null);
         if (!this.admin.hasValidAdminSession()) this.signIn();
         else void this.load(false);
       });
@@ -175,7 +159,6 @@ export class AdminPreflightDeskComponent implements OnInit {
         this.routeKey = key;
         this.query.set(query);
         this.search.set(search);
-        this.selection.set(null);
         this.expansionInitialized = false;
         void this.load(false);
       });
@@ -202,15 +185,28 @@ export class AdminPreflightDeskComponent implements OnInit {
       if (!this.expansionInitialized && response.orders[0])
         this.expanded.set(new Set([response.orders[0].contributionId]));
       this.expansionInitialized = true;
-      const selected = this.selection();
-      if (selected) {
-        const order = response.orders.find(
-          (order) => order.contributionId === selected.order.contributionId
+      const returnId = this.route.snapshot.queryParamMap.get('reviewReturn');
+      if (returnId) {
+        const order = response.orders.find((order) =>
+          order.services.some((service) => service.id === returnId)
         );
-        const service = order?.services.find(
-          (service) => service.id === selected.service.id
+        if (order)
+          this.expanded.update(
+            (current) => new Set([...current, order.contributionId])
+          );
+        afterNextRender(
+          () => {
+            const target = Array.from(
+              this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
+                '[data-og7="preflight-desk-examine"]'
+              )
+            ).find((button) => button.getAttribute('data-og7-id') === returnId);
+            (target ?? this.summaryTitle()?.nativeElement)?.focus({
+              preventScroll: true
+            });
+          },
+          { injector: this.injector }
         );
-        this.selection.set(order && service ? { order, service } : null);
       }
     } catch (error) {
       if (!this.current(serial, session, controller)) return;
@@ -222,7 +218,6 @@ export class AdminPreflightDeskComponent implements OnInit {
       }
       if (status === 403) {
         this.response.set(null);
-        this.selection.set(null);
       }
       this.stale.set(this.response() !== null);
       this.state.set(status === 403 ? 'forbidden' : 'unavailable');
@@ -257,33 +252,14 @@ export class AdminPreflightDeskComponent implements OnInit {
     this.expanded.set(expanded);
   }
 
-  examine(
-    order: PreflightDeskOrder,
-    service: PreflightDeskService,
-    event: Event
-  ): void {
-    this.reviewTrigger =
-      event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    this.selection.set({ order, service });
-    afterNextRender(
-      () => {
-        const panel = this.reviewPanel()?.nativeElement;
-        panel?.focus({ preventScroll: true });
-        panel?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-      },
-      { injector: this.injector }
-    );
-  }
-
-  closeReview(): void {
-    this.selection.set(null);
-    afterNextRender(
-      () => {
-        if (this.reviewTrigger?.isConnected) this.reviewTrigger.focus();
-        else this.summaryTitle()?.nativeElement.focus();
-      },
-      { injector: this.injector }
-    );
+  examine(order: PreflightDeskOrder, service: PreflightDeskService): void {
+    void this.navigate({
+      view: 'desk',
+      sponsorshipId: order.contributionId,
+      obligationId: service.id,
+      preparationVersion: null,
+      reviewReturn: null
+    });
   }
 
   count(stage: PreflightDeskStage): number {
@@ -422,7 +398,6 @@ export class AdminPreflightDeskComponent implements OnInit {
   private signIn(): void {
     this.invalidate();
     this.response.set(null);
-    this.selection.set(null);
     void this.router.navigate(['/admin/login'], {
       queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
     });

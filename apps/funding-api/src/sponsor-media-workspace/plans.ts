@@ -24,6 +24,10 @@ import { preparePlanManifest, type StoredPlan } from './plan-manifest.js';
 import { applyPlanMutations } from './plan-mutations.js';
 import { readWorkspace } from './read.js';
 import type { MediaSourceAttestation } from './source-attestation.js';
+import {
+  readPreparationTarget,
+  mediaPreparationIssues
+} from './preparation.js';
 
 export async function planBatch(
   pool: Pool,
@@ -53,7 +57,9 @@ export async function planBatch(
     const {
       assets: selected,
       manifest,
-      blocked
+      blocked,
+      preparationTarget,
+      preparationFingerprint
     } = await preparePlanManifest(db, input, workspace, attestations);
     const id = randomUUID();
     const response: SponsorMediaBatchPlan = {
@@ -64,6 +70,7 @@ export async function planBatch(
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       assets: selected,
       blocked,
+      ...(preparationTarget ? { preparationTarget } : {}),
       effects:
         input.action === 'approve'
           ? [
@@ -71,13 +78,32 @@ export async function planBatch(
               'NO_SOCIAL_PUBLICATION',
               'WEBSITE_SELECTION_SEPARATE'
             ]
-          : input.action === 'delete'
-            ? ['REVOKE_MEDIA', 'DURABLE_STORAGE_CLEANUP']
-            : input.action === 'website_select'
-              ? ['SELECT_FOR_ELIGIBLE_PUBLIC_WEBSITE']
-              : ['INVALIDATE_AFFECTED_APPROVALS']
+          : ['preparation_assign', 'preparation_unassign'].includes(
+                input.action
+              )
+            ? [
+                'PRIVATE_MEDIA_PREPARATION_ONLY',
+                'NO_PUBLICATION_AUTHORIZATION',
+                'WEBSITE_SELECTION_UNCHANGED'
+              ]
+            : input.action === 'request_correction'
+              ? [
+                  'MEDIA_CORRECTION_REQUESTED',
+                  'INVALIDATE_AFFECTED_APPROVALS',
+                  'NO_OUTBOUND_MESSAGE'
+                ]
+              : input.action === 'delete'
+                ? ['REVOKE_MEDIA', 'DURABLE_STORAGE_CLEANUP']
+                : input.action === 'website_select'
+                  ? ['SELECT_FOR_ELIGIBLE_PUBLIC_WEBSITE']
+                  : ['INVALIDATE_AFFECTED_APPROVALS']
     };
-    const stored: StoredPlan = { request: input, manifest, response };
+    const stored: StoredPlan = {
+      request: input,
+      manifest,
+      response,
+      ...(preparationFingerprint ? { preparationFingerprint } : {})
+    };
     await db.query(
       `INSERT INTO sponsor_media_batch_plans(id,contribution_id,request_id,payload_fingerprint,actor,workspace_revision,plan,expires_at)
       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
@@ -143,8 +169,31 @@ export async function executeBatch(
     );
     // Revalidate every member before the first business mutation. Any failure rolls back all members.
     const workspace = await readWorkspace(db, row.contribution_id);
+    let preparationTarget;
+    if (
+      ['preparation_assign', 'preparation_unassign'].includes(
+        plan.request.action
+      )
+    ) {
+      const currentTarget = await readPreparationTarget(
+        db,
+        row.contribution_id,
+        plan.request.targetObligationId!,
+        plan.request.targetObligationVersion!,
+        true
+      );
+      ensure(
+        currentTarget.fingerprint === plan.preparationFingerprint,
+        'MEDIA_PREPARATION_TARGET_CHANGED'
+      );
+      preparationTarget = currentTarget;
+    }
     for (const member of plan.manifest) {
-      if (['approve', 'website_select'].includes(plan.request.action)) {
+      if (
+        ['approve', 'website_select', 'preparation_assign'].includes(
+          plan.request.action
+        )
+      ) {
         const attestation = attestations.get(member.id);
         ensure(
           attestation?.valid &&
@@ -161,6 +210,11 @@ export async function executeBatch(
           asset.moderation.currentDecisionId === member.currentDecisionId,
         'MEDIA_PLAN_STALE'
       );
+      if (plan.request.action === 'preparation_assign' && preparationTarget)
+        ensure(
+          mediaPreparationIssues(asset, preparationTarget).length === 0,
+          'MEDIA_PREPARATION_NOT_ELIGIBLE'
+        );
       if (plan.request.action === 'website_select')
         await assertModerationApproved(db, { type: 'media', id: member.id });
     }

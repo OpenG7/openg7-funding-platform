@@ -186,9 +186,9 @@ and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-fa
 
 ### Preflight
 
-[Workspace](preflight-workspace.md), [inbox](preflight-inbox.md) and
-[local rehearsals](preflight-rehearsals.md) document the private APIs,
-permissions, business authority and independent activation.
+[Workspace](preflight-workspace.md), [examination](preflight-examination.md),
+[work sessions](preflight-work-sessions.md), [inbox](preflight-inbox.md) and
+[rehearsals](preflight-rehearsals.md) define private APIs and authority.
 
 ## Sponsorship review admin
 

@@ -20,6 +20,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { SponsorPresentationCardComponent } from '../../components/sponsor-presentation-card/sponsor-presentation-card.component.js';
 import {
   isPublicSponsorshipsResponse,
   publicHttpsUrl,
@@ -33,7 +34,13 @@ import { SponsorshipsService } from '../../services/sponsorships.service.js';
 @Component({
   selector: 'openg7-sponsors-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    TranslatePipe,
+    FundingHeaderComponent,
+    SponsorPresentationCardComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sponsors-page.component.html',
   styleUrl: './sponsors-page.component.css'
@@ -176,8 +183,23 @@ export class SponsorsPageComponent implements OnInit {
     sponsor.feed_status === 'published'
       ? publicHttpsUrl(sponsor.feed_public_url)
       : null;
-  hasFeedPlacement(sponsor: PublicSponsorshipProfile): boolean {
-    return this.publicationUrl(sponsor) !== null;
+  presentationPlacement(sponsor: PublicSponsorshipProfile) {
+    const url = this.publicationUrl(sponsor);
+    return url
+      ? {
+          url,
+          target: sponsor.feed_target
+            ? this.feedTargetLabel(sponsor.feed_target)
+            : null,
+          channels: sponsor.feed_channels.map((channel) =>
+            this.feedChannelLabel(channel)
+          )
+        }
+      : null;
+  }
+  presentationCardPhoto(sponsor: PublicSponsorshipProfile) {
+    const photo = this.presentationPhoto(sponsor);
+    return photo ? { ...photo, alt: photo.alt_text } : null;
   }
   amountLabel(sponsor: PublicSponsorshipProfile): string {
     if (sponsor.amount === null)
@@ -195,13 +217,5 @@ export class SponsorsPageComponent implements OnInit {
   }
   feedChannelLabel(channel: SponsorFeedChannel): string {
     return channel === 'facebook' ? 'Facebook' : 'LinkedIn';
-  }
-  initials(name: string): string {
-    return name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('');
   }
 }

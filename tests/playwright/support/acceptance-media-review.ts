@@ -1,4 +1,7 @@
+import { randomUUID } from 'node:crypto';
+
 import type { APIRequestContext, Page } from '@playwright/test';
+import { MEDIA_REVIEW_MAX_SELECTION } from '@openg7/funding-core';
 import type {
   ModerationContent,
   ModerationDecisionRecord,
@@ -112,62 +115,135 @@ export async function assertAcceptanceMediaApprovals(
   }
 }
 
-/** Review the selected current media through the real gallery and atomic command. */
-export async function approveAcceptanceMedia(
-  page: Page,
+/** Plan only explicitly reviewed synthetic fixture assets through the existing API. */
+export async function prepareAcceptanceMediaPlan(
   request: APIRequestContext,
   contributionId: string,
-  ids: readonly string[],
-  controller?: AdminController
-): Promise<void> {
-  const workspace = page.locator('[data-og7="media-review-workspace"]');
-  await expect(workspace).toBeVisible();
-  for (const id of ids) {
-    const checkbox = workspace.locator(
-      `[data-og7="media-tile"][data-og7-id="${id}"] input[type="checkbox"]`
-    );
-    await expect(checkbox).not.toBeChecked();
-    if (controller) await controller.activate(checkbox);
-    else await checkbox.check();
-    await expect(checkbox).toBeChecked();
-  }
-  const planned = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/api/admin/sponsorships/media/batch/plan') &&
-      response.request().method() === 'POST'
+  action: 'approve' | 'website_select' | 'delete',
+  ids: readonly string[]
+): Promise<SponsorMediaBatchPlan> {
+  expect(
+    process.env.OPENG7_E2E_ISOLATED,
+    'Disposable fixture preparation only.'
+  ).toBe('1');
+  expect(ids.length).toBeGreaterThan(0);
+  expect(ids.length).toBeLessThanOrEqual(MEDIA_REVIEW_MAX_SELECTION);
+  expect(new Set(ids).size).toBe(ids.length);
+  const workspace = await mediaWorkspace(request, contributionId);
+  expect(workspace.contributionId).toBe(contributionId);
+  const assets = ids.map((id) => {
+    const asset = workspace.assets.find((item) => item.id === id);
+    expect(
+      asset,
+      'The requested synthetic asset must belong to this dossier.'
+    ).toBeTruthy();
+    expect(asset!.contributionId).toBe(contributionId);
+    expect(asset!.version).toBeTruthy();
+    return { id, version: asset!.version };
+  });
+  const input: SponsorMediaBatchPlanRequest = {
+    requestId: randomUUID(),
+    contributionId,
+    expectedRevision: workspace.revision,
+    action,
+    assets
+  };
+  const response = await request.post(
+    '/api/admin/sponsorships/media/batch/plan',
+    { headers: await adminSessionHeaders(request), data: input }
   );
-  const approve = page.locator('[data-og7="media-batch-approve"]');
-  if (controller) await controller.activate(approve);
-  else await approve.click();
-  const response = await planned;
   expect(response.ok(), await response.text()).toBe(true);
-  const input = response
-    .request()
-    .postDataJSON() as SponsorMediaBatchPlanRequest;
-  expect(input).toMatchObject({ contributionId, action: 'approve' });
-  expect(input.assets.map((asset) => asset.id).sort()).toEqual([...ids].sort());
   const plan = (await response.json()) as SponsorMediaBatchPlan;
   expect(plan).toMatchObject({
     contributionId,
-    action: 'approve',
+    action,
+    revision: workspace.revision,
     blocked: []
   });
   expect(
     plan.assets
       .map((asset) => ({ id: asset.id, version: asset.version }))
       .sort((a, b) => a.id.localeCompare(b.id))
-  ).toEqual(
-    input.assets
-      .map((asset) => ({ id: asset.id, version: asset.version }))
-      .sort((a, b) => a.id.localeCompare(b.id))
+  ).toEqual([...assets].sort((a, b) => a.id.localeCompare(b.id)));
+  expect(Date.parse(plan.expiresAt)).toBeGreaterThan(Date.now());
+  return plan;
+}
+
+/** This is API setup for known synthetic images, not a claim of gallery UI coverage. */
+export async function executeAcceptanceMediaPlan(
+  request: APIRequestContext,
+  plan: SponsorMediaBatchPlan
+): Promise<SponsorMediaBatchReceipt> {
+  expect(
+    process.env.OPENG7_E2E_ISOLATED,
+    'Disposable fixture preparation only.'
+  ).toBe('1');
+  expect(plan.blocked).toEqual([]);
+  const input: SponsorMediaBatchExecuteRequest = {
+    requestId: randomUUID(),
+    planId: plan.id,
+    confirmation: plan.id,
+    humanReviewed: true
+  };
+  let receipt: SponsorMediaBatchReceipt;
+  try {
+    const response = await request.post(
+      '/api/admin/sponsorships/media/batch/execute',
+      { headers: await adminSessionHeaders(request), data: input }
+    );
+    expect(response.ok(), await response.text()).toBe(true);
+    receipt = (await response.json()) as SponsorMediaBatchReceipt;
+  } catch (error) {
+    // A lost acknowledgement can be inspected by its exact receipt, never by repeating a mutation.
+    const response = await request.get(
+      '/api/admin/sponsorships/media/receipt',
+      {
+        headers: await adminSessionHeaders(request),
+        params: {
+          contributionId: plan.contributionId,
+          requestId: input.requestId
+        }
+      }
+    );
+    if (!response.ok()) throw error;
+    const recorded = (await response.json()) as {
+      found: boolean;
+      result?: SponsorMediaBatchReceipt;
+    };
+    if (!recorded.found || !recorded.result) throw error;
+    receipt = recorded.result;
+  }
+  expect(receipt).toMatchObject({
+    requestId: input.requestId,
+    planId: plan.id,
+    action: plan.action,
+    status: 'completed'
+  });
+  expect(receipt.items.map((item) => item.id).sort()).toEqual(
+    plan.assets.map((asset) => asset.id).sort()
   );
-  const receipt = await confirmAcceptanceMediaManifest(
-    page,
+  expect(
+    receipt.items.every((item) => item.version && item.result === plan.action)
+  ).toBe(true);
+  return receipt;
+}
+
+/** Prepare reviewed synthetic media while the retired dossier gallery stays empty. */
+export async function approveAcceptanceMedia(
+  _page: Page,
+  request: APIRequestContext,
+  contributionId: string,
+  ids: readonly string[],
+  _controller?: AdminController
+): Promise<void> {
+  void _controller; // Retain existing fixture callers; this setup does not qualify controller UI.
+  const plan = await prepareAcceptanceMediaPlan(
+    request,
+    contributionId,
     'approve',
-    ids,
-    controller
+    ids
   );
-  expect(receipt.planId).toBe(plan.id);
+  await executeAcceptanceMediaPlan(request, plan);
   await assertAcceptanceMediaApprovals(request, contributionId, ids);
 }
 
@@ -188,53 +264,26 @@ async function mediaWorkspace(
 
 /** Website exposure remains a separately confirmed decision after media approval. */
 export async function selectAcceptanceWebsiteMedia(
-  page: Page,
+  _page: Page,
   request: APIRequestContext,
   contributionId: string,
   ids: readonly string[],
-  controller?: AdminController
+  _controller?: AdminController
 ): Promise<void> {
-  const current = new URL(page.url());
-  if (
-    current.searchParams.get('sponsorshipId') !== contributionId ||
-    current.searchParams.get('tab') !== 'media'
-  )
-    await page.goto(
-      '/admin/fundraiser/sponsors?sponsorshipId=' +
-        contributionId +
-        '&tab=media'
-    );
+  void _controller; // The website-selection API remains separate from the removed gallery UI.
   const before = await mediaWorkspace(request, contributionId);
   for (const id of ids) {
     expect(before.assets.find((asset) => asset.id === id)).toMatchObject({
       reviewStatus: 'approved',
       websiteSelected: false
     });
-    const tile = page.locator(`[data-og7="media-tile"][data-og7-id="${id}"]`);
-    const inspect = tile.getByRole('button');
-    if (controller) await controller.activate(inspect);
-    else await inspect.click();
-    const inspector = page.locator('[data-og7="media-inspector"]');
-    const advanced = inspector.getByText('Plus d’options', { exact: true });
-    if (
-      !(await advanced.evaluate((element) =>
-        element.parentElement?.hasAttribute('open')
-      ))
-    ) {
-      if (controller) await controller.activate(advanced);
-      else await advanced.click();
-    }
-    const select = inspector.getByRole('button', {
-      name: /^Choisir (?:comme photo du|pour le) site$/
-    });
-    if (controller) await controller.activate(select);
-    else await select.click();
-    await confirmAcceptanceMediaManifest(
-      page,
+    const plan = await prepareAcceptanceMediaPlan(
+      request,
+      contributionId,
       'website_select',
-      [id],
-      controller
+      [id]
     );
+    await executeAcceptanceMediaPlan(request, plan);
   }
   const after = await mediaWorkspace(request, contributionId);
   for (const id of ids)

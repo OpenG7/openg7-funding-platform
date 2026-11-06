@@ -51,6 +51,11 @@ retains `AdminCampaignItem` facts and adds its stage, blockers and an exact
 `reviewUrl` to the existing campaigns page, scoped by contribution/obligation IDs.
 Opening or closing a card does not mutate or reload its business source.
 
+Cards show the company name first and the public reference beneath it when
+distinct; an unnamed contribution shows its reference once. Status cards,
+badges and preparation panels use the active admin palette in mineral, night
+and graphite themes. Search controls wrap within the available page width.
+
 Preparation origin is explicitly `funding`, and `preflightLink=unverified`.
 The external inbox's synthetic and generic source references are not matched
 to commercial records by names, dates or amounts. Adopting an external draft

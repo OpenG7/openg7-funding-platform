@@ -2,6 +2,22 @@
   display: block;
   min-width: 0;
 }
+.work-resume {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+}
+.work-resume > div {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
 .preflight-content {
   display: grid;
   gap: 1.25rem;

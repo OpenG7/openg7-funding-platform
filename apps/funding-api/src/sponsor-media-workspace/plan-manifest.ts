@@ -16,6 +16,11 @@ import { getModerationContent } from '../moderation/repository.js';
 
 import { ensure } from './policy.js';
 import type { MediaSourceAttestation } from './source-attestation.js';
+import {
+  readPreparationTarget,
+  preparationTargetSummary,
+  mediaPreparationIssues
+} from './preparation.js';
 
 export interface ManifestItem {
   id: string;
@@ -30,6 +35,7 @@ export interface StoredPlan {
   request: SponsorMediaBatchPlanRequest;
   manifest: ManifestItem[];
   response: SponsorMediaBatchPlan;
+  preparationFingerprint?: string;
 }
 
 /** Build the exact reviewed candidates without changing any media state. */
@@ -40,8 +46,20 @@ export async function preparePlanManifest(
   attestations: ReadonlyMap<string, MediaSourceAttestation>
 ): Promise<
   Pick<StoredPlan, 'manifest'> &
-    Pick<SponsorMediaBatchPlan, 'assets' | 'blocked'>
+    Pick<SponsorMediaBatchPlan, 'assets' | 'blocked' | 'preparationTarget'> &
+    Pick<StoredPlan, 'preparationFingerprint'>
 > {
+  const preparation = ['preparation_assign', 'preparation_unassign'].includes(
+    input.action
+  )
+    ? await readPreparationTarget(
+        db,
+        input.contributionId,
+        input.targetObligationId!,
+        input.targetObligationVersion!,
+        true
+      )
+    : null;
   if (input.action === 'move' && input.targetBatchId)
     ensure(
       workspace.batches.some((b) => b.id === input.targetBatchId),
@@ -99,10 +117,23 @@ export async function preparePlanManifest(
     const reasons: string[] = [];
     const attestation = attestations.get(asset.id);
     if (
-      ['approve', 'website_select'].includes(input.action) &&
+      ['approve', 'website_select', 'preparation_assign'].includes(
+        input.action
+      ) &&
       (!attestation?.valid || attestation.version !== asset.version)
     )
       reasons.push('MEDIA_CONTENT_UNAVAILABLE');
+    if (input.action === 'preparation_assign' && preparation)
+      reasons.push(...mediaPreparationIssues(asset, preparation));
+    if (
+      input.action === 'preparation_unassign' &&
+      !workspace.preparationAssignments?.some(
+        (assignment) =>
+          assignment.assetId === asset.id &&
+          assignment.obligationId === input.targetObligationId
+      )
+    )
+      reasons.push('MEDIA_PREPARATION_ASSIGNMENT_NOT_FOUND');
     if (input.action === 'approve') {
       if (
         asset.reviewStatus === 'approved' &&
@@ -160,7 +191,7 @@ export async function preparePlanManifest(
     )
       reasons.push('MEDIA_RULE_SCOPE_MISMATCH');
     const decisionRequestId = randomUUID();
-    if (input.action === 'reject') {
+    if (input.action === 'reject' || input.action === 'request_correction') {
       const decision: ModerationDecisionInput = {
         requestId: decisionRequestId,
         policyVersion: MODERATION_POLICY_VERSION,
@@ -168,8 +199,9 @@ export async function preparePlanManifest(
         contentFingerprint: content.fingerprint,
         expectedDecisionId: content.currentDecisionId,
         confirmation: asset.id,
-        level: 'N3',
+        level: input.action === 'request_correction' ? 'N1' : 'N3',
         primaryReason: input.reason,
+        editorialProvision: input.editorialProvision,
         internalReason: input.internalReason ?? input.sponsorExplanation,
         sponsorExplanation: input.sponsorExplanation
       };
@@ -194,5 +226,15 @@ export async function preparePlanManifest(
       ...(attestation ? { sourceChecksum: attestation.checksum } : {})
     });
   }
-  return { assets: selected, manifest, blocked };
+  return {
+    assets: selected,
+    manifest,
+    blocked,
+    ...(preparation
+      ? {
+          preparationTarget: preparationTargetSummary(preparation),
+          preparationFingerprint: preparation.fingerprint
+        }
+      : {})
+  };
 }

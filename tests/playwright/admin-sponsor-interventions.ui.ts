@@ -310,10 +310,15 @@ export function registerSponsorInterventionTests({
       'Finances',
       'Historique'
     ]) {
-      await page
+      const tab = page
         .locator('[data-og7="dossier-tabs"]')
-        .getByRole('button', { name: label, exact: true })
-        .click();
+        .getByRole('button', { name: label, exact: true });
+      await tab.click();
+      await expect(tab).toHaveAttribute('aria-current', 'page');
+      const tools = page.locator('details[data-og7="dossier-global-tools"]');
+      if ((await tools.getAttribute('open')) === null)
+        await tools.locator(':scope > summary').press('Enter');
+      await expect(command).toBeVisible();
       await command.focus();
       await command.press('Enter');
       await expect(journal.locator('dialog')).toBeVisible();
