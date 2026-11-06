@@ -67,14 +67,73 @@ openg7-sponsor-presentation-card {
   object-fit: contain;
   margin-top: 1rem;
 }
-.assigned-media-list {
+.library-toolbar,
+.library-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin-block: 1rem;
+  min-width: 0;
+}
+.library-search {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+.library-search input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+.library-toolbar .preview-note span {
+  display: block;
+}
+.library-search input,
+.library-pagination :is(button, select) {
+  min-height: 44px;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  color: var(--admin-text);
+  background: var(--admin-panel);
+}
+.library-pagination {
+  align-items: center;
+}
+.library-pagination label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.library-search,
+.library-pagination {
+  font-size: 0.875rem;
+}
+.library-pagination button {
+  cursor: pointer;
+}
+.library-pagination button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.library-search input:focus-visible,
+.library-pagination :is(button, select):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.library-media-list {
   padding: 0;
   list-style: none;
   display: grid;
   gap: 0.75rem;
   margin: 1rem 0;
 }
-.assigned-media-list li {
+.library-media-list li {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
@@ -84,18 +143,32 @@ openg7-sponsor-presentation-card {
   overflow-wrap: anywhere;
   min-width: 0;
 }
-.assigned-media-list openg7-media-review-thumbnail {
+.library-media-list openg7-media-review-thumbnail {
   width: 8rem;
   max-width: 100%;
   height: 6rem;
   flex-shrink: 0;
 }
-.assigned-media-list li > div {
+.library-media-list li > div {
   flex: 1 1 12rem;
   min-width: 0;
 }
-.assigned-media-list p {
+.library-media-list p {
   margin-block: 0.4rem 0;
+}
+.assignment-status {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.missing-assignments {
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.missing-assignments .preview-note {
+  display: block;
 }
 .preview-note,
 .empty-preview {

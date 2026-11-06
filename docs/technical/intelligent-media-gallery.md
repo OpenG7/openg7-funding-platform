@@ -106,6 +106,9 @@ La notification différée de modération est interne et strictement limitée à
 la demande collective N1 sur des médias.
 
 Examiner réutilise son composant d’aperçu et la projection de la bibliothèque.
+Son onglet « Médias du dossier » consulte tous les fichiers du dossier, avec
+recherche, pagination et repères d’affectation; une prestation sans affectation
+ne masque donc pas la bibliothèque. Les mutations rejoignent la galerie propriétaire.
 Les versions des associations et des retraits participent à la version source
 de préparation. Les réponses tardives et les refus 401/403 ne réaffichent pas
 de contenu privé.
@@ -182,6 +185,12 @@ exécutions finales. Les captures utilisent des médias synthétiques, sans expo
 de contenu client. Le build de l’image API Node 22 a également réussi; la
 [procédure locale](../operations/intelligent-media-gallery-activation.md) consigne
 la sauvegarde chiffrée et sa restauration réellement vérifiée sur PostgreSQL jetable.
+
+La consultation complète dans Examiner est qualifiée par **38/38 parcours
+navigateur** : dossier avec vingt médias sans affectation, recherche, pagination,
+FR/EN sur mobile et bureau, isolation du dossier, versions obsolètes et purge
+401/403. Les **5/5 tests unitaires de projection** conservent les règles de
+sélection du rendu. Build, lint et typecheck UI réussis pour ce correctif.
 
 ## H. Fidélité à la maquette
 

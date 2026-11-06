@@ -15,5 +15,29 @@
   "assignmentStale": "Outdated assignment: check the media and service versions in the library.",
   "assignmentReview": "Assignment prepared; media checks still need to be completed.",
   "assignmentCurrent": "Current assignment; publication remains a separate decision.",
-  "assignedVersion": "Assigned media version:"
+  "assignedVersion": "Assigned media version:",
+  "libraryScope": "All media in this dossier can be consulted here in read-only mode. Assignments to this service are identified separately; unassigned files are not added to the rendering. Additions, corrections and assignments remain in the dossier’s library.",
+  "libraryLabel": "Read-only dossier media library",
+  "librarySearch": "Search a filename, alternative text or file type",
+  "libraryCount": "Dossier media: {{count}}",
+  "libraryMatches": "Search results: {{count}}",
+  "libraryEmpty": "This dossier’s media library contains no media.",
+  "libraryNoMatches": "No media matches this search.",
+  "libraryPagination": "Media library pages",
+  "libraryPrevious": "Previous page",
+  "libraryNext": "Next page",
+  "libraryPage": "Page {{page}} of {{total}}",
+  "libraryPageSize": "Media per page",
+  "unassignedMedia": "Not assigned to this service",
+  "staleAssignmentCount": "Assignments requiring review: {{count}}",
+  "missingAssignments": "Some assignments to this service reference media that are no longer available in the current library.",
+  "mediaKinds": {
+    "logo": "Logo",
+    "supporting_image": "Photo or visual"
+  },
+  "mediaReview": {
+    "pending_review": "Media awaiting review",
+    "approved": "Media approved; publication is separate",
+    "rejected": "Media rejected"
+  }
 }

@@ -68,6 +68,52 @@ export class PreflightServicePreviewComponent {
   readonly selectedLogo = signal<SponsorMediaWorkspaceAsset | null>(null);
   readonly prepared = signal<readonly PreparedServiceMedia[]>([]);
   readonly usesPreparation = signal(false);
+  readonly libraryAssets = signal<readonly SponsorMediaWorkspaceAsset[]>([]);
+  readonly libraryLoaded = signal(false);
+  readonly librarySearch = signal('');
+  readonly libraryPage = signal(1);
+  readonly libraryPageSize = signal<8 | 16 | 25>(8);
+  readonly libraryPageSizes = [8, 16, 25] as const;
+  readonly filteredLibraryMedia = computed(() => {
+    const query = this.librarySearch().trim().toLocaleLowerCase();
+    const assignments = new Map(
+      this.prepared().map((item) => [item.assignment.assetId, item])
+    );
+    return this.libraryAssets()
+      .filter((asset) =>
+        [asset.originalFilename, asset.altText, asset.originalMimeType]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase()
+          .includes(query)
+      )
+      .map((asset) => ({
+        asset,
+        preparation: assignments.get(asset.id) ?? null
+      }));
+  });
+  readonly libraryTotalPages = computed(() =>
+    Math.max(
+      1,
+      Math.ceil(this.filteredLibraryMedia().length / this.libraryPageSize())
+    )
+  );
+  readonly normalizedLibraryPage = computed(() =>
+    Math.max(1, Math.min(this.libraryPage(), this.libraryTotalPages()))
+  );
+  readonly visibleLibraryMedia = computed(() => {
+    const start = (this.normalizedLibraryPage() - 1) * this.libraryPageSize();
+    return this.filteredLibraryMedia().slice(
+      start,
+      start + this.libraryPageSize()
+    );
+  });
+  readonly missingAssignments = computed(() =>
+    this.prepared().filter((item) => !item.asset)
+  );
+  readonly staleAssignments = computed(() =>
+    this.prepared().filter((item) => item.stale)
+  );
   readonly thumbnails = new MediaPreviewCollection((id) => {
     const ticket = this.generation;
     return this.admin.mediaThumbnail(id).catch((error: unknown) => {
@@ -114,6 +160,16 @@ export class PreflightServicePreviewComponent {
         void this.load(id, channel, draft, obligationId, view, target);
       });
     });
+    effect(() => {
+      const visible = this.view() === 'media' ? this.visibleLibraryMedia() : [];
+      untracked(() =>
+        this.thumbnails.retain(
+          visible.map(({ asset }) =>
+            this.thumbnails.key(asset.id, asset.version)
+          )
+        )
+      );
+    });
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
       ++this.generation;
@@ -130,6 +186,26 @@ export class PreflightServicePreviewComponent {
     this.imageFailedSources.update((sources) => new Set([...sources, url]));
     this.unavailable.set(true);
   }
+  searchLibrary(event: Event): void {
+    this.librarySearch.set((event.target as HTMLInputElement).value);
+    this.libraryPage.set(1);
+  }
+  setLibraryPageSize(event: Event): void {
+    const size = Number((event.target as HTMLSelectElement).value);
+    this.libraryPageSize.set(size === 16 || size === 25 ? size : 8);
+    this.libraryPage.set(1);
+  }
+  changeLibraryPage(direction: -1 | 1): void {
+    this.libraryPage.set(
+      Math.max(
+        1,
+        Math.min(
+          this.libraryTotalPages(),
+          this.normalizedLibraryPage() + direction
+        )
+      )
+    );
+  }
 
   private async load(
     id: string,
@@ -145,6 +221,10 @@ export class PreflightServicePreviewComponent {
     this.selectedPhoto.set(null);
     this.selectedLogo.set(null);
     this.prepared.set([]);
+    this.libraryAssets.set([]);
+    this.libraryLoaded.set(false);
+    this.librarySearch.set('');
+    this.libraryPage.set(1);
     this.usesPreparation.set(false);
     this.thumbnails.clear();
     this.imageFailedSources.set(new Set());
@@ -171,7 +251,14 @@ export class PreflightServicePreviewComponent {
       );
       this.prepared.set(projection.prepared);
       this.usesPreparation.set(projection.usesPreparation);
-      if (projection.prepared.some((item) => item.stale || !item.eligible))
+      this.libraryAssets.set(
+        data.assets.filter((asset) => asset.contributionId === id)
+      );
+      this.libraryLoaded.set(true);
+      if (
+        view === 'preview' &&
+        projection.prepared.some((item) => item.stale || !item.eligible)
+      )
         this.unavailable.set(true);
       const assets = projection.previewAssets;
       const photo =
@@ -207,6 +294,10 @@ export class PreflightServicePreviewComponent {
       (error.status === 401 || error.status === 403)
     ) {
       this.prepared.set([]);
+      this.libraryAssets.set([]);
+      this.libraryLoaded.set(false);
+      this.librarySearch.set('');
+      this.libraryPage.set(1);
       this.selectedPhoto.set(null);
       this.selectedLogo.set(null);
       this.photoResource.clear();
