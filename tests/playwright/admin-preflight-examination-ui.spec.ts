@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type {
   AdminCampaignItem,
   AdminDossierPreparationReceipt,
@@ -35,6 +35,77 @@ const obligationIds = [
 ] as const;
 const hook = (page: Page, name = '') =>
   page.locator(`[data-og7="examination${name ? '-' + name : ''}"]`);
+
+async function expectReadableColor(
+  target: Locator,
+  property: 'color' | 'outlineColor' | 'borderTopColor' = 'color',
+  minimum = 4.5
+): Promise<number> {
+  await expect(target).toBeVisible();
+  const result = await target.evaluate((element, property) => {
+    type Color = readonly [number, number, number, number];
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Contrast measurement unavailable');
+    const parse = (value: string): Color => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = value;
+      context.fillRect(0, 0, 1, 1);
+      const pixel = context.getImageData(0, 0, 1, 1).data;
+      return [pixel[0]!, pixel[1]!, pixel[2]!, pixel[3]! / 255];
+    };
+    const over = (front: Color, back: Color): Color => {
+      const alpha = front[3] + back[3] * (1 - front[3]);
+      if (!alpha) return [0, 0, 0, 0];
+      const channel = (index: 0 | 1 | 2) =>
+        (front[index] * front[3] + back[index] * back[3] * (1 - front[3])) /
+        alpha;
+      return [channel(0), channel(1), channel(2), alpha];
+    };
+    const ancestors: Element[] = [];
+    for (let node: Element | null = element; node; node = node.parentElement)
+      ancestors.push(node);
+    let background: Color = [255, 255, 255, 1];
+    let gradient = false;
+    for (const node of ancestors.reverse()) {
+      const style = getComputedStyle(node);
+      const fill = parse(style.backgroundColor);
+      if (fill[3] === 1) gradient = false;
+      if (style.backgroundImage !== 'none') gradient = true;
+      background = over(fill, background);
+    }
+    const foreground = getComputedStyle(element)[property];
+    const rendered = over(parse(foreground), background);
+    const luminance = (color: Color) => {
+      const linear = (value: number) => {
+        const normalized = value / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      };
+      return (
+        0.2126 * linear(color[0]) +
+        0.7152 * linear(color[1]) +
+        0.0722 * linear(color[2])
+      );
+    };
+    const first = luminance(rendered),
+      second = luminance(background);
+    return {
+      foreground,
+      background,
+      gradient,
+      ratio: (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
+    };
+  }, property);
+  expect(
+    result.gradient,
+    'A flat background is required for this measurement'
+  ).toBe(false);
+  expect(result.ratio, JSON.stringify(result)).toBeGreaterThanOrEqual(minimum);
+  return result.ratio;
+}
 
 function service(index: number): AdminCampaignItem {
   const channel = index === 0 ? 'website' : 'facebook';
@@ -286,9 +357,21 @@ function deskResponse(
 
 async function fixtures(
   page: Page,
-  options: { language?: 'fr-CA' | 'en'; role?: 'owner' | 'reader' } = {}
+  options: {
+    language?: 'fr-CA' | 'en';
+    role?: 'owner' | 'reader';
+    theme?: 'mineral' | 'night' | 'graphite';
+  } = {}
 ) {
-  await prepareAdminDesignReview(page);
+  if (options.theme) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, options.theme);
+  } else await prepareAdminDesignReview(page);
   await page.addInitScript(
     (locale) => localStorage.setItem('openg7.language', locale),
     options.language ?? 'fr-CA'
@@ -1329,6 +1412,143 @@ for (const status of [401, 403]) {
     expect(state.writes).toEqual([]);
     expect(state.personalWrites).toEqual([]);
   });
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'en', width: 390 },
+    { language: 'fr-CA', width: 1536 }
+  ] as const) {
+    test(`Examiner preserves readable contrast across media, decisions and errors in ${theme} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const state = await fixtures(page, { language, theme });
+      const previous = state.receipts[1]!;
+      state.receipts[1] = {
+        ...previous,
+        status: 'not_ready',
+        companyName: null,
+        draft: null,
+        service: { ...previous.service, companyName: null, content: null },
+        dossier: {
+          ...previous.dossier,
+          drafts: previous.dossier.drafts.filter(
+            (draft) => draft.channel !== 'facebook'
+          )
+        },
+        blockers: ['service_draft_missing', 'company_missing'],
+        checks: [
+          { code: 'payment_confirmed', state: 'complete' },
+          { code: 'accepted_offer', state: 'complete' },
+          { code: 'service_draft_identified', state: 'missing' }
+        ],
+        canApprove: false,
+        canDecide: false
+      };
+      state.assets = [
+        mediaAsset(1, true),
+        mediaAsset(2, false),
+        mediaAsset(3, true)
+      ];
+      await page.goto(examinationUrl(1));
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      await expect(hook(page, 'approve')).toBeDisabled();
+      const ratios: Record<string, number> = {};
+      ratios.title = await expectReadableColor(
+        hook(page).getByRole('heading', { level: 1 })
+      );
+      ratios.organization = await expectReadableColor(
+        hook(page).locator('header').first().locator('p').first()
+      );
+      ratios.back = await expectReadableColor(hook(page, 'back'));
+      const summary = page.locator(
+        'section[aria-labelledby="examination-summary-title"]'
+      );
+      ratios.summary = await expectReadableColor(summary.locator('p').first());
+      ratios.status = await expectReadableColor(hook(page, 'status'));
+      ratios.guidance = await expectReadableColor(
+        hook(page, 'decision-guidance').locator('p').first()
+      );
+      await chooseSection(page, 'media');
+      const library = page.locator('[data-og7="preflight-service-preview"]');
+      await expect(
+        library.locator('[data-og7="examination-library-asset"]')
+      ).toHaveCount(3);
+      ratios.libraryHelp = await expectReadableColor(
+        library.locator('p').first()
+      );
+      ratios.libraryCount = await expectReadableColor(
+        library.locator('[data-og7="examination-library-count"]')
+      );
+      const firstAsset = library
+        .locator('[data-og7="examination-library-asset"]')
+        .first();
+      ratios.filename = await expectReadableColor(firstAsset.locator('strong'));
+      ratios.metadata = await expectReadableColor(
+        firstAsset.locator('p').first()
+      );
+      const search = library.locator('[data-og7="examination-library-search"]');
+      await search.fill('synthetic-photo-2');
+      ratios.input = await expectReadableColor(search);
+      ratios.inputBorder = await expectReadableColor(
+        search,
+        'borderTopColor',
+        3
+      );
+      await search.focus();
+      await expect(search).toBeFocused();
+      await expect(search).toHaveCSS('outline-style', 'solid');
+      await expect(search).toHaveCSS('outline-width', '3px');
+      ratios.inputFocus = await expectReadableColor(search, 'outlineColor', 3);
+      await expectAdminPageFits(page);
+      const mediaAxe = await new AxeBuilder({ page })
+        .include('[data-og7="examination"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(mediaAxe.violations).toEqual([]);
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `examination-contrast-${theme}-${width}`,
+        true
+      );
+      await page.goto(examinationUrl());
+      await expect(hook(page, 'approve')).toBeEnabled();
+      for (const action of ['approve', 'correction', 'reject'])
+        ratios[action] = await expectReadableColor(hook(page, action));
+      const publicCard = page.locator('openg7-sponsor-presentation-card');
+      await expect(publicCard).toHaveCSS(
+        'background-color',
+        'rgb(255, 255, 255)'
+      );
+      await expect(publicCard).toHaveCSS('color', 'rgb(23, 43, 80)');
+      await expect(publicCard).toHaveCSS('color-scheme', 'light');
+      const readyAxe = await new AxeBuilder({ page })
+        .include('[data-og7="examination"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(readyAxe.violations).toEqual([]);
+      state.readStatus = 503;
+      await page.goto(examinationUrl());
+      await expect(hook(page, 'error')).toBeVisible();
+      ratios.errorTitle = await expectReadableColor(
+        hook(page, 'error').getByRole('heading')
+      );
+      ratios.errorText = await expectReadableColor(
+        hook(page, 'error').locator('p').first()
+      );
+      await testInfo.attach('rendered-contrast', {
+        body: Buffer.from(JSON.stringify({ theme, width, language, ratios })),
+        contentType: 'application/json'
+      });
+      expect(state.writes).toEqual([]);
+      expect(state.personalWrites).toEqual([]);
+    });
+  }
 }
 
 test('Preflight examination keeps a failed decision uncertain and never automatically repeats it', async ({
