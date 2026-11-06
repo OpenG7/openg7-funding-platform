@@ -99,6 +99,14 @@ qualifiée du système responsable de l’exécution.
 
 ## D. Fidélité à la maquette
 
+L’atelier suit les palettes administratives Clair (`mineral`), Nuit et Graphite.
+Textes, panneaux, champs, états, boutons et focus utilisent des couples de
+couleurs cohérents avec le thème sélectionné. L’aperçu public conserve sa palette
+blanche et marine dans une surface isolée.
+La validation couvre les trois palettes sur mobile et bureau : ratios texte/fond
+rendus, bordures de champ et focus, états sans proposition, décisions et erreurs.
+Les 44 parcours UI d’Examiner sont réussis après cette correction.
+
 La composition conserve le cadre Funding, l’en-tête de prestation, le bandeau de
 synthèse, la navigation latérale, le grand aperçu, les contrôles et la zone de
 décision. Les vues Aperçu, Texte, Médias, Vérifications, Détails et Historique
