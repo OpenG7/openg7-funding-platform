@@ -2,25 +2,30 @@
 
 Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier** dans sa barre d’outils. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
 
-Dans **Fiche et médias**, la section **Identité et soumission** propose **Modifier l’identité et les coordonnées**, qui ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+**Identité** possède les coordonnées, les consentements et la transmission du
+formulaire commanditaire. **Fiche et médias** possède la bibliothèque privée du
+dossier actif : galerie, ressources de présentation, documents pris en charge et
+corrections. Aucun formulaire d’identité n’est répété dans la galerie; une alerte
+contextuelle rejoint la section propriétaire lorsque nécessaire. L’en-tête et les
+outils globaux du dossier restent accessibles. Voir la
+[cartographie et les capacités de la galerie](technical/intelligent-media-gallery.md).
 
 ## Parcourir le dossier
 
 L’en-tête affiche la référence, le montant avec sa devise et des états distincts
 pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
 **Aperçu** contient une seule recommandation détaillée issue de la progression
-serveur. Les autres onglets en gardent un rappel navigable. Les points à traiter
+serveur. Les autres onglets, hors **Fiche et médias**, en gardent un rappel navigable. Les points à traiter
 se regroupent par domaine, avec trois familles visibles puis une commande pour
 toutes les afficher. L’ordre par domaine n’est pas un calcul de priorité ; le
 responsable reste à déterminer quand la projection ne le renseigne pas. Les
 liens rejoignent les contrôles propriétaires sans exécuter leur décision.
 
-Les cinq onglets restent `overview`, `identity`, `publication`, `billing` et
-`audit`. Dans **Fiche et médias**, **Revue des médias** affiche les compteurs de
-l’espace de revue courant puis conserve ses outils, droits et manifestes.
-**Aller à la galerie** y déplace le focus. Un lien entrant avec `tab=media` sans
-ancre cible cette galerie après son montage ; les ancres explicites et les
-positions de navigation arrière gardent leur priorité. L’alias `refund` reste
+Les six onglets sont `overview`, `identity`, `media`, `publication`, `billing` et
+`audit`. **Identité** et **Fiche et médias** sont deux espaces distincts; leurs
+indicateurs reflètent leurs propres jalons serveur. Les liens `dossier-identity`,
+`dossier-media` et `dossier-media-gallery` rejoignent leurs contrôles respectifs.
+L’alias `refund` reste
 rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
 
 <a id="outils-du-dossier-a-la-demande"></a>
@@ -59,13 +64,12 @@ décrit dans le [guide de l’Assistant](admin-ux-lot-3.md#retour-au-dossier--ou
 sans texte de question ni brouillon dans l’URL. Le focus retrouve le déclencheur
 dans le même onglet ; après rechargement, le fragment valide retrouve sa section.
 
-Depuis l’aide, **Modifier l’identité** revient au même dossier avec
-`tab=identity&action=edit-identity` et le raccourci d’accès avec
-`tab=identity&action=followup-access`. Le dossier vérifie les droits et retire
-`action` par `replaceUrl` avant d’ouvrir le tiroir de correction ou l’outil
-d’accès existant. L’intention est consommée une fois ; un rechargement ne répète
-pas l’ouverture. Aucune saisie n’est enregistrée et aucun courriel n’est envoyé
-par cette navigation : les confirmations et les contrôles API restent requis.
+Les liens `tab=identity&action=edit-identity` et
+`tab=identity&action=followup-access` vérifient la sélection du dossier et les
+droits, puis retirent `action` par `replaceUrl` avant d’ouvrir le contrôle
+propriétaire. Une cible différente ou un autre onglet n’ouvre aucun formulaire.
+La navigation n’enregistre aucune saisie et n’envoie aucun courriel; les commandes
+conservent leurs confirmations et contrôles API.
 
 Dans **Publication**, la synthèse des prestations rejoint Campagnes avec le
 dossier comme filtre. La fiche publique et le suivi social déclaré ont des
@@ -74,7 +78,10 @@ Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
 `/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
 dans un dossier reste borné à ce dossier.
 
-L’encadré **Coordonnées et transmission : deux actions distinctes** explique la différence entre une saisie administrative (par exemple après un appel) et la transmission datée du commanditaire qui soumet le dossier à la revue. Tant que cette transmission manque, l’onglet Identité et le formulaire de correction précisent que remplir tous les champs ne permet pas de valider cette étape à sa place. La progression et le guide rappellent cette règle. Les libellés ne présument pas que les coordonnées actuellement affichées ont été saisies par un administrateur.
+La saisie administrative et la transmission datée du commanditaire restent deux
+actions distinctes. Corriger les coordonnées ne soumet pas son formulaire à la
+revue; les contrôles métier de progression et du formulaire de correction
+conservent cette règle.
 
 La progression expose `identity_missing` / `blocked` lorsque le nom ou le courriel manque, `identity_submission_pending` / `pending` lorsque seules les informations transmises sont attendues, et `identity_complete` / `complete` lorsque les deux conditions sont satisfaites. Le nouveau motif s’applique au jalon et à la prochaine étape du dossier/cockpit. Le format de la réponse est conservé ; déployer les traductions Web avant ou avec l’API qui émet ce motif. Les dossiers existants ne sont pas marqués comme transmis automatiquement.
 

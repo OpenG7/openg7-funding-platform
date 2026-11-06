@@ -137,6 +137,9 @@ proportionate confirmation and audit; minimize secrets and returned data. See
 the [identity decision](decisions/2026-09-19-admin-identity-and-operations.md).
 Admin routes load on navigation; unknown URLs retain HTTP 404.
 
+[Examination work sessions](technical/preflight-work-sessions.md) keep private
+actor-owned progress with revisions, separate from business decisions and delivery.
+
 The administrative control surface normalizes keyboard, visible controls and
 Gamepad input into intentions. It reuses domain services and a closed command
 catalog without a second authoritative calendar or delivery queue. Each command

@@ -56,6 +56,7 @@
     <section
       class="sponsors-board"
       [class.has-selection]="!!selectedSponsorship()"
+      [class.gallery-open]="!!selectedSponsorship() && activeTab() === 'media'"
       [attr.aria-label]="'admin.legacy.commandites_admin' | translate"
     >
       <openg7-admin-sponsors-list-panel
@@ -96,6 +97,7 @@
         data-og7="sponsorship-dossier"
         [attr.data-og7-id]="selectedSponsorship()?.id ?? null"
         class="sponsor-detail-panel"
+        [style.min-height.px]="reservedDossierHeight()"
         tabindex="-1"
         [class.is-empty]="!selectedSponsorship()"
         [class.selection-pulse]="
@@ -112,6 +114,7 @@
           <openg7-admin-sponsor-detail-header
             *ngIf="selectedSponsorDetailHeader() as detailHeader"
             [detail]="detailHeader"
+            [compact]="activeTab() === 'media'"
             [reviewStatus]="selected.sponsor_review_status"
             [reviewAnchor]="!canManage() && activeTab() === 'overview'"
             [website]="
@@ -139,101 +142,112 @@
               </button>
             }
           </openg7-admin-sponsor-detail-header>
-          <nav
-            class="dossier-toolbar"
-            [attr.aria-label]="'admin.dossier.workspace.navigation' | translate"
+          <details
+            class="dossier-global-tools"
+            data-og7="dossier-global-tools"
+            [open]="activeTab() !== 'media'"
           >
-            <button
-              type="button"
-              class="workspace-back"
-              data-og7="dossier-back"
-              (click)="closeDetails()"
-            >
-              <span aria-hidden="true">←</span>
-              {{ 'admin.dossier.workspace.back' | translate }}
-            </button>
-            <button
-              type="button"
-              data-og7="dossier-note"
-              (click)="openReviewNote()"
-            >
-              {{ 'admin.legacy.note_interne' | translate }}
-            </button>
-            <openg7-admin-sponsorship-interventions
-              [contributionId]="selected.id"
-              [refreshKey]="assistantRefresh()"
-              [canManage]="canManage()"
-              [canResendAccess]="canUseOwnerActions()"
-              [disabled]="actionsDisabled()"
-              (accessRequested)="openFollowupAccess()"
-              (saved)="loadSponsorships()"
-            />
-            <a
-              class="admin-button"
-              data-og7="dossier-assistant"
-              [routerLink]="
-                dossierToolBusy() ? null : '/admin/fundraiser/assistant'
+            <summary [hidden]="activeTab() !== 'media'">
+              {{ 'admin.dossier.workspace.tools' | translate }}
+            </summary>
+            <nav
+              class="dossier-toolbar"
+              [attr.aria-label]="
+                'admin.dossier.workspace.navigation' | translate
               "
-              [attr.aria-disabled]="dossierToolBusy() ? 'true' : null"
-              [queryParams]="assistantQueryParams()"
-              [info]="assistantNavigation()"
-              >{{ 'admin.dossierAssistance.assistant' | translate }}</a
             >
-            <openg7-admin-sponsor-edit
-              #sponsorEdit
-              [sponsorship]="selected"
-              [disabled]="actionsDisabled()"
-              (saved)="loadSponsorships()"
-              (conflicted)="versionConflict.set(true)"
-            />
-            @if (canUseOwnerActions()) {
               <button
                 type="button"
-                data-og7="dossier-tool-toggle"
-                data-og7-id="access"
-                [openg7AutomaticPrepare]="'sponsor.tool.access.open'"
-                [automaticFor]="selected.id"
-                (automaticPrepare)="openDossierTool('access', false)"
-                [attr.aria-expanded]="dossierTool() === 'access'"
-                aria-controls="dossier-tool-panel"
-                [disabled]="dossierToolBusy()"
-                (click)="openDossierTool('access')"
+                class="workspace-back"
+                data-og7="dossier-back"
+                (click)="closeDetails()"
               >
-                {{ 'admin.sponsorsCleanup.access' | translate }}
-              </button>
-            }
-            <div class="dossier-neighbours">
-              <button
-                type="button"
-                data-og7="dossier-refresh"
-                [disabled]="state() === 'loading' || actionState() !== null"
-                (click)="loadSponsorships(true)"
-                [attr.aria-label]="'admin.dossier.refresh' | translate"
-                [title]="'admin.dossier.refresh' | translate"
-              >
-                <openg7-admin-icon name="refresh" />
+                <span aria-hidden="true">←</span>
+                {{ 'admin.dossier.workspace.back' | translate }}
               </button>
               <button
                 type="button"
-                [disabled]="!adjacentDossier(-1)"
-                (click)="openAdjacentDossier(-1)"
-                [attr.aria-label]="
-                  'admin.dossier.workspace.previous' | translate
+                data-og7="dossier-note"
+                (click)="openReviewNote()"
+              >
+                {{ 'admin.legacy.note_interne' | translate }}
+              </button>
+              <openg7-admin-sponsorship-interventions
+                [contributionId]="selected.id"
+                [refreshKey]="assistantRefresh()"
+                [canManage]="canManage()"
+                [canResendAccess]="canUseOwnerActions()"
+                [disabled]="actionsDisabled()"
+                (accessRequested)="openFollowupAccess()"
+                (saved)="loadSponsorships()"
+              />
+              <a
+                class="admin-button"
+                data-og7="dossier-assistant"
+                [routerLink]="
+                  dossierToolBusy() ? null : '/admin/fundraiser/assistant'
                 "
+                [attr.aria-disabled]="dossierToolBusy() ? 'true' : null"
+                [queryParams]="assistantQueryParams()"
+                [info]="assistantNavigation()"
+                >{{ 'admin.dossierAssistance.assistant' | translate }}</a
               >
-                ←
-              </button>
-              <span>{{ 'admin.dossier.workspace.dossier' | translate }}</span>
-              <button
-                type="button"
-                [disabled]="!adjacentDossier(1)"
-                (click)="openAdjacentDossier(1)"
-                [attr.aria-label]="'admin.dossier.workspace.next' | translate"
-              >
-                →
-              </button>
-            </div>
-          </nav>
+              <openg7-admin-sponsor-edit
+                #sponsorEdit
+                [sponsorship]="selected"
+                [disabled]="actionsDisabled()"
+                (saved)="loadSponsorships()"
+                (conflicted)="versionConflict.set(true)"
+              />
+              @if (canUseOwnerActions()) {
+                <button
+                  type="button"
+                  data-og7="dossier-tool-toggle"
+                  data-og7-id="access"
+                  [openg7AutomaticPrepare]="'sponsor.tool.access.open'"
+                  [automaticFor]="selected.id"
+                  (automaticPrepare)="openDossierTool('access', false)"
+                  [attr.aria-expanded]="dossierTool() === 'access'"
+                  aria-controls="dossier-tool-panel"
+                  [disabled]="dossierToolBusy()"
+                  (click)="openDossierTool('access')"
+                >
+                  {{ 'admin.sponsorsCleanup.access' | translate }}
+                </button>
+              }
+              <div class="dossier-neighbours">
+                <button
+                  type="button"
+                  data-og7="dossier-refresh"
+                  [disabled]="state() === 'loading' || actionState() !== null"
+                  (click)="loadSponsorships(true)"
+                  [attr.aria-label]="'admin.dossier.refresh' | translate"
+                  [title]="'admin.dossier.refresh' | translate"
+                >
+                  <openg7-admin-icon name="refresh" />
+                </button>
+                <button
+                  type="button"
+                  [disabled]="!adjacentDossier(-1)"
+                  (click)="openAdjacentDossier(-1)"
+                  [attr.aria-label]="
+                    'admin.dossier.workspace.previous' | translate
+                  "
+                >
+                  ←
+                </button>
+                <span>{{ 'admin.dossier.workspace.dossier' | translate }}</span>
+                <button
+                  type="button"
+                  [disabled]="!adjacentDossier(1)"
+                  (click)="openAdjacentDossier(1)"
+                  [attr.aria-label]="'admin.dossier.workspace.next' | translate"
+                >
+                  →
+                </button>
+              </div>
+            </nav>
+          </details>
 
           <p
             class="payment-alert"
@@ -315,10 +329,14 @@
           />
           <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
-              <h2 id="dossier-section-title" class="dossier-section-title">
+              <h2
+                *ngIf="activeTab() !== 'media'"
+                id="dossier-section-title"
+                class="dossier-section-title"
+              >
                 {{
                   'admin.dossier.workspace.' +
-                    (activeTab() === 'identity' || activeTab() === 'media'
+                    (activeTab() === 'media'
                       ? 'profile'
                       : activeTab() === 'billing' || activeTab() === 'refund'
                         ? 'finances'
@@ -327,7 +345,7 @@
                           : activeTab()) | translate
                 }}
               </h2>
-              @if (progress(); as dossier) {
+              @if (activeTab() !== 'media' && progress(); as dossier) {
                 @if (dossier.contributionId === selected.id) {
                   <div class="dossier-worklist" data-og7="dossier-worklist">
                     <openg7-admin-sponsorship-next-step
@@ -375,9 +393,7 @@
                 />
               </ng-container>
 
-              <ng-container
-                *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
-              >
+              <ng-container *ngIf="activeTab() === 'identity'">
                 <openg7-admin-sponsor-detail-identity
                   *ngIf="selectedSponsorDetailOverview() as identity"
                   [identity]="identity"
@@ -390,12 +406,25 @@
                 />
               </ng-container>
 
-              <ng-container
-                *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
-              >
+              <ng-container *ngIf="activeTab() === 'media'">
                 <openg7-admin-sponsor-detail-media
                   *ngIf="selectedSponsorDetailIdentity() as identity"
                   [identity]="identity"
+                  [reference]="
+                    selectedSponsorDetailHeader()?.publicReferenceLabel || ''
+                  "
+                  [dossier]="
+                    progress()?.contributionId === selected.id
+                      ? progress()
+                      : null
+                  "
+                  [identityIncomplete]="
+                    !selected.sponsor_company_name?.trim() ||
+                    !selected.sponsor_contact_email?.trim()
+                  "
+                  [submissionPending]="!selected.sponsor_details_submitted_at"
+                  (identityRequested)="openDossierSection('identity')"
+                  (inspectRequested)="inspectGalleryServices()"
                   (moderationChanged)="loadSponsorships(true)"
                 />
               </ng-container>
@@ -612,6 +641,8 @@
           @if (
             canManage() &&
             (!isFinanceTab() || canUseOwnerActions()) &&
+            activeTab() !== 'identity' &&
+            activeTab() !== 'media' &&
             activeTab() !== 'publication' &&
             activeTab() !== 'audit'
           ) {

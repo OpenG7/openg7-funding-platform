@@ -56,10 +56,16 @@ import { createSponsorMediaAnalysisHttpHandler } from '../sponsor-media-analysis
 import { SponsorMediaAnalysisService } from '../sponsor-media-analysis/service.js';
 import { createSponsorMediaUploadHttpHandler } from '../sponsor-media-upload.http.js';
 import { SponsorMediaUploadService } from '../sponsor-media-upload.service.js';
+import {
+  createSponsorMediaExportHttpHandler,
+  SponsorMediaExportService
+} from '../sponsor-media-workspace/export.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
 import { createPreflightInboxHttpHandler } from '../preflight/inbox-routes.js';
 import { createPreflightDeskHttpHandler } from '../preflight/desk-routes.js';
 import { PreflightDeskService } from '../preflight/desk.js';
+import { AdminPreflightWorkSessionsService } from '../admin-preflight-work-sessions.service.js';
+import { createAdminPreflightWorkSessionsHttpHandler } from '../admin-preflight-work-sessions.http.js';
 import { createPreflightRehearsalHttpHandler } from '../preflight/rehearsal-routes.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
 import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
@@ -484,6 +490,17 @@ export const createAdminHttpHandlers = ({
     ensureAdminAuthorization,
     writeJson
   });
+  const handlePreflightWorkSessionsRequest =
+    createAdminPreflightWorkSessionsHttpHandler({
+      publicBaseOrigin,
+      ensureAdminAccess,
+      getAdminAuditActor,
+      readBody,
+      writeJson,
+      workSessions: dbPool
+        ? new AdminPreflightWorkSessionsService(dbPool)
+        : null
+    });
   const handlePreflightDeskRequest = createPreflightDeskHttpHandler({
     publicBaseOrigin,
     ensureAdminAccess,
@@ -506,6 +523,7 @@ export const createAdminHttpHandlers = ({
   });
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
+      (await handlePreflightWorkSessionsRequest(request, response)) ||
       (await handlePreflightDeskRequest(request, response)) ||
       (await handlePreflightRehearsalRequest(request, response)) ||
       (await handlePreflightInboxRequest(request, response)) ||
@@ -648,10 +666,23 @@ export const createAdminHttpHandlers = ({
         })
       : null
   });
+  const handleMediaExport = createSponsorMediaExportHttpHandler({
+    publicBaseOrigin,
+    service: dbPool
+      ? new SponsorMediaExportService(dbPool, sponsorMediaStorage)
+      : null,
+    ensureAdminAccess,
+    canReview: canReviewMedia,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    writeBinary
+  });
   const handleAdminSponsorshipMediaRequest = async (
     request: Parameters<typeof handleAdminMediaUsage>[0],
     response: Parameters<typeof handleAdminMediaUsage>[1]
   ) =>
+    (await handleMediaExport(request, response)) ||
     (await handleMediaWorkspace(request, response)) ||
     (await handleMediaAnalysis(request, response)) ||
     (await handleMediaUpload(request, response)) ||

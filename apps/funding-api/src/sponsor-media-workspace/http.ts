@@ -57,7 +57,10 @@ const allowed: Record<string, readonly string[]> = {
     'assets',
     'targetBatchId',
     'ruleId',
+    'targetObligationId',
+    'targetObligationVersion',
     'reason',
+    'editorialProvision',
     'internalReason',
     'sponsorExplanation'
   ],

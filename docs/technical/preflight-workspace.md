@@ -48,10 +48,17 @@ sans nouvelle soumission automatique.
 
 ## Examiner et gouvernance
 
-Examiner une prestation ouvre `AdminSponsorshipPreparationComponent`, déjà
-utilisé dans les campagnes et les dossiers. Son approbation versionnée porte
-sur la préparation du dossier entier, et non sur la seule carte sélectionnée.
-Ses droits, confirmations et audits existants restent applicables.
+Examiner une prestation ouvre l’[atelier ciblé](preflight-examination.md) sur la
+même route, avec `sponsorshipId`, `obligationId` et `preparationVersion` dans
+l’URL. Les filtres et la pagination du comptoir sont conservés. L’atelier relit
+la prestation exacte indépendamment de la page affichée, présente son contenu,
+ses contrôles et son historique, puis enregistre une décision humaine versionnée.
+
+La décision de prestation et l’approbation du dossier entier sont distinctes.
+La fiche de préparation existante reste utilisée dans les autres parcours; ses
+droits et audits sont conservés. Une correction ou un refus de contenu ne dispense
+pas de l’obligation contractuelle; une correction enregistrée n’annonce pas un
+renvoi automatique vers Preflight.
 
 Les liens vers la prestation exacte, le dossier, les corrections et la
 publication réutilisent les destinations propriétaires. Une autorisation de
@@ -102,6 +109,9 @@ d’annoncer un parcours opérationnel complet de préparation en lot. Ces besoi
 ne modifient pas les contrats de recette actuels.
 
 ## Validation
+
+La [continuité des sessions d’examen](preflight-work-sessions.md) décrit le bilan,
+les reports personnels et la reprise, distincts des décisions et des livraisons.
 
 Les tests desk couvrent les quatre catégories, les preuves, les autorisations
 par prestation exacte, les dispenses, la cohérence globale et le snapshot avec

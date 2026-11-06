@@ -33,7 +33,8 @@ export {
   listAdminPublicationDrafts,
   createAdminPublicationDraft,
   createAdminPublicationDraftOnConnection,
-  updateAdminPublicationDraft
+  updateAdminPublicationDraft,
+  updateAdminPublicationDraftOnConnection
 } from './fund-publication-drafts.repository.js';
 
 export {

@@ -1,7 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 import { MediaReviewWorkspaceController } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.controller.js';
 import { MediaPreviewCollection } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-preview-collection.js';
+import { MediaReviewUpload } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-review-upload.js';
+
+// Match the existing Node test loaders: the root build emits workspace packages under dist/.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { MediaReviewCommands } =
+  await import('../dist/apps/funding-web/src/app/features/funding/components/media-review/media-review-commands.js');
+workspaceHook.deregister();
 
 const id = '10000000-0000-4000-8000-000000000401';
 const asset = (index, state = 'ready') => ({
@@ -113,13 +133,13 @@ function fixture(
   };
 }
 
-test('one hundred metadata entries render pages of 25 and filter without preview reads', async () => {
+test('one hundred metadata entries render pages of eight and filter without preview reads', async () => {
   const f = fixture();
   await f.c.load();
-  assert.equal(f.c.visible().length, 25);
-  assert.equal(f.c.pageCount(), 4);
-  f.c.page.set(4);
-  assert.equal(f.c.visible()[0].id, 'media-75');
+  assert.equal(f.c.visible().length, 8);
+  assert.equal(f.c.pageCount(), 13);
+  f.c.page.set(13);
+  assert.equal(f.c.visible()[0].id, 'media-96');
   f.c.search.set('photo-99');
   assert.equal(f.c.visible().length, 1);
   assert.equal(f.c.currentPage(), 1);
@@ -142,7 +162,230 @@ test('ready selection excludes blocked and exceptional files and selection spans
   f.c.selectPage();
   f.c.page.set(2);
   f.c.selectPage();
-  assert.equal(f.c.selected().length, 50);
+  assert.equal(f.c.selected().length, 16);
+});
+
+test('destination filters use actual private assignments rather than granted usage channels', async () => {
+  const f = fixture();
+  f.data.preparationObligations = [
+    {
+      id: 'facebook-1',
+      version: 2,
+      channel: 'facebook',
+      target: 'openg7',
+      ordinal: 1,
+      acceptsMedia: true
+    }
+  ];
+  f.data.preparationAssignments = [
+    {
+      id: 'assignment-1',
+      assetId: 'media-1',
+      assetVersion: 'v1',
+      obligationId: 'facebook-1',
+      obligationVersion: 2,
+      stale: false
+    }
+  ];
+  await f.c.load();
+  f.c.destinationFilter.set('facebook');
+  assert.deepEqual(
+    f.c.filtered().map((asset) => asset.id),
+    ['media-1']
+  );
+  f.c.destinationFilter.set('website');
+  assert.equal(f.c.filtered().length, 0);
+  f.c.destinationFilter.set('all');
+  f.c.assignmentFilter.set('unassigned');
+  assert.equal(f.c.filtered().length, 99);
+  f.data.preparationAssignments[0].stale = true;
+  f.c.data.set({ ...f.data });
+  f.c.assignmentFilter.set('stale');
+  assert.deepEqual(
+    f.c.filtered().map((asset) => asset.id),
+    ['media-1']
+  );
+});
+
+test('library views, type filters and sorting derive from the same media references', async () => {
+  const f = fixture([
+    {
+      ...asset(0),
+      kind: 'supporting_image',
+      createdAt: '2026-01-01T00:00:00Z'
+    },
+    { ...asset(1), kind: 'logo', createdAt: '2026-01-03T00:00:00Z' },
+    {
+      ...asset(2),
+      kind: 'supporting_image',
+      createdAt: '2026-01-02T00:00:00Z',
+      websiteSelected: true
+    }
+  ]);
+  await f.c.load();
+  assert.deepEqual(
+    f.c.filtered().map((asset) => asset.id),
+    ['media-1', 'media-2', 'media-0']
+  );
+  f.c.libraryView.set('presentation');
+  assert.deepEqual(
+    f.c.filtered().map((asset) => asset.id),
+    ['media-1', 'media-2']
+  );
+  f.c.kindFilter.set('logo');
+  assert.equal(f.c.filtered()[0], f.data.assets[1]);
+  f.c.kindFilter.set('all');
+  f.c.libraryView.set('documents');
+  assert.equal(f.c.filtered().length, 0);
+  f.c.classifications.set({ 'media-0': 'document' });
+  assert.equal(f.c.filtered()[0], f.data.assets[0]);
+});
+
+test('selection scope reports off-page items and cannot introduce foreign media ids', async () => {
+  const f = fixture();
+  await f.c.load();
+  f.c.selectPage();
+  assert.equal(f.c.selected().length, 8);
+  f.c.page.set(2);
+  assert.equal(f.c.hiddenSelectionCount(), 8);
+  f.c.toggle('foreign-media');
+  assert.equal(f.c.selected().length, 8);
+  f.c.selectPage();
+  f.c.search.set('photo-1');
+  assert.equal(
+    f.c.hiddenSelectionCount(),
+    f.c.selected().filter((item) => !f.c.visible().includes(item)).length
+  );
+  f.c.setScope('another-dossier');
+  assert.equal(f.c.selected().length, 0);
+  assert.equal(f.c.hiddenSelectionCount(), 0);
+});
+
+test('a mismatched server projection never exposes another dossier or its assets', async () => {
+  const f = fixture();
+  f.ports.admin.mediaWorkspace = async () => ({
+    ...f.data,
+    contributionId: 'other-dossier'
+  });
+  await f.c.load();
+  assert.equal(f.c.data(), null);
+  assert.equal(f.c.error(), 'loadFailed');
+});
+
+test('private assignment plans carry the exact target version without executing any decision', async () => {
+  const f = fixture();
+  await f.c.load();
+  f.c.toggle('media-0');
+  await f.c.prepare('preparation_assign', {
+    targetObligationId: 'website-1',
+    targetObligationVersion: 3
+  });
+  const request = f.calls.find(([name]) => name === 'plan')[1];
+  assert.equal(request.targetObligationId, 'website-1');
+  assert.equal(request.targetObligationVersion, 3);
+  assert.equal(request.action, 'preparation_assign');
+  assert.equal(
+    f.calls.some(([name]) => name === 'execute'),
+    false
+  );
+});
+
+test('a correction uses native N1 reasons and requires the editorial provision before preparing its manifest', async () => {
+  const f = fixture();
+  await f.c.load();
+  f.c.toggle('media-0');
+  const commands = new MediaReviewCommands(f.c, () => id);
+  commands.openCorrection();
+  commands.rejectReason.set('EDITORIAL_INCOMPATIBILITY');
+  commands.rejectExplanation.set(
+    'Please correct the identified editorial problem.'
+  );
+  commands.rejectInternalReason.set(
+    'Synthetic documented editorial correction.'
+  );
+  await commands.prepareReject();
+  assert.equal(
+    f.calls.some(([name]) => name === 'plan'),
+    false
+  );
+  commands.editorialProvision.set('recognition-scope');
+  await commands.prepareReject();
+  const request = f.calls.find(([name]) => name === 'plan')[1];
+  assert.equal(request.action, 'request_correction');
+  assert.equal(request.editorialProvision, 'recognition-scope');
+  assert.equal(commands.humanReviewed(), false);
+  assert.equal(
+    f.calls.some(([name]) => name === 'execute'),
+    false
+  );
+});
+
+test('multi-file upload reports invalid files separately and continues with valid files', async () => {
+  const f = fixture();
+  await f.c.load();
+  const uploaded = [];
+  const upload = new MediaReviewUpload({
+    admin: {
+      mediaUpload: async (_id, _kind, file) => {
+        uploaded.push(file.name);
+        return { uploaded: true, asset: f.data.assets[0] };
+      }
+    },
+    controller: f.c,
+    contributionId: () => id,
+    refresh: async () => {},
+    changed: () => {}
+  });
+  await upload.upload({
+    target: {
+      files: [
+        new File(['synthetic'], 'invalid.txt', { type: 'text/plain' }),
+        new File(['synthetic'], 'valid.png', { type: 'image/png' })
+      ],
+      value: ''
+    }
+  });
+  assert.deepEqual(uploaded, ['valid.png']);
+  assert.deepEqual(upload.result().items, [
+    { name: 'invalid.txt', state: 'invalid' },
+    { name: 'valid.png', state: 'received' }
+  ]);
+  assert.equal(upload.result().received, 1);
+  assert.equal(upload.result().failed, 1);
+});
+
+test('an uncertain upload retains its request id and stops the remaining files without replay', async () => {
+  const f = fixture();
+  await f.c.load();
+  const requests = [];
+  const upload = new MediaReviewUpload({
+    admin: {
+      mediaUpload: async (_id, _kind, _file, requestId) => {
+        requests.push(requestId);
+        throw new Error('Synthetic lost acknowledgement');
+      }
+    },
+    controller: f.c,
+    contributionId: () => id,
+    refresh: async () => {},
+    changed: () => {}
+  });
+  await upload.upload({
+    target: {
+      files: [
+        new File(['synthetic'], 'first.png', { type: 'image/png' }),
+        new File(['synthetic'], 'second.png', { type: 'image/png' })
+      ],
+      value: ''
+    }
+  });
+  assert.equal(requests.length, 1);
+  assert.equal(f.c.uncertainRequest(), requests[0]);
+  assert.equal(f.c.uncertain(), true);
+  assert.deepEqual(upload.result().items, [
+    { name: 'first.png', state: 'uncertain' },
+    { name: 'second.png', state: 'not_processed' }
+  ]);
 });
 
 test('one preflight captures exact versions, edited alternative text and restriction review', async () => {

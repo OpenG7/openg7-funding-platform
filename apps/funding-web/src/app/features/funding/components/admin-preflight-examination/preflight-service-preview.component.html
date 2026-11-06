@@ -1,0 +1,300 @@
+<section
+  class="service-preview"
+  data-og7="preflight-service-preview"
+  [attr.data-og7-id]="channel()"
+  [attr.aria-busy]="loading()"
+>
+  @if (view() === 'media') {
+    <p class="preview-note">{{ t('libraryScope') }}</p>
+    @if (loading()) {
+      <p class="preview-note" role="status">{{ t('loading') }}</p>
+    } @else if (libraryLoaded()) {
+      <div class="library-toolbar">
+        <label class="library-search" for="examination-library-search">
+          {{ t('librarySearch') }}
+          <input
+            id="examination-library-search"
+            data-og7="examination-library-search"
+            type="search"
+            [value]="librarySearch()"
+            (input)="searchLibrary($event)"
+          />
+        </label>
+        <p
+          class="preview-note"
+          data-og7="examination-library-count"
+          aria-live="polite"
+        >
+          {{ t('libraryCount', { count: libraryAssets().length }) }}
+          @if (librarySearch().trim()) {
+            <span>{{
+              t('libraryMatches', { count: filteredLibraryMedia().length })
+            }}</span>
+          }
+        </p>
+      </div>
+      @if (prepared().length) {
+        <p class="preview-note" data-og7="examination-assigned-count">
+          {{ t('assignedCount', { count: prepared().length }) }}
+        </p>
+      } @else {
+        <p class="preview-note" data-og7="examination-no-assignment">
+          {{ t('noAssignment') }}
+        </p>
+      }
+      @if (staleAssignments().length) {
+        <p
+          class="preview-note warning"
+          data-og7="examination-stale-assignment-count"
+        >
+          {{ t('staleAssignmentCount', { count: staleAssignments().length }) }}
+        </p>
+      }
+      @if (visibleLibraryMedia().length) {
+        <ul
+          class="library-media-list"
+          data-og7="examination-library"
+          [attr.aria-label]="t('libraryLabel')"
+        >
+          @for (item of visibleLibraryMedia(); track item.asset.id) {
+            <li
+              data-og7="examination-library-asset"
+              [attr.data-og7-id]="item.asset.id"
+            >
+              <openg7-media-review-thumbnail
+                [assetId]="item.asset.id"
+                [version]="item.asset.version"
+                [alt]="item.asset.altText || ''"
+                [collection]="thumbnails"
+              />
+              <div>
+                <strong>{{ item.asset.originalFilename }}</strong>
+                <p class="preview-note">
+                  {{ t('mediaKinds.' + item.asset.kind) }} ·
+                  {{ item.asset.originalMimeType }} · {{ item.asset.width }} ×
+                  {{ item.asset.height }} px
+                </p>
+                <p class="preview-note">
+                  {{ t('mediaReview.' + item.asset.reviewStatus) }}
+                </p>
+                @if (item.preparation; as preparedItem) {
+                  <div
+                    data-og7="examination-assigned-asset"
+                    [attr.data-og7-id]="item.asset.id"
+                    [attr.data-assignment-state]="
+                      preparedItem.stale
+                        ? 'stale'
+                        : preparedItem.eligible
+                          ? 'current'
+                          : 'review'
+                    "
+                  >
+                    <p
+                      class="assignment-status"
+                      [class.warning]="
+                        preparedItem.stale || !preparedItem.eligible
+                      "
+                    >
+                      {{
+                        t(
+                          preparedItem.stale
+                            ? 'assignmentStale'
+                            : preparedItem.eligible
+                              ? 'assignmentCurrent'
+                              : 'assignmentReview'
+                        )
+                      }}
+                    </p>
+                    <p class="preview-note">
+                      {{ t('assignedVersion') }}
+                      {{ preparedItem.assignment.assetVersion }}
+                    </p>
+                  </div>
+                } @else {
+                  <p
+                    class="assignment-status"
+                    data-og7="examination-library-unassigned"
+                  >
+                    {{ t('unassignedMedia') }}
+                  </p>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+        <nav
+          class="library-pagination"
+          [attr.aria-label]="t('libraryPagination')"
+        >
+          <button
+            type="button"
+            data-og7="examination-library-previous"
+            [disabled]="normalizedLibraryPage() === 1"
+            (click)="changeLibraryPage(-1)"
+          >
+            {{ t('libraryPrevious') }}
+          </button>
+          <span data-og7="examination-library-page" aria-live="polite">{{
+            t('libraryPage', {
+              page: normalizedLibraryPage(),
+              total: libraryTotalPages()
+            })
+          }}</span>
+          <button
+            type="button"
+            data-og7="examination-library-next"
+            [disabled]="normalizedLibraryPage() === libraryTotalPages()"
+            (click)="changeLibraryPage(1)"
+          >
+            {{ t('libraryNext') }}
+          </button>
+          <label for="examination-library-page-size">
+            {{ t('libraryPageSize') }}
+            <select
+              id="examination-library-page-size"
+              data-og7="examination-library-page-size"
+              [value]="libraryPageSize()"
+              (change)="setLibraryPageSize($event)"
+            >
+              @for (size of libraryPageSizes; track size) {
+                <option [value]="size">{{ size }}</option>
+              }
+            </select>
+          </label>
+        </nav>
+      } @else {
+        <p class="preview-note" data-og7="examination-library-empty">
+          {{ t(libraryAssets().length ? 'libraryNoMatches' : 'libraryEmpty') }}
+        </p>
+      }
+      @if (missingAssignments().length) {
+        <aside
+          class="missing-assignments"
+          data-og7="examination-missing-assignment-assets"
+        >
+          <p>{{ t('missingAssignments') }}</p>
+          <ul>
+            @for (item of missingAssignments(); track item.assignment.id) {
+              <li>
+                <strong>{{ t('missingAsset') }}</strong> ·
+                {{ t('assignmentStale') }}
+                <span class="preview-note"
+                  >{{ t('assignedVersion') }}
+                  {{ item.assignment.assetVersion }}</span
+                >
+              </li>
+            }
+          </ul>
+        </aside>
+      }
+    }
+    @if (unavailable()) {
+      <p class="preview-note warning" role="status">{{ t('unavailable') }}</p>
+    }
+    <button
+      type="button"
+      class="owner-link"
+      data-og7="examination-media-owner"
+      [disabled]="navigationDisabled()"
+      (click)="ownerRequested.emit('media')"
+    >
+      {{ t('mediaOwner') }}
+    </button>
+  } @else {
+    <div class="preview-canvas" [attr.data-og7-viewport]="viewport()">
+      @if (draft(); as content) {
+        @if (channel() === 'website') {
+          <openg7-sponsor-presentation-card
+            data-og7="preflight-preview-content"
+            [companyName]="companyName()"
+            [summary]="content.body"
+            [logoSource]="visibleLogo()"
+            [logoCredit]="selectedLogo()?.usage?.credit ?? null"
+            [photo]="photo()"
+            (imageFailed)="imageFailed($event)"
+          />
+        } @else {
+          <article class="social-preview" data-og7="preflight-social-preview">
+            <header>
+              <strong>{{
+                channel() === 'facebook' ? 'Facebook' : 'LinkedIn'
+              }}</strong
+              ><span>{{
+                content.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+              }}</span>
+            </header>
+            <h3>{{ content.title }}</h3>
+            <p>{{ content.body }}</p>
+            @if (photo(); as image) {
+              <img
+                class="social-photo"
+                [src]="image.url"
+                [alt]="image.alt"
+                (error)="imageFailed(image.url)"
+              />
+              @if (image.credit) {
+                <p class="preview-note">{{ image.credit }}</p>
+              }
+            }
+            @if (content.disclosureText) {
+              <p class="disclosure">{{ content.disclosureText }}</p>
+            }
+          </article>
+        }
+      } @else {
+        <p class="empty-preview" data-og7="preflight-preview-empty">
+          {{ t('empty') }}
+        </p>
+      }
+    </div>
+    @if (draft()) {
+      <p class="preview-note">
+        {{
+          t(
+            usesPreparation()
+              ? 'preparationScope'
+              : channel() === 'website'
+                ? 'webScope'
+                : 'socialScope'
+          )
+        }}
+      </p>
+      @if (loading()) {
+        <p class="preview-note" role="status">{{ t('loading') }}</p>
+      }
+      @if (unavailable()) {
+        <p
+          class="preview-note warning"
+          role="status"
+          data-og7="preflight-preview-media-error"
+        >
+          {{ t('unavailable') }}
+        </p>
+      }
+      @if (!loading() && !unavailable() && !photo()) {
+        <p class="preview-note" data-og7="preflight-preview-no-photo">
+          {{ t(channel() === 'website' ? 'noPhoto' : 'noSocialPhoto') }}
+        </p>
+      }
+      <button
+        type="button"
+        class="owner-link"
+        data-og7="examination-media-owner"
+        [disabled]="navigationDisabled()"
+        (click)="ownerRequested.emit('media')"
+      >
+        {{ t('mediaOwner') }}
+      </button>
+      @if (channel() !== 'website') {
+        <button
+          type="button"
+          class="owner-link"
+          [disabled]="navigationDisabled()"
+          (click)="ownerRequested.emit('delivery')"
+        >
+          {{ t('socialOwner') }}
+        </button>
+      }
+    }
+  }
+</section>

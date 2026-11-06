@@ -338,9 +338,9 @@ test('recognized section anchors select their exact dossier and tab after scroll
 
 test('canonical tabs and aliases focus sections within the same visible workspace', () => {
   for (const [tab, fragment] of [
-    ['identity', 'dossier-media'],
-    ['identity', 'dossier-media-gallery'],
-    ['media', 'dossier-identity'],
+    ['identity', 'dossier-identity'],
+    ['media', 'dossier-media'],
+    ['media', 'dossier-media-gallery'],
     ['billing', 'dossier-refund'],
     ['refund', 'dossier-billing']
   ]) {
@@ -354,6 +354,9 @@ test('canonical tabs and aliases focus sections within the same visible workspac
 
 test('sections require a coherent tab and a nonempty dossier and history positions take priority over anchors', () => {
   for (const [url, anchor, position] of [
+    [path('identity'), 'dossier-media', null],
+    [path('identity'), 'dossier-media-gallery', null],
+    [path('media'), 'dossier-identity', null],
     [path('identity'), 'dossier-review', null],
     ['/admin/fundraiser/sponsors?tab=media', 'dossier-media', null],
     [
@@ -381,17 +384,17 @@ test('sections require a coherent tab and a nonempty dossier and history positio
   }
 });
 
-test('a fresh media alias focuses its gallery while explicit anchors retain their target', () => {
-  for (const [anchor, fragment] of [
-    [null, 'dossier-media-gallery'],
-    ['dossier-media', 'dossier-media']
-  ]) {
-    const f = fixture();
-    f.adapter.handleRouterEvent(scrollEvent(17, path('media'), anchor));
-    assert.deepEqual(f.calls, [
-      ['scrolled', 17, { fragment, sponsorshipId, tab: 'media' }]
-    ]);
-  }
+test('a fresh media alias does not invent a gallery target and explicit legacy anchors remain route metadata', () => {
+  const f = fixture();
+  f.adapter.handleRouterEvent(scrollEvent(17, path('media'), null));
+  assert.deepEqual(f.calls, [['scrolled', 17, null]]);
+  const legacy = fixture();
+  legacy.adapter.handleRouterEvent(
+    scrollEvent(17, path('media'), 'dossier-media')
+  );
+  assert.deepEqual(legacy.calls, [
+    ['scrolled', 17, { fragment: 'dossier-media', sponsorshipId, tab: 'media' }]
+  ]);
 });
 
 test('Scroll is ignored while a new navigation is in progress, including a same URL skip', () => {

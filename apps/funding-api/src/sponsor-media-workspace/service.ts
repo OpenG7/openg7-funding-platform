@@ -43,7 +43,11 @@ export class SponsorMediaWorkspaceService {
   }
   async plan(input: SponsorMediaBatchPlanRequest, actor: string) {
     validatePlan(input);
-    const attestations = ['approve', 'website_select'].includes(input.action)
+    const attestations = [
+      'approve',
+      'website_select',
+      'preparation_assign'
+    ].includes(input.action)
       ? await attestMediaSources(
           this.pool,
           this.storage,
@@ -75,7 +79,11 @@ export class SponsorMediaWorkspaceService {
     if ((await this.receipt(row.contribution_id, input.requestId, actor)).found)
       return executeBatch(this.pool, input, actor);
     const request = row.plan.request as SponsorMediaBatchPlanRequest;
-    const attestations = ['approve', 'website_select'].includes(request.action)
+    const attestations = [
+      'approve',
+      'website_select',
+      'preparation_assign'
+    ].includes(request.action)
       ? await attestMediaSources(
           this.pool,
           this.storage,

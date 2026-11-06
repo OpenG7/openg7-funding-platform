@@ -142,6 +142,9 @@ sensibles exigent confirmation proportionnée et audit; secrets et données reto
 sont minimisés. Voir la [décision identité](decisions/2026-09-19-admin-identity-and-operations.md).
 Les routes admin se chargent à la navigation; les URL inconnues gardent HTTP 404.
 
+Les [sessions d’examen](technical/preflight-work-sessions.md) conservent une
+progression privée par acteur et révision, distincte des décisions et livraisons.
+
 Le pilotage normalise clavier, contrôles visibles et Gamepad en intentions.
 Il réutilise les services et un catalogue fermé de commandes, sans second calendrier
 autoritaire ni seconde file d'envoi. Cible/version et confirmation accompagnent
