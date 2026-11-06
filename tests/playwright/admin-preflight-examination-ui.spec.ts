@@ -1034,8 +1034,10 @@ for (const [language, width] of [
       language === 'fr-CA' ? /enregistr/i : /sav/i
     );
     await expect(profileHelp).toContainText(
-      language === 'fr-CA' ? /transmi/i : /submi/i
+      language === 'fr-CA' ? 'Soumettre mes informations à l’équipe' : /submi/i
     );
+    if (language === 'fr-CA')
+      await expect(profileHelp).toContainText('ne remplace pas');
     const prepare = guidance.locator(
       '[data-og7="examination-guidance-publication"]'
     );

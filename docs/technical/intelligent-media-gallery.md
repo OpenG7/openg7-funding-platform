@@ -158,6 +158,8 @@ par le nettoyage de la composition.
 
 Les preuves distinguent les fixtures navigateur, les services réels avec PostgreSQL
 jetable et la pile utilisateur. Aucun test ne qualifie un envoi réel à un fournisseur.
+La qualification initiale ci-dessous concerne le workspace de développement,
+qui contient aussi la refonte du Guide proposée séparément.
 
 - Compilation TypeScript et build Angular production : réussis, 25 routes
   statiques/SSR. La dernière qualification navigateur utilise ce build final.
@@ -182,6 +184,17 @@ exécutions finales. Les captures utilisent des médias synthétiques, sans expo
 de contenu client. Le build de l’image API Node 22 a également réussi; la
 [procédure locale](../operations/intelligent-media-gallery-activation.md) consigne
 la sauvegarde chiffrée et sa restauration réellement vérifiée sur PostgreSQL jetable.
+
+La branche de revue est ensuite isolée sur la base de la PR #398, sans la refonte
+du Guide : nouvelle compilation TypeScript et Angular production réussie,
+**7 640 tests Node réussis, 8 ignorés, aucun échec**, ESLint, typecheck des tests UI
+et contrôles documentaires réussis. Le lot navigateur donne **78/79** : sa seule
+assertion française attendait « transmission » alors que l’aide nomme l’action
+« Soumettre mes informations à l’équipe ». L’assertion utilise désormais le
+libellé réel et vérifie aussi « ne remplace pas »; les reprises **FR/EN sont 2/2**,
+avec les contrôles de droits, désactivation et absence d’écriture conservés.
+Le code API et les contrats des tests PostgreSQL sont identiques à ceux qualifiés
+dans le workspace initial.
 
 ## H. Fidélité à la maquette
 
@@ -209,6 +222,15 @@ la configuration d’authentification répond 200 en mode OIDC. La
 consigne les six couches Compose conservées, la sauvegarde DB chiffrée et
 restaurée sur une cible isolée, l’ancienne image conservée et la reprise.
 La recette n’a exécuté ni décision métier, ni publication, ni export de média réel.
+
+Coordination avant fusion : la base de la PR #398 s’arrête à la migration 063.
+La [PR #396](https://github.com/OpenG7/openg7-funding-platform/pull/396) utilise
+également le numéro 064 pour `064_create_preflight_connector.sql`, tandis que
+cette branche ajoute `064_service_preparation_decisions.sql`, puis 065/066.
+Leur réunion exige une réconciliation explicite des numéros et des registres.
+La migration 064 des décisions est déjà appliquée en développement local et
+reste immuable; aucun renommage ou remplacement d’une migration appliquée
+n’est réalisé par cette livraison.
 
 Les évolutions restantes sont le contrat visuel Preflight réellement raccordé,
 le stockage et la politique d’accès de documents génériques, et les originaux ou
