@@ -82,6 +82,12 @@ coordonnées et la transmission; la [galerie de préparation](intelligent-media-
 possède les médias et leurs associations privées aux prestations. L’accès au
 suivi reste dans la barre d’outils globale. Examiner consulte ces mêmes références
 versionnées et rejoint la galerie pour les modifier, sans seconde bibliothèque.
+L’onglet « Médias du dossier » affiche tous les fichiers du dossier en consultation,
+même lorsqu’aucun n’est affecté à la prestation. Recherche et pagination portent
+sur cette même bibliothèque; des repères distinguent les affectations courantes
+et obsolètes. L’aperçu du rendu conserve sa sélection propre et ses contrôles de
+version, de revue et de droits. Consulter un fichier dans cet onglet ne l’ajoute
+pas au rendu et ne crée aucune affectation.
 Le commanditaire transmet ses informations par l’action
 « Soumettre mes informations à l’équipe »; l’atelier ne le fait pas à sa place.
 

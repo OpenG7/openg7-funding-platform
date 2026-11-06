@@ -5,53 +5,188 @@
   [attr.aria-busy]="loading()"
 >
   @if (view() === 'media') {
-    <p class="preview-note">{{ t('preparationScope') }}</p>
+    <p class="preview-note">{{ t('libraryScope') }}</p>
     @if (loading()) {
       <p class="preview-note" role="status">{{ t('loading') }}</p>
-    } @else if (prepared().length) {
-      <p class="preview-note" data-og7="examination-assigned-count">
-        {{ t('assignedCount', { count: prepared().length }) }}
-      </p>
-      <ul class="assigned-media-list" data-og7="examination-assigned-media">
-        @for (item of prepared(); track item.assignment.id) {
-          <li
-            data-og7="examination-assigned-asset"
-            [attr.data-og7-id]="item.assignment.assetId"
-          >
-            @if (!item.stale && item.asset; as asset) {
+    } @else if (libraryLoaded()) {
+      <div class="library-toolbar">
+        <label class="library-search" for="examination-library-search">
+          {{ t('librarySearch') }}
+          <input
+            id="examination-library-search"
+            data-og7="examination-library-search"
+            type="search"
+            [value]="librarySearch()"
+            (input)="searchLibrary($event)"
+          />
+        </label>
+        <p
+          class="preview-note"
+          data-og7="examination-library-count"
+          aria-live="polite"
+        >
+          {{ t('libraryCount', { count: libraryAssets().length }) }}
+          @if (librarySearch().trim()) {
+            <span>{{
+              t('libraryMatches', { count: filteredLibraryMedia().length })
+            }}</span>
+          }
+        </p>
+      </div>
+      @if (prepared().length) {
+        <p class="preview-note" data-og7="examination-assigned-count">
+          {{ t('assignedCount', { count: prepared().length }) }}
+        </p>
+      } @else {
+        <p class="preview-note" data-og7="examination-no-assignment">
+          {{ t('noAssignment') }}
+        </p>
+      }
+      @if (staleAssignments().length) {
+        <p
+          class="preview-note warning"
+          data-og7="examination-stale-assignment-count"
+        >
+          {{ t('staleAssignmentCount', { count: staleAssignments().length }) }}
+        </p>
+      }
+      @if (visibleLibraryMedia().length) {
+        <ul
+          class="library-media-list"
+          data-og7="examination-library"
+          [attr.aria-label]="t('libraryLabel')"
+        >
+          @for (item of visibleLibraryMedia(); track item.asset.id) {
+            <li
+              data-og7="examination-library-asset"
+              [attr.data-og7-id]="item.asset.id"
+            >
               <openg7-media-review-thumbnail
-                [assetId]="asset.id"
-                [version]="asset.version"
-                [alt]="asset.altText || ''"
+                [assetId]="item.asset.id"
+                [version]="item.asset.version"
+                [alt]="item.asset.altText || ''"
                 [collection]="thumbnails"
               />
+              <div>
+                <strong>{{ item.asset.originalFilename }}</strong>
+                <p class="preview-note">
+                  {{ t('mediaKinds.' + item.asset.kind) }} ·
+                  {{ item.asset.originalMimeType }} · {{ item.asset.width }} ×
+                  {{ item.asset.height }} px
+                </p>
+                <p class="preview-note">
+                  {{ t('mediaReview.' + item.asset.reviewStatus) }}
+                </p>
+                @if (item.preparation; as preparedItem) {
+                  <div
+                    data-og7="examination-assigned-asset"
+                    [attr.data-og7-id]="item.asset.id"
+                    [attr.data-assignment-state]="
+                      preparedItem.stale
+                        ? 'stale'
+                        : preparedItem.eligible
+                          ? 'current'
+                          : 'review'
+                    "
+                  >
+                    <p
+                      class="assignment-status"
+                      [class.warning]="
+                        preparedItem.stale || !preparedItem.eligible
+                      "
+                    >
+                      {{
+                        t(
+                          preparedItem.stale
+                            ? 'assignmentStale'
+                            : preparedItem.eligible
+                              ? 'assignmentCurrent'
+                              : 'assignmentReview'
+                        )
+                      }}
+                    </p>
+                    <p class="preview-note">
+                      {{ t('assignedVersion') }}
+                      {{ preparedItem.assignment.assetVersion }}
+                    </p>
+                  </div>
+                } @else {
+                  <p
+                    class="assignment-status"
+                    data-og7="examination-library-unassigned"
+                  >
+                    {{ t('unassignedMedia') }}
+                  </p>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+        <nav
+          class="library-pagination"
+          [attr.aria-label]="t('libraryPagination')"
+        >
+          <button
+            type="button"
+            data-og7="examination-library-previous"
+            [disabled]="normalizedLibraryPage() === 1"
+            (click)="changeLibraryPage(-1)"
+          >
+            {{ t('libraryPrevious') }}
+          </button>
+          <span data-og7="examination-library-page" aria-live="polite">{{
+            t('libraryPage', {
+              page: normalizedLibraryPage(),
+              total: libraryTotalPages()
+            })
+          }}</span>
+          <button
+            type="button"
+            data-og7="examination-library-next"
+            [disabled]="normalizedLibraryPage() === libraryTotalPages()"
+            (click)="changeLibraryPage(1)"
+          >
+            {{ t('libraryNext') }}
+          </button>
+          <label for="examination-library-page-size">
+            {{ t('libraryPageSize') }}
+            <select
+              id="examination-library-page-size"
+              data-og7="examination-library-page-size"
+              [value]="libraryPageSize()"
+              (change)="setLibraryPageSize($event)"
+            >
+              @for (size of libraryPageSizes; track size) {
+                <option [value]="size">{{ size }}</option>
+              }
+            </select>
+          </label>
+        </nav>
+      } @else {
+        <p class="preview-note" data-og7="examination-library-empty">
+          {{ t(libraryAssets().length ? 'libraryNoMatches' : 'libraryEmpty') }}
+        </p>
+      }
+      @if (missingAssignments().length) {
+        <aside
+          class="missing-assignments"
+          data-og7="examination-missing-assignment-assets"
+        >
+          <p>{{ t('missingAssignments') }}</p>
+          <ul>
+            @for (item of missingAssignments(); track item.assignment.id) {
+              <li>
+                <strong>{{ t('missingAsset') }}</strong> ·
+                {{ t('assignmentStale') }}
+                <span class="preview-note"
+                  >{{ t('assignedVersion') }}
+                  {{ item.assignment.assetVersion }}</span
+                >
+              </li>
             }
-            <div>
-              <strong>{{
-                item.asset?.originalFilename || t('missingAsset')
-              }}</strong>
-              <p [class.warning]="item.stale || !item.eligible">
-                {{
-                  t(
-                    item.stale
-                      ? 'assignmentStale'
-                      : item.eligible
-                        ? 'assignmentCurrent'
-                        : 'assignmentReview'
-                  )
-                }}
-              </p>
-              <p class="preview-note">
-                {{ t('assignedVersion') }} {{ item.assignment.assetVersion }}
-              </p>
-            </div>
-          </li>
-        }
-      </ul>
-    } @else if (!unavailable()) {
-      <p class="preview-note" data-og7="examination-no-assignment">
-        {{ t('noAssignment') }}
-      </p>
+          </ul>
+        </aside>
+      }
     }
     @if (unavailable()) {
       <p class="preview-note warning" role="status">{{ t('unavailable') }}</p>

@@ -15,5 +15,29 @@
   "assignmentStale": "Affectation obsolète : vérifiez la version du média et de la prestation dans la bibliothèque.",
   "assignmentReview": "Affectation préparée ; les vérifications du média restent à compléter.",
   "assignmentCurrent": "Affectation actuelle ; la publication reste une décision distincte.",
-  "assignedVersion": "Version du média affectée :"
+  "assignedVersion": "Version du média affectée :",
+  "libraryScope": "Tous les médias de ce dossier sont consultables ici en lecture seule. Les affectations à cette prestation sont indiquées séparément ; un fichier non affecté n’est pas ajouté au rendu. Les ajouts, corrections et affectations restent dans la bibliothèque du dossier.",
+  "libraryLabel": "Médiathèque du dossier en lecture seule",
+  "librarySearch": "Rechercher un nom de fichier, un texte alternatif ou un type",
+  "libraryCount": "Médias du dossier : {{count}}",
+  "libraryMatches": "Résultats de la recherche : {{count}}",
+  "libraryEmpty": "La médiathèque de ce dossier ne contient aucun média.",
+  "libraryNoMatches": "Aucun média ne correspond à cette recherche.",
+  "libraryPagination": "Pages de la médiathèque",
+  "libraryPrevious": "Page précédente",
+  "libraryNext": "Page suivante",
+  "libraryPage": "Page {{page}} sur {{total}}",
+  "libraryPageSize": "Médias par page",
+  "unassignedMedia": "Non affecté à cette prestation",
+  "staleAssignmentCount": "Affectations à réexaminer : {{count}}",
+  "missingAssignments": "Certaines affectations de cette prestation référencent un média qui n’est plus disponible dans la médiathèque actuelle.",
+  "mediaKinds": {
+    "logo": "Logo",
+    "supporting_image": "Photo ou visuel"
+  },
+  "mediaReview": {
+    "pending_review": "Média à examiner",
+    "approved": "Média approuvé ; publication distincte",
+    "rejected": "Média refusé"
+  }
 }

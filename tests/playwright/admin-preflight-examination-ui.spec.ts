@@ -574,8 +574,10 @@ async function fixtures(
         }
       });
     if (url.pathname === '/api/admin/sponsorships/media/workspace') {
-      if (state.workspaceStatus !== 200)
+      if (state.workspaceStatus !== 200) {
+        if (state.workspaceStatus === 401) state.signedIn = false;
         return route.fulfill({ status: state.workspaceStatus, json: {} });
+      }
       return route.fulfill({
         json: {
           contributionId: dossierId,
@@ -690,9 +692,11 @@ for (const status of [401, 403]) {
     await page.goto(examinationUrl());
     if (status === 401) {
       await expect(page).toHaveURL(/\/admin\/login(?:\?|$)/);
-      await expect(page.getByRole('status')).toContainText(
-        'Votre session a expiré ou a été révoquée.'
-      );
+      await expect(
+        page.getByRole('status').filter({
+          hasText: 'Votre session a expiré ou a été révoquée.'
+        })
+      ).toContainText('Reconnectez-vous pour continuer.');
     } else {
       await expect(hook(page, 'error')).toBeVisible();
       await expect(hook(page, 'error')).toContainText(
@@ -1089,6 +1093,12 @@ test('Preflight examination previews qualified website media and links to its si
     page.locator('[data-og7="examination-no-assignment"]')
   ).toBeVisible();
   await expect(
+    page.locator('[data-og7="examination-library-asset"]')
+  ).toHaveCount(2);
+  await expect(page.locator('[data-og7="examination-library"]')).toContainText(
+    'synthetic-photo-2.png'
+  );
+  await expect(
     page.locator('[data-og7="examination-media-owner"]')
   ).toBeVisible();
   expect(remoteRequests).toEqual([]);
@@ -1138,7 +1148,18 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(
         hook(page, 'preview').getByRole('img', { name: 'Photo synthétique 1' })
       ).toBeVisible();
+      expect(
+        state.reads
+          .filter((url) => url.pathname.includes('/media/content/'))
+          .map((url) => url.pathname.split('/').at(-1))
+      ).toEqual([state.assets[0]!.id]);
       await chooseSection(page, 'media');
+      await expect(
+        page.locator('[data-og7="examination-library-asset"]')
+      ).toHaveCount(8);
+      await expect(
+        page.locator('[data-og7="examination-library-count"]')
+      ).toContainText('20');
       await expect(
         page.locator('[data-og7="examination-assigned-asset"]')
       ).toHaveCount(1);
@@ -1186,18 +1207,128 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toContainText(
         language === 'en' ? 'Outdated assignment' : 'Affectation obsolète'
       );
-      expect(
-        new Set(
-          state.reads
-            .filter((url) => url.pathname.includes('/media/content/'))
-            .map((url) => url.pathname.split('/').at(-1))
-        )
-      ).toEqual(new Set([state.assets[0]!.id, state.assets[1]!.id]));
+      const allowed = new Set(state.assets.map((asset) => asset.id));
+      const privateReads = state.reads
+        .filter((url) => url.pathname.includes('/media/content/'))
+        .map((url) => url.pathname.split('/').at(-1)!);
+      expect(privateReads.length).toBeGreaterThan(0);
+      expect(privateReads.every((id) => allowed.has(id))).toBe(true);
       expect(remoteRequests).toEqual([]);
       expect(state.writes).toEqual([]);
       expect(state.personalWrites).toEqual([]);
     });
   }
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`Examiner browses the complete dossier media library without a service assignment in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 960 });
+      const state = await fixtures(page, {
+        role: width === 390 ? 'reader' : 'owner',
+        language
+      });
+      state.assets = Array.from({ length: 20 }, (_, index) => ({
+        ...mediaAsset(index + 1, index % 2 === 0),
+        websiteSelected: false,
+        publicUrl: null
+      }));
+      const foreign = {
+        ...mediaAsset(99, true),
+        contributionId: '30000000-0000-4000-8000-000000000099'
+      };
+      state.assets.push(foreign);
+      await page.goto(examinationUrl());
+      await expect(hook(page, 'preview').getByRole('img')).toHaveCount(0);
+      await chooseSection(page, 'media');
+      const library = page.locator('[data-og7="preflight-service-preview"]');
+      const cards = library.locator('[data-og7="examination-library-asset"]');
+      const count = library.locator('[data-og7="examination-library-count"]');
+      await expect(cards).toHaveCount(8);
+      await expect(count).toContainText('20');
+      await expect(library).toContainText('synthetic-photo-2.png');
+      await expect(
+        library.locator('[data-og7="examination-no-assignment"]')
+      ).toBeVisible();
+      await expect(
+        library.locator('[data-og7="examination-assigned-asset"]')
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="media-review-workspace"]')
+      ).toHaveCount(0);
+      await expectAdminPageFits(page);
+      const axe = await new AxeBuilder({ page })
+        .include('[data-og7="examination"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(axe.violations).toEqual([]);
+      if (language === 'fr-CA')
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `examination-dossier-library-${width}px.fr`,
+          true
+        );
+      await library
+        .locator('[data-og7="examination-library-page-size"]')
+        .selectOption('25');
+      await expect(cards).toHaveCount(20);
+      await expect(library).not.toContainText('synthetic-photo-99.png');
+      await library
+        .locator('[data-og7="examination-library-page-size"]')
+        .selectOption('8');
+      await library.locator('[data-og7="examination-library-next"]').click();
+      await library.locator('[data-og7="examination-library-next"]').click();
+      await expect(cards).toHaveCount(4);
+      await expect(cards.first()).toHaveAttribute(
+        'data-og7-id',
+        state.assets[16]!.id
+      );
+      await library
+        .locator('[data-og7="examination-library-search"]')
+        .fill('synthetic-photo-20');
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toHaveAttribute('data-og7-id', state.assets[19]!.id);
+      await expect(
+        library.locator('[data-og7="examination-library-previous"]')
+      ).toBeDisabled();
+      await chooseSection(page, 'preview');
+      await expect(hook(page, 'preview').getByRole('img')).toHaveCount(0);
+      expect(
+        state.reads.some((url) => url.pathname.endsWith('/' + foreign.id))
+      ).toBe(false);
+      expect(state.writes).toEqual([]);
+      expect(state.personalWrites).toEqual([]);
+    });
+  }
+}
+
+for (const status of [401, 403]) {
+  test(`Examiner purges a previously visible dossier library when access changes to ${status}`, async ({
+    page
+  }) => {
+    const state = await fixtures(page, { role: 'reader' });
+    state.assets = [mediaAsset(1, false), mediaAsset(2, true)];
+    await page.goto(examinationUrl());
+    await chooseSection(page, 'media');
+    await expect(
+      page.locator('[data-og7="examination-library-asset"]')
+    ).toHaveCount(2);
+    state.workspaceStatus = status;
+    await chooseSection(page, 'preview');
+    if (status === 401) await expect(page).toHaveURL(/\/admin\/login(?:\?|$)/);
+    else await expect(hook(page, 'error')).toBeVisible();
+    await expect(
+      page.locator('[data-og7="examination-library-asset"]')
+    ).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(
+      'synthetic-photo-1.png'
+    );
+    expect(state.writes).toEqual([]);
+    expect(state.personalWrites).toEqual([]);
+  });
 }
 
 test('Preflight examination keeps a failed decision uncertain and never automatically repeats it', async ({
