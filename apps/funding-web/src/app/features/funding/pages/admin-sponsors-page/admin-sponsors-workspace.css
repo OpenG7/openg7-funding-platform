@@ -14,6 +14,12 @@
 :host .sponsors-board.has-selection {
   grid-template-columns: 14rem minmax(0, 1fr);
 }
+:host .sponsors-board.gallery-open {
+  grid-template-columns: minmax(0, 1fr);
+}
+:host .gallery-open > openg7-admin-sponsors-list-panel {
+  display: none;
+}
 :host .sponsor-detail-panel {
   @apply tw:relative tw:top-auto tw:max-h-none tw:overflow-visible;
   @apply tw:rounded-admin-card;
@@ -37,6 +43,19 @@
 .dossier-toolbar,
 .dossier-neighbours {
   @apply tw:flex tw:items-center tw:justify-between tw:gap-3;
+}
+.dossier-global-tools > summary {
+  min-height: 2.5rem;
+  padding: 0.35rem var(--admin-card-padding);
+  color: var(--admin-accent);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: var(--admin-label-weight);
+  border-bottom: 1px solid var(--admin-border);
+}
+.dossier-global-tools > summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
 }
 .dossier-toolbar {
   flex-wrap: wrap;

@@ -65,11 +65,13 @@ autorisations commerciales, la reprise et les effets externes.
 
 ## Revue par lot et héritage
 
-La galerie administrative affiche 25 tuiles par page, des filtres, la sélection
-multiple et un inspecteur unique. Les miniatures privées sont chargées à la demande,
+La galerie administrative affiche 8 tuiles par défaut (choix 8, 16 ou 25), des filtres,
+la sélection multiple et un inspecteur unique. Les miniatures privées sont chargées à la demande,
 avec une concurrence bornée. Le fichier source n'est chargé que pour l'inspection.
-Les anciens champs de logo restent consultables dans une section de compatibilité ;
-les nouveaux téléversements administratifs créent des médias du modèle courant.
+Les logos utilisent la même bibliothèque et la même revue; les nouveaux
+téléversements administratifs créent des médias du modèle courant. Les quatre
+vues et la séparation de l’identité sont décrites dans la
+[galerie de préparation](intelligent-media-gallery.md).
 
 Les règles sont définies au niveau dossier, lot ou média. Le média référence ses
 règles ; les valeurs héritées ne sont pas recopiées. Chaque qualification exige
@@ -105,23 +107,55 @@ images affichées ; le manifeste présente cet effet avant confirmation.
 
 Routes sous `/api/admin/sponsorships/media`, avec aliases sans `/api` :
 
-| Route                                       | Contrat                                                                                                                                        |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /workspace?contributionId=…`           | Médias, règles effectives, provenance, lots, révision et capacité d'écriture ; preuve privée omise pour le lecteur.                            |
-| `POST /rules`                               | UUID, dossier/révision, portée, droits, preuve, IDs couverts et confirmation de la portée.                                                     |
-| `POST /batches`                             | UUID, dossier/révision, nom et confirmation du dossier.                                                                                        |
-| `POST /batch/plan`                          | UUID, action, dossier/révision et sélection IDs/versions ; contenu candidat et raisons selon l'action.                                         |
-| `POST /batch/execute`                       | UUID, plan, confirmation du plan et `humanReviewed: true`.                                                                                     |
-| `GET /receipt?contributionId=…&requestId=…` | Réconciliation d'une commande appartenant à l'acteur ; aucune relance automatique.                                                             |
-| `GET /workspace/history`                    | Historique paginé du dossier ou média, réservé aux opérateurs/propriétaires.                                                                   |
-| `GET /content/:id?variant=thumbnail`        | WebP privé borné, contrôlant le checksum de la source.                                                                                         |
-| `POST /upload`                              | Multipart : UUID stable, dossier, type et fichier. Le reçu est atomique avec la création ; le même UUID et payload ne dupliquent pas le média. |
+| Route                                       | Contrat                                                                                                                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /workspace?contributionId=…`           | Médias, règles effectives, provenance, lots, révision, capacité d'écriture, obligations et associations préparatoires; preuve privée omise pour le lecteur.                             |
+| `POST /rules`                               | UUID, dossier/révision, portée, droits, preuve, IDs couverts et confirmation de la portée.                                                                                              |
+| `POST /batches`                             | UUID, dossier/révision, nom et confirmation du dossier.                                                                                                                                 |
+| `POST /batch/plan`                          | UUID, action, dossier/révision et sélection IDs/versions ; contenu candidat et raisons selon l'action.                                                                                  |
+| `POST /batch/execute`                       | UUID, plan, confirmation du plan et `humanReviewed: true`.                                                                                                                              |
+| `GET /receipt?contributionId=…&requestId=…` | Réconciliation d'une commande appartenant à l'acteur ; aucune relance automatique.                                                                                                      |
+| `GET /workspace/history`                    | Historique paginé du dossier ou média, réservé aux opérateurs/propriétaires.                                                                                                            |
+| `GET /content/:id?variant=thumbnail`        | WebP privé borné, contrôlant le checksum de la source.                                                                                                                                  |
+| `POST /upload`                              | Multipart : UUID stable, dossier, type et fichier. Le reçu est atomique avec la création ; le même UUID et payload ne dupliquent pas le média.                                          |
+| `POST /export`                              | Copie privée WebP traitée, opérateur/propriétaire; UUID, dossier, média, version attendue et confirmation égale à l’ID du média. Contrôle du contenu, reçu et audit; aucun lien public. |
 
 Les actions de lot sont accepter, refuser, supprimer, déplacer dans un lot du même
 dossier, rattacher des règles, sélectionner ou retirer du site. Le refus exige une
 raison de modération valide et une explication humaine. Chaque action utilise les
 mêmes intentions depuis les boutons et le Context Controller. L'assistant reste
 en lecture seule.
+
+### Affectations privées et corrections
+
+Les actions `preparation_assign` et `preparation_unassign` utilisent les mêmes
+plans, manifestes, confirmations et reçus. La demande précise
+`targetObligationId` et `targetObligationVersion`. Le manifeste retourne
+`preparationTarget` : destination, format et version de la prestation concernée.
+La sélection et la prestation doivent appartenir au même dossier; types, droits,
+restrictions, format et version restent contrôlés côté serveur.
+
+`preparation_assign` conserve des références privées aux versions des médias et
+de l’obligation. Elle ne modifie ni leur revue, ni `website_selected`, ni les
+livraisons sociales ou leur autorisation. `preparation_unassign` retire cette
+association sans supprimer le fichier. La projection `preparationAssignments`
+signale les références obsolètes; `preparationObligations` décrit les prestations
+réelles du dossier. Examiner consomme cette projection et intègre les changements,
+y compris les retraits, à la version de préparation. Un retour à une ancienne
+sélection ne réactive pas une ancienne approbation.
+
+`request_correction` prépare une décision N1 native par média sélectionné, avec
+motif et explication humaine. La confirmation porte sur les contenus exacts.
+Cette commande enregistre la demande et son audit avec notification différée :
+aucun courriel n’est mis en file. Le choix ne remplace pas les préférences déjà
+transmises par le commanditaire et ne modifie pas les fichiers.
+
+Le téléchargement collectif confirme la liste exacte, puis demande une copie
+WebP privée par fichier. Chaque export vérifie version et checksum et possède
+son reçu audité. Un résultat incertain arrête la suite; le reçu peut être relu
+par le mécanisme existant. Ce parcours ne génère pas d’archive ZIP et ne prétend
+pas fournir l’original. Le reçu atteste la préparation des octets par le serveur,
+pas l’enregistrement final sur l’ordinateur.
 
 ### Assistance aux images
 
@@ -145,7 +179,7 @@ incertitudes sont conservés ; un résultat obsolète ne peut être appliqué.
 
 ### Adoption et reprise
 
-Appliquer les migrations additives `060` et `061`, puis rafraîchir les grants du
+Appliquer les migrations additives `060`, `061` et `066`, puis rafraîchir les grants du
 rôle applicatif avant de démarrer cette API. Les gardes refusent les tables ou droits
 manquants. Les migrations ne lancent aucune analyse, suppression ou publication.
 La limite des photos est configurable de 1 à 100, avec 100 par défaut ; la taille

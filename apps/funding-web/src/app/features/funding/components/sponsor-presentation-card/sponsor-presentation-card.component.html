@@ -1,0 +1,86 @@
+@if (photo(); as current) {
+  <figure class="sponsor-photo">
+    <img
+      [src]="current.url"
+      [alt]="current.alt"
+      [width]="current.width"
+      [height]="current.height"
+      loading="lazy"
+      decoding="async"
+      (error)="imageFailed.emit(current.url)"
+    />
+    @if (current.credit) {
+      <figcaption data-og7="sponsor-photo-credit">
+        {{ current.credit }}
+      </figcaption>
+    }
+  </figure>
+}
+<div class="sponsor-logo">
+  @if (logoSource(); as logo) {
+    <img
+      [src]="logo"
+      [alt]="companyName()"
+      width="64"
+      height="64"
+      loading="lazy"
+      decoding="async"
+      (error)="imageFailed.emit(logo)"
+    />
+  } @else {
+    <span class="sponsor-initials" aria-hidden="true">{{ initials() }}</span>
+  }
+</div>
+<div class="sponsor-body">
+  @if (logoCredit(); as credit) {
+    <p data-og7="sponsor-logo-credit">{{ credit }}</p>
+  }
+  <h3>{{ companyName() }}</h3>
+  @if (amountLabel(); as amount) {
+    <small>{{ amount }}</small>
+  }
+  @if (summary(); as text) {
+    <p>{{ text }}</p>
+  }
+  @if (placement(); as publication) {
+    <div class="feed-placement">
+      @if (publication.target) {
+        <span>{{ publication.target }}</span>
+      }
+      @for (channel of publication.channels; track channel) {
+        <span>{{ channel }}</span>
+      }
+      <a
+        [href]="publication.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        [attr.aria-label]="
+          ('funding.sponsorsPage.directory.feedLink' | translate) +
+          ' — ' +
+          companyName() +
+          ' (' +
+          ('funding.sponsorsPage.newTab' | translate) +
+          ')'
+        "
+        >{{ 'funding.sponsorsPage.directory.feedLink' | translate }}</a
+      >
+    </div>
+  }
+</div>
+@if (websiteUrl(); as website) {
+  <a
+    class="button sponsor-website"
+    [href]="website"
+    target="_blank"
+    rel="noopener noreferrer"
+    [attr.aria-label]="
+      ('funding.sponsorsPage.directory.website' | translate) +
+      ' — ' +
+      companyName() +
+      ' (' +
+      ('funding.sponsorsPage.newTab' | translate) +
+      ')'
+    "
+    >{{ 'funding.sponsorsPage.directory.website' | translate }}</a
+  >
+}

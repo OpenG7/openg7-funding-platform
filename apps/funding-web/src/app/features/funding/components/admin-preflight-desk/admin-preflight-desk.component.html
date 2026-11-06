@@ -102,88 +102,6 @@
           }
         </div>
 
-        @if (selection(); as selected) {
-          <section
-            #reviewPanel
-            class="review-panel"
-            data-og7="preflight-desk-review"
-            aria-labelledby="preflight-desk-review-title"
-            tabindex="-1"
-          >
-            <header>
-              <div>
-                <p class="eyebrow">
-                  {{
-                    'admin.preflightDesk.reviewSource'
-                      | translate: { reference: selected.order.reference }
-                  }}
-                </p>
-                <h3 id="preflight-desk-review-title">
-                  {{ 'admin.preflightDesk.reviewTitle' | translate }} ·
-                  {{ channelKey(selected.service.channel) | translate }}
-                </h3>
-              </div>
-              <button
-                class="admin-button"
-                type="button"
-                data-og7="preflight-desk-close"
-                (click)="closeReview()"
-              >
-                <openg7-admin-icon name="close" />{{
-                  'admin.preflightDesk.close' | translate
-                }}
-              </button>
-            </header>
-            <p class="review-scope">
-              {{ 'admin.preflightDesk.reviewScope' | translate }}
-            </p>
-            @if (selected.service.proof; as proof) {
-              <section class="selected-proof" data-og7="preflight-desk-proof">
-                <h4>
-                  <openg7-admin-icon name="check" />
-                  {{ 'admin.preflightDesk.proof' | translate }}
-                </h4>
-                <p>
-                  {{ 'admin.preflightDesk.proofDate' | translate }}
-                  {{ formatDate(proof.deliveredAt) }}
-                </p>
-                <p>
-                  {{ 'admin.preflightDesk.proofDetails' | translate }}
-                  {{ proof.id }}
-                </p>
-                @if (proofUrl(proof.externalPostUrl); as url) {
-                  <a
-                    class="admin-link"
-                    [href]="url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    >{{ 'admin.preflightDesk.openPublished' | translate }}</a
-                  >
-                }
-              </section>
-            }
-            <openg7-admin-sponsorship-preparation
-              [contributionId]="selected.order.contributionId"
-              [refreshKey]="refreshKey()"
-            />
-            <footer>
-              <p class="muted">
-                {{ 'admin.preflightDesk.reviewDossier' | translate }}
-              </p>
-              <a
-                class="admin-button"
-                [routerLink]="ownerRoute(selected.service.reviewUrl)"
-                >{{ 'admin.preflightDesk.ownerWorkflow' | translate
-                }}<openg7-admin-icon name="arrow" /></a
-              ><a
-                class="admin-link"
-                [routerLink]="ownerRoute(selected.order.adminUrl)"
-                >{{ 'admin.preflightDesk.openDossier' | translate }}</a
-              >
-            </footer>
-          </section>
-        }
-
         @if (!data.orders.length && state() !== 'loading') {
           <div class="empty-state">
             <openg7-admin-icon name="publications" />
@@ -219,11 +137,15 @@
                     >
                       <span class="chevron" aria-hidden="true">⌄</span
                       ><openg7-admin-icon name="sponsors" />{{
-                        order.reference
+                        order.companyName || order.reference
                       }}
                     </button>
                   </h3>
-                  <p>{{ order.companyName ?? order.reference }}</p>
+                  @if (
+                    order.companyName && order.companyName !== order.reference
+                  ) {
+                    <p>{{ order.reference }}</p>
+                  }
                 </div>
                 <div class="order-meta">
                   <span class="amount">{{
@@ -335,6 +257,16 @@
                             }}
                           </p>
                         }
+                        @if (
+                          service.preparation.serviceDecision?.decision ===
+                          'approved'
+                        ) {
+                          <p class="muted">
+                            {{
+                              'admin.preflightDesk.privateApproval' | translate
+                            }}
+                          </p>
+                        }
                         @if (service.blocked || service.blockers.length) {
                           <div class="blockers">
                             <strong
@@ -367,7 +299,7 @@
                           type="button"
                           data-og7="preflight-desk-examine"
                           [attr.data-og7-id]="service.id"
-                          (click)="examine(order, service, $event)"
+                          (click)="examine(order, service)"
                         >
                           {{
                             (service.proof

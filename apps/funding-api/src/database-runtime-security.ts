@@ -64,7 +64,7 @@ export const assertProductionDatabasePrivileges = async (
             (a.relname IN ('admin_audit_log','sponsorship_website_exposure_observations',
                 'sponsorship_obligation_duration_attestations','sponsorship_historical_evidence_reviews',
                 'sponsorship_public_visibility_observations','admin_automatic_run_entries',
-                'admin_preparation_approvals','preparation_assistance_sources',
+                'admin_preparation_approvals','admin_service_preparation_decisions','admin_preflight_work_session_commands','preparation_assistance_sources',
                 'preparation_assistance_suggestions','preparation_assistance_reviews',
                 'preparation_assistance_requests','sponsor_media_rule_versions',
                 'sponsor_media_workspace_commands','sponsor_media_batch_plans',

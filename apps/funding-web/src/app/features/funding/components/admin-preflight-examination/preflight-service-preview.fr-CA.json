@@ -1,0 +1,19 @@
+{
+  "empty": "Aucun contenu préparé n’est disponible pour cette prestation.",
+  "webScope": "Même composant de présentation que l’annuaire public. Aperçu privé du texte et des médias Web sélectionnés et admissibles; la visibilité et la livraison restent des décisions séparées.",
+  "loading": "Chargement des médias autorisés…",
+  "unavailable": "Certains médias ne peuvent pas être vérifiés ou affichés. Consultez la médiathèque avant de décider.",
+  "noPhoto": "Aucune photo sélectionnée et admissible au Web n’est disponible dans les données actuelles.",
+  "mediaOwner": "Consulter la médiathèque du dossier",
+  "socialScope": "Aperçu indicatif du texte et de sa destination. Le rendu final, les médias et l’autorisation de diffusion se vérifient dans le parcours de publication.",
+  "socialOwner": "Ouvrir la préparation de publication",
+  "preparationScope": "Ressources affectées à cette prestation dans la bibliothèque du dossier. Cet aperçu privé n’accorde ni droit d’utilisation, ni validation éditoriale, ni autorisation de publication.",
+  "assignedCount": "Médias affectés à cette prestation : {{count}}",
+  "noAssignment": "Aucun média n’est encore affecté à cette prestation. Les ajouts, corrections et affectations se gèrent dans la bibliothèque du dossier.",
+  "noSocialPhoto": "Aucune photo affectée et admissible à cette destination n’est disponible pour cet aperçu.",
+  "missingAsset": "Média indisponible",
+  "assignmentStale": "Affectation obsolète : vérifiez la version du média et de la prestation dans la bibliothèque.",
+  "assignmentReview": "Affectation préparée ; les vérifications du média restent à compléter.",
+  "assignmentCurrent": "Affectation actuelle ; la publication reste une décision distincte.",
+  "assignedVersion": "Version du média affectée :"
+}

@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
-import type { Page } from '@playwright/test';
 import type {
   AdminAuditLogResponse,
   AdminSponsorshipsResponse,
@@ -31,6 +30,12 @@ import { runAcceptancePublicationWorker } from './support/acceptance-publication
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  approveAcceptanceMedia,
+  selectAcceptanceWebsiteMedia,
+  prepareAcceptanceMediaPlan,
+  executeAcceptanceMediaPlan
+} from './support/acceptance-media-review.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -44,48 +49,6 @@ interface Receipt {
     mediaId: string | null;
     mediaSha256: string | null;
   }[];
-}
-
-/** A single explicit human confirmation on the exact server-built candidate manifest. */
-async function confirmMediaManifest(
-  page: Page,
-  action: string,
-  ids: readonly string[]
-) {
-  const manifest = page.locator('[data-og7="media-batch-manifest"]');
-  await expect(manifest).toBeVisible();
-  await expect(manifest.locator('openg7-media-review-thumbnail')).toHaveCount(
-    ids.length
-  );
-  const confirmation = page.locator('[data-og7="media-manifest-confirmation"]');
-  const execute = page.locator('[data-og7="media-batch-execute"]');
-  await expect(confirmation).not.toBeChecked();
-  await expect(execute).toBeDisabled();
-  await confirmation.check();
-  const completed = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/api/admin/sponsorships/media/batch/execute') &&
-      response.request().method() === 'POST'
-  );
-  await execute.click();
-  const response = await completed;
-  expect(response.ok(), await response.text()).toBe(true);
-  const request = response.request().postDataJSON();
-  expect(request).toMatchObject({
-    confirmation: request.planId,
-    humanReviewed: true
-  });
-  const receipt = await response.json();
-  expect(receipt).toMatchObject({
-    action,
-    status: 'completed',
-    planId: request.planId
-  });
-  expect(receipt.items.map((item: { id: string }) => item.id).sort()).toEqual(
-    [...ids].sort()
-  );
-  await expect(manifest).toHaveCount(0);
-  return receipt;
 }
 
 for (const change of ['replace-logo', 'delete-photo'] as const) {
@@ -352,14 +315,11 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         )
       ).assets.filter((asset) => asset.reviewStatus !== 'approved');
       expect(pendingMedia).toHaveLength(3);
-      const workspace = admin.locator('[data-og7="media-review-workspace"]');
-      await workspace
-        .getByRole('button', { name: 'Sélectionner cette page', exact: true })
-        .click();
-      await admin.locator('[data-og7="media-batch-approve"]').click();
-      await confirmMediaManifest(
+      // Fixture preparation uses the real versioned API; the dossier gallery is intentionally empty.
+      await approveAcceptanceMedia(
         admin,
-        'approve',
+        request,
+        id,
         pendingMedia.map((asset) => asset.id)
       );
       for (const asset of pendingMedia) {
@@ -414,21 +374,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         .poll(async () => (await sponsor()).sponsor_review_status)
         .toBe('approved');
       const selectWebsiteMedia = async (assetId: string) => {
-        await admin.goto(
-          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
-        );
-        const tile = admin.locator(
-          `[data-og7="media-tile"][data-og7-id="${assetId}"]`
-        );
-        await tile.getByRole('button').click();
-        const inspector = admin.locator('[data-og7="media-inspector"]');
-        await inspector.getByText('Plus d’options', { exact: true }).click();
-        await inspector
-          .getByRole('button', {
-            name: /^Choisir (?:comme photo du|pour le) site$/
-          })
-          .click();
-        await confirmMediaManifest(admin, 'website_select', [assetId]);
+        await selectAcceptanceWebsiteMedia(admin, request, id, [assetId]);
       };
       const initialAssets = await assets();
       for (const kind of ['logo', 'supporting_image'] as const) {
@@ -567,35 +513,34 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         );
         expect(stale.status()).toBe(409);
         expect((await request.get(publicPath)).status()).toBe(200);
-        await admin.goto(
-          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
+        const plan = await prepareAcceptanceMediaPlan(request, id, 'delete', [
+          originalAsset.id
+        ]);
+        const unreviewed = await request.post(
+          '/api/admin/sponsorships/media/batch/execute',
+          {
+            headers: await adminSessionHeaders(request),
+            data: {
+              requestId: randomUUID(),
+              planId: plan.id,
+              confirmation: plan.id,
+              humanReviewed: false
+            }
+          }
         );
-        const card = admin.locator(
-          '[data-og7="media-tile"][data-og7-id="' + originalAsset.id + '"]'
-        );
-        await card.getByRole('button').click();
-        const inspector = admin.locator('[data-og7="media-inspector"]');
-        await inspector.getByText('Plus d’options', { exact: true }).click();
-        await inspector
-          .getByRole('button', { name: 'Supprimer', exact: true })
-          .click();
-        await expect(
-          admin.locator('[data-og7="media-batch-execute"]')
-        ).toBeDisabled();
-        await admin
-          .getByRole('dialog', { name: 'Vérifier la décision groupée' })
-          .getByRole('button', { name: 'Fermer', exact: true })
-          .click();
+        expect(unreviewed.status()).toBe(400);
+        expect(await unreviewed.json()).toMatchObject({
+          code: 'CONFIRMATION_REQUIRED'
+        });
+        // Planning alone and an unconfirmed execution must preserve the asset.
         expect((await assets()).some((a) => a.id === originalAsset.id)).toBe(
           true
         );
-        await inspector
-          .getByRole('button', { name: 'Supprimer', exact: true })
-          .click();
-        deletionRequestId = (
-          await confirmMediaManifest(admin, 'delete', [originalAsset.id])
-        ).requestId;
-        await expect(card).toHaveCount(0);
+        deletionRequestId = (await executeAcceptanceMediaPlan(request, plan))
+          .requestId;
+        expect(
+          (await assets()).some((asset) => asset.id === originalAsset.id)
+        ).toBe(false);
       });
       expect((await request.get(publicPath)).status()).toBe(404);
       expect(
@@ -667,13 +612,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           JSON.stringify(await get('/api/public/sponsorships', false))
         ).not.toContain(pending.id);
         // A replacement and dossier reapproved before the worker runs cannot revive the old image.
-        await admin.reload();
-        const card = admin.locator(
-          '[data-og7="media-tile"][data-og7-id="' + pending.id + '"]'
-        );
-        await card.getByRole('button').click();
-        await admin.locator('[data-og7="media-inspector-approve"]').click();
-        await confirmMediaManifest(admin, 'approve', [pending.id]);
+        await approveAcceptanceMedia(admin, request, id, [pending.id]);
         await selectWebsiteMedia(pending.id);
         await expect
           .poll(

@@ -5,6 +5,8 @@ import type {
 } from './moderation.js';
 import type { SponsorMediaAsset } from './sponsor-media.js';
 import type { SponsorMediaUsageRights } from './sponsor-media-usage.js';
+import type { SponsorshipObligationState } from './sponsorship-commitments.js';
+import type { SponsorshipPublicationFormat } from './sponsorship-publication-formats.js';
 
 export const MEDIA_REVIEW_MAX_SELECTION = 100;
 export type MediaReadiness = 'ready' | 'needs_review' | 'blocked';
@@ -44,12 +46,42 @@ export interface SponsorMediaWorkspaceAsset extends SponsorMediaAsset {
   readonly websiteSelected: boolean;
 }
 export interface SponsorMediaWorkspace {
+  readonly preparationObligations?: readonly SponsorMediaPreparationObligation[];
+  readonly preparationAssignments?: readonly SponsorMediaPreparationAssignment[];
   readonly contributionId: string;
   readonly revision: string;
   readonly assets: readonly SponsorMediaWorkspaceAsset[];
   readonly rules: readonly SponsorMediaRule[];
   readonly batches: readonly SponsorMediaBatch[];
   readonly writable: boolean;
+}
+/** Private preparation references; none of these facts grants publication authority. */
+export interface SponsorMediaPreparationObligation {
+  readonly id: string;
+  readonly version: number;
+  readonly channel: 'website' | 'facebook' | 'linkedin';
+  readonly target: 'openg7' | 'openg20';
+  readonly ordinal: number;
+  readonly format: SponsorshipPublicationFormat | null;
+  readonly state: SponsorshipObligationState;
+  readonly acceptsMedia: boolean;
+}
+export interface SponsorMediaPreparationAssignment {
+  readonly id: string;
+  readonly obligationId: string;
+  readonly obligationVersion: number;
+  readonly assetId: string;
+  readonly assetVersion: string;
+  readonly actor: string;
+  readonly createdAt: string;
+  readonly stale: boolean;
+}
+export interface SponsorMediaExportRequest {
+  readonly requestId: string;
+  readonly contributionId: string;
+  readonly assetId: string;
+  readonly expectedVersion: string;
+  readonly confirmation: string;
 }
 export interface SponsorMediaRuleRequest {
   readonly requestId: string;
@@ -78,7 +110,10 @@ export type SponsorMediaBatchAction =
   | 'move'
   | 'rules'
   | 'website_select'
-  | 'website_deselect';
+  | 'website_deselect'
+  | 'preparation_assign'
+  | 'preparation_unassign'
+  | 'request_correction';
 export interface SponsorMediaBatchPlanRequest {
   readonly requestId: string;
   readonly contributionId: string;
@@ -92,11 +127,15 @@ export interface SponsorMediaBatchPlanRequest {
   }[];
   readonly targetBatchId?: string | null;
   readonly ruleId?: string | null;
+  readonly targetObligationId?: string;
+  readonly targetObligationVersion?: number;
   readonly reason?: ModerationReasonCode;
+  readonly editorialProvision?: string;
   readonly internalReason?: string;
   readonly sponsorExplanation?: string;
 }
 export interface SponsorMediaBatchPlan {
+  readonly preparationTarget?: SponsorMediaPreparationObligation;
   readonly id: string;
   readonly contributionId: string;
   readonly action: SponsorMediaBatchAction;

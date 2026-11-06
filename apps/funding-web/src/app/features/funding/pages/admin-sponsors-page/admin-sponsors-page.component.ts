@@ -148,6 +148,18 @@ type SponsorDossierTool = 'moderation' | 'access';
   ]
 })
 export class AdminSponsorsPageComponent implements OnInit {
+  readonly reservedDossierHeight = signal<number | null>(null);
+  private readonly layoutNavigationSettled = signal(true);
+
+  private preserveTabLayout(tab: string | null): void {
+    if (tab !== 'media' || !isPlatformBrowser(this.platformId)) {
+      this.reservedDossierHeight.set(null);
+      return;
+    }
+    const height =
+      this.sponsorDetailPanel?.nativeElement.getBoundingClientRect().height;
+    this.reservedDossierHeight.set(height && height > 0 ? height : null);
+  }
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
   readonly dossierTool = signal<SponsorDossierTool | null>(null);
   private dossierToolReturnTarget: HTMLElement | null = null;
@@ -254,6 +266,7 @@ export class AdminSponsorsPageComponent implements OnInit {
                 `[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`
               );
         if (!trigger) return;
+        this.revealDossierControl(trigger);
         trigger.focus({ preventScroll: true });
         const rect = trigger.getBoundingClientRect();
         const visible = trigger.ownerDocument.elementFromPoint(
@@ -272,6 +285,13 @@ export class AdminSponsorsPageComponent implements OnInit {
     this.sponsorEdit()?.open();
   }
 
+  private revealDossierControl(target: HTMLElement | null | undefined): void {
+    const tools = target?.closest<HTMLDetailsElement>(
+      '[data-og7="dossier-global-tools"]'
+    );
+    if (tools) tools.open = true;
+  }
+
   openReviewNote(): void {
     this.setActiveTab('overview');
     afterNextRender(() => this.sponsorOverview()?.openNote(), {
@@ -288,11 +308,34 @@ export class AdminSponsorsPageComponent implements OnInit {
     });
   }
 
+  inspectGalleryServices(): void {
+    const selected = this.selectedSponsorship();
+    const dossier = this.progress();
+    if (!selected || dossier?.contributionId !== selected.id) return;
+    const obligations = dossier.commitment?.obligations ?? [];
+    const obligation =
+      obligations.find(
+        (item) => item.state !== 'fulfilled' && item.state !== 'adjusted'
+      ) ?? obligations[0];
+    if (!obligation) {
+      this.openDossierSection('publication');
+      return;
+    }
+    void this.router.navigate(['/admin/fundraiser/preflight'], {
+      queryParams: {
+        view: 'desk',
+        sponsorshipId: selected.id,
+        obligationId: obligation.id
+      }
+    });
+  }
+
   readonly sponsorOverview = viewChild(AdminSponsorDetailOverviewComponent);
   readonly sponsorAccess = viewChild(AdminSponsorshipAccessComponent);
   private readonly sponsorProgress = viewChild(
     AdminSponsorshipProgressComponent
   );
+  private readonly sponsorLibrary = viewChild(AdminSponsorDetailMediaComponent);
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly moderation = inject(FundingModerationService);
@@ -700,6 +743,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly pendingSection = this.listController.pendingSection;
 
   private readonly navigationAdapter = new AdminSponsorsNavigationAdapter({
+    preserveTabLayout: (tab) => this.preserveTabLayout(tab),
     controller: this.listController,
     selectedSponsorshipId: () => this.selectedSponsorshipId(),
     currentUrl: () => this.router.url,
@@ -708,6 +752,27 @@ export class AdminSponsorsPageComponent implements OnInit {
   });
 
   constructor() {
+    afterRenderEffect(() => {
+      if (
+        this.reservedDossierHeight() === null ||
+        !this.layoutNavigationSettled()
+      )
+        return;
+      if (!this.selectedSponsorshipId() || this.state() === 'error') {
+        this.reservedDossierHeight.set(null);
+        return;
+      }
+      if (
+        this.state() === 'loading' ||
+        this.sponsorProgress()?.state() === 'loading'
+      )
+        return;
+      if (this.activeTab() === 'media' && !this.sponsorLibrary()?.layoutReady())
+        return;
+      // Keep the captured viewport valid while the two lazy gallery layers mount.
+      // Releasing the reserve lets the browser apply the legitimate final clamp.
+      this.reservedDossierHeight.set(null);
+    });
     effect(() => {
       const language = this.i18n.currentLanguage();
       untracked(() => {
@@ -767,13 +832,13 @@ export class AdminSponsorsPageComponent implements OnInit {
     afterRenderEffect(() => {
       const params = this.actionParams();
       const action = params?.get('action');
-      const sponsorshipId = params?.get('sponsorshipId') ?? null;
       if (
         (action !== 'edit-identity' && action !== 'followup-access') ||
         this.state() !== 'ready' ||
         this.dossierToolBusy()
       )
         return;
+      const sponsorshipId = params?.get('sponsorshipId') ?? null;
       const validContext =
         !!sponsorshipId &&
         params?.get('tab') === 'identity' &&
@@ -781,7 +846,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.activeTab() === 'identity';
       untracked(
         () =>
-          void this.consumeDossierAction(action, sponsorshipId, validContext)
+          void this.consumeIdentityAction(action, sponsorshipId, validContext)
       );
     });
     afterRenderEffect(() => {
@@ -805,6 +870,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.assistantReturnFocus = null;
         this.pendingSection.set(null);
         if (focus.source === 'dossier') {
+          this.revealDossierControl(link);
           link?.focus({ preventScroll: true });
           link?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
         }
@@ -818,6 +884,8 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.activeTab() !== pending.tab ||
         this.sponsorProgress()?.state() === 'loading'
       )
+        return;
+      if (pending.tab === 'media' && !this.sponsorLibrary()?.languageReady())
         return;
       const element =
         this.sponsorDetailPanel?.nativeElement.querySelector<HTMLElement>(
@@ -833,8 +901,8 @@ export class AdminSponsorsPageComponent implements OnInit {
     });
   }
 
-  /** Consume navigation intent once; opening a control never submits its action. */
-  private async consumeDossierAction(
+  /** Only an explicit, scoped identity intent may open the existing owner control. */
+  private async consumeIdentityAction(
     action: 'edit-identity' | 'followup-access',
     sponsorshipId: string | null,
     validContext: boolean
@@ -857,10 +925,11 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.activeTab() !== 'identity'
       )
         return;
-      if (action === 'edit-identity' && !this.actionsDisabled()) {
-        this.sponsorDetailPanel?.nativeElement
-          .querySelector<HTMLElement>('[data-og7="edit-dossier"]')
-          ?.focus({ preventScroll: true });
+      if (
+        action === 'edit-identity' &&
+        this.canManage() &&
+        !this.actionsDisabled()
+      ) {
         this.openIdentityEditor();
       }
       if (action === 'followup-access' && this.canUseOwnerActions())
@@ -882,7 +951,11 @@ export class AdminSponsorsPageComponent implements OnInit {
           this.assistantReturnFocus = null;
           this.assistantReturnReady.set(false);
         }
+        if (event instanceof NavigationStart)
+          this.layoutNavigationSettled.set(false);
         this.navigationAdapter.handleRouterEvent(event);
+        if (event instanceof Scroll || event instanceof NavigationSkipped)
+          this.layoutNavigationSettled.set(true);
         if (event instanceof Scroll) this.assistantReturnReady.set(true);
       });
     this.route.queryParamMap

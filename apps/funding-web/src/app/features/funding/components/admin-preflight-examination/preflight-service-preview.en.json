@@ -1,0 +1,19 @@
+{
+  "empty": "No prepared content is available for this service.",
+  "webScope": "Uses the same presentation component as the public directory. Private preview of the text and selected, eligible website media; visibility and delivery remain separate decisions.",
+  "loading": "Loading authorized media…",
+  "unavailable": "Some media could not be verified or displayed. Check the media library before deciding.",
+  "noPhoto": "No selected, eligible website photo is available in the current data.",
+  "mediaOwner": "Open the dossier’s media library",
+  "socialScope": "Indicative preview of the text and its destination. Verify the final rendering, media and publishing authorization in the publication workflow.",
+  "socialOwner": "Open publication preparation",
+  "preparationScope": "Resources assigned to this service in the dossier’s library. This private preview grants no usage right, editorial approval or publication authorization.",
+  "assignedCount": "Media assigned to this service: {{count}}",
+  "noAssignment": "No media is assigned to this service yet. Additions, corrections and assignments are managed in the dossier’s library.",
+  "noSocialPhoto": "No assigned photo eligible for this destination is available for this preview.",
+  "missingAsset": "Unavailable media",
+  "assignmentStale": "Outdated assignment: check the media and service versions in the library.",
+  "assignmentReview": "Assignment prepared; media checks still need to be completed.",
+  "assignmentCurrent": "Current assignment; publication remains a separate decision.",
+  "assignedVersion": "Assigned media version:"
+}

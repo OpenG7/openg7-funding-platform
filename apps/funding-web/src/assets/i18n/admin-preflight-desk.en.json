@@ -21,7 +21,7 @@
   "stageHelp": {
     "to_prepare": "Services to prepare or complete",
     "to_review": "Preparations awaiting human review",
-    "to_deliver": "Authorized services awaiting delivery",
+    "to_deliver": "Approved preparations or authorized services, awaiting delivery",
     "delivered": "Services with qualified delivery evidence"
   },
   "overview": "Overview",
@@ -97,5 +97,6 @@
     "unknown": "State unknown"
   },
   "healthHelp": "Reading the inbox does not check the entire bridge or worker.",
-  "healthChecked": "Last confirmed read:"
+  "healthChecked": "Last confirmed read:",
+  "privateApproval": "Preparation approved. Publication authorization remains separate."
 }

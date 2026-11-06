@@ -1,0 +1,165 @@
+<section
+  class="service-preview"
+  data-og7="preflight-service-preview"
+  [attr.data-og7-id]="channel()"
+  [attr.aria-busy]="loading()"
+>
+  @if (view() === 'media') {
+    <p class="preview-note">{{ t('preparationScope') }}</p>
+    @if (loading()) {
+      <p class="preview-note" role="status">{{ t('loading') }}</p>
+    } @else if (prepared().length) {
+      <p class="preview-note" data-og7="examination-assigned-count">
+        {{ t('assignedCount', { count: prepared().length }) }}
+      </p>
+      <ul class="assigned-media-list" data-og7="examination-assigned-media">
+        @for (item of prepared(); track item.assignment.id) {
+          <li
+            data-og7="examination-assigned-asset"
+            [attr.data-og7-id]="item.assignment.assetId"
+          >
+            @if (!item.stale && item.asset; as asset) {
+              <openg7-media-review-thumbnail
+                [assetId]="asset.id"
+                [version]="asset.version"
+                [alt]="asset.altText || ''"
+                [collection]="thumbnails"
+              />
+            }
+            <div>
+              <strong>{{
+                item.asset?.originalFilename || t('missingAsset')
+              }}</strong>
+              <p [class.warning]="item.stale || !item.eligible">
+                {{
+                  t(
+                    item.stale
+                      ? 'assignmentStale'
+                      : item.eligible
+                        ? 'assignmentCurrent'
+                        : 'assignmentReview'
+                  )
+                }}
+              </p>
+              <p class="preview-note">
+                {{ t('assignedVersion') }} {{ item.assignment.assetVersion }}
+              </p>
+            </div>
+          </li>
+        }
+      </ul>
+    } @else if (!unavailable()) {
+      <p class="preview-note" data-og7="examination-no-assignment">
+        {{ t('noAssignment') }}
+      </p>
+    }
+    @if (unavailable()) {
+      <p class="preview-note warning" role="status">{{ t('unavailable') }}</p>
+    }
+    <button
+      type="button"
+      class="owner-link"
+      data-og7="examination-media-owner"
+      [disabled]="navigationDisabled()"
+      (click)="ownerRequested.emit('media')"
+    >
+      {{ t('mediaOwner') }}
+    </button>
+  } @else {
+    <div class="preview-canvas" [attr.data-og7-viewport]="viewport()">
+      @if (draft(); as content) {
+        @if (channel() === 'website') {
+          <openg7-sponsor-presentation-card
+            data-og7="preflight-preview-content"
+            [companyName]="companyName()"
+            [summary]="content.body"
+            [logoSource]="visibleLogo()"
+            [logoCredit]="selectedLogo()?.usage?.credit ?? null"
+            [photo]="photo()"
+            (imageFailed)="imageFailed($event)"
+          />
+        } @else {
+          <article class="social-preview" data-og7="preflight-social-preview">
+            <header>
+              <strong>{{
+                channel() === 'facebook' ? 'Facebook' : 'LinkedIn'
+              }}</strong
+              ><span>{{
+                content.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+              }}</span>
+            </header>
+            <h3>{{ content.title }}</h3>
+            <p>{{ content.body }}</p>
+            @if (photo(); as image) {
+              <img
+                class="social-photo"
+                [src]="image.url"
+                [alt]="image.alt"
+                (error)="imageFailed(image.url)"
+              />
+              @if (image.credit) {
+                <p class="preview-note">{{ image.credit }}</p>
+              }
+            }
+            @if (content.disclosureText) {
+              <p class="disclosure">{{ content.disclosureText }}</p>
+            }
+          </article>
+        }
+      } @else {
+        <p class="empty-preview" data-og7="preflight-preview-empty">
+          {{ t('empty') }}
+        </p>
+      }
+    </div>
+    @if (draft()) {
+      <p class="preview-note">
+        {{
+          t(
+            usesPreparation()
+              ? 'preparationScope'
+              : channel() === 'website'
+                ? 'webScope'
+                : 'socialScope'
+          )
+        }}
+      </p>
+      @if (loading()) {
+        <p class="preview-note" role="status">{{ t('loading') }}</p>
+      }
+      @if (unavailable()) {
+        <p
+          class="preview-note warning"
+          role="status"
+          data-og7="preflight-preview-media-error"
+        >
+          {{ t('unavailable') }}
+        </p>
+      }
+      @if (!loading() && !unavailable() && !photo()) {
+        <p class="preview-note" data-og7="preflight-preview-no-photo">
+          {{ t(channel() === 'website' ? 'noPhoto' : 'noSocialPhoto') }}
+        </p>
+      }
+      <button
+        type="button"
+        class="owner-link"
+        data-og7="examination-media-owner"
+        [disabled]="navigationDisabled()"
+        (click)="ownerRequested.emit('media')"
+      >
+        {{ t('mediaOwner') }}
+      </button>
+      @if (channel() !== 'website') {
+        <button
+          type="button"
+          class="owner-link"
+          [disabled]="navigationDisabled()"
+          (click)="ownerRequested.emit('delivery')"
+        >
+          {{ t('socialOwner') }}
+        </button>
+      }
+    }
+  }
+</section>

@@ -40,6 +40,13 @@ export interface AdminCampaignItem {
     readonly version: string;
     readonly approvedAt: string | null;
     readonly blockers: readonly string[];
+    /** Exact private service review. This never authorizes publication. */
+    readonly serviceDecision?: {
+      readonly id: string;
+      readonly decision: 'approved' | 'correction_requested' | 'rejected';
+      readonly createdAt: string;
+      readonly contentVersion: string;
+    } | null;
   };
   readonly workflow: SponsorshipPublicationWorkflowObligation;
   readonly content: {
