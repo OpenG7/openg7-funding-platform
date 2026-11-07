@@ -65,6 +65,8 @@ import { createPreflightInboxHttpHandler } from '../preflight/inbox-routes.js';
 import { createPreflightDeskHttpHandler } from '../preflight/desk-routes.js';
 import { PreflightDeskService } from '../preflight/desk.js';
 import { AdminPreflightWorkSessionsService } from '../admin-preflight-work-sessions.service.js';
+import { AdminSponsorshipConsentService } from '../admin-sponsorship-consent.service.js';
+import { createAdminSponsorshipConsentHttpHandler } from '../admin-sponsorship-consent.http.js';
 import { createAdminPreflightWorkSessionsHttpHandler } from '../admin-preflight-work-sessions.http.js';
 import { createPreflightRehearsalHttpHandler } from '../preflight/rehearsal-routes.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
@@ -521,8 +523,23 @@ export const createAdminHttpHandlers = ({
     readBody,
     writeJson
   });
+  const handleSponsorshipConsent = createAdminSponsorshipConsentHttpHandler({
+    publicBaseOrigin,
+    service: dbPool ? new AdminSponsorshipConsentService(dbPool) : null,
+    ensureAdminAccess,
+    canRecord: (request) =>
+      adminIdentity
+        ? ['operator', 'owner'].includes(
+            adminIdentity.identity(request)?.role ?? ''
+          )
+        : Boolean(resolveAdminAuthorization(request)),
+    getAdminAuditActor,
+    readBody,
+    writeJson
+  });
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
+      (await handleSponsorshipConsent(request, response)) ||
       (await handlePreflightWorkSessionsRequest(request, response)) ||
       (await handlePreflightDeskRequest(request, response)) ||
       (await handlePreflightRehearsalRequest(request, response)) ||

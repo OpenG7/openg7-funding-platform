@@ -17,6 +17,7 @@ const operatorActions = new Set([
   '/admin/sponsorships/preparation/service/decision',
   '/admin/sponsorships/preparation/service/save-draft',
   '/admin/sponsorships/details',
+  '/admin/sponsorships/consent/record',
   '/admin/sponsorships/interventions',
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',
@@ -79,6 +80,8 @@ export const adminRoleAllows = (
   )
     return method === 'GET' || (role === 'operator' && method === 'POST');
   if (path === '/admin/expenses/create-receipt') return false;
+  if (path === '/admin/sponsorships/consent/receipt')
+    return role === 'operator' && method === 'GET';
   if (
     path === '/admin/sponsorship-documents/resend-receipt' ||
     path === '/admin/sponsorships/information-request-receipt'

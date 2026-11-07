@@ -1,0 +1,141 @@
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--admin-text);
+}
+p {
+  line-height: 1.5;
+  margin-block: 0.5rem;
+}
+.consent-intro {
+  margin-top: 0;
+}
+.consent-scope {
+  display: flex;
+  align-items: start;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  background: var(--admin-selected);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+}
+.consent-scope > openg7-admin-icon {
+  color: var(--admin-accent);
+  font-size: 1.3rem;
+}
+h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.muted {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+.recording-actor {
+  margin-block: 1rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.consent-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.consent-form label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.consent-form input[type='date'],
+.consent-form textarea {
+  width: 100%;
+}
+.consent-form input[type='date'] {
+  max-width: 18rem;
+}
+.consent-form input[aria-invalid='true'] {
+  border-color: var(--admin-danger);
+}
+.consent-form .agreement-field {
+  display: flex;
+  align-items: start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-subtle);
+}
+.agreement-field input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--admin-accent);
+  flex-shrink: 0;
+}
+.consent-form .muted {
+  margin: 0 0 0.5rem;
+}
+.consent-form button {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+.consent-notice,
+.consent-result {
+  padding: 0.85rem 1rem;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-control);
+}
+.consent-notice.success,
+.consent-result {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
+}
+.consent-result h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.consent-result dl {
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.consent-result dt {
+  font-weight: 600;
+}
+.consent-result dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+.consent-history {
+  margin-top: 1rem;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 0.7rem;
+}
+.consent-history summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.consent-history li {
+  padding-block: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.consent-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 36rem) {
+  .consent-form button {
+    width: 100%;
+  }
+}

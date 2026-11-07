@@ -87,7 +87,7 @@ BEGIN
         'sponsor_media_workspace_commands','sponsor_media_batch_plans',
         'sponsor_media_analysis_suggestions','sponsor_media_analysis_reviews',
         'sponsor_media_analysis_requests','sponsorship_information_request_receipts',
-        'expense_creation_receipts') THEN
+        'expense_creation_receipts','admin_sponsorship_consent_records') THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);
       END IF;
     END IF;

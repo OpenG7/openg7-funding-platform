@@ -54,6 +54,16 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [067](../../apps/funding-api/migrations/067_documented_sponsorship_consent.sql)
+ajoute le registre immuable des [accords publics documentés](../technical/sponsorship-public-consent.md)
+et leur identité dans les empreintes de modération. Appliquer après 066, puis
+rafraîchir les grants avec le runner à jour avant de démarrer l’API : lecture et
+insertion seulement pour le rôle applicatif. Aucun consentement ancien n’est
+inféré; aucune contribution, décision ou livraison n’est modifiée par la migration.
+Les empreintes sans accord documenté restent identiques. Sauvegarder et vérifier
+la restauration avant l’application sur une base existante; une migration de
+production demande une autorisation distincte.
+
 La migration [066](../../apps/funding-api/migrations/066_sponsor_media_preparation_assignments.sql)
 ajoute uniquement les associations privées versionnées entre médias et
 prestations. Les clés étrangères imposent le même dossier; le retrait conserve

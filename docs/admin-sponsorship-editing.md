@@ -12,6 +12,13 @@ outils globaux du dossier restent accessibles. Voir la
 
 ## Parcourir le dossier
 
+La correction d’identité conserve les consentements. Pour un accord public déjà
+reçu mais absent du dossier, l’[atelier d’examen](technical/preflight-examination.md)
+propose une commande distincte avec preuve, date, droits et confirmation. Voir
+le [périmètre du consentement documenté](technical/sponsorship-public-consent.md).
+Cette commande maintient le profil en attente de visibilité et n’approuve
+aucun contenu.
+
 L’en-tête affiche la référence, le montant avec sa devise et des états distincts
 pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
 **Aperçu** contient une seule recommandation détaillée issue de la progression
