@@ -51,7 +51,12 @@ function fixture(t) {
     subject: { type: 'sponsorship', id: 'synthetic-sponsor' },
     level: 'N0'
   };
-  const state = { token: 'synthetic-session-original', clears: 0, reads: 0 };
+  const state = {
+    token: 'synthetic-session-original',
+    clears: 0,
+    reads: 0,
+    accessRefusals: []
+  };
   const admin = {
     sessionGeneration: signal(0),
     identity: signal({
@@ -72,7 +77,13 @@ function fixture(t) {
   };
   const moderation = {
     pending: signal(request),
-    answer: () => moderation.pending.set(null)
+    answer: () => moderation.pending.set(null),
+    rejectAccess: (expected, status) => {
+      if (moderation.pending() !== expected) return false;
+      state.accessRefusals.push(status);
+      moderation.pending.set(null);
+      return true;
+    }
   };
   const navigations = [];
   TestBed.configureTestingModule({
@@ -124,6 +135,37 @@ test('a current moderation content refusal clears the session and returns to sig
       }
     ]
   ]);
+});
+
+test('a forbidden moderation content read rejects its requester and clears private form fields', async (t) => {
+  const f = fixture(t);
+  f.panel.internalReason.set('Synthetic private review');
+  f.panel.sponsorExplanation.set('Synthetic private explanation');
+  f.reject(new AdminDashboardRequestError(403));
+  await Promise.resolve();
+  TestBed.tick();
+  assert.deepEqual(f.state.accessRefusals, [403]);
+  assert.equal(f.moderation.pending(), null);
+  assert.equal(f.panel.content(), null);
+  assert.equal(f.panel.internalReason(), '');
+  assert.equal(f.panel.sponsorExplanation(), '');
+  assert.equal(f.state.clears, 0);
+  assert.deepEqual(f.navigations, []);
+});
+
+test('a late OIDC refusal cannot clear a replacement cookie session without a legacy token', async (t) => {
+  const f = fixture(t);
+  f.state.token = '';
+  f.admin.identity.set({
+    sessionId: 'synthetic-cookie-replacement',
+    role: 'operator'
+  });
+  f.admin.sessionGeneration.update((value) => value + 1);
+  TestBed.tick();
+  await unauthorized(f);
+  assert.equal(f.state.clears, 0);
+  assert.equal(f.navigations.length, 0);
+  assert.deepEqual(f.state.accessRefusals, []);
 });
 
 test('a concurrent private read clearing the session cannot swallow moderation reauthentication', async (t) => {

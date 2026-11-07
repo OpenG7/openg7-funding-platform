@@ -108,6 +108,9 @@ et contrôles d'implémentation.
 ## Commandites et publication
 
 Paiement, consentement, revue, visibilité et publication restent distincts.
+L’[accord public documenté](technical/sponsorship-public-consent.md) exige une
+preuve et une confirmation auditée. Il maintient la visibilité en attente et
+invalide les autorisations obsolètes sans approuver de contenu.
 Les avantages sont une configuration typée/testée, affichée avant paiement,
 sans modification rétroactive implicite. Les seuils actifs appartiennent à
 `DEFAULT_SPONSORSHIP_PRICING_CONFIG` et au [guide produit](public-sponsors.md).

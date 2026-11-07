@@ -10,9 +10,11 @@ import {
 
 import { ensure, MediaWorkspaceError } from './policy.js';
 
-const targetFingerprint = `encode(digest(jsonb_build_array(ob.id,ob.version,ob.channel,ob.target,
+const targetFingerprint = `encode(digest((jsonb_build_array(ob.id,ob.version,ob.channel,ob.target,
   ob.publication_format,ob.state,m.version,m.state,m.offer_id,c.status,c.sponsorship_refund_status,
-  c.public_display_consent,c.sponsor_review_status)::text,'sha256'),'hex')`;
+  c.public_display_consent,c.sponsor_review_status) || COALESCE(
+    (SELECT jsonb_build_array(id) FROM admin_sponsorship_consent_records
+      WHERE contribution_id=c.id ORDER BY recorded_at DESC,id DESC LIMIT 1),'[]'::jsonb))::text,'sha256'),'hex')`;
 
 interface PreparationTarget extends SponsorMediaPreparationObligation {
   readonly fingerprint: string;

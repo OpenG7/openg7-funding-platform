@@ -1,0 +1,184 @@
+<section data-og7="examination-consent" [attr.aria-busy]="busy() || loading()">
+  <p class="consent-intro">{{ t('intro') }}</p>
+  <aside class="consent-scope" data-og7="examination-consent-scope">
+    <openg7-admin-icon name="audit" />
+    <div>
+      <h3>{{ t('scopeTitle') }}</h3>
+      <p>{{ t('scope') }}</p>
+      <p class="muted">{{ t('separate') }}</p>
+    </div>
+  </aside>
+  @if (loading()) {
+    <p role="status">{{ t('loading') }}</p>
+  }
+  @if (notice(); as message) {
+    <p
+      data-og7="examination-consent-notice"
+      class="consent-notice"
+      [class.success]="message === 'recorded'"
+      [attr.role]="message === 'recorded' ? 'status' : 'alert'"
+    >
+      {{ t('messages.' + message) }}
+    </p>
+  }
+  @if (result(); as saved) {
+    <section class="consent-result" data-og7="examination-consent-result">
+      <h3><openg7-admin-icon name="check" />{{ t('saved') }}</h3>
+      <dl>
+        <div>
+          <dt>{{ t('actor') }}</dt>
+          <dd data-og7="examination-consent-recorded-actor">
+            {{ saved.actor }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('recordedAt') }}</dt>
+          <dd>{{ formatDate(saved.recordedAt) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('audit') }}</dt>
+          <dd>
+            <code>{{ saved.recordId }}</code>
+          </dd>
+        </div>
+      </dl>
+      <p>{{ t('invalidation', { count: saved.invalidatedDeliveryCount }) }}</p>
+      <p>{{ t('noPublication') }}</p>
+    </section>
+  }
+  @if (receipt(); as current) {
+    @if (current.effectiveConsent && !result()) {
+      <p class="consent-notice success" data-og7="examination-consent-existing">
+        {{ t('existing') }}
+      </p>
+    }
+    @if (current.recordBlockers.length && !result()) {
+      <ul class="record-blockers">
+        @for (blocker of current.recordBlockers; track blocker) {
+          <li>{{ t('blockers.' + blocker) }}</li>
+        }
+      </ul>
+    }
+    @if (!readonly() && current.recordingActor) {
+      <p class="recording-actor" data-og7="examination-consent-actor">
+        {{ t('recordingActor') }} <strong>{{ current.recordingActor }}</strong>
+      </p>
+    }
+    @if (!readonly() && !current.effectiveConsent && !result()) {
+      <form (submit)="$event.preventDefault(); submit()" class="consent-form">
+        <label class="agreement-field"
+          ><input
+            type="checkbox"
+            data-og7="examination-consent-agreement"
+            [checked]="agreement()"
+            (change)="agreement.set(checked($event))"
+            [disabled]="busy() || unresolved() || !current.canRecord"
+          /><span>{{ t('agreement') }}</span></label
+        >
+        <label for="examination-consent-date"
+          >{{ t('date')
+          }}<input
+            id="examination-consent-date"
+            data-og7="examination-consent-date"
+            type="date"
+            required
+            [max]="today"
+            [value]="agreedOn()"
+            (input)="agreedOn.set(value($event))"
+            [disabled]="busy() || unresolved() || !current.canRecord"
+            [attr.aria-invalid]="agreedOn() && !validDate() ? 'true' : null"
+            aria-describedby="examination-consent-date-help"
+        /></label>
+        <p id="examination-consent-date-help" class="muted">
+          {{ t('dateHelp') }}
+        </p>
+        <label for="examination-consent-evidence"
+          >{{ t('evidence')
+          }}<textarea
+            id="examination-consent-evidence"
+            data-og7="examination-consent-evidence"
+            rows="3"
+            required
+            maxlength="1000"
+            [value]="evidence()"
+            (input)="evidence.set(value($event))"
+            [disabled]="busy() || unresolved() || !current.canRecord"
+            aria-describedby="examination-consent-evidence-help"
+          ></textarea>
+        </label>
+        <p id="examination-consent-evidence-help" class="muted">
+          {{ t('evidenceHelp') }}
+        </p>
+        <button
+          type="submit"
+          class="admin-button admin-button--primary"
+          data-og7="examination-consent-submit"
+          [disabled]="!canSubmit()"
+        >
+          <openg7-admin-icon name="audit" />{{
+            t(busy() ? 'saving' : 'submit')
+          }}
+        </button>
+      </form>
+    }
+    @if (readonly()) {
+      <p class="muted">{{ t('readonly') }}</p>
+    }
+    @if (!readonly() && current.history?.length) {
+      <details class="consent-history" data-og7="examination-consent-history">
+        <summary>{{ t('history') }}</summary>
+        <ol>
+          @for (entry of current.history; track entry.id) {
+            <li>
+              <strong>{{ entry.agreedOn }}</strong>
+              <p>{{ entry.evidenceReference }}</p>
+              <p class="muted">
+                {{ entry.actor }} · {{ formatDate(entry.recordedAt) }}
+              </p>
+            </li>
+          }
+        </ol>
+      </details>
+    }
+  }
+  <div class="consent-recovery">
+    @if (unresolved()) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="examination-consent-check-receipt"
+        [disabled]="busy() || loading()"
+        (click)="reconcileRequested.emit()"
+      >
+        {{ t('checkReceipt') }}
+      </button>
+    }
+    @if (retryAllowed()) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="examination-consent-retry"
+        [disabled]="busy() || loading()"
+        (click)="retryRequested.emit()"
+      >
+        {{ t('retry') }}
+      </button>
+    }
+    @if (
+      !unresolved() &&
+      (needsRefresh() ||
+        notice() === 'loadFailed' ||
+        notice() === 'refreshRequired')
+    ) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="examination-consent-refresh"
+        [disabled]="busy() || loading()"
+        (click)="refreshRequested.emit()"
+      >
+        {{ t('refresh') }}
+      </button>
+    }
+  </div>
+</section>

@@ -114,6 +114,7 @@ import { FundingAdminMediaReviewClient } from './funding-admin-media-review.clie
 import { FundingAdminSession } from './funding-admin-session.js';
 import { FundingAdminPreflightDeskClient } from './funding-admin-preflight-desk.client.js';
 import { FundingAdminPreflightExaminationClient } from './funding-admin-preflight-examination.client.js';
+import { FundingAdminSponsorshipConsentClient } from './funding-admin-sponsorship-consent.client.js';
 import { FundingAdminPreflightWorkSessionsClient } from './funding-admin-preflight-work-sessions.client.js';
 import { FundingAdminPreflightInboxClient } from './funding-admin-preflight-inbox.client.js';
 import { FundingAdminPreflightRehearsalClient } from './funding-admin-preflight-rehearsal.client.js';
@@ -203,6 +204,10 @@ export class FundingAdminService {
     () => this.clearAdminSession()
   );
   readonly preflightExamination = new FundingAdminPreflightExaminationClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly sponsorshipConsent = new FundingAdminSponsorshipConsentClient(
     this.session,
     () => this.clearAdminSession()
   );

@@ -44,12 +44,16 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminPreflightWorkSessionCoordinator } from '../../services/admin-preflight-work-session-coordinator.js';
+import { AdminSponsorshipConsentController } from '../../services/admin-sponsorship-consent-controller.js';
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
+import { FundingModerationActionsComponent } from '../admin-moderation/funding-moderation-actions.component.js';
 import {
   AdminIconComponent,
   type AdminIconName
 } from '../admin-ui/admin-icon.component.js';
 
 import { PreflightServicePreviewComponent } from './preflight-service-preview.component.js';
+import { AdminSponsorshipConsentFormComponent } from './admin-sponsorship-consent-form.component.js';
 
 type Section = 'preview' | 'text' | 'media' | 'checks' | 'details' | 'history';
 type Viewport = 'desktop' | 'tablet' | 'mobile';
@@ -73,7 +77,14 @@ type ApprovalGuidance =
 @Component({
   selector: 'openg7-admin-preflight-examination',
   standalone: true,
-  imports: [RouterLink, AdminIconComponent, PreflightServicePreviewComponent],
+  imports: [
+    RouterLink,
+    AdminIconComponent,
+    PreflightServicePreviewComponent,
+    AdminDrawerComponent,
+    AdminSponsorshipConsentFormComponent,
+    FundingModerationActionsComponent
+  ],
   templateUrl: './admin-preflight-examination.component.html',
   styleUrls: [
     '../admin-ui/admin-theme.css',
@@ -108,6 +119,58 @@ export class AdminPreflightExaminationComponent {
   readonly section = signal<Section>('preview');
   readonly viewport = signal<Viewport>('desktop');
   readonly enlarged = signal(false);
+  readonly consentOpened = signal(false);
+  readonly textReviewBusy = signal(false);
+  private readonly textReviewContext = signal<{
+    contributionId: string;
+    obligationId: string;
+    draftId: string;
+    version: string;
+    identity: string;
+  } | null>(null);
+  readonly textReviewSubject = computed(() => {
+    const context = this.textReviewContext(),
+      receipt = this.receipt();
+    return context &&
+      this.state() === 'ready' &&
+      receipt?.draft?.kind === 'publication' &&
+      receipt.contributionId === context.contributionId &&
+      receipt.service.id === context.obligationId &&
+      receipt.draft.id === context.draftId &&
+      receipt.version === context.version &&
+      this.work.identityKey() === context.identity
+      ? { type: 'publication_draft' as const, id: context.draftId }
+      : null;
+  });
+  readonly consent = new AdminSponsorshipConsentController({
+    client: this.admin.sponsorshipConsent,
+    permitted: () =>
+      this.state() === 'ready' &&
+      !this.readOnly() &&
+      !this.busy() &&
+      !this.mediaBusy() &&
+      !this.work.busy() &&
+      !this.work.unresolved() &&
+      !this.decisionUncertain() &&
+      !this.draftUncertain(),
+    confirm: (intent, summary) =>
+      this.confirmation.confirm(
+        this.t('consent.confirm', { date: intent.agreedOn }),
+        summary.contributionId
+      ),
+    refreshPreparation: async () => {
+      const key = this.selectionKey;
+      await this.load(true, true);
+      if (key !== this.selectionKey || this.state() !== 'ready')
+        throw new Error('CONSENT_PREPARATION_REFRESH_REQUIRED');
+    },
+    accessLost: (status) => this.mediaAccessLost(status),
+    storage: () =>
+      this.browser
+        ? (this.host.nativeElement.ownerDocument.defaultView?.sessionStorage ??
+          null)
+        : null
+  });
   readonly sections: readonly Section[] = [
     'preview',
     'text',
@@ -159,6 +222,9 @@ export class AdminPreflightExaminationComponent {
     () =>
       this.busy() ||
       this.mediaBusy() ||
+      this.consent.busy() ||
+      this.textReviewBusy() ||
+      this.consent.uncertain() ||
       this.work.busy() ||
       this.work.unresolved() ||
       this.work.error() === 'conflict' ||
@@ -206,6 +272,9 @@ export class AdminPreflightExaminationComponent {
       !this.readOnly() &&
       !this.busy() &&
       !this.mediaBusy() &&
+      !this.consent.busy() &&
+      !this.textReviewBusy() &&
+      !this.consent.uncertain() &&
       !this.work.busy() &&
       !this.work.unresolved() &&
       (!this.work.current() || this.work.current()?.status === 'active') &&
@@ -225,6 +294,8 @@ export class AdminPreflightExaminationComponent {
     if (
       this.busy() ||
       this.mediaBusy() ||
+      this.consent.busy() ||
+      this.textReviewBusy() ||
       this.work.busy() ||
       this.state() === 'loading'
     )
@@ -232,6 +303,7 @@ export class AdminPreflightExaminationComponent {
     if (this.state() !== 'ready') return 'unavailable';
     if (
       this.work.unresolved() ||
+      this.consent.uncertain() ||
       this.decisionUncertain() ||
       this.draftUncertain()
     )
@@ -377,6 +449,10 @@ export class AdminPreflightExaminationComponent {
         const key = `${session}:${contribution}:${obligation}`;
         if (!this.browser || key === this.selectionKey) return;
         this.selectionKey = key;
+        this.consent.setScope(contribution, session);
+        this.consentOpened.set(false);
+        this.textReviewContext.set(null);
+        this.textReviewBusy.set(false);
         ++this.decisionSerial;
         this.busy.set(false);
         this.mediaBusy.set(false);
@@ -414,6 +490,9 @@ export class AdminPreflightExaminationComponent {
       const unsafe =
         this.localDirty() ||
         this.busy() ||
+        this.consent.busy() ||
+        this.textReviewBusy() ||
+        this.consent.uncertain() ||
         this.work.busy() ||
         this.decisionUncertain() ||
         this.draftUncertain();
@@ -436,6 +515,7 @@ export class AdminPreflightExaminationComponent {
       ++this.serial;
       ++this.decisionSerial;
       this.request?.abort();
+      this.consent.dispose();
       this.enlargedDialog()?.nativeElement.close();
       this.finishDialog()?.nativeElement.close();
       this.leaveDialog()?.nativeElement.close();
@@ -568,6 +648,7 @@ export class AdminPreflightExaminationComponent {
       return;
     }
     if (!this.admin.hasValidAdminSession()) {
+      this.purgeGuidedAccess();
       this.receipt.set(null);
       this.state.set('expired');
       return;
@@ -604,6 +685,7 @@ export class AdminPreflightExaminationComponent {
       if (!this.current(ticket, key) || request.signal.aborted) return;
       const status =
         error instanceof AdminDashboardRequestError ? error.status : 0;
+      if (status === 401 || status === 403) this.purgeGuidedAccess();
       if (status === 401 || status === 403 || status === 404)
         this.receipt.set(null);
       this.state.set(
@@ -629,6 +711,128 @@ export class AdminPreflightExaminationComponent {
           ?.focus(),
       { injector: this.injector }
     );
+  }
+  openGuided(code?: string): void {
+    if (this.mediaBusy()) return;
+    this.section.set('checks');
+    afterNextRender(
+      () => {
+        const checks = this.host.nativeElement.querySelectorAll<HTMLElement>(
+          '[data-og7="examination-guided-check"]'
+        );
+        const target = code
+          ? Array.from(checks).find(
+              (element) => element.dataset['og7Id'] === code
+            )
+          : null;
+        (
+          target ??
+          this.host.nativeElement.querySelector<HTMLElement>(
+            '#examination-content-title'
+          )
+        )?.focus();
+      },
+      { injector: this.injector }
+    );
+  }
+  guidedCheckKey(code: string): string {
+    if (/payment|refund/.test(code)) return 'payment';
+    if (/offer|agreement/.test(code)) return 'agreement';
+    if (/consent/.test(code)) return 'consent';
+    if (code === 'sponsor_review' || code === 'moderation_review')
+      return 'dossierReview';
+    if (/media|image|logo/.test(code)) return 'media';
+    if (code === 'draft_moderation_review' || code === 'editorial_review')
+      return 'textReview';
+    if (
+      code === 'service_draft_identified' ||
+      code === 'publication_draft' ||
+      code === 'draft'
+    )
+      return 'draft';
+    if (/company|identity/.test(code)) return 'identity';
+    if (/content|website/.test(code)) return 'content';
+    return 'other';
+  }
+  guidedOwnerUrl(code: string): string | null {
+    const receipt = this.receipt();
+    if (!receipt) return null;
+    const targets: Record<string, readonly string[]> = {
+      payment: ['billing', 'dossier-billing'],
+      agreement: ['publication', 'dossier-agreement'],
+      dossierReview: ['overview', 'dossier-review'],
+      media: ['media', 'dossier-media-gallery'],
+      identity: ['identity', 'dossier-identity'],
+      content: ['publication', 'dossier-publication-content'],
+      draft: ['publication', 'dossier-preparation'],
+      textReview: ['publication', 'dossier-publication-content'],
+      other: ['overview', 'dossier-review']
+    };
+    const target = targets[this.guidedCheckKey(code)];
+    return target
+      ? `/admin/fundraiser/sponsors?sponsorshipId=${receipt.contributionId}&tab=${target[0]}#${target[1]}`
+      : null;
+  }
+  async guidedOwnerRequested(event: Event, code: string): Promise<void> {
+    event.preventDefault();
+    await this.navigateOwner(this.guidedOwnerUrl(code));
+  }
+  blockerOwnerCode(code: string): string {
+    if (code === 'company_missing') return 'company';
+    if (code === 'presentation_missing') return 'publication_content';
+    if (code === 'obligation_blocked' || code === 'service_closed')
+      return 'accepted_offer';
+    return code;
+  }
+  async openConsent(): Promise<void> {
+    if (
+      this.state() !== 'ready' ||
+      this.busy() ||
+      this.mediaBusy() ||
+      this.work.busy() ||
+      this.consent.busy() ||
+      this.textReviewBusy()
+    )
+      return;
+    this.consent.setScope(this.contributionId(), this.work.identityKey());
+    this.consentOpened.set(true);
+    await this.consent.read();
+  }
+  closeConsent(): void {
+    if (!this.consent.busy()) this.consentOpened.set(false);
+  }
+  async refreshConsent(): Promise<void> {
+    await this.consent.read(true);
+    if (
+      this.consent.summary()?.effectiveConsent &&
+      !this.consent.uncertain() &&
+      this.state() === 'ready'
+    )
+      await this.load(true, true);
+  }
+  openTextReview(): void {
+    const receipt = this.receipt();
+    if (
+      this.continuationBlocked() ||
+      this.state() !== 'ready' ||
+      receipt?.draft?.kind !== 'publication'
+    )
+      return;
+    this.textReviewContext.set({
+      contributionId: receipt.contributionId,
+      obligationId: receipt.service.id,
+      draftId: receipt.draft.id,
+      version: receipt.version,
+      identity: this.work.identityKey()
+    });
+  }
+  closeTextReview(): void {
+    if (!this.textReviewBusy()) this.textReviewContext.set(null);
+  }
+  async textReviewChanged(): Promise<void> {
+    this.textReviewContext.set(null);
+    this.textReviewBusy.set(false);
+    await this.load(true, true);
   }
   startDecision(kind: AdminServicePreparationDecisionKind): void {
     if (!this.canDecide() || (kind === 'approved' && !this.canApprove()))
@@ -1247,6 +1451,9 @@ export class AdminPreflightExaminationComponent {
       kind === 'media' && receipt
         ? `/admin/fundraiser/sponsors?sponsorshipId=${receipt.contributionId}&tab=media#dossier-media-gallery`
         : this.ownerUrl(receipt?.links[kind] ?? null);
+    await this.navigateOwner(url);
+  }
+  private async navigateOwner(url: string | null): Promise<void> {
     if (!url || this.continuationBlocked() || !(await this.canLeave())) return;
     if (
       this.work.current()?.status === 'active' &&
@@ -1256,6 +1463,7 @@ export class AdminPreflightExaminationComponent {
     await this.router.navigateByUrl(url);
   }
   mediaAccessLost(status: 401 | 403): void {
+    this.purgeGuidedAccess();
     this.request?.abort();
     ++this.serial;
     ++this.decisionSerial;
@@ -1269,6 +1477,12 @@ export class AdminPreflightExaminationComponent {
     this.pendingDecision.set(null);
     this.savedPending.set(null);
     this.state.set(status === 401 ? 'expired' : 'forbidden');
+  }
+  private purgeGuidedAccess(): void {
+    this.consentOpened.set(false);
+    this.textReviewContext.set(null);
+    this.textReviewBusy.set(false);
+    this.consent.clearAccess();
   }
   openFinish(): void {
     if (!this.browser || this.busy() || this.work.busy() || this.mediaBusy())

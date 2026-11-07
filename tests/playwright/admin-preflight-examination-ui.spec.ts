@@ -8,6 +8,10 @@ import type {
   AdminServicePreparationDecision,
   AdminServicePreparationDecisionRequest,
   AdminServicePreparationReceipt,
+  AdminSponsorshipConsent,
+  AdminSponsorshipConsentRecordRequest,
+  AdminSponsorshipConsentRecordReceipt,
+  AdminSponsorshipConsentReceiptResponse,
   PreflightDeskResponse,
   SponsorMediaPreparationAssignment,
   SponsorMediaWorkspaceAsset
@@ -28,6 +32,10 @@ const base = '/admin/fundraiser/preflight';
 const endpoint = '/api/admin/sponsorships/preparation/service';
 const at = '2026-11-05T14:00:00.000Z';
 const dossierId = contributionId(1);
+const consentEndpoint = '/api/admin/sponsorships/consent';
+const consentScope = 'public_profile_name_and_presentation' as const;
+const consentActor = 'Synthetic consent reviewer';
+const consentEvidence = 'SYNTHETIC-PRIVATE-AGREEMENT-REFERENCE';
 const webBody = 'Présentation privée proposée pour le site Web.';
 const obligationIds = [
   '20000000-0000-4000-8000-000000000001',
@@ -394,7 +402,88 @@ async function fixtures(
     readDelay: new Map<string, number>(),
     settledReads: [] as string[],
     assets: [] as SponsorMediaWorkspaceAsset[],
-    preparationAssignments: [] as SponsorMediaPreparationAssignment[]
+    preparationAssignments: [] as SponsorMediaPreparationAssignment[],
+    consent: {
+      contributionId: dossierId,
+      version: 'synthetic-consent-v1',
+      effectiveConsent: true,
+      source: 'checkout',
+      scope: consentScope,
+      canRecord: false,
+      recordBlockers: ['already_granted'],
+      ...(options.role !== 'reader'
+        ? { recordingActor: consentActor, history: [] }
+        : {})
+    } as AdminSponsorshipConsent,
+    consentReads: [] as URL[],
+    settledConsentReads: [] as URL[],
+    consentPosts: [] as AdminSponsorshipConsentRecordRequest[],
+    consentReceipts: new Map<string, AdminSponsorshipConsentRecordReceipt>(),
+    consentReadStatus: 200,
+    consentPostStatus: 200,
+    consentReceiptStatus: 200,
+    consentPostCode: 'CONSENT_UNAVAILABLE',
+    consentReadDelay: 0,
+    consentPostDelay: 0,
+    consentApplyBeforeError: false
+  };
+  const applyConsent = (
+    body: AdminSponsorshipConsentRecordRequest
+  ): AdminSponsorshipConsentRecordReceipt => {
+    const existing = state.consentReceipts.get(body.requestId);
+    if (existing) return existing;
+    const receipt: AdminSponsorshipConsentRecordReceipt = {
+      requestId: body.requestId,
+      contributionId: dossierId,
+      recordId: '70000000-0000-4000-8000-000000000001',
+      outcome: 'recorded',
+      version: 'synthetic-consent-v2',
+      effectiveConsent: true,
+      publicVisibilityHeld: true,
+      invalidatedDeliveryCount: 1,
+      recordedAt: at,
+      actor: consentActor
+    };
+    state.consentReceipts.set(body.requestId, receipt);
+    state.consent = {
+      ...state.consent,
+      version: receipt.version,
+      effectiveConsent: true,
+      source: 'documented_agreement',
+      canRecord: false,
+      recordBlockers: ['already_granted'],
+      history: [
+        {
+          id: receipt.recordId,
+          agreedOn: body.agreedOn,
+          evidenceReference: body.evidenceReference,
+          recordedAt: at,
+          actor: consentActor
+        }
+      ]
+    };
+    state.receipts = state.receipts.map((previous) => ({
+      ...previous,
+      version: 'd'.repeat(64),
+      contentVersion: 'e'.repeat(64),
+      checks: previous.checks.map((check) =>
+        check.code === 'public_consent'
+          ? { ...check, state: 'complete' as const }
+          : check
+      ),
+      blockers: previous.blockers.filter(
+        (code) => code !== 'public_consent_missing'
+      ),
+      dossier: {
+        ...previous.dossier,
+        authorizations: previous.dossier.authorizations.map((check) =>
+          check.code === 'public_consent'
+            ? { ...check, state: 'complete' as const }
+            : check
+        )
+      }
+    }));
+    return receipt;
   };
   const sessionEndpoint = '/api/admin/preflight/work-sessions';
   const sessionId = '40000000-0000-4000-8000-000000000011';
@@ -441,6 +530,64 @@ async function fixtures(
             }
           : { status: 401, json: {} }
       );
+    if (url.pathname === consentEndpoint && request.method() === 'GET') {
+      state.consentReads.push(url);
+      const result = structuredClone(state.consent);
+      if (state.consentReadDelay)
+        await new Promise((resolve) =>
+          setTimeout(resolve, state.consentReadDelay)
+        );
+      state.settledConsentReads.push(url);
+      if (state.consentReadStatus === 401) state.signedIn = false;
+      return route.fulfill(
+        state.consentReadStatus === 200
+          ? { json: result }
+          : {
+              status: state.consentReadStatus,
+              json: { code: 'CONSENT_UNAVAILABLE' }
+            }
+      );
+    }
+    if (
+      url.pathname === consentEndpoint + '/receipt' &&
+      request.method() === 'GET'
+    ) {
+      state.consentReads.push(url);
+      if (state.consentReceiptStatus === 401) state.signedIn = false;
+      if (state.consentReceiptStatus !== 200)
+        return route.fulfill({
+          status: state.consentReceiptStatus,
+          json: { code: 'CONSENT_UNAVAILABLE' }
+        });
+      const receipt = state.consentReceipts.get(
+        url.searchParams.get('requestId') ?? ''
+      );
+      const response: AdminSponsorshipConsentReceiptResponse = receipt
+        ? { state: 'recorded', receipt }
+        : { state: 'not_found' };
+      return route.fulfill({ json: response });
+    }
+    if (
+      url.pathname === consentEndpoint + '/record' &&
+      request.method() === 'POST'
+    ) {
+      const body =
+        request.postDataJSON() as AdminSponsorshipConsentRecordRequest;
+      state.consentPosts.push(body);
+      if (state.consentPostDelay)
+        await new Promise((resolve) =>
+          setTimeout(resolve, state.consentPostDelay)
+        );
+      if (state.consentPostStatus === 401) state.signedIn = false;
+      if (state.consentPostStatus !== 200) {
+        if (state.consentApplyBeforeError) applyConsent(body);
+        return route.fulfill({
+          status: state.consentPostStatus,
+          json: { code: state.consentPostCode }
+        });
+      }
+      return route.fulfill({ json: applyConsent(body) });
+    }
     if (url.pathname === sessionEndpoint && request.method() === 'GET') {
       projectSession();
       return route.fulfill({
@@ -725,6 +872,72 @@ async function confirm(page: Page) {
   await confirmation.click();
 }
 
+function missingConsent(
+  state: Awaited<ReturnType<typeof fixtures>>,
+  role: 'owner' | 'reader' = 'owner',
+  index = 0
+) {
+  state.consent = {
+    contributionId: dossierId,
+    version: 'synthetic-consent-v1',
+    effectiveConsent: false,
+    source: 'none',
+    scope: consentScope,
+    canRecord: role === 'owner',
+    recordBlockers: role === 'owner' ? [] : ['permission_required'],
+    ...(role === 'owner' ? { recordingActor: consentActor, history: [] } : {})
+  };
+  state.receipts[index] = {
+    ...state.receipts[index]!,
+    status: 'blocked',
+    canApprove: false,
+    canDecide: false,
+    dossier: {
+      ...state.receipts[index]!.dossier,
+      canApprove: false,
+      authorizations: state.receipts[index]!.dossier.authorizations.map(
+        (check) =>
+          ['public_consent', 'sponsor_review', 'moderation_review'].includes(
+            check.code
+          )
+            ? { ...check, state: 'missing' as const }
+            : check
+      )
+    },
+    checks: [
+      { code: 'payment_confirmed', state: 'complete' },
+      { code: 'accepted_offer', state: 'complete' },
+      { code: 'public_consent', state: 'missing' },
+      { code: 'sponsor_review', state: 'missing' },
+      { code: 'moderation_review', state: 'missing' },
+      { code: 'draft_moderation_review', state: 'missing' },
+      { code: 'service_draft_identified', state: 'complete' }
+    ],
+    blockers: [
+      'public_consent_missing',
+      'sponsor_review_required',
+      'moderation_review_required',
+      'required_media_missing'
+    ]
+  };
+}
+
+const consentControl = (page: Page, name: string) =>
+  hook(page, 'consent-' + name);
+
+async function openConsent(page: Page) {
+  await hook(page, 'guided-open').click();
+  await expect(hook(page, 'guided-preparation')).toBeVisible();
+  await hook(page, 'consent-open').click();
+  await expect(hook(page, 'consent')).toBeVisible();
+}
+
+async function fillConsent(page: Page) {
+  await consentControl(page, 'agreement').check();
+  await consentControl(page, 'date').fill('2026-11-04');
+  await consentControl(page, 'evidence').fill(consentEvidence);
+}
+
 for (const language of ['fr-CA', 'en'] as const) {
   for (const width of [390, 1024, 1536]) {
     test(`Preflight examination exposes real prepared content and accessible review in ${language} at ${width}px`, async ({
@@ -829,16 +1042,23 @@ test('Preflight examination changes actual preview widths and provides enlarged 
   await page.goto(examinationUrl());
   await expect(hook(page, 'preview')).toContainText(webBody);
   const widths: number[] = [];
+  const content = hook(page, 'preview')
+    .locator('[data-og7="preflight-preview-content"]')
+    .first();
   for (const viewport of ['desktop', 'tablet', 'mobile']) {
-    await page
-      .locator(`[data-og7="examination-viewport"][data-og7-id="${viewport}"]`)
-      .click();
-    widths.push(
-      (await page
-        .locator('[data-og7="preflight-preview-content"]')
-        .first()
-        .boundingBox())!.width
+    const control = page.locator(
+      `[data-og7="examination-viewport"][data-og7-id="${viewport}"]`
     );
+    await control.click();
+    await expect(control).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      hook(page, 'preview').locator('[data-og7-viewport]')
+    ).toHaveAttribute('data-og7-viewport', viewport);
+    if (viewport === 'mobile')
+      await expect
+        .poll(async () => (await content.boundingBox())?.width ?? Infinity)
+        .toBeLessThan(widths[1]!);
+    widths.push((await content.boundingBox())!.width);
   }
   expect(widths[2]).toBeLessThan(widths[1]!);
   expect(widths[1]).toBeLessThanOrEqual(widths[0]!);
@@ -1691,5 +1911,412 @@ test('Preflight examination rejects incomplete or malformed identifiers locally 
     await expect(hook(page, 'approve')).toHaveCount(0);
   }
   expect(state.reads.filter((url) => url.pathname === endpoint)).toEqual([]);
+  expect(state.writes).toEqual([]);
+});
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`Guided preparation records only documented public-profile consent after validation and confirmation in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 1100 });
+      const graphite = language === 'en' && width === 1536;
+      const state = await fixtures(page, {
+        language,
+        ...(graphite ? { theme: 'graphite' as const } : {})
+      });
+      missingConsent(state);
+      state.consentPostDelay = 150;
+      await page.goto(examinationUrl());
+      await openConsent(page);
+      await expect(consentControl(page, 'scope')).toContainText(
+        language === 'fr-CA' ? /nom.*présentation/i : /name.*presentation/i
+      );
+      await expect(consentControl(page, 'actor')).toContainText(consentActor);
+      await expect(consentControl(page, 'submit')).toBeDisabled();
+      await consentControl(page, 'agreement').check();
+      await expect(consentControl(page, 'submit')).toBeDisabled();
+      await consentControl(page, 'date').fill('2026-11-04');
+      await expect(consentControl(page, 'submit')).toBeDisabled();
+      await consentControl(page, 'evidence').fill('   ');
+      await expect(consentControl(page, 'submit')).toBeDisabled();
+      await consentControl(page, 'evidence').fill(consentEvidence);
+      await consentControl(page, 'date').fill('2099-01-01');
+      await expect(consentControl(page, 'submit')).toBeDisabled();
+      await consentControl(page, 'date').fill('2026-11-04');
+      await expect(consentControl(page, 'submit')).toBeEnabled();
+      expect(state.consentPosts).toEqual([]);
+      expect(state.writes).toEqual([]);
+      if (graphite) {
+        const ratios = {
+          scopeTitle: await expectReadableColor(
+            consentControl(page, 'scope').getByRole('heading')
+          ),
+          scopeText: await expectReadableColor(
+            consentControl(page, 'scope').locator('p').first()
+          ),
+          actor: await expectReadableColor(consentControl(page, 'actor')),
+          date: await expectReadableColor(consentControl(page, 'date')),
+          evidence: await expectReadableColor(consentControl(page, 'evidence')),
+          inputBorder: await expectReadableColor(
+            consentControl(page, 'evidence'),
+            'borderTopColor',
+            3
+          )
+        };
+        await testInfo.attach('documented-consent-graphite-contrast', {
+          body: Buffer.from(JSON.stringify(ratios, null, 2)),
+          contentType: 'application/json'
+        });
+      }
+      await expectAdminPageFits(page);
+      const consentAxe = await new AxeBuilder({ page })
+        .include('[data-og7="examination-consent"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(consentAxe.violations).toEqual([]);
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `documented-consent-filled-${language}-${width}`,
+        true
+      );
+      await consentControl(page, 'submit').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+      expect(state.consentPosts).toEqual([]);
+      await consentControl(page, 'submit').dispatchEvent('click');
+      await confirm(page);
+      await expect.poll(() => state.consentPosts.length).toBe(1);
+      const command = state.consentPosts[0]!;
+      expect(command).toEqual({
+        contributionId: dossierId,
+        expectedVersion: 'synthetic-consent-v1',
+        requestId: expect.stringMatching(
+          /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i
+        ),
+        agreementReceived: true,
+        scope: consentScope,
+        agreedOn: '2026-11-04',
+        evidenceReference: consentEvidence,
+        confirmed: true
+      });
+      await expect
+        .poll(() =>
+          state.consentReads.some(
+            (url) =>
+              url.pathname === consentEndpoint + '/receipt' &&
+              url.searchParams.get('sponsorshipId') === dossierId &&
+              url.searchParams.get('requestId') === command.requestId
+          )
+        )
+        .toBe(true);
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('preparationVersion'))
+        .toBe('d'.repeat(64));
+      await expect(hook(page, 'approve')).toBeDisabled();
+      const checks = hook(page, 'guided-preparation');
+      await expect(
+        checks.locator(
+          '[data-og7="examination-guided-check"][data-og7-id="public_consent"]'
+        )
+      ).toHaveAttribute('data-state', 'complete');
+      for (const code of [
+        'sponsor_review',
+        'moderation_review',
+        'draft_moderation_review'
+      ])
+        await expect(
+          checks.locator(
+            `[data-og7="examination-guided-check"][data-og7-id="${code}"]`
+          )
+        ).toHaveAttribute('data-state', 'missing');
+      expect(state.consentPosts).toHaveLength(1);
+      expect(state.consentReceipts.get(command.requestId)).toMatchObject({
+        publicVisibilityHeld: true,
+        effectiveConsent: true
+      });
+      expect(state.writes).toEqual([]);
+      expect(state.personalWrites).toEqual([]);
+      await expectAdminPageFits(page);
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `guided-consent-${language}-${width}`,
+        true
+      );
+    });
+  }
+}
+
+for (const [language, width] of [
+  ['fr-CA', 390],
+  ['en', 1536]
+] as const) {
+  test(`Guided preparation keeps exact source checks and native owner destinations in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 1100 });
+    const state = await fixtures(page, { language });
+    missingConsent(state, 'owner', 1);
+    const original = state.receipts[1]!;
+    const exactDraft = {
+      ...original.draft!,
+      id: '60000000-0000-4000-8000-000000000001'
+    };
+    state.receipts[1] = {
+      ...original,
+      draft: exactDraft,
+      dossier: {
+        ...original.dossier,
+        drafts: original.dossier.drafts.map((draft) =>
+          draft.id === original.draft!.id ? exactDraft : draft
+        )
+      }
+    };
+    await page.goto(examinationUrl(1));
+    await hook(page, 'guided-open').click();
+    const guided = hook(page, 'guided-preparation');
+    await expect(guided).toBeVisible();
+    for (const check of state.receipts[1]!.checks) {
+      const row = guided.locator(
+        `[data-og7="examination-guided-check"][data-og7-id="${check.code}"]`
+      );
+      await expect(row).toHaveCount(1);
+      await expect(row).toHaveAttribute('data-state', check.state);
+      await expect(row).not.toContainText(check.code);
+    }
+    for (const [code, tab, fragment] of [
+      ['payment_confirmed', 'billing', 'dossier-billing'],
+      ['accepted_offer', 'publication', 'dossier-agreement'],
+      ['sponsor_review', 'overview', 'dossier-review'],
+      ['moderation_review', 'overview', 'dossier-review']
+    ]) {
+      const action = guided.locator(
+        `[data-og7="examination-check-action"][data-og7-id="${code}"]`
+      );
+      const href = await action.getAttribute('href');
+      expect(href).toBeTruthy();
+      const target = new URL(href!, page.url());
+      expect(target.pathname).toBe('/admin/fundraiser/sponsors');
+      expect(target.searchParams.get('sponsorshipId')).toBe(dossierId);
+      expect(target.searchParams.get('tab')).toBe(tab);
+      expect(target.hash).toBe('#' + fragment);
+    }
+    await guided
+      .locator(
+        '[data-og7="examination-check-action"][data-og7-id="draft_moderation_review"]'
+      )
+      .click();
+    await expect(hook(page, 'text-review')).toBeVisible();
+    await expect(hook(page, 'text-review')).toHaveAttribute(
+      'data-og7-id',
+      exactDraft.id
+    );
+    expect(state.writes).toEqual([]);
+    expect(state.consentPosts).toEqual([]);
+    await expectAdminPageFits(page);
+  });
+
+  test(`Guided preparation reader sees missing consent without recording controls or private evidence in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 1100 });
+    const state = await fixtures(page, { language, role: 'reader' });
+    missingConsent(state, 'reader');
+    await page.goto(examinationUrl());
+    await openConsent(page);
+    await expect(consentControl(page, 'scope')).toBeVisible();
+    await expect(consentControl(page, 'agreement')).toHaveCount(0);
+    await expect(consentControl(page, 'submit')).toHaveCount(0);
+    await expect(consentControl(page, 'actor')).toHaveCount(0);
+    await expect(consentControl(page, 'history')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(consentEvidence);
+    await expect(page.locator('body')).not.toContainText(consentActor);
+    await expect(hook(page, 'approve')).toBeDisabled();
+    expect(state.consentPosts).toEqual([]);
+    expect(state.writes).toEqual([]);
+  });
+}
+
+test('Documented consent conflict requires an explicit refresh and a newly confirmed exact version', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  missingConsent(state);
+  state.consentPostStatus = 409;
+  state.consentPostCode = 'CONSENT_VERSION_CONFLICT';
+  await page.goto(examinationUrl());
+  await openConsent(page);
+  await fillConsent(page);
+  await consentControl(page, 'submit').click();
+  const readsBefore = state.consentReads.length;
+  await confirm(page);
+  await expect(consentControl(page, 'notice')).toBeVisible();
+  await expect(consentControl(page, 'refresh')).toBeVisible();
+  expect(state.consentPosts).toHaveLength(1);
+  expect(state.consentReads).toHaveLength(readsBefore);
+  await expect(consentControl(page, 'evidence')).toHaveValue(consentEvidence);
+  state.consent = {
+    ...state.consent,
+    version: 'synthetic-consent-conflict-v2'
+  };
+  state.consentPostStatus = 200;
+  await consentControl(page, 'refresh').click();
+  await expect
+    .poll(() => state.consentReads.length)
+    .toBeGreaterThan(readsBefore);
+  await expect(consentControl(page, 'submit')).toBeEnabled();
+  expect(state.consentPosts).toHaveLength(1);
+  await consentControl(page, 'submit').click();
+  expect(state.consentPosts).toHaveLength(1);
+  await confirm(page);
+  await expect.poll(() => state.consentPosts.length).toBe(2);
+  expect(state.consentPosts[1]!.expectedVersion).toBe(
+    'synthetic-consent-conflict-v2'
+  );
+  expect(state.consentPosts[1]!.requestId).not.toBe(
+    state.consentPosts[0]!.requestId
+  );
+  expect(state.writes).toEqual([]);
+});
+
+test('Documented consent reconciles a 503 after application through an explicit receipt read without repeating POST', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  missingConsent(state);
+  state.consentPostStatus = 503;
+  state.consentApplyBeforeError = true;
+  await page.goto(examinationUrl());
+  await openConsent(page);
+  await fillConsent(page);
+  await consentControl(page, 'submit').click();
+  await confirm(page);
+  await expect(consentControl(page, 'check-receipt')).toBeVisible();
+  expect(state.consentPosts).toHaveLength(1);
+  expect(
+    state.consentReads.filter((url) => url.pathname.endsWith('/receipt'))
+  ).toEqual([]);
+  const requestId = state.consentPosts[0]!.requestId;
+  expect(state.consentReceipts.has(requestId)).toBe(true);
+  await consentControl(page, 'check-receipt').click();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('preparationVersion'))
+    .toBe('d'.repeat(64));
+  const reconciliation = state.consentReads.filter((url) =>
+    url.pathname.endsWith('/receipt')
+  );
+  expect(reconciliation).toHaveLength(1);
+  expect(reconciliation[0]!.searchParams.get('sponsorshipId')).toBe(dossierId);
+  expect(reconciliation[0]!.searchParams.get('requestId')).toBe(requestId);
+  expect(state.consentPosts).toHaveLength(1);
+  await expect(hook(page, 'approve')).toBeDisabled();
+  expect(state.writes).toEqual([]);
+});
+
+for (const status of [401, 403]) {
+  for (const phase of ['read', 'record', 'receipt'] as const) {
+    test(`Documented consent purges private form and service content after ${phase} denies access with ${status}`, async ({
+      page
+    }) => {
+      const state = await fixtures(page);
+      missingConsent(state);
+      if (phase === 'read') state.consentReadStatus = status;
+      await page.goto(examinationUrl());
+      if (phase !== 'read') {
+        await openConsent(page);
+        await fillConsent(page);
+        state.consentPostStatus = phase === 'record' ? status : 503;
+        state.consentReceiptStatus = status;
+        await consentControl(page, 'submit').click();
+        await confirm(page);
+        if (phase === 'receipt')
+          await consentControl(page, 'check-receipt').click();
+      } else {
+        await hook(page, 'guided-open').click();
+        await hook(page, 'consent-open').click();
+      }
+      if (status === 401) await expect(page).toHaveURL(/\/admin\/login\?/);
+      else await expect(hook(page)).toHaveAttribute('data-state', 'forbidden');
+      await expect(consentControl(page, 'evidence')).toHaveCount(0);
+      await expect(page.locator('body')).not.toContainText(consentEvidence);
+      await expect(page.locator('body')).not.toContainText(
+        'SYNTHETIC WEB TITLE'
+      );
+      expect(state.consentPosts).toHaveLength(phase === 'read' ? 0 : 1);
+      expect(state.writes).toEqual([]);
+    });
+  }
+}
+
+for (const blocker of [
+  'operation_processing',
+  'operation_uncertain'
+] as const) {
+  test(`Documented consent respects the server ${blocker} hold without authorizing a retry`, async ({
+    page
+  }) => {
+    const state = await fixtures(page);
+    missingConsent(state);
+    state.consent = {
+      ...state.consent,
+      canRecord: false,
+      recordBlockers: [blocker]
+    };
+    await page.goto(examinationUrl());
+    await openConsent(page);
+    await expect(hook(page, 'consent')).toContainText(
+      blocker === 'operation_processing' ? /en cours/i : /incertain/i
+    );
+    await expect(
+      page.locator('[data-og7="examination-consent-submit"]:enabled')
+    ).toHaveCount(0);
+    await expect(hook(page, 'approve')).toBeDisabled();
+    expect(state.consentPosts).toEqual([]);
+    expect(state.writes).toEqual([]);
+  });
+}
+
+test('Documented consent ignores a late private response after leaving its exact dossier', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  missingConsent(state);
+  state.consentReadDelay = 700;
+  state.consent = {
+    ...state.consent,
+    version: 'synthetic-consent-v2',
+    effectiveConsent: true,
+    source: 'documented_agreement',
+    canRecord: false,
+    recordBlockers: ['already_granted'],
+    history: [
+      {
+        id: '70000000-0000-4000-8000-000000000002',
+        agreedOn: '2026-11-04',
+        evidenceReference: consentEvidence,
+        recordedAt: at,
+        actor: consentActor
+      }
+    ]
+  };
+  await page.goto(examinationUrl());
+  await hook(page, 'guided-open').click();
+  await hook(page, 'consent-open').click();
+  await expect.poll(() => state.consentReads.length).toBe(1);
+  await page.evaluate(
+    (destination) => {
+      history.pushState({}, '', destination);
+      dispatchEvent(new PopStateEvent('popstate'));
+    },
+    examinationUrl().replace(dossierId, contributionId(2))
+  );
+  await expect(hook(page)).toHaveAttribute('data-state', 'not_found');
+  await expect.poll(() => state.settledConsentReads.length).toBe(1);
+  await expect(hook(page, 'consent')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(consentEvidence);
+  await expect(page.locator('body')).not.toContainText(consentActor);
+  expect(state.consentPosts).toEqual([]);
   expect(state.writes).toEqual([]);
 });

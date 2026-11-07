@@ -53,12 +53,16 @@ export async function loadServicePreparationFacts(
         `
     SELECT c.contribution_type,c.status,c.paid_at,c.sponsor_company_name,c.sponsor_public_summary,
       c.public_display_consent,c.sponsor_review_status,(c.sponsor_feed_status='hidden') AS recognition_hidden,c.sponsorship_refund_status,
+      (SELECT id::text FROM admin_sponsorship_consent_records WHERE contribution_id=c.id ORDER BY recorded_at DESC,id DESC LIMIT 1) AS consent_proof_version,
       m.id AS commitment_id,m.state AS commitment_state,m.offer_id,
       ${moderationApprovedSql('sponsorship', 'c.id')} AS moderation_approved
     FROM fund_contributions c LEFT JOIN sponsorship_commitments m ON m.contribution_id=c.id WHERE c.id=$1::uuid`,
         [contributionId]
       )
     ).rows[0] ?? null;
+  // Unrecorded dossiers retain their previous content hash without a new null key.
+  if (source?.consent_proof_version === null)
+    delete source.consent_proof_version;
   const assets = (
     await db.query<ServiceMediaFact>(
       `

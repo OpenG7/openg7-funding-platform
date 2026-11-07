@@ -206,6 +206,8 @@ POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
 
+See [documented consent](sponsorship-public-consent.md).
+
 Local/test `token`: `Authorization: Bearer <sessionToken>` after login.
 Anonymous/root-secret requests are refused. OIDC requires cookies,
 role and exact mutation origin; legacy tokens are refused.

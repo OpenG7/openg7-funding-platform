@@ -150,6 +150,15 @@
           }}</span
         >
       </div>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="examination-guided-open"
+        (click)="openGuided()"
+        [disabled]="mediaBusy()"
+      >
+        <openg7-admin-icon name="audit" />{{ t('guided.open') }}
+      </button>
     </section>
 
     <div class="workshop-grid">
@@ -398,35 +407,129 @@
             />
           }
           @case ('checks') {
-            <p class="view-intro">{{ t('checks.explanation') }}</p>
-            @for (check of item.checks; track check.code) {
+            <div
+              data-og7="examination-guided-preparation"
+              class="guided-preparation"
+            >
+              <p class="view-intro">{{ t('guided.intro') }}</p>
+              @for (check of item.checks; track check.code) {
+                <article
+                  class="expanded-check guided-check"
+                  tabindex="-1"
+                  data-og7="examination-guided-check"
+                  [attr.data-og7-id]="check.code"
+                  [attr.data-state]="check.state"
+                >
+                  <div class="guided-check-heading">
+                    <span class="check-icon" [attr.data-state]="check.state"
+                      ><openg7-admin-icon
+                        [name]="
+                          check.state === 'complete'
+                            ? 'check'
+                            : check.state === 'missing'
+                              ? 'warning'
+                              : 'minimize'
+                        "
+                    /></span>
+                    <div>
+                      <h3>{{ checkLabel(check) }}</h3>
+                      <span
+                        class="check-state"
+                        [attr.data-state]="check.state"
+                        >{{ checkState(check) }}</span
+                      >
+                    </div>
+                  </div>
+                  <p>
+                    {{
+                      t(
+                        check.state === 'not_required'
+                          ? 'guided.notRequired'
+                          : 'guided.causes.' + guidedCheckKey(check.code)
+                      )
+                    }}
+                  </p>
+                  @if (check.state !== 'not_required') {
+                    @if (guidedCheckKey(check.code) === 'consent') {
+                      <span
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        ><button
+                          type="button"
+                          class="admin-button"
+                          data-og7="examination-consent-open"
+                          (click)="openConsent()"
+                          [disabled]="
+                            busy() ||
+                            mediaBusy() ||
+                            work.busy() ||
+                            consent.busy()
+                          "
+                        >
+                          {{
+                            t(
+                              check.state === 'complete' || readOnly()
+                                ? 'guided.actions.viewConsent'
+                                : 'guided.actions.consent'
+                            )
+                          }}
+                        </button></span
+                      >
+                    } @else if (
+                      guidedCheckKey(check.code) === 'textReview' &&
+                      item.draft?.kind === 'publication'
+                    ) {
+                      <button
+                        type="button"
+                        class="admin-button"
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        (click)="openTextReview()"
+                        [disabled]="continuationBlocked()"
+                      >
+                        {{ t('guided.actions.textReview') }}
+                      </button>
+                    } @else if (guidedOwnerUrl(check.code); as owner) {
+                      <a
+                        class="admin-button"
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        [routerLink]="ownerLink(owner)"
+                        [attr.aria-disabled]="
+                          continuationBlocked() ? 'true' : null
+                        "
+                        (click)="guidedOwnerRequested($event, check.code)"
+                        >{{ t('guided.actions.' + guidedCheckKey(check.code))
+                        }}<openg7-admin-icon name="arrow"
+                      /></a>
+                    }
+                  }
+                  <details class="guided-reference">
+                    <summary>{{ t('attention.reference') }}</summary>
+                    <p>
+                      {{ t('checks.sourceLabel') }}
+                      {{ t('provenance.funding') }}
+                    </p>
+                    <p class="muted">
+                      {{ t('checks.version') }}
+                      <code>{{ item.contentVersion }}</code>
+                    </p>
+                  </details>
+                </article>
+              }
               <article class="expanded-check">
-                <h3>{{ checkLabel(check) }}</h3>
-                <span class="check-state" [attr.data-state]="check.state">{{
-                  checkState(check)
-                }}</span>
+                <h3>{{ t('checks.human') }}</h3>
                 <p>
-                  {{ t('checks.sourceLabel') }} {{ t('provenance.funding') }}
-                </p>
-                <code>{{ check.code }}</code>
-                <p class="muted">
-                  {{ t('checks.version') }}
-                  <code>{{ item.contentVersion }}</code>
+                  {{
+                    t(
+                      item.decision
+                        ? 'checks.humanRecorded'
+                        : 'checks.humanRequired'
+                    )
+                  }}
                 </p>
               </article>
-            }
-            <article class="expanded-check">
-              <h3>{{ t('checks.human') }}</h3>
-              <p>
-                {{
-                  t(
-                    item.decision
-                      ? 'checks.humanRecorded'
-                      : 'checks.humanRequired'
-                  )
-                }}
-              </p>
-            </article>
+            </div>
           }
           @case ('details') {
             <dl class="reference-list">
@@ -519,6 +622,15 @@
       <aside class="right-column">
         <section class="workshop-panel checks-panel">
           <h2>{{ t('checks.title') }}</h2>
+          <button
+            type="button"
+            class="admin-button guided-sidebar-open"
+            data-og7="examination-guided-sidebar-open"
+            (click)="openGuided()"
+            [disabled]="mediaBusy()"
+          >
+            {{ t('guided.open') }}
+          </button>
           @for (check of item.checks; track check.code) {
             <details
               class="check-row"
@@ -547,6 +659,16 @@
                 </p>
                 <code>{{ check.code }}</code>
                 <p>{{ formatDate(item.generatedAt) }}</p>
+                @if (check.state === 'missing') {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    (click)="openGuided(check.code)"
+                    [disabled]="mediaBusy()"
+                  >
+                    {{ t('guided.complete') }}
+                  </button>
+                }
               </div>
             </details>
           }
@@ -581,6 +703,42 @@
                 <li>
                   <strong>{{ t('attention.blocking') }}</strong>
                   {{ blockerLabel(code) }}
+                  @if (code === 'public_consent_missing') {
+                    <button
+                      type="button"
+                      class="attention-action"
+                      data-og7="examination-blocker-action"
+                      [attr.data-og7-id]="code"
+                      (click)="openConsent()"
+                      [disabled]="
+                        busy() || mediaBusy() || work.busy() || consent.busy()
+                      "
+                    >
+                      {{ t('guided.actions.consent') }}
+                    </button>
+                  } @else if (
+                    guidedOwnerUrl(blockerOwnerCode(code));
+                    as owner
+                  ) {
+                    <a
+                      class="attention-action"
+                      data-og7="examination-blocker-action"
+                      [attr.data-og7-id]="code"
+                      [routerLink]="ownerLink(owner)"
+                      (click)="
+                        guidedOwnerRequested($event, blockerOwnerCode(code))
+                      "
+                      [attr.aria-disabled]="
+                        continuationBlocked() ? 'true' : null
+                      "
+                      >{{
+                        t(
+                          'guided.actions.' +
+                            guidedCheckKey(blockerOwnerCode(code))
+                        )
+                      }}</a
+                    >
+                  }
                   <details>
                     <summary>{{ t('attention.reference') }}</summary>
                     <code>{{ code }}</code>
@@ -650,6 +808,17 @@
             </p>
           }
           <div class="approval-guidance-actions">
+            @if (reason === 'incomplete' || reason === 'missing-draft') {
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="examination-guided-complete"
+                (click)="openGuided()"
+                [disabled]="mediaBusy()"
+              >
+                {{ t('guided.complete') }}
+              </button>
+            }
             @switch (reason) {
               @case ('readonly') {
                 <button
@@ -1307,4 +1476,63 @@
       }
     </dialog>
   }
+  <openg7-admin-drawer
+    [opened]="consentOpened()"
+    [title]="t('consent.title')"
+    [closeLabel]="t('close')"
+    [busy]="consent.busy()"
+    (closed)="closeConsent()"
+  >
+    @if (consentOpened()) {
+      <openg7-admin-sponsorship-consent-form
+        [receipt]="consent.summary()"
+        [result]="consent.result()"
+        [busy]="consent.busy()"
+        [loading]="consent.reading()"
+        [readonly]="readOnly()"
+        [unresolved]="consent.uncertain()"
+        [notice]="consent.notice()"
+        [needsRefresh]="consent.needsRefresh()"
+        [retryAllowed]="consent.retryAllowed()"
+        (recordRequested)="consent.record($event)"
+        (refreshRequested)="refreshConsent()"
+        (reconcileRequested)="consent.reconcile()"
+        (retryRequested)="consent.retry()"
+      />
+    }
+  </openg7-admin-drawer>
+  <openg7-admin-drawer
+    [opened]="textReviewSubject() !== null"
+    [title]="t('guided.textReviewTitle')"
+    [closeLabel]="t('close')"
+    [busy]="textReviewBusy()"
+    (closed)="closeTextReview()"
+  >
+    @if (textReviewSubject(); as subject) {
+      <section
+        data-og7="examination-text-review"
+        [attr.data-og7-id]="subject.id"
+      >
+        <p class="view-intro">{{ t('guided.textReviewScope') }}</p>
+        <openg7-funding-moderation-actions
+          [subject]="subject"
+          [initialLevel]="'N0'"
+          [disabled]="
+            readOnly() ||
+            busy() ||
+            mediaBusy() ||
+            consent.busy() ||
+            consent.uncertain() ||
+            work.busy() ||
+            work.unresolved() ||
+            decisionUncertain() ||
+            draftUncertain()
+          "
+          (busyChanged)="textReviewBusy.set($event)"
+          (accessLost)="mediaAccessLost($event)"
+          (changed)="textReviewChanged()"
+        />
+      </section>
+    }
+  </openg7-admin-drawer>
 </section>

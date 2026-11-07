@@ -99,13 +99,33 @@ qualifiée du système responsable de l’exécution.
 
 ## D. Fidélité à la maquette
 
+### Compléter les prérequis
+
+Le parcours guidé présente les contrôles serveur confirmés et ceux à compléter,
+avec une action par responsabilité. Paiement et accord rejoignent leurs sections
+du même dossier. Les revues du commanditaire et du dossier partagent le contrôle
+natif de revue dans **Aperçu**. Identité, présentation et médias rejoignent leurs
+espaces propriétaires, sans changer de commanditaire.
+
+Le consentement ouvre le formulaire d’[accord public documenté](sponsorship-public-consent.md).
+L’accord reçu, sa preuve, sa date et une confirmation sont nécessaires; son
+enregistrement ne rend pas les autres contrôles valides. Le texte d’une
+publication existante peut être examiné dans un panneau qui réutilise la
+modération native, sur le brouillon exact et sa version. Une proposition absente
+se prépare dans son parcours propriétaire avant de pouvoir être examinée.
+
+Changer de dossier, de brouillon, de version ou de session ferme le contexte
+de décision concerné. Après enregistrement, l’atelier relit les faits du serveur.
+L’approbation finale de préparation conserve toutes ses gardes et sa confirmation;
+elle n’est jamais déclenchée par la résolution d’un prérequis.
+
 L’atelier suit les palettes administratives Clair (`mineral`), Nuit et Graphite.
 Textes, panneaux, champs, états, boutons et focus utilisent des couples de
 couleurs cohérents avec le thème sélectionné. L’aperçu public conserve sa palette
 blanche et marine dans une surface isolée.
 La validation couvre les trois palettes sur mobile et bureau : ratios texte/fond
 rendus, bordures de champ et focus, états sans proposition, décisions et erreurs.
-Les 44 parcours UI d’Examiner sont réussis après cette correction.
+Les parcours UI vérifient aussi les contrastes du formulaire de consentement.
 
 La composition conserve le cadre Funding, l’en-tête de prestation, le bandeau de
 synthèse, la navigation latérale, le grand aperçu, les contrôles et la zone de
@@ -138,65 +158,39 @@ Un contrôle absent ou non requis n’est pas compté comme une vérification r�
 
 ## F. Validation
 
-Complément du 5 novembre 2026 : les 43 scénarios de l’atelier et de sa continuité
-passent, dont les deux nouvelles recettes FR/EN de guidage d’approbation. Elles
-couvrent les raisons métier détaillées, leur ouverture au clavier, le lien
-« Compléter le dossier » vers « Fiche et médias », le conseil de transmission et
-l’absence de mutation. Les gardes de rôle, reprise, saisie non enregistrée, version
-obsolète et résultat incertain conservent leur effet. Les 49 scénarios voisins
-passent également. Build Angular production avec 25 routes prérendues,
-compilation typée UI, ESLint ciblé, format et contrôles documentaires réussis.
-Les captures synthétiques finales restent sous
-`test-results/preflight-approval-guidance-final`.
-
 La suite `tests/playwright/admin-preflight-examination-ui.spec.ts` utilise des
-fixtures synthétiques typées du contrat réel. Elle couvre la navigation exacte,
-le retour et le rechargement, les formats d’aperçu, FR/EN, mobile/tablette/bureau,
-le clavier, Axe, les décisions et leur justification, le lecteur, les blocages,
-les conflits de version et les erreurs de lecture. Les interceptions de navigateur
-ne remplacent pas les tests du serveur et de ses droits.
+fixtures synthétiques typées des contrats publics. Elle couvre la navigation
+exacte, le retour et le rechargement, FR/EN, mobile/tablette/bureau, le clavier,
+Axe, les trois thèmes, les décisions, le lecteur et les erreurs de lecture.
+Les contrôles de contraste mesurent les couleurs réellement rendues, y compris
+dans le formulaire de consentement Graphite.
 
-Appliquer la [matrice de validation](../development/validation.md). Vérification
-locale du 4 novembre 2026 sur cette révision :
+Les parcours de consentement vérifient la preuve et la date obligatoires,
+l’absence de POST avant confirmation, la commande unique, la relecture du reçu
+et de la préparation, les conflits, les réponses incertaines et la purge des
+réponses privées tardives. Résoudre ce contrôle ne valide pas les autres.
+Les liens propriétaires conservent leurs paramètres et fragments, y compris
+lors d’une ouverture native. La revue du texte cible le brouillon de publication
+exact et réutilise la modération N0.
 
-- Compilation typée de la suite UI administrative, ESLint des deux suites
-  concernées, format ciblé, documentation et liens réussis.
-- Build Angular de production réussi avant les essais navigateur.
-- Suite complète finale `yarn test` : 7 615 réussites, aucun échec et 8 tests
-  ignorés. `yarn lint` réussit avec un avertissement préexistant de directive
-  inutilisée dans `scripts/smoke-public.mjs`; aucun fichier étranger n’est reformatté.
-- Dernier build de l’atelier : 24 scénarios réussis en 31 secondes, y compris
-  FR/EN sur trois largeurs, Axe, activation répétée, réponses tardives et refus
-  local des identifiants incomplets ou malformés sans lecture ni décision API.
-  Les 11 scénarios du comptoir ont également réussi. Les captures privées finales
-  restent dans `test-results/preflight-examination-visual-final`.
-- Un premier passage avait rencontré un timeout de fermeture du contexte Chromium
-  sous Windows dans le scénario médias, sans échec d’assertion. Son rejeu immédiat
-  sans modification, puis les 24 scénarios du dernier build, réussissent.
-- Régressions : 28 scénarios Preflight recette/boîte/preuves et 40 scénarios de
-  l’annuaire public, sur Chromium et Chrome mobile, réussis. Le composant public
-  partagé conserve les crédits, les filtres de diffusion et les états d’erreur.
-- Les 103 scénarios UI uniques concernés sont ainsi validés. Ils restent distincts
-  des contrôles serveur : 22 tests Node préparation/campagnes/comptoir et 8 tests
-  d’intégration préparation de prestation/dossier passent sur PostgreSQL jetable.
-  Ceux-ci couvrent notamment la concurrence, l’idempotence, les droits, le retrait
-  de consentement et l’isolation des canaux. Aucun essai ne qualifie une publication
-  externe ou un environnement de production.
+Les unités du contrôleur vérifient aussi l’acteur du reçu, la reprise avec le
+même identifiant et l’absence de preuve dans le stockage navigateur.
+Les tests de modération couvrent les refus d’accès du dialogue et de sa commande,
+la purge du contexte et les sessions OIDC remplacées sans jeton local.
 
-La mise à jour localhost a été vérifiée séparément : sauvegarde PostgreSQL privée
-validée avant les migrations additives 062 à 064, registre réconcilié sans migration
-en attente et compteurs métier inchangés. Ces migrations ajoutent des reçus; elles
-ne créent ni demande d’information, ni dépense, ni décision. API et Web ont été
-reconstruits sous Node 22.23.3 avec la même empreinte de sources, puis recréés avec
-les overlays existants. Les neuf autres conteneurs, les volumes, l’identité, TLS
-et le proxy Angular sont conservés. La page HTTPS et l’API répondent, et la nouvelle
-route refuse une lecture sans session avec HTTP 401.
+Les tests PostgreSQL du [consentement documenté](sponsorship-public-consent.md)
+complètent ces interceptions navigateur : migration additive, préservation des
+empreintes historiques, audit atomique, CAS concurrent, idempotence, droits,
+registre immuable, maintien privé et invalidation des anciennes autorisations.
+Les suites de préparation par prestation et d’affectation des médias restent
+des régressions distinctes.
 
-Une lecture compilée avec PostgreSQL en mode lecture seule retrouve les deux
-obligations locales exactes, leurs versions et leurs blocages réels. Elles restent
-à préparer, sans contenu importé ni décision inventée. Le journal 064 est vide
-avant et après ces contrôles. Les reçus privés de sauvegarde et d’exploitation
-restent sous `var/preflight-examination/`, ignorés par Git.
+Appliquer la [matrice de validation](../development/validation.md) : compilation
+TypeScript et UI, build Angular production, unités, PostgreSQL jetable,
+parcours navigateur, lint ciblé, format, documentation et `git diff --check`.
+Ces essais n’enregistrent aucun consentement réel et ne qualifient aucune
+publication externe. L’[activation locale](../operations/documented-consent-activation.md)
+est un contrôle séparé des tests sur fixtures.
 
 ## G. Mutualisation
 

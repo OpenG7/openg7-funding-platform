@@ -166,17 +166,18 @@ export async function lockCommitmentDeliveries(
 /** A term adjustment revokes publication authority; an uncertain remote effect remains held for investigation. */
 export async function revokeCommitmentDeliveries(
   db: Db,
-  contributionId: string
+  contributionId: string,
+  additionalDeliveryIds: readonly string[] = []
 ): Promise<void> {
   const deliveries = await db.query<{
     id: string;
     status: string;
     account_held: boolean;
   }>(
-    `SELECT p.id,p.status,EXISTS(SELECT 1 FROM publication_account_leases account WHERE account.delivery_id=p.id AND account.uncertain) AS account_held FROM publication_deliveries p WHERE p.batch_id IN
-      (SELECT batch_id FROM sponsor_publication_drafts WHERE contribution_id=$1::uuid)
+    `SELECT p.id,p.status,EXISTS(SELECT 1 FROM publication_account_leases account WHERE account.delivery_id=p.id AND account.uncertain) AS account_held FROM publication_deliveries p WHERE (p.batch_id IN
+      (SELECT batch_id FROM sponsor_publication_drafts WHERE contribution_id=$1::uuid) OR p.id=ANY($2::uuid[]))
       AND p.status IN ('draft','approved','publishing','blocked','uncertain') ORDER BY p.id`,
-    [contributionId]
+    [contributionId, additionalDeliveryIds]
   );
   for (const delivery of deliveries.rows) {
     const uncertain =
