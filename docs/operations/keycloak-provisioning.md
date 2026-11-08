@@ -10,7 +10,8 @@ bootstrap du realm `master` reste distinct.
 Utiliser le [profil local HTTPS](keycloak-local.md) ou le
 [profil VPS](keycloak-vps.md) avant cette procédure. Le fournisseur doit être
 Keycloak géré avec HTTPS, issuer exact, realm `openg7` et flow
-`openg7-password-otp`. Ce parcours ne réconcilie ni le client OIDC ni un realm
+`openg7-browser-sso` (ou l'ancien `openg7-password-otp` encore actif). Ce
+parcours ne réconcilie ni le client OIDC ni un realm
 déjà stocké, ne migre aucune base et ne qualifie pas une cible de production.
 Les commandes réelles ci-dessous s'exécutent uniquement sur la cible autorisée.
 

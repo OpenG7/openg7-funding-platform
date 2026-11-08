@@ -396,7 +396,7 @@ export async function provisionKeycloakUser({
       !realm.id ||
       realm.id.length > 255 ||
       realm.sslRequired?.toLowerCase() !== 'all' ||
-      realm.browserFlow !== 'openg7-password-otp'
+      !['openg7-password-otp', 'openg7-browser-sso'].includes(realm.browserFlow)
     )
       throw new Error(
         'Keycloak must use the managed openg7 HTTPS password and OTP realm. No user was changed.'
