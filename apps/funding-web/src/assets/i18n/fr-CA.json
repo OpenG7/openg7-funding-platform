@@ -1777,6 +1777,7 @@
           "title": "Autorisations d’usage de l’image",
           "separate": "Ces autorisations concernent l’image choisie. Elles ne confirment ni le paiement, ni la revue éditoriale, ni une publication.",
           "historical": "Les autorisations de ce fichier historique restent à confirmer. Aucun usage n’est présumé.",
+          "suggestedScope": "Les canaux et destinations sont préremplis à partir des prestations du dossier qui acceptent des images. Vérifiez que la preuve d’autorisation couvre ces choix.",
           "withdrawn": "Les autorisations de cette image ont été retirées. Les prochains envois sont bloqués ; les publications déjà diffusées doivent être examinées séparément.",
           "channels": "Canaux autorisés",
           "targets": "Destinations autorisées",

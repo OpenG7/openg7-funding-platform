@@ -33,6 +33,7 @@
     "playwright/admin-shell-layers.ui.spec.ts",
     "playwright/admin-dossier-v2.ui.spec.ts",
     "playwright/admin-intelligent-media-gallery.ui.spec.ts",
+    "playwright/admin-media-usage-defaults.ui.spec.ts",
     "playwright/funding-transparency-public.spec.ts",
     "../apps/**/*.ts",
     "../packages/**/*.ts",
