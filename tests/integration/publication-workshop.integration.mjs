@@ -225,18 +225,25 @@ test(
       expectedSourceVersion: 2,
       requestId: randomUUID()
     };
-    const concurrent = await Promise.allSettled([
-      service.adopt(request, 'synthetic-operator'),
-      service.adopt({ ...request, requestId: randomUUID() }, 'synthetic-other')
-    ]);
+    const candidates = [
+      { request, actor: 'synthetic-operator' },
+      {
+        request: { ...request, requestId: randomUUID() },
+        actor: 'synthetic-other'
+      }
+    ];
+    const concurrent = await Promise.allSettled(
+      candidates.map(({ request: input, actor }) => service.adopt(input, actor))
+    );
     assert.equal(concurrent.filter((r) => r.status === 'fulfilled').length, 1);
-    const successful = concurrent[0].status === 'fulfilled' ? request : null;
-    if (successful) {
-      await service.adopt(request, 'synthetic-operator');
-      await assert.rejects(service.adopt(request, 'different-actor'), {
-        code: 'PUBLICATION_WORKSHOP_REQUEST_CONFLICT'
-      });
-    }
+    const successful =
+      candidates[
+        concurrent.findIndex((result) => result.status === 'fulfilled')
+      ];
+    await service.adopt(successful.request, successful.actor);
+    await assert.rejects(service.adopt(successful.request, 'different-actor'), {
+      code: 'PUBLICATION_WORKSHOP_REQUEST_CONFLICT'
+    });
     assert.equal(
       (
         await pool.query(
@@ -314,9 +321,10 @@ test(
     );
     assert.equal((await otherTenant.read(id)).proposal, null);
     assert.equal((await otherTenant.read(id)).history.length, 0);
-    await assert.rejects(otherTenant.adopt(request, 'synthetic-operator'), {
-      code: 'PUBLICATION_WORKSHOP_REQUEST_CONFLICT'
-    });
+    await assert.rejects(
+      otherTenant.adopt(successful.request, successful.actor),
+      { code: 'PUBLICATION_WORKSHOP_REQUEST_CONFLICT' }
+    );
     await assert.rejects(
       pool.query("UPDATE preflight_workshop_proposals SET proposal='{}'"),
       /immutable/
