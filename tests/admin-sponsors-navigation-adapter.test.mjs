@@ -292,9 +292,12 @@ test('recognized section anchors select their exact dossier and tab after scroll
     ['media-gallery', 'media'],
     ['billing', 'billing'],
     ['publication', 'publication'],
-    ['agreement', 'publication'],
+    ['agreement', 'overview'],
     ['preparation', 'publication'],
-    ['publication-content', 'publication'],
+    ['publication-content', 'media'],
+    ['website-settings', 'media'],
+    ['assistance-review', 'overview'],
+    ['assistance-source', 'overview'],
     ['refund', 'refund'],
     ['audit', 'audit']
   ];

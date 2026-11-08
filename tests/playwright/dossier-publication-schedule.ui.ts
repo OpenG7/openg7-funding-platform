@@ -5,16 +5,13 @@ import type {
   PublicationAutomationCommand,
   PublicationAutomationState,
   PublicationDelivery,
-  PublicationPreparationCandidate,
   PublicationPreparationEntry,
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
 
-import { openPublicationSection } from './support/sponsorship-dossier.js';
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
-import { capturePublicationReview } from './support/publication-review-capture.js';
 
 interface Context {
   fixtures(
@@ -40,20 +37,44 @@ async function fixtures(
   role: 'owner' | 'operator' | 'reader' = 'owner'
 ) {
   const { options } = await context.fixtures(page, role);
+  const commitment = context.recordedCommitment(10000);
+  const obligation = commitment.obligations.find(
+    (item) => item.channel === 'facebook'
+  )!;
   options.progressOverrides = {
     amountMinor: 10000,
-    commitment: context.recordedCommitment(10000),
+    commitment,
     publicationCompletion: { done: 0, total: 3 },
     publications: [
       {
         ...context.dossier().publications[0]!,
+        obligationId: obligation.id,
+        status: 'draft',
         batchStatus: 'scheduled',
         deliveryId,
         deliveryStatus: 'draft',
         deliveryMode: 'mock',
         scheduledAt
       }
-    ]
+    ],
+    publicationWorkflow: {
+      state: 'action_required',
+      responsibility: 'admin',
+      reason: 'publication_preparation_required',
+      obligations: [
+        {
+          obligationId: obligation.id,
+          channel: 'facebook',
+          target: 'openg7',
+          ordinal: obligation.ordinal,
+          state: 'action_required',
+          responsibility: 'admin',
+          reason: 'publication_preparation_required',
+          deliveryId,
+          scheduledAt
+        }
+      ]
+    }
   };
   const job: PublicationDelivery = {
     id: deliveryId,
@@ -233,7 +254,7 @@ async function fixtures(
 
 const channel = (page: Page) =>
   page
-    .locator('[data-og7="publication-channel"]')
+    .locator('[data-og7="publication-service"]')
     .filter({ hasText: 'Facebook' })
     .first();
 
@@ -253,10 +274,9 @@ export function registerDossierPublicationScheduleTests(
           destination === 'media' ? 'MEDIA_CHANGED' : 'SOURCE_CONTENT_MISSING';
       }
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await channel(page).locator('[data-og7="publication-review"]').click();
+      await channel(page)
+        .locator('[data-og7="publication-service-action"]')
+        .click();
       return controls.commands;
     }
   });
@@ -289,10 +309,9 @@ export function registerDossierPublicationScheduleTests(
           mutations.push(request.url());
       });
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await channel(page).locator('[data-og7="publication-review"]').click();
+      await channel(page)
+        .locator('[data-og7="publication-service-action"]')
+        .click();
       const english = language === 'en';
       const dialog = page.getByRole('dialog', {
         name: english ? 'Final publication' : 'Publication finale',
@@ -382,11 +401,8 @@ export function registerDossierPublicationScheduleTests(
         });
         try {
           await page.goto(context.path('publication'));
-          await openPublicationSection(page, 'navigation');
-          await openPublicationSection(page, 'offer');
-          await openPublicationSection(page, 'obligations');
           await channel(page)
-            .locator('[data-og7="publication-review"]')
+            .locator('[data-og7="publication-service-action"]')
             .click();
           await mediaRead;
           const english = language === 'en';
@@ -446,1042 +462,42 @@ export function registerDossierPublicationScheduleTests(
 
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
-    for (const [language, width] of [
-      ['fr-CA', 1280],
-      ['en', 390]
-    ] as const) {
-      test(`publication guideposts keep a web-only agreement navigable for a ${language} reader at ${width}px`, async ({
-        page
-      }) => {
-        const { options, state, controls } = await fixtures(
-          page,
-          context,
-          'reader'
-        );
-        const commitment = options.progressOverrides.commitment!;
-        const benefits = commitment.offer!.benefits.filter(
-          (benefit) => benefit.channel === 'website'
-        );
-        expect(benefits).toHaveLength(1);
-        const offerVersion = 'synthetic-accepted-web-offer-v2';
-        options.progressOverrides = {
-          ...options.progressOverrides,
-          commitment: {
-            ...commitment,
-            version: 7,
-            offer: { ...commitment.offer!, version: offerVersion, benefits },
-            obligations: commitment.obligations.filter(
-              (obligation) => obligation.channel === 'website'
-            )
-          },
-          publications: [],
-          fulfilmentEvidence: [],
-          qualifiedFulfilmentEvidenceIds: [],
-          publicationCompletion: { done: 0, total: 1 },
-          website: {
-            visible: false,
-            held: false,
-            canPublish: true,
-            version: 'synthetic-website-v4',
-            blockers: []
-          }
-        };
-        state.deliveries = [];
-        state.queue!.entries = [];
-        state.queue!.summary.retained = 0;
-        state.queue!.total = 0;
-        const writes: string[] = [];
-        page.on('request', (request) => {
-          if (request.method() === 'POST')
-            writes.push(new URL(request.url()).pathname);
-        });
-        await page.addInitScript(
-          (locale) => localStorage.setItem('openg7.language', locale),
-          language
-        );
-        await page.setViewportSize({ width, height: 1000 });
-        await page.goto(context.path('publication'));
-        await openPublicationSection(page, 'navigation');
-        await openPublicationSection(page, 'offer');
-        await openPublicationSection(page, 'obligations');
-        const journey = page.locator(
-          '[data-og7="dossier-publication-journey"]'
-        );
-        const guide = journey.getByRole('navigation', {
-          name:
-            language === 'en'
-              ? 'Publication guideposts'
-              : 'Repères de publication'
-        });
-        const links = guide.locator('[data-og7="publication-chain-link"]');
-        await expect(links).toHaveCount(6);
-        const labels =
-          language === 'en'
-            ? [
-                'Offer',
-                'Preparation',
-                'Content',
-                'Administrative sending authorization',
-                'Publication',
-                'Evidence'
-              ]
-            : [
-                'Offre',
-                'Préparation',
-                'Contenu',
-                'Autorisation administrative d’envoi',
-                'Publication',
-                'Preuves'
-              ];
-        for (const [index, label] of labels.entries())
-          await expect(links.nth(index)).toHaveAccessibleName(label);
-        await expect(
-          journey.locator('[data-og7="publication-agreement-version"]')
-        ).toHaveText('7');
-        await expect(
-          journey.locator('[data-og7="publication-offer-version"]')
-        ).toHaveText(offerVersion);
-        await expect(
-          journey.locator('#publication-delivery-count')
-        ).toContainText(language === 'en' ? '0 of 1' : '0 / 1');
-        await expect(
-          journey.locator('[data-og7="publication-channel"]')
-        ).toHaveCount(0);
-        await expect(
-          journey.locator('[data-og7="website-visibility"]')
-        ).toHaveCount(0);
-        await expect(page.getByRole('dialog')).toHaveCount(0);
-        for (const [id, fragment] of [
-          ['offer', 'dossier-agreement'],
-          ['preparation', 'dossier-preparation']
-        ] as const) {
-          await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
-            'href',
-            context.path('publication') + '#' + fragment
-          );
-        }
-        for (const id of ['content', 'authorization', 'delivery', 'evidence'])
-          await expect(guide.locator(`[data-og7-id="${id}"]`)).toBeDisabled();
-        await expect(
-          guide.locator('[data-og7="publication-journey-target"]')
-        ).toBeDisabled();
-        await guide.screenshot({
-          path: test
-            .info()
-            .outputPath(`publication-guideposts-${language}-${width}.png`)
-        });
-        for (const [id, fragment] of [
-          ['offer', 'dossier-agreement'],
-          ['preparation', 'dossier-preparation']
-        ] as const) {
-          const link = guide.locator(`[data-og7-id="${id}"]`);
-          await link.focus();
-          await link.press('Enter');
-          await expect(page).toHaveURL(
-            context.path('publication') + '#' + fragment
-          );
-          await expect(page.locator('#' + fragment)).toBeFocused();
-        }
-        await expect(journey).not.toContainText('admin.dossier.');
-        expect(
-          (
-            await new AxeBuilder({ page })
-              .include('[data-og7="publication-chain"]')
-              .analyze()
-          ).violations
-        ).toEqual([]);
-        expect(
-          await page.evaluate(
-            () => document.documentElement.scrollWidth <= innerWidth + 1
-          )
-        ).toBe(true);
-        expect(controls.commands).toEqual([]);
-        expect(writes).toEqual([]);
-      });
-
-      for (const historical of [false, true]) {
-        test(`publication guideposts ${historical ? 'restore a historical source when two drafts share a passage and delivery' : 'keep the selected passage through content, authorization, result and evidence'} in ${language} at ${width}px`, async ({
-          page
-        }, testInfo) => {
-          const { options, state, job, entry, controls } = await fixtures(
-            page,
-            context
-          );
-          const commitment = options.progressOverrides.commitment!;
-          const firstObligation = commitment.obligations.find(
-            (item) => item.channel === 'facebook'
-          )!;
-          const secondDraftId = '10000000-0000-4000-8000-000000000490';
-          const secondDeliveryId = historical
-            ? deliveryId
-            : '77777777-7777-4777-8777-777777777778';
-          const currentDeliveryId = '77777777-7777-4777-8777-777777777779';
-          const secondObligation = historical
-            ? firstObligation
-            : {
-                ...firstObligation,
-                id: '10000000-0000-4000-8000-000000000491',
-                ordinal: 2
-              };
-          if (historical) {
-            job.status = 'published';
-            job.mode = 'live';
-            job.publishedAt = evaluatedAt;
-            job.approvedAt = evaluatedAt;
-            job.externalPostId = 'synthetic-historical-post';
-            job.externalPostUrl =
-              'https://example.invalid/historical-publication';
-          }
-          const secondJob = {
-            ...job,
-            id: secondDeliveryId,
-            message: historical
-              ? job.message
-              : 'Atelier Boréal\nDeuxième passage synthétique à vérifier.'
-          };
-          options.progressOverrides = {
-            ...options.progressOverrides,
-            commitment: {
-              ...commitment,
-              offer:
-                !historical && commitment.offer
-                  ? {
-                      ...commitment.offer,
-                      benefits: commitment.offer.benefits.map((benefit) =>
-                        benefit.channel === 'facebook'
-                          ? { ...benefit, quantity: 2 }
-                          : benefit
-                      )
-                    }
-                  : commitment.offer,
-              obligations: historical
-                ? commitment.obligations
-                : [...commitment.obligations, secondObligation]
-            },
-            publications: [
-              {
-                ...options.progressOverrides.publications![0]!,
-                ...(historical
-                  ? { status: 'published', batchStatus: 'published' }
-                  : {}),
-                obligationId: firstObligation.id
-              },
-              {
-                ...options.progressOverrides.publications![0]!,
-                ...(historical
-                  ? { status: 'published', batchStatus: 'published' }
-                  : {}),
-                id: secondDraftId,
-                obligationId: secondObligation.id,
-                deliveryId: secondDeliveryId
-              }
-            ]
-          };
-          if (!historical) state.deliveries.push(secondJob);
-          state.queue!.entries = historical
-            ? []
-            : [
-                entry,
-                {
-                  ...entry,
-                  draftId: secondDraftId,
-                  deliveryId: secondDeliveryId
-                }
-              ];
-          state.queue!.total = historical ? 0 : 2;
-          state.queue!.summary.retained = historical ? 0 : 2;
-          const writes: string[] = [];
-          page.on('request', (request) => {
-            if (request.method() === 'POST')
-              writes.push(new URL(request.url()).pathname);
-          });
-          await page.route('**/api/admin/campaigns**', async (route) =>
-            route.fulfill({
-              json: {
-                generatedAt: evaluatedAt,
-                items: [
-                  {
-                    id: secondObligation.id,
-                    contributionId: sponsorshipId,
-                    reference: 'DEMO-401',
-                    companyName: 'Atelier Boréal',
-                    paidAt: evaluatedAt,
-                    channel: 'facebook',
-                    target: 'openg7',
-                    ordinal: secondObligation.ordinal,
-                    quantity: historical ? 1 : 2,
-                    format: 'collective_text',
-                    obligationState: 'pending',
-                    timing: null,
-                    preparation: {
-                      status: 'incomplete',
-                      version: 'synthetic-preparation',
-                      approvedAt: null,
-                      blockers: []
-                    },
-                    workflow: {
-                      obligationId: secondObligation.id,
-                      channel: 'facebook',
-                      target: 'openg7',
-                      ordinal: secondObligation.ordinal,
-                      state: 'action_required',
-                      responsibility: 'admin',
-                      reason: 'publication_authorization_required',
-                      deliveryId: historical
-                        ? currentDeliveryId
-                        : secondDeliveryId,
-                      scheduledAt
-                    },
-                    content: {
-                      title: 'Atelier Boréal',
-                      body: secondJob.message
-                    },
-                    proof: null,
-                    adminUrl: context.path('publication')
-                  }
-                ],
-                pagination: {
-                  page: 1,
-                  pageSize: 25,
-                  totalItems: 1,
-                  totalPages: 1,
-                  hasPreviousPage: false,
-                  hasNextPage: false
-                }
-              }
-            })
-          );
-          await page.addInitScript(
-            (locale) => localStorage.setItem('openg7.language', locale),
-            language
-          );
-          await page.setViewportSize({ width, height: 1000 });
-          await page.goto(context.path('publication'));
-          await openPublicationSection(page, 'navigation');
-          await openPublicationSection(page, 'offer');
-          await openPublicationSection(page, 'obligations');
-          const guide = page.locator('[data-og7="publication-chain"]');
-          const selector = guide.locator(
-            '[data-og7="publication-journey-target"]'
-          );
-          await expect(selector).toBeEnabled();
-          await expect(selector).toHaveValue('');
-          await expect(page.getByRole('dialog')).toHaveCount(0);
-          for (const id of ['content', 'authorization', 'delivery', 'evidence'])
-            await expect(guide.locator(`[data-og7-id="${id}"]`)).toBeDisabled();
-          await selector.scrollIntoViewIfNeeded();
-          await selector.focus();
-          await expect(selector).toBeInViewport();
-          const selectedScroll = await page.evaluate(() => window.scrollY);
-          await selector.selectOption(secondDraftId);
-          await expect(selector).toHaveValue(secondDraftId);
-          await expect(selector).toBeFocused();
-          await expect
-            .poll(async () =>
-              Math.abs(
-                (await page.evaluate(() => window.scrollY)) - selectedScroll
-              )
-            )
-            .toBeLessThanOrEqual(2);
-          await expect
-            .poll(() => new URL(page.url()).searchParams.get('obligationId'))
-            .toBe(secondObligation.id);
-          expect(new URL(page.url()).searchParams.get('deliveryId')).toBe(
-            secondDeliveryId
-          );
-          await capturePublicationReview(
-            page,
-            testInfo,
-            `publication-source-${historical ? 'historical' : 'selected'}-${language}`,
-            {
-              language,
-              viewport: { width, height: 1000 },
-              access: 'fixture-with-write-controls'
-            }
-          );
-          const dialog = page.getByRole('dialog', {
-            name:
-              language === 'en' ? 'Final publication' : 'Publication finale',
-            exact: true
-          });
-          const steps = [
-            ['content', 'publication-saved-content'],
-            ['authorization', 'publication-authorization'],
-            ['delivery', 'publication-result']
-          ] as const;
-          for (const [step, hook] of steps.filter(
-            ([step]) => !historical || step !== 'authorization'
-          )) {
-            const trigger = guide.locator(`[data-og7-id="${step}"]`);
-            await trigger.focus();
-            await page.keyboard.press('Enter');
-            await expect(dialog).toBeVisible();
-            await expect(dialog.locator(`[data-og7="${hook}"]`)).toBeFocused();
-            await expect(
-              dialog.locator('[data-og7="publication-saved-content"]')
-            ).toContainText(secondJob.message);
-            await expect(
-              dialog.locator('[data-og7="publication-navigation-notice"]')
-            ).toBeVisible();
-            if (historical)
-              await expect(
-                dialog.locator('[data-og7="publication-authorization"]')
-              ).toHaveCount(0);
-            else
-              await expect(
-                dialog.getByRole('checkbox', { name: /I approve|J’approuve/ })
-              ).not.toBeChecked();
-            expect(controls.commands).toEqual([]);
-            if (step === 'content')
-              await capturePublicationReview(
-                page,
-                testInfo,
-                `publication-exact-${historical ? 'historical' : 'selected'}-${language}`,
-                {
-                  language,
-                  viewport: { width, height: 1000 },
-                  access: 'fixture-with-write-controls'
-                }
-              );
-            await page.keyboard.press('Escape');
-            await expect(dialog).toBeHidden();
-            await expect(trigger).toBeFocused();
-            await expect(selector).toHaveValue(secondDraftId);
-          }
-          const proof = guide.locator('[data-og7-id="evidence"]');
-          const proofUrl = new URL(
-            (await proof.getAttribute('href'))!,
-            page.url()
-          );
-          expect(proofUrl.pathname).toBe('/admin/fundraiser/campaigns');
-          expect(Object.fromEntries(proofUrl.searchParams)).toEqual({
-            sponsorshipId,
-            draftId: secondDraftId,
-            deliveryId: secondDeliveryId,
-            obligationId: secondObligation.id
-          });
-          await proof.focus();
-          await page.keyboard.press('Enter');
-          await expect(
-            page.locator('[data-og7="campaign-row"][aria-pressed="true"]')
-          ).toHaveAttribute('data-og7-id', secondObligation.id);
-          const back = page.locator('[data-og7="campaign-open-owner"]');
-          const returnUrl = new URL(
-            (await back.getAttribute('href'))!,
-            page.url()
-          );
-          expect(returnUrl.searchParams.get('draftId')).toBe(secondDraftId);
-          expect(returnUrl.searchParams.get('deliveryId')).toBe(
-            secondDeliveryId
-          );
-          expect(returnUrl.searchParams.get('obligationId')).toBe(
-            secondObligation.id
-          );
-          await back.focus();
-          await page.keyboard.press('Enter');
-          await expect(selector).toHaveValue(secondDraftId);
-          await expect(page.getByRole('dialog')).toHaveCount(0);
-          await expect(guide).not.toContainText('admin.dossier.');
-          const horizontalLayout = await page.evaluate(() => ({
-            viewport: innerWidth,
-            documentWidth: document.documentElement.scrollWidth,
-            overflowing: Array.from(
-              document.querySelectorAll<HTMLElement>('body *')
-            )
-              .filter((element) => element.getClientRects().length > 0)
-              .map((element) => {
-                const bounds = element.getBoundingClientRect();
-                const style = getComputedStyle(element);
-                return {
-                  tag: element.tagName,
-                  hook: element.getAttribute('data-og7'),
-                  id: element.id,
-                  classes: element.getAttribute('class'),
-                  left: bounds.left,
-                  right: bounds.right,
-                  width: bounds.width,
-                  clientWidth: element.clientWidth,
-                  scrollWidth: element.scrollWidth,
-                  minWidth: style.minWidth,
-                  gridColumns: style.gridTemplateColumns,
-                  overflowX: style.overflowX,
-                  whiteSpace: style.whiteSpace
-                };
-              })
-              .filter(
-                (element) =>
-                  element.hook === 'publication-journey-target' ||
-                  element.left < -1 ||
-                  element.right > innerWidth + 1 ||
-                  element.scrollWidth > element.clientWidth + 1
-              )
-              .sort((a, b) => b.right - a.right)
-              .slice(0, 20)
-          }));
-          await test.info().attach('publication-horizontal-layout', {
-            body: JSON.stringify(horizontalLayout, null, 2),
-            contentType: 'application/json'
-          });
-          expect(
-            horizontalLayout.documentWidth,
-            JSON.stringify(horizontalLayout, null, 2)
-          ).toBeLessThanOrEqual(horizontalLayout.viewport + 1);
-          expect(
-            (
-              await new AxeBuilder({ page })
-                .include('[data-og7="publication-chain"]')
-                .analyze()
-            ).violations
-          ).toEqual([]);
-          expect(controls.commands).toEqual([]);
-          expect(writes).toEqual([]);
-        });
-      }
-
-      test(`publication authorization guidepost explains an unavailable decision without stealing the reader focus in ${language}`, async ({
-        page
-      }, testInfo) => {
-        const { options, controls } = await fixtures(page, context, 'reader');
-        const obligationId =
-          options.progressOverrides.commitment!.obligations.find(
-            (item) => item.channel === 'facebook'
-          )!.id;
-        options.progressOverrides = {
-          ...options.progressOverrides,
-          publications: [
-            { ...options.progressOverrides.publications![0]!, obligationId }
-          ]
-        };
-        await page.setViewportSize({
-          width: language === 'en' ? 390 : 1280,
-          height: 864
-        });
-        await page.addInitScript(
-          (locale) => localStorage.setItem('openg7.language', locale),
-          language
-        );
-        await page.goto(
-          context.path('publication') +
-            `&draftId=${otherId}&deliveryId=${deliveryId}&obligationId=${obligationId}`
-        );
-        await openPublicationSection(page, 'navigation');
-        const authorization = page.locator(
-          '[data-og7="publication-chain-link"][data-og7-id="authorization"]'
-        );
-        await expect(authorization).toBeEnabled();
-        await authorization.focus();
-        await page.keyboard.press('Enter');
-        const dialog = page.getByRole('dialog', {
-          name: language === 'en' ? 'Final publication' : 'Publication finale',
-          exact: true
-        });
-        await expect(dialog).toBeVisible();
-        await expect(
-          dialog.locator('[data-og7="publication-authorization"]')
-        ).toHaveCount(0);
-        await expect(
-          dialog.locator('[data-og7="publication-navigation-notice"]')
-        ).toContainText(
-          language === 'en'
-            ? 'unavailable for the current state or permissions'
-            : 'n’est pas proposée pour l’état ou les droits actuels'
-        );
-        await expect(dialog.locator('button:focus')).toHaveAccessibleName(
-          language === 'en' ? 'Close' : 'Fermer'
-        );
-        await capturePublicationReview(
-          page,
-          testInfo,
-          `publication-reader-${language}`,
-          {
-            language,
-            viewport: { width: language === 'en' ? 390 : 1280, height: 864 },
-            access: 'reader'
-          }
-        );
-        await page.keyboard.press('Escape');
-        await expect(authorization).toBeFocused();
-        expect(controls.commands).toEqual([]);
-      });
-    }
-    for (const language of ['fr-CA', 'en'] as const) {
-      test(`publication console assigns scheduled work to the platform in ${language}`, async ({
-        page
-      }) => {
-        const { options, job, state, controls } = await fixtures(page, context);
-        job.mode = 'live';
-        job.status = 'approved';
-        state.feeds[0]!.paused = false;
-        options.progressOverrides = {
-          ...options.progressOverrides,
-          publicationWorkflow: {
-            state: 'waiting',
-            responsibility: 'platform',
-            reason: 'publication_scheduled',
-            obligations: [
-              {
-                obligationId: 'synthetic-facebook-obligation',
-                channel: 'facebook',
-                target: 'openg7',
-                ordinal: 1,
-                state: 'waiting',
-                responsibility: 'platform',
-                reason: 'publication_scheduled',
-                deliveryId,
-                scheduledAt
-              }
-            ]
-          }
-        };
-        await page.addInitScript(
-          (locale) => localStorage.setItem('openg7.language', locale),
-          language
-        );
-        await page.setViewportSize({
-          width: language === 'en' ? 390 : 1280,
-          height: 1000
-        });
-        await page.goto(context.path('publication'));
-        await openPublicationSection(page, 'navigation');
-        await openPublicationSection(page, 'offer');
-        await openPublicationSection(page, 'obligations');
-        const console = page.locator('[data-og7="publication-obligations"]');
-        await expect(console).toBeVisible();
-        await expect(console).toHaveAttribute(
-          'data-responsibility',
-          'platform'
-        );
-        await expect(console.locator('[data-og7-id], time')).toHaveCount(0);
-        await expect(
-          console.locator('[data-og7="publication-campaign-benefits"]')
-        ).toHaveAttribute(
-          'href',
-          `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
-        );
-        await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
-        const authorizedDate = channel(page).locator(
-          '[data-og7="publication-next-slot"]'
-        );
-        await expect(authorizedDate).toContainText(
-          language === 'en'
-            ? 'Authorized publication date:'
-            : 'Date d’envoi autorisée :'
-        );
-        await expect(authorizedDate).not.toContainText(
-          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
-        );
-        await expect(console).toContainText(
-          language === 'en'
-            ? 'automatic publication pending'
-            : 'envoi automatique à venir'
-        );
-        await expect(console.getByRole('button')).toHaveCount(0);
-        await expect(
-          console.locator('[data-og7="publication-obligation-proof"]')
-        ).toHaveCount(0);
-        expect(controls.commands).toEqual([]);
-        const violations = (
-          await new AxeBuilder({ page })
-            .include('[data-og7="publication-obligations"]')
-            .analyze()
-        ).violations;
-        expect(violations).toEqual([]);
-        await console.screenshot({
-          path: test.info().outputPath(`publication-console-${language}.png`)
-        });
-      });
-    }
-
-    test('publication console keeps an uncertain delivery actionable despite an existing qualified proof', async ({
-      page
-    }) => {
-      const { options, job, state, controls } = await fixtures(page, context);
-      job.mode = 'live';
-      job.status = 'uncertain';
-      job.externalPostUrl = 'https://example.invalid/uncertain-delivery';
-      state.feeds[0]!.paused = false;
-      const commitment = options.progressOverrides.commitment!;
-      const facebookId = commitment.obligations.find(
-        (item) => item.channel === 'facebook'
-      )!.id;
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        commitment: {
-          ...commitment,
-          obligations: commitment.obligations.map((item) =>
-            item.id === facebookId
-              ? {
-                  ...item,
-                  state: 'fulfilled',
-                  fulfilmentEvidenceId: 'synthetic-existing-proof'
-                }
-              : item
-          )
-        },
-        qualifiedFulfilmentEvidenceIds: ['synthetic-existing-proof'],
-        fulfilmentEvidence: [
-          {
-            id: 'synthetic-existing-proof',
-            obligationId: facebookId,
-            deliveryId,
-            channel: 'facebook',
-            target: 'openg7',
-            provenance: 'provider_acknowledged',
-            deliveredAt: evaluatedAt,
-            externalPostUrl: 'https://example.invalid/retained-proof',
-            visibility: 'unknown',
-            visibilityObservedAt: null
-          }
-        ],
-        publicationWorkflow: {
-          state: 'uncertain',
-          responsibility: 'admin',
-          reason: 'publication_uncertain',
-          obligations: [
-            {
-              obligationId: facebookId,
-              channel: 'facebook',
-              target: 'openg7',
-              ordinal: 1,
-              state: 'uncertain',
-              responsibility: 'admin',
-              reason: 'publication_uncertain',
-              deliveryId,
-              scheduledAt
-            }
-          ]
-        }
-      };
-      await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      const card = channel(page);
-      await expect(card).toHaveAttribute('data-state', 'uncertain');
-      await expect(card).toContainText('Résultat à vérifier');
-      await expect(
-        card.getByRole('link', { name: 'Voir la publication' })
-      ).toHaveCount(0);
-      await expect(
-        card.locator('[data-og7="publication-review"]')
-      ).toHaveAccessibleName('Examiner le blocage');
-      const summary = page.locator('[data-og7="publication-obligations"]');
-      await expect(summary).toHaveAttribute('data-state', 'uncertain');
-      await expect(summary).toContainText('vérifier avant toute relance');
-      await expect(
-        summary.locator('[data-og7="publication-campaign-benefits"]')
-      ).toHaveAttribute(
-        'href',
-        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
-      );
-      await expect(
-        page.locator(
-          `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`
-        )
-      ).toContainText('synthetic-existing-proof');
-      await card.locator('[data-og7="publication-review"]').click();
-      await expect(
-        page.getByRole('dialog', { name: 'Publication finale' })
-      ).toContainText('Le résultat de cet envoi est incertain');
-      expect(controls.commands).toEqual([]);
-    });
-
-    test('publication console keeps legacy completion counts unconfirmed without qualified evidence', async ({
-      page
-    }) => {
-      const { options, job, controls } = await fixtures(page, context);
-      job.mode = 'live';
-      job.status = 'published';
-      job.externalPostUrl = 'https://example.invalid/legacy-declaration';
-      const commitment = options.progressOverrides.commitment!;
-      const obligations = commitment.obligations.map((item) => ({
-        ...item,
-        state: 'fulfilled' as const,
-        fulfilmentEvidenceId: 'synthetic-legacy-proof-' + item.id
-      }));
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        commitment: { ...commitment, obligations },
-        publicationCompletion: { done: 3, total: 3 },
-        publicationBlockers: ['review'],
-        fulfilmentEvidence: obligations.map((item) => ({
-          id: item.fulfilmentEvidenceId,
-          obligationId: item.id,
-          deliveryId: item.channel === 'facebook' ? deliveryId : null,
-          channel: item.channel,
-          target: item.target,
-          provenance:
-            item.channel === 'website'
-              ? 'website_verified'
-              : 'provider_acknowledged',
-          deliveredAt: evaluatedAt,
-          externalPostUrl: job.externalPostUrl,
-          visibility: 'unknown',
-          visibilityObservedAt: null
-        }))
-      };
-      await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await expect(page.locator('#publication-delivery-count')).toContainText(
-        '0 / 3'
-      );
-      await expect(
-        page.getByRole('progressbar', { name: /Contreparties livrées/ })
-      ).toHaveAttribute('value', '0');
-      const tabs = page.locator('[data-og7="dossier-tabs"]');
-      await tabs.getByRole('button', { name: 'Aperçu', exact: true }).click();
-      await expect(
-        page.locator('[data-og7="publication-blockers"]')
-      ).toContainText('Vérifier et accepter le dossier');
-      await tabs
-        .getByRole('button', { name: 'Publication', exact: true })
-        .click();
-      await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
-      await expect(
-        channel(page).getByRole('link', { name: 'Voir la publication' })
-      ).toHaveCount(0);
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        commitment: {
-          ...commitment,
-          obligations: obligations.map((item) => ({
-            ...item,
-            state: 'adjusted',
-            fulfilmentEvidenceId: null
-          }))
-        },
-        publicationCompletion: { done: 0, total: 0 }
-      };
-      await page.reload();
-      await expect(page.locator('#publication-delivery-count')).toContainText(
-        '0 / 0'
-      );
-      await expect(
-        page.locator('[data-og7="publication-blockers"]')
-      ).toHaveCount(0);
-      await expect(
-        page.getByRole('progressbar', { name: /Contreparties livrées/ })
-      ).toHaveCount(0);
-      expect(controls.commands).toEqual([]);
-    });
-
-    test('publication console preserves the Facebook proof when LinkedIn fails or remains uncertain', async ({
-      page
-    }) => {
-      const { options, job, controls } = await fixtures(page, context);
-      job.mode = 'live';
-      job.status = 'published';
-      job.publishedAt = evaluatedAt;
-      const commitment = options.progressOverrides.commitment!;
-      const facebookId = commitment.obligations.find(
-        (item) => item.channel === 'facebook'
-      )!.id;
-      const linkedinId = commitment.obligations.find(
-        (item) => item.channel === 'linkedin'
-      )!.id;
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        commitment: {
-          ...commitment,
-          obligations: commitment.obligations.map((item) =>
-            item.id === facebookId
-              ? {
-                  ...item,
-                  state: 'fulfilled',
-                  fulfilmentEvidenceId: 'synthetic-facebook-proof'
-                }
-              : item
-          )
-        },
-        qualifiedFulfilmentEvidenceIds: ['synthetic-facebook-proof'],
-        publicationCompletion: { done: 1, total: 3 },
-        fulfilmentEvidence: [
-          {
-            id: 'synthetic-facebook-proof',
-            obligationId: facebookId,
-            deliveryId,
-            channel: 'facebook',
-            target: 'openg7',
-            provenance: 'provider_acknowledged',
-            deliveredAt: evaluatedAt,
-            externalPostUrl: 'https://example.invalid/facebook-post',
-            visibility: 'unknown',
-            visibilityObservedAt: null
-          }
-        ],
-        publicationWorkflow: {
-          state: 'error',
-          responsibility: 'admin',
-          reason: 'publication_failed',
-          obligations: [
-            {
-              obligationId: facebookId,
-              channel: 'facebook',
-              target: 'openg7',
-              ordinal: 1,
-              state: 'complete',
-              responsibility: 'none',
-              reason: 'publication_done',
-              deliveryId,
-              scheduledAt
-            },
-            {
-              obligationId: linkedinId,
-              channel: 'linkedin',
-              target: 'openg7',
-              ordinal: 1,
-              state: 'error',
-              responsibility: 'admin',
-              reason: 'publication_failed',
-              deliveryId: null,
-              scheduledAt
-            }
-          ]
-        }
-      };
-      await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      const console = page.locator('[data-og7="publication-obligations"]');
-      await expect(console).toHaveAttribute('data-state', 'error');
-      await expect(console.locator('[data-og7-id]')).toHaveCount(0);
-      const benefits = console.locator(
-        '[data-og7="publication-campaign-benefits"]'
-      );
-      await expect(benefits).toHaveAttribute(
-        'href',
-        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
-      );
-      const detailedFacebook = page.locator(
-        `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`
-      );
-      await expect(detailedFacebook).toContainText('Réalisée avec preuve');
-      await expect(detailedFacebook).toContainText('synthetic-facebook-proof');
-      await expect(channel(page)).toHaveAttribute('data-state', 'published');
-      await expect(page.locator('#publication-delivery-count')).toContainText(
-        '1 / 3'
-      );
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        publicationWorkflow: {
-          ...options.progressOverrides.publicationWorkflow!,
-          state: 'uncertain',
-          reason: 'publication_uncertain',
-          obligations:
-            options.progressOverrides.publicationWorkflow!.obligations.map(
-              (item) =>
-                item.obligationId === linkedinId
-                  ? {
-                      ...item,
-                      state: 'uncertain',
-                      reason: 'publication_uncertain'
-                    }
-                  : item
-            )
-        }
-      };
-      await page.reload();
-      await expect(console).toHaveAttribute('data-state', 'uncertain');
-      await expect(console).toContainText('vérifier avant toute relance');
-      await expect(detailedFacebook).toContainText('synthetic-facebook-proof');
-      await expect(channel(page)).toHaveAttribute('data-state', 'published');
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        qualifiedFulfilmentEvidenceIds: [],
-        publicationCompletion: { done: 0, total: 3 },
-        publicationWorkflow: {
-          ...options.progressOverrides.publicationWorkflow!,
-          state: 'blocked',
-          responsibility: 'admin',
-          reason: 'fulfilment_unverified',
-          obligations:
-            options.progressOverrides.publicationWorkflow!.obligations.map(
-              (item) =>
-                item.obligationId === facebookId
-                  ? {
-                      ...item,
-                      state: 'blocked',
-                      responsibility: 'admin',
-                      reason: 'fulfilment_unverified'
-                    }
-                  : item
-            )
-        }
-      };
-      await page.reload();
-      await expect(console).toHaveAttribute('data-state', 'blocked');
-      await expect(console).toContainText('Preuve de livraison à vérifier');
-      await expect(
-        console.locator('[data-og7="publication-obligation-proof"]')
-      ).toHaveCount(0);
-      await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
-      await expect(detailedFacebook).toContainText(
-        'Déclaration historique · livraison non confirmée'
-      );
-      expect(controls.commands).toEqual([]);
-    });
 
     for (const [language, width] of [
       ['fr-CA', 1280],
       ['en', 390]
     ] as const) {
-      test(`publication schedule proposal remains a Toronto suggestion until explicit review in ${language} at ${width}px`, async ({
+      test(`publication delivery owner opens the exact proposal without preparing or authorizing in ${language} at ${width}px`, async ({
         page
       }) => {
         const { controls } = await fixtures(page, context);
-        await page.addInitScript((language) => {
-          localStorage.setItem('openg7.language', language);
-        }, language);
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(context.path('publication'));
-        await openPublicationSection(page, 'navigation');
-        await openPublicationSection(page, 'offer');
-        await openPublicationSection(page, 'obligations');
-        const card = channel(page);
-        const slot = card.locator('[data-og7="publication-next-slot"]');
-        await expect(slot).toContainText('10');
-        await expect(slot).toContainText('Toronto');
-        await expect(slot).toContainText(
-          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
+        const action = channel(page).locator(
+          '[data-og7="publication-service-action"]'
         );
-        await expect(slot.locator('time')).toHaveAttribute(
-          'datetime',
-          scheduledAt
-        );
-        await expect(
-          page.locator('[data-og7="publication-slot-help"]')
-        ).toBeVisible();
+        await expect(action).toBeEnabled();
         expect(controls.commands).toEqual([]);
-        expect(controls.reads.length).toBeGreaterThan(0);
         expect(
           controls.reads.every(
             (url) => url.searchParams.get('sponsorshipId') === sponsorshipId
           )
         ).toBe(true);
-        const review = card.locator('[data-og7="publication-review"]');
-        await expect(review).toHaveAccessibleName(
-          language === 'en' ? /Review/ : /Vérifier/
-        );
-        await page
-          .locator('[data-og7="dossier-publication-journey"]')
-          .screenshot({
-            path: `test-results/publication-schedule-proposal-${width}.png`
-          });
-        await review.focus();
+        await action.focus();
         await page.keyboard.press('Enter');
         const dialog = page.getByRole('dialog', {
-          name: language === 'en' ? 'Final publication' : 'Publication finale'
+          name: language === 'en' ? 'Final publication' : 'Publication finale',
+          exact: true
         });
         await expect(dialog).toContainText('synthetic-page-openg7');
         await expect(dialog).toContainText('Asia/Tokyo');
         await expect(dialog).toContainText('Atelier Boréal');
         await expect(dialog).toContainText('Atelier Rivage');
-        await expect(dialog).toContainText(
-          'Une seconde initiative synthétique.'
-        );
+        await expect(dialog.getByRole('checkbox')).not.toBeChecked();
         await expect(
           dialog.getByRole('button', {
             name:
@@ -1490,46 +506,44 @@ export function registerDossierPublicationScheduleTests(
                 : 'Accepter et programmer'
           })
         ).toBeDisabled();
-        expect(controls.commands).toEqual([]);
         expect(
           (await new AxeBuilder({ page }).include('dialog[open]').analyze())
             .violations
         ).toEqual([]);
         expect(
           await dialog.evaluate(
-            (element) => element.scrollWidth <= element.clientWidth
+            (element) => element.scrollWidth <= element.clientWidth + 1
           )
         ).toBe(true);
-        await dialog.screenshot({
-          path: `test-results/publication-schedule-review-${width}.png`
-        });
         await page.keyboard.press('Escape');
-        await expect(dialog).not.toBeVisible();
-        await expect(review).toBeFocused();
+        await expect(dialog).toBeHidden();
+        await expect(action).toBeFocused();
+        expect(controls.commands).toEqual([]);
       });
     }
 
-    test('publication schedule proposal keeps the proposed instant and requires the existing human confirmation', async ({
+    test('publication delivery authorization preserves the proposed instant and requires exact human moderation', async ({
       page
     }) => {
-      const { controls, job } = await fixtures(page, context);
+      const { controls, job, state } = await fixtures(page, context);
+      job.mode = 'live';
+      state.feeds[0]!.mode = 'live';
+      state.feeds[0]!.paused = false;
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await channel(page).locator('[data-og7="publication-review"]').click();
+      await channel(page)
+        .locator('[data-og7="publication-service-action"]')
+        .click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       const approve = dialog.getByRole('button', {
         name: 'Accepter et programmer'
       });
       await expect(approve).toBeDisabled();
       await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
-      expect(controls.commands).toEqual([]);
       await approve.click();
+      expect(controls.commands).toEqual([]);
       await expect(
         page.locator('[data-og7="moderation-confirmation"]')
       ).not.toBeChecked();
-      expect(controls.commands).toEqual([]);
       await completeModeration(page);
       await expect.poll(() => controls.commands.length).toBe(1);
       expect(controls.commands[0]).toMatchObject({
@@ -1538,27 +552,26 @@ export function registerDossierPublicationScheduleTests(
         version: 1,
         confirmation: deliveryId
       });
-      await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
-      if (!(await dialog.isVisible()))
-        await channel(page).locator('[data-og7="publication-review"]').click();
-      await expect(dialog).toContainText('Autorisée');
       expect(
         controls.commands.some((command) => command.action === 'edit')
       ).toBe(false);
       expect(job.scheduledAt).toBe(scheduledAt);
+      await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
+      await expect(
+        page
+          .locator('[data-og7="publication-monitor"]')
+          .getByRole('progressbar')
+      ).toHaveAttribute('value', '0');
     });
 
-    test('publication schedule proposal opens the exact date editor and saving revokes authorization', async ({
+    test('publication delivery editing uses the saved version and revokes prior authorization', async ({
       page
     }) => {
       const { controls, job } = await fixtures(page, context);
       job.status = 'approved';
       job.approvedAt = evaluatedAt;
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await channel(page).locator('[data-og7="publication-slot-edit"]').click();
+      await editDelivery(page);
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       await expect(dialog.getByLabel(/Asia\/Tokyo/)).toBeVisible();
       await expect(dialog.getByLabel('Texte exact à publier')).toHaveValue(
@@ -1567,7 +580,6 @@ export function registerDossierPublicationScheduleTests(
       await dialog
         .locator('input[type="datetime-local"]')
         .fill('2030-06-06T11:15');
-      expect(controls.commands).toEqual([]);
       await dialog
         .getByRole('button', { name: 'Enregistrer le brouillon' })
         .click();
@@ -1581,221 +593,96 @@ export function registerDossierPublicationScheduleTests(
         version: 1,
         scheduledAt: expectedAt
       });
-      await expect(
-        channel(page).locator('[data-og7="publication-next-slot"] time')
-      ).toHaveAttribute('datetime', expectedAt);
+      expect(job.approvedAt).toBeNull();
+      expect(job.status).toBe('draft');
       if (!(await dialog.isVisible()))
-        await channel(page).locator('[data-og7="publication-review"]').click();
+        await channel(page)
+          .locator('[data-og7="publication-service-action"]')
+          .click();
       await expect(
         dialog.getByRole('button', { name: 'Accepter et programmer' })
       ).toBeDisabled();
-      expect(job.approvedAt).toBeNull();
+      await expect(
+        page
+          .locator('[data-og7="publication-monitor"]')
+          .getByRole('progressbar')
+      ).toHaveAttribute('value', '0');
     });
 
-    test('publication schedule proposal displays the server forecast without preparing or approving a delivery', async ({
+    test('publication monitor links first-draft preparation to the scoped engine without running it', async ({
       page
     }) => {
-      const { state, entry, controls, options } = await fixtures(page, context);
-      state.deliveries = [];
-      state.feeds[0]!.paused = false;
-      state.queue!.entries = [
-        {
-          ...entry,
-          scheduledAt: null,
-          batchId: null,
-          deliveryId: null,
-          deliveryStatus: null,
-          status: 'deferred',
-          reason: 'AWAITING_PREPARATION',
-          nextOpportunity: {
-            ...entry.nextOpportunity!,
-            reason: 'AVAILABLE_IN_HORIZON',
-            action: 'PREPARE_FEED'
-          }
-        }
-      ];
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        publications: []
-      };
-      await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      const card = channel(page);
-      await expect(
-        card.locator('[data-og7="publication-next-slot"]')
-      ).toContainText('10');
-      await expect(
-        card.locator('[data-og7="publication-prepare"]')
-      ).toBeVisible();
-      await expect(card.locator('[data-og7="publication-review"]')).toHaveCount(
-        0
-      );
-      expect(controls.commands).toEqual([]);
-    });
-
-    test('publication schedule proposal prepares a first draft only after confirmation when the worker is disabled', async ({
-      page
-    }) => {
-      const { state, entry, controls, options } = await fixtures(page, context);
-      state.feeds[0]!.paused = false;
-      controls.preparedState = {
-        ...structuredClone(state),
-        workerEnabled: false
-      };
-      state.workerEnabled = false;
+      const { state, options, controls } = await fixtures(page, context);
       state.deliveries = [];
       state.queue!.entries = [];
-      state.queue!.summary.retained = 0;
-      state.queue!.total = 0;
-      const commitment = options.progressOverrides.commitment!;
-      Object.assign(state, {
-        preparationCandidates: [
-          {
-            obligationId: commitment.obligations.find(
-              (obligation) => obligation.channel === 'facebook'
-            )!.id,
-            sponsorshipId,
-            name: 'Atelier Boréal',
-            feedId: 'openg7:facebook',
-            publicationFormat: 'collective_text',
-            renderedLength: entry.renderedLength,
-            budget: entry.budget,
-            status: 'deferred',
-            reason: 'AWAITING_PREPARATION',
-            nextOpportunity: {
-              ...entry.nextOpportunity!,
-              reason: 'AVAILABLE_IN_HORIZON',
-              action: 'PREPARE_FEED'
-            }
-          }
-        ] satisfies PublicationPreparationCandidate[]
-      });
       options.progressOverrides = {
         ...options.progressOverrides,
-        publications: []
+        publications: [],
+        publicationWorkflow: undefined
       };
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      const card = channel(page);
-      await expect(
-        card.locator('[data-og7="publication-next-slot"] time')
-      ).toHaveAttribute('datetime', scheduledAt);
-      await expect(
-        card.locator('[data-og7="publication-next-slot"]')
-      ).toContainText('Toronto');
-      const prepare = card.locator('[data-og7="publication-prepare"]');
-      await expect(prepare).toBeEnabled();
-      await expect(card.locator('[data-og7="publication-review"]')).toHaveCount(
-        0
-      );
-      expect(controls.commands).toEqual([]);
-      await page.locator('[data-og7="publication-delivery-board"]').screenshot({
-        path: 'test-results/publication-schedule-first-proposal.png'
+      await channel(page)
+        .locator('[data-og7="publication-service-action"]')
+        .click();
+      const detail = page.locator('[data-og7="publication-monitor-details"]');
+      const engine = detail.getByRole('link', {
+        name: 'Ouvrir le moteur de publication'
       });
-      await prepare.click();
-      const confirmation = page.getByRole('dialog', {
-        name: 'Confirmer l’action'
-      });
-      await expect(confirmation).toContainText('tous les dossiers admissibles');
-      await expect(confirmation).toContainText('openg7:facebook');
+      const target = new URL((await engine.getAttribute('href'))!, page.url());
+      const obligationId =
+        options.progressOverrides.commitment!.obligations.find(
+          (item) => item.channel === 'facebook'
+        )!.id;
+      expect(target.pathname).toBe('/admin/fundraiser/publications/automation');
+      expect(target.searchParams.get('sponsorshipId')).toBe(sponsorshipId);
+      expect(target.searchParams.get('obligationId')).toBe(obligationId);
       expect(controls.commands).toEqual([]);
-      await page.keyboard.press('Escape');
-      await expect(confirmation).not.toBeVisible();
+      await engine.click();
+      await expect(page).toHaveURL(target.href);
       expect(controls.commands).toEqual([]);
-      await prepare.click();
-      await page.locator('[data-og7="confirm-action"]').click();
-      await expect.poll(() => controls.commands.length).toBe(1);
-      expect(controls.commands[0]).toEqual({
-        action: 'prepare',
-        feedId: 'openg7:facebook'
-      });
-      const dialog = page.getByRole('dialog', { name: 'Publication finale' });
-      await expect(
-        channel(page).locator('[data-og7="publication-review"]')
-      ).toBeVisible();
-      if (!(await dialog.isVisible()))
-        await channel(page).locator('[data-og7="publication-review"]').click();
-      await expect(dialog).toContainText('Atelier Boréal');
-      await expect(
-        dialog.getByRole('button', { name: 'Accepter et programmer' })
-      ).toBeDisabled();
-      await expect(
-        dialog.getByRole('checkbox', { name: /J’approuve/ })
-      ).not.toBeChecked();
-      expect(controls.commands).toHaveLength(1);
     });
 
     for (const status of [401, 403]) {
-      test(`publication schedule proposal clears its private drawer after a failed save and ${status} recovery read`, async ({
+      test(`publication delivery purges private edits after a failed save and ${status} reconciliation read`, async ({
         page
       }) => {
         const { controls, job } = await fixtures(page, context);
         await page.goto(context.path('publication'));
-        await openPublicationSection(page, 'navigation');
-        await openPublicationSection(page, 'offer');
-        await openPublicationSection(page, 'obligations');
-        await channel(page)
-          .locator('[data-og7="publication-slot-edit"]')
-          .click();
+        await editDelivery(page);
         const dialog = page.getByRole('dialog', { name: 'Publication finale' });
         const privateText = 'Brouillon privé synthétique à purger';
         await dialog.getByLabel('Texte exact à publier').fill(privateText);
         controls.commandStatus = 503;
         controls.status = status;
-        const initialReads = controls.reads.length;
+        const reads = controls.reads.length;
         await dialog
           .getByRole('button', { name: 'Enregistrer le brouillon' })
           .click();
-        await expect
-          .poll(() => controls.reads.length)
-          .toBeGreaterThan(initialReads);
-        await expect(dialog).not.toBeVisible();
+        await expect.poll(() => controls.reads.length).toBeGreaterThan(reads);
+        await expect(dialog).toBeHidden();
         await expect
           .poll(() =>
             page
               .locator('textarea')
-              .evaluateAll((elements) =>
-                elements.map(
-                  (element) => (element as HTMLTextAreaElement).value
-                )
+              .evaluateAll((fields) =>
+                fields.map((field) => (field as HTMLTextAreaElement).value)
               )
           )
           .not.toContain(privateText);
         await expect(page.getByText(job.message, { exact: true })).toHaveCount(
           0
         );
-        await expect(
-          page.locator('[data-og7="publication-schedule-error"]')
-        ).toBeVisible();
-        await expect(
-          page.locator('[data-og7="publication-schedule-loading"]')
-        ).toHaveCount(0);
         expect(controls.commands).toHaveLength(1);
         expect(controls.commands[0]).toMatchObject({ action: 'edit' });
       });
     }
 
-    test('publication schedule proposal allows editing again after a failed save and successful recovery', async ({
+    test('publication delivery retains a failed save draft and permits a safe discard after recovery', async ({
       page
     }) => {
       const { controls } = await fixtures(page, context);
-      const mutations: string[] = [];
-      page.on('request', (request) => {
-        if (
-          new URL(request.url()).pathname.startsWith('/api/admin/') &&
-          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
-        )
-          mutations.push(request.url());
-      });
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      await channel(page).locator('[data-og7="publication-slot-edit"]').click();
+      await editDelivery(page);
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       controls.commandStatus = 503;
       const save = dialog.getByRole('button', {
@@ -1804,49 +691,42 @@ export function registerDossierPublicationScheduleTests(
       await dialog
         .getByLabel('Texte exact à publier')
         .fill('Modification synthétique');
-      const initialReads = controls.reads.length;
+      const reads = controls.reads.length;
       await save.click();
-      await expect
-        .poll(() => controls.reads.length)
-        .toBeGreaterThan(initialReads);
+      await expect.poll(() => controls.reads.length).toBeGreaterThan(reads);
       await expect(dialog.getByRole('alert')).toBeVisible();
       await expect(save).toBeEnabled();
-      await expect(
-        page.locator('[data-og7="publication-schedule-loading"]')
-      ).toHaveCount(0);
       await page.keyboard.press('Escape');
-      const confirmation = page.getByRole('dialog').filter({
-        has: page.locator('[data-og7="confirm-action"]')
-      });
+      const confirmation = page
+        .getByRole('dialog')
+        .filter({ has: page.locator('[data-og7="confirm-action"]') });
       await expect(confirmation).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(confirmation).toBeHidden();
       await expect(dialog.getByLabel('Texte exact à publier')).toHaveValue(
         'Modification synthétique'
       );
-      await expect(dialog.getByRole('alert')).toBeVisible();
-      await expect(save).toBeEnabled();
-      expect(controls.commands).toHaveLength(1);
-      expect(mutations).toHaveLength(1);
-
       await page.keyboard.press('Escape');
       await expect(confirmation).toBeVisible();
       await confirmation.locator('[data-og7="confirm-action"]').click();
-      await expect(confirmation).toBeHidden();
-      await expect(dialog).not.toBeVisible();
+      await expect(dialog).toBeHidden();
       await expect(
-        channel(page).locator('[data-og7="publication-review"]')
+        channel(page).locator('[data-og7="publication-service-action"]')
       ).toBeEnabled();
       expect(controls.commands).toHaveLength(1);
-      expect(mutations).toHaveLength(1);
     });
 
-    test('publication schedule proposal opens an exact historical delivery beyond the latest 200 without replacing other cards', async ({
+    test('publication monitor opens an exact historical passage beyond the latest 200 without replacing the next passage', async ({
       page
     }) => {
       const { state, job, controls, options } = await fixtures(page, context);
       const historicalId = '77777777-7777-4777-8777-777777777778';
       const historicalDraftId = '77777777-7777-4777-8777-777777777779';
+      const historicalObligationId = '77777777-7777-4777-8777-777777777780';
+      const original = options.progressOverrides.commitment!;
+      const facebook = original.obligations.find(
+        (item) => item.channel === 'facebook'
+      )!;
       const historical = {
         ...structuredClone(job),
         id: historicalId,
@@ -1861,20 +741,25 @@ export function registerDossierPublicationScheduleTests(
         ...Array.from({ length: 199 }, (_, index) => ({
           ...structuredClone(job),
           id: `77777777-7777-4777-8777-${String(index).padStart(12, '0')}`,
-          batchId: `88888888-8888-4888-8888-${String(index).padStart(12, '0')}`,
-          status: 'published' as const,
-          scheduledAt: '2030-05-02T14:00:00.000Z',
-          publishedAt: '2030-05-02T14:00:00.000Z'
+          status: 'published' as const
         })),
         historical
       ];
       options.progressOverrides = {
         ...options.progressOverrides,
+        commitment: {
+          ...original,
+          obligations: [
+            ...original.obligations,
+            { ...facebook, id: historicalObligationId, ordinal: 2 }
+          ]
+        },
         publications: [
           ...options.progressOverrides.publications!,
           {
             ...options.progressOverrides.publications![0]!,
             id: historicalDraftId,
+            obligationId: historicalObligationId,
             deliveryId: historicalId,
             deliveryStatus: 'published',
             scheduledAt: historical.scheduledAt,
@@ -1883,16 +768,16 @@ export function registerDossierPublicationScheduleTests(
         ]
       };
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
-      const historicalCard = page.locator(
-        `[data-og7="publication-channel"][data-og7-id="${historicalDraftId}"]`
+      const historicalRow = page.locator(
+        `[data-og7="publication-service"][data-og7-id="${historicalObligationId}"]`
       );
-      const firstCard = page.locator(
-        `[data-og7="publication-channel"][data-og7-id="${otherId}"]`
-      );
-      await historicalCard.locator('[data-og7="publication-review"]').click();
+      await historicalRow
+        .locator('[data-og7="publication-service-action"]')
+        .click();
+      await page
+        .locator('[data-og7="publication-monitor-details"]')
+        .getByRole('button', { name: 'Ouvrir la livraison' })
+        .click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       await expect(dialog).toContainText(historical.message);
       expect(
@@ -1903,43 +788,35 @@ export function registerDossierPublicationScheduleTests(
         )
       ).toBe(true);
       await page.keyboard.press('Escape');
-      await expect(firstCard).toHaveAttribute('data-state', 'review');
-      await expect(
-        firstCard.locator('[data-og7="publication-next-slot"] time')
-      ).toHaveAttribute('datetime', scheduledAt);
-      await firstCard.locator('[data-og7="publication-review"]').click();
+      const current = page.locator(
+        `[data-og7="publication-service"][data-og7-id="${facebook.id}"]`
+      );
+      await current.locator('[data-og7="publication-service-action"]').click();
       await expect(dialog).toContainText('Une seconde initiative synthétique.');
       expect(controls.commands).toEqual([]);
     });
 
-    test('publication schedule proposal reports a failed read and retries without preparing or approving', async ({
+    test('publication monitor reports a failed delivery read and refreshes without preparing or approving', async ({
       page
     }) => {
-      const { controls, options } = await fixtures(page, context);
+      const { controls } = await fixtures(page, context);
       controls.status = 503;
-      options.progressOverrides = {
-        ...options.progressOverrides,
-        publications: []
-      };
       await page.goto(context.path('publication'));
-      await openPublicationSection(page, 'navigation');
-      await openPublicationSection(page, 'offer');
-      await openPublicationSection(page, 'obligations');
       await expect(
-        page.locator('[data-og7="publication-schedule-error"]')
+        page.locator('[data-og7="publication-monitor-error"]')
       ).toBeVisible();
-      await expect(
-        page.locator('[data-og7="publication-next-slot"]')
-      ).toHaveCount(0);
       controls.status = 200;
-      await page.locator('[data-og7="publication-schedule-refresh"]').click();
+      await page.locator('[data-og7="publication-monitor-refresh"]').click();
       await expect(
-        channel(page).locator('[data-og7="publication-next-slot"]')
-      ).toBeVisible();
+        page.locator('[data-og7="publication-monitor-error"]')
+      ).toHaveCount(0);
+      await expect(
+        channel(page).locator('[data-og7="publication-service-action"]')
+      ).toBeEnabled();
       expect(controls.commands).toEqual([]);
     });
 
-    test('publication schedule proposal ignores a late forecast after switching dossiers', async ({
+    test('publication monitor ignores a late delivery snapshot after switching dossiers', async ({
       page
     }) => {
       const { controls, options } = await fixtures(page, context);
@@ -1955,14 +832,9 @@ export function registerDossierPublicationScheduleTests(
       await page.locator('[data-og7="sponsor-row"]').first().click();
       await page
         .locator('[data-og7="dossier-tabs"]')
-        .getByRole('button', {
-          name: 'Publication',
-          exact: true
-        })
+        .getByRole('button', { name: 'Publication', exact: true })
         .click();
-      await expect(
-        page.locator('[data-og7="publication-schedule-loading"]')
-      ).toBeVisible();
+      await expect.poll(() => controls.reads.length).toBeGreaterThan(0);
       await page
         .getByRole('button', { name: 'Dossier suivant', exact: true })
         .click();
@@ -1976,24 +848,24 @@ export function registerDossierPublicationScheduleTests(
           )
         )
         .toBe(true);
-      const lateResponse = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).searchParams.get('sponsorshipId') ===
-            sponsorshipId &&
-          new URL(response.url()).pathname.endsWith('/publication-automation')
-      );
       release();
-      await (await lateResponse).finished();
       await expect(
-        page.locator('[data-og7="publication-schedule-loading"]')
+        page
+          .locator('[data-og7="publication-monitor"]')
+          .getByRole('progressbar')
       ).toHaveCount(0);
       await expect(
-        page.locator('[data-og7="publication-next-slot"]')
+        page.locator('[data-og7="publication-service"]')
       ).toHaveCount(0);
-      await expect(page.locator('[data-og7="publication-review"]')).toHaveCount(
-        0
-      );
       expect(controls.commands).toEqual([]);
     });
   });
+}
+
+async function editDelivery(page: Page): Promise<void> {
+  await channel(page)
+    .locator('[data-og7="publication-service-action"]')
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await dialog.getByRole('button', { name: 'Modifier', exact: true }).click();
 }

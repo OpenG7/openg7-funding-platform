@@ -3,22 +3,63 @@ import type { Locator, Page } from '@playwright/test';
 import type { AdminController } from './admin-controller.js';
 import { expect } from './test.js';
 
-/** Reach an advanced workshop section through its keyboard-accessible disclosure. */
+/** Reach the owning workspace after the individual Publication monitor refactor. */
 export async function openPublicationSection(
   page: Page,
   section: 'controls' | 'contract' | 'navigation' | 'obligations' | 'offer'
 ): Promise<void> {
-  const hook = {
-    controls: 'publication-administrative-controls',
-    contract: 'publication-contract-history',
-    navigation: 'publication-navigation-details',
-    obligations: 'publication-obligations',
-    offer: 'publication-agreement-details'
-  }[section];
-  const disclosure = page.locator(`[data-og7="${hook}"]`);
-  await expect(disclosure).toBeVisible();
-  if ((await disclosure.getAttribute('open')) === null)
-    await disclosure.locator(':scope > summary').click();
+  const current = new URL(page.url());
+  const id =
+    current.searchParams.get('sponsorshipId') ??
+    current.searchParams.get('workshopSponsorshipId');
+  expect(id).toBeTruthy();
+  if (section === 'controls') {
+    if (
+      current.pathname !== '/admin/fundraiser/preflight' ||
+      current.searchParams.get('view') !== 'publication'
+    )
+      await page.goto(
+        `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${id}&publicationReturn=${id}`
+      );
+    await expect(page.locator('[data-og7="publication-owner"]')).toBeVisible();
+    return;
+  }
+  if (section === 'contract' || section === 'offer') {
+    await page
+      .locator('[data-og7="dossier-tabs"]')
+      .getByRole('button', { name: /^(Aperçu|Overview)$/ })
+      .click();
+    await expect(page.locator('#dossier-agreement')).toBeVisible();
+    return;
+  }
+  if (current.searchParams.get('tab') !== 'publication')
+    await page
+      .locator('[data-og7="dossier-tabs"]')
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+  await expect(page.locator('[data-og7="publication-monitor"]')).toBeVisible();
+}
+
+/** Settings stay in Fiche et médias; switching tabs preserves local dossier drafts. */
+export async function openSponsorshipWebsiteSettings(
+  page: Page,
+  controller?: AdminController
+): Promise<void> {
+  const current = new URL(page.url());
+  if (current.searchParams.get('tab') !== 'media') {
+    const tab = page
+      .locator('[data-og7="dossier-tabs"]')
+      .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ });
+    if (controller) await controller.activate(tab);
+    else await tab.click();
+  }
+  const settings = page.locator('[data-og7="publication-advanced"]');
+  await expect(settings).toBeVisible();
+  if ((await settings.getAttribute('open')) === null) {
+    const summary = settings.locator(':scope > summary');
+    if (controller) await controller.activate(summary);
+    else await summary.click();
+  }
 }
 
 /** Open the separate historical declaration through its visible disclosure. */

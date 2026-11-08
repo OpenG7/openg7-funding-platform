@@ -219,7 +219,8 @@
                           routerLink="/admin/fundraiser/preflight"
                           [queryParams]="{
                             sponsorshipId: state.contributionId,
-                            obligationId: variant.obligationId
+                            obligationId: variant.obligationId,
+                            publicationReturn: state.contributionId
                           }"
                           data-og7="workshop-examine"
                           [attr.data-og7-id]="variant.obligationId"

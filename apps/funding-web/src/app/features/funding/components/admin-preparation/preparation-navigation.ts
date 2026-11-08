@@ -17,27 +17,36 @@ export function preparationIssueDestination(
   if (url.pathname !== '/admin/fundraiser/sponsors') return safeUrl;
   const has = (codes: readonly string[]) =>
     issue.summaryCodes.some((code) => codes.includes(code));
+  const contributionId = url.searchParams.get('sponsorshipId');
+  if (
+    has(['publication_draft_missing', 'publication_draft_incomplete']) &&
+    contributionId &&
+    /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(contributionId)
+  )
+    return (
+      '/admin/fundraiser/preflight?' +
+      new URLSearchParams({
+        view: 'publication',
+        workshopSponsorshipId: contributionId,
+        publicationReturn: contributionId
+      })
+    );
   let destination: readonly [string, string] | null = null;
   if (
     issue.actionKind === 'agreement' ||
     has(['commitment_needs_confirmation', 'offer_unverified'])
   )
-    destination = ['publication', 'dossier-agreement'];
+    destination = ['overview', 'dossier-agreement'];
   else if (
     issue.actionKind === 'moderation' ||
     has(['sponsor_review_required', 'moderation_review_required'])
   )
     destination = ['overview', 'dossier-review'];
-  else if (
-    has([
-      'website_draft_missing',
-      'website_draft_outdated',
-      'publication_draft_missing',
-      'publication_draft_incomplete'
-    ])
-  )
-    destination = ['publication', 'dossier-publication'];
-  else if (has(['company_missing', 'presentation_missing']))
+  else if (has(['website_draft_missing', 'website_draft_outdated']))
+    destination = ['media', 'dossier-website-settings'];
+  else if (has(['presentation_missing']))
+    destination = ['media', 'dossier-website-settings'];
+  else if (has(['company_missing']))
     destination = ['identity', 'dossier-identity'];
   else if (has(['required_media_missing']))
     destination = ['media', 'dossier-media'];
@@ -56,7 +65,7 @@ export function preparationAssistanceDestination(
     '/admin/fundraiser/sponsors?' +
       new URLSearchParams({
         sponsorshipId: contributionId,
-        tab: 'publication'
+        tab: 'overview'
       }) +
       '#dossier-assistance-' +
       section

@@ -91,6 +91,7 @@ import type {
   SponsorDetailsTab
 } from '../../models/admin-sponsors-ui.models.js';
 import { AdminSponsorPublicationPanelComponent } from '../../components/admin-sponsors/admin-sponsor-publication-panel.component.js';
+import { AdminSponsorshipCommitmentsComponent } from '../../components/admin-sponsors/admin-sponsorship-commitments.component.js';
 import { AdminSponsorRefundHistoryComponent } from '../../components/admin-sponsors/admin-sponsor-refund-history.component.js';
 import { AdminSponsorAuditHistoryComponent } from '../../components/admin-sponsors/admin-sponsor-audit-history.component.js';
 import { AdminSponsorRejectionPanelComponent } from '../../components/admin-sponsors/admin-sponsor-rejection-panel.component.js';
@@ -111,6 +112,7 @@ type SponsorDossierTool = 'moderation' | 'access';
   standalone: true,
   imports: [
     AdminSponsorPublicationPanelComponent,
+    AdminSponsorshipCommitmentsComponent,
     AdminSponsorRefundHistoryComponent,
     AdminSponsorAuditHistoryComponent,
     AdminSponsorRejectionPanelComponent,
@@ -353,9 +355,6 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly decisionActions = viewChild(
     AdminSponsorDecisionActionsComponent
   );
-  private readonly publicationPanel = viewChild(
-    AdminSponsorPublicationPanelComponent
-  );
   readonly canManage = computed(() => this.admin.identity()?.role !== 'reader');
   readonly canUseOwnerActions = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
@@ -369,6 +368,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.versionConflict()
   );
   private readonly route = inject(ActivatedRoute);
+  readonly websiteSettingsFragment = toSignal(this.route.fragment);
   private readonly actionParams = toSignal(this.route.queryParamMap);
   private consumingDossierAction = false;
   private readonly viewport = inject(ViewportScroller);
@@ -997,16 +997,6 @@ export class AdminSponsorsPageComponent implements OnInit {
   closeRefundPanel(): void {
     if (!this.refundWorkflow.closeRefundPanel()) return;
     this.decisionActions()?.focusRefundButton();
-  }
-
-  openWebsiteSettings(): void {
-    this.websiteSettingsOpen.set(true);
-    afterNextRender(
-      () => {
-        this.publicationPanel()?.focusSummary();
-      },
-      { injector: this.injector }
-    );
   }
 
   setAdminToken(event: Event): void {

@@ -32,6 +32,13 @@ h5 {
 .muted {
   color: var(--admin-muted);
 }
+.publication-return {
+  margin-bottom: 1rem;
+}
+.service-card[data-context='true'] {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
 .desk-tools,
 .desk-search,
 .order-header,

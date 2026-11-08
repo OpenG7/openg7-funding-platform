@@ -22,6 +22,7 @@ import {
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
 import {
+  openSponsorshipWebsiteSettings,
   openDeclaredSponsorshipTracking,
   openSponsorshipModeration
 } from './support/sponsorship-dossier.js';
@@ -407,9 +408,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin.goto(
           '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
         );
-        await admin
-          .locator('[data-og7="publication-advanced"] > summary')
-          .click();
+        await openSponsorshipWebsiteSettings(admin);
         await admin.getByLabel(/Slug public/i).fill('media-' + id);
         await openDeclaredSponsorshipTracking(admin);
         await admin.getByLabel(/Destination feed/i).selectOption('openg7');

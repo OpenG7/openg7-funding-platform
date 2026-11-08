@@ -1,719 +1,553 @@
-<div class="publication-journey" data-og7="dossier-publication-journey">
-  <header>
-    <span class="eyebrow">{{
-      'admin.dossier.publicationBridge.eyebrow' | translate
-    }}</span>
-    <h2>{{ 'admin.dossier.publicationCleanup.workshopTitle' | translate }}</h2>
-    <dl class="workshop-facts" data-og7="publication-workshop-facts">
-      <div>
-        <dt>
-          {{ 'admin.dossier.publicationCleanup.sponsorship' | translate }}
-        </dt>
-        <dd>{{ dossier().reference }} · {{ money() }}</dd>
-      </div>
-      <div>
-        <dt>
-          {{ 'admin.dossier.publicationCleanup.acceptedOffer' | translate }}
-        </dt>
-        <dd>
-          {{
-            dossier().commitment?.offer?.version ??
-              ('admin.dossier.publicationCleanup.unrecordedOffer' | translate)
-          }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.publicationCleanup.payment' | translate }}</dt>
-        <dd>
-          {{
-            (dossier().paymentStatus === 'paid'
-              ? 'admin.dossier.publicationCleanup.paymentConfirmed'
-              : 'admin.dossier.publicationCleanup.paymentUnconfirmed'
-            ) | translate
-          }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.publicationCleanup.deliveries' | translate }}</dt>
-        <dd>
-          <span id="publication-delivery-count">
-            {{
-              'admin.dossier.publicationBridge.completion'
-                | translate
-                  : {
-                      done: publicationCompletion()?.done ?? 0,
-                      total:
-                        publicationCompletion()?.total ??
-                        dossier().commitment?.obligations?.length ??
-                        0
-                    }
-            }}
-          </span>
-          @if (publicationCompletion(); as completion) {
-            @if (completion.total > 0) {
-              <progress
-                [value]="completion.done"
-                [max]="completion.total"
-                aria-labelledby="publication-delivery-count"
-              ></progress>
-            }
-          }
-        </dd>
-      </div>
-    </dl>
+﻿<section
+  class="publication-monitor"
+  data-og7="publication-monitor"
+  aria-labelledby="publication-monitor-title"
+>
+  <header class="monitor-heading">
+    <span class="heading-icon"><openg7-admin-icon name="send" /></span>
+    <div>
+      <h2 id="publication-monitor-title">{{ t('title') }}</h2>
+      <p>{{ t('subtitle') }}</p>
+    </div>
+    <button
+      class="admin-button refresh-button"
+      type="button"
+      data-og7="publication-monitor-refresh"
+      [disabled]="busy()"
+      (click)="refresh()"
+    >
+      <openg7-admin-icon name="refresh" />{{ t('refresh') }}
+    </button>
   </header>
-  @if (contextBlockers().length) {
-    <aside
-      class="blockers"
-      data-og7="publication-context-blockers"
-      aria-labelledby="publication-blockers-title"
+
+  @if (tracking.error() || scheduling.error()) {
+    <div
+      class="monitor-alert"
+      data-og7="publication-monitor-error"
+      role="alert"
     >
-      <h3 id="publication-blockers-title">
-        {{ 'admin.dossier.publicationCleanup.contextTitle' | translate }}
-      </h3>
-      <ul>
-        @for (reason of contextBlockers(); track reason) {
-          <li>
-            <a
-              routerLink="/admin/fundraiser/sponsors"
-              [queryParams]="{
-                sponsorshipId: dossier().contributionId,
-                tab: blockerTab(reason)
-              }"
-              >{{
-                'admin.dossier.publicationBridge.blocker.' + reason | translate
-              }}</a
-            >
-          </li>
+      <openg7-admin-icon name="warning" />
+      <div>
+        <strong>{{
+          t(
+            'error.' +
+              (tracking.error() ||
+                (accessDenied() ? 'forbidden' : 'unavailable'))
+          )
+        }}</strong>
+        @if (tracking.checkedAt(); as checkedAt) {
+          <p>{{ t('stale', { date: date(checkedAt) }) }}</p>
         }
-      </ul>
-    </aside>
+      </div>
+    </div>
   }
-  <openg7-admin-publication-workshop
-    [dossier]="dossier()"
-    (changed)="workshopChanged()"
-  />
-  <details
-    class="workshop-details"
-    data-og7="publication-navigation-details"
-    [open]="view.isOpen('navigation')"
-    (toggle)="view.toggle('navigation', $event)"
-  >
-    <summary>
-      {{ 'admin.dossier.publicationCleanup.navigationTitle' | translate }}
-    </summary>
-    <nav
-      class="publication-chain"
-      data-og7="publication-chain"
-      [attr.aria-label]="
-        'admin.dossier.publicationBridge.schedule.chain.title' | translate
-      "
-    >
-      <p id="publication-chain-help">
-        {{ 'admin.dossier.publicationBridge.schedule.chain.help' | translate }}
-      </p>
-      <p class="schedule-help" data-og7="publication-slot-help">
-        {{ 'admin.dossier.publicationBridge.schedule.help' | translate }}
-      </p>
-      @let selected = journeyTarget();
-      <label class="journey-selector" for="publication-journey-target">
-        <span>{{
-          'admin.dossier.publicationBridge.schedule.chain.select' | translate
-        }}</span>
-        <select
-          id="publication-journey-target"
-          data-og7="publication-journey-target"
-          [ngModel]="selected?.key ?? ''"
-          [ngModelOptions]="{ standalone: true }"
-          [disabled]="
-            scheduling.loading() ||
-            scheduling.busy() ||
-            !journeyTargets().length
-          "
-          aria-describedby="publication-journey-help"
-          (ngModelChange)="selectJourney($event)"
+  @if (busy()) {
+    <p class="loading-notice" role="status">{{ t('loading') }}</p>
+  }
+
+  @if (!accessDenied()) {
+    <div class="monitor-layout">
+      <div class="monitor-main">
+        <section
+          class="current-state"
+          data-og7="publication-monitor-summary"
+          [attr.data-state]="summaryState()"
+          aria-live="polite"
+          aria-atomic="true"
         >
-          <option value="" [disabled]="journeyTargets().length === 1">
-            {{
-              'admin.dossier.publicationBridge.schedule.chain.choose'
-                | translate
-            }}
-          </option>
-          @for (target of journeyTargets(); track target.key) {
-            <option [value]="target.key">{{ journeyLabel(target) }}</option>
-          }
-        </select>
-      </label>
-      <p
-        id="publication-journey-help"
-        data-og7="publication-journey-help"
-        role="status"
-      >
-        {{
-          'admin.dossier.publicationBridge.schedule.chain.' +
-            (journeySelection().state === 'unavailable'
-              ? 'unavailable'
-              : selected
-                ? 'selectedHelp'
-                : 'chooseHelp') | translate
-        }}
-        @if (selected && !selected.obligationId) {
-          {{
-            'admin.dossier.publicationBridge.schedule.chain.noExactEvidence'
-              | translate
-          }}
-        }
-        @if (selected && !selected.deliveryId) {
-          {{
-            'admin.dossier.publicationBridge.schedule.chain.noDelivery'
-              | translate
-          }}
-        }
-      </p>
-      <ol aria-describedby="publication-chain-help">
-        @for (link of guidanceLinks; track link.id) {
-          <li>
-            @if (link.id === 'offer' || link.id === 'preparation') {
-              <a
-                [routerLink]="link.path"
-                [queryParams]="guidanceParams(link)"
-                [queryParamsHandling]="link.fragment ? 'merge' : ''"
-                [fragment]="link.fragment"
-                data-og7="publication-chain-link"
-                [attr.data-og7-id]="link.id"
-              >
-                <span aria-hidden="true">{{ $index + 1 }}</span>
-                {{
-                  'admin.dossier.publicationBridge.schedule.chain.steps.' +
-                    link.id | translate
-                }}
-              </a>
-            } @else if (link.id === 'evidence' && selected?.obligationId) {
-              <a
-                [routerLink]="link.path"
-                [queryParams]="guidanceParams(link)"
-                data-og7="publication-chain-link"
-                [attr.data-og7-id]="link.id"
-              >
-                <span aria-hidden="true">{{ $index + 1 }}</span>
-                {{
-                  'admin.dossier.publicationBridge.schedule.chain.steps.evidence'
-                    | translate
-                }}
-              </a>
-            } @else if (
-              link.id === 'content' &&
-              selected?.draftId &&
-              !selected?.deliveryId
-            ) {
-              <a
-                routerLink="/admin/fundraiser/publications"
-                [queryParams]="guidanceParams(link)"
-                data-og7="publication-chain-link"
-                [attr.data-og7-id]="link.id"
-              >
-                <span aria-hidden="true">{{ $index + 1 }}</span>
-                {{
-                  'admin.dossier.publicationBridge.schedule.chain.steps.content'
-                    | translate
-                }}
-              </a>
-            } @else {
-              <button
-                type="button"
-                data-og7="publication-chain-link"
-                [attr.data-og7-id]="link.id"
-                [disabled]="
-                  link.id === 'evidence' ||
-                  !selected?.deliveryId ||
-                  scheduling.loading() ||
-                  scheduling.busy()
-                "
-                aria-describedby="publication-journey-help"
-                (click)="openJourney(link.id)"
-              >
-                <span aria-hidden="true">{{ $index + 1 }}</span>
-                {{
-                  'admin.dossier.publicationBridge.schedule.chain.steps.' +
-                    link.id | translate
-                }}
-              </button>
-            }
-          </li>
-        }
-      </ol>
-      @if (journeyNotice()) {
-        <p role="status" data-og7="publication-journey-notice">
-          {{ journeyNotice() | translate }}
-        </p>
-      }
-    </nav>
-  </details>
-  <details
-    class="workshop-details"
-    data-og7="publication-administrative-controls"
-    [open]="view.isOpen('controls')"
-    (toggle)="view.toggle('controls', $event)"
-  >
-    <summary>
-      {{ 'admin.dossier.publicationCleanup.controlsTitle' | translate }}
-    </summary>
-    <openg7-admin-sponsorship-preparation
-      id="dossier-preparation"
-      class="publication-preparation admin-focus-target"
-      role="group"
-      tabindex="-1"
-      [attr.aria-label]="
-        'admin.dossier.publicationBridge.schedule.chain.steps.preparation'
-          | translate
-      "
-      [contributionId]="dossier().contributionId"
-      [refreshKey]="dossier().version"
-    />
-  </details>
-  <details
-    class="workshop-details"
-    data-og7="publication-agreement-details"
-    [open]="view.isOpen('offer')"
-    (toggle)="view.toggle('offer', $event)"
-  >
-    <summary>
-      {{ 'admin.dossier.publicationCleanup.agreementTitle' | translate }}
-    </summary>
-    <section class="benefits" aria-labelledby="publication-benefits">
-      <h3 id="publication-benefits">
-        {{ 'admin.dossier.publicationBridge.benefits' | translate }}
-      </h3>
-      @if (!benefitsKnown()) {
-        <p>
-          {{ 'admin.dossier.publicationBridge.commitmentUnknown' | translate }}
-        </p>
-      }
-      <ul>
-        @for (benefit of benefits(); track benefit) {
-          <li>
-            {{
-              'admin.dossier.publicationBridge.benefit.' + benefit | translate
-            }}
-          </li>
-        }
-      </ul>
-      @if (dossier().commitment; as agreement) {
-        <dl
-          class="agreement-versions"
-          data-og7="publication-agreement-versions"
-        >
+          <span class="state-icon"
+            ><openg7-admin-icon
+              [name]="
+                summaryState() === 'exception' || summaryState() === 'obsolete'
+                  ? 'warning'
+                  : monitor().complete
+                    ? 'check'
+                    : 'assistant'
+              "
+          /></span>
           <div>
-            <dt>
+            <h3>{{ t('state.' + summaryState()) }}</h3>
+            <p>
               {{
-                'admin.dossier.publicationBridge.schedule.chain.agreementVersion'
-                  | translate
+                t('help.' + summaryState(), { count: monitor().proposalCount })
               }}
-            </dt>
-            <dd data-og7="publication-agreement-version">
-              {{ agreement.version }}
-            </dd>
+            </p>
+            @if (tracking.checkedAt(); as checkedAt) {
+              <p class="checked-at">
+                <openg7-admin-icon name="clock" />{{ t('checked') }}
+                <time [attr.datetime]="checkedAt">{{ date(checkedAt) }}</time>
+              </p>
+            }
           </div>
-          @if (agreement.offer; as offer) {
-            <div>
-              <dt>
-                {{
-                  'admin.dossier.publicationBridge.schedule.chain.offerVersion'
-                    | translate
-                }}
-              </dt>
-              <dd data-og7="publication-offer-version">{{ offer.version }}</dd>
+        </section>
+
+        @if (contextBlockers().length) {
+          <ul class="context-blockers" data-og7="publication-monitor-blockers">
+            @for (blocker of contextBlockers(); track blocker) {
+              <li>
+                <openg7-admin-icon name="warning" /><span>{{
+                  warning(blocker)
+                }}</span
+                ><a
+                  [routerLink]="blockerPath(blocker)"
+                  [queryParams]="blockerParams(blocker)"
+                  >{{ t('resolveSource') }}<openg7-admin-icon name="arrow"
+                /></a>
+              </li>
+            }
+          </ul>
+        }
+
+        <section class="services" aria-labelledby="publication-services-title">
+          <h3 id="publication-services-title">
+            {{
+              agreementKnown()
+                ? t('services', { count: monitor().total })
+                : t('servicesUnknown')
+            }}
+          </h3>
+          <div class="service-list">
+            @for (row of monitor().rows; track row.obligation.id) {
+              <article
+                class="service-row"
+                data-og7="publication-service"
+                [attr.data-og7-id]="row.obligation.id"
+                [attr.data-state]="row.status"
+              >
+                <span
+                  class="destination-icon"
+                  [class.social]="row.obligation.channel !== 'website'"
+                >
+                  @if (row.obligation.channel === 'facebook') {
+                    <span class="brand-letter" aria-hidden="true">f</span>
+                  } @else if (row.obligation.channel === 'linkedin') {
+                    <span class="brand-in" aria-hidden="true">in</span>
+                  } @else {
+                    <openg7-admin-icon [name]="icon(row)" />
+                  }
+                </span>
+                <div class="service-copy">
+                  <h4>{{ t('channel.' + row.obligation.channel) }}</h4>
+                  <p class="service-meta">
+                    {{
+                      row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+                    }}
+                    ·
+                    {{
+                      t('passage', {
+                        number: row.obligation.ordinal,
+                        count: row.occurrenceCount
+                      })
+                    }}
+                    @if (row.proposal) {
+                      <span>
+                        ·
+                        {{
+                          t('proposalVersion', {
+                            version: row.proposal.version
+                          })
+                        }}</span
+                      >
+                    }
+                  </p>
+                  <p class="service-summary">
+                    {{ row.summary || t('rowHelp.' + row.status) }}
+                  </p>
+                  @if (differs(row)) {
+                    <p class="row-warning">{{ t('draftDifference') }}</p>
+                  }
+                  @if (row.warnings.length) {
+                    <p class="row-warning">
+                      <openg7-admin-icon name="info" />{{
+                        warning(row.warnings[0])
+                      }}
+                    </p>
+                  }
+                  @if (row.evidence; as evidence) {
+                    <p class="service-date">
+                      {{
+                        t('deliveredAt', { date: date(evidence.deliveredAt) })
+                      }}
+                    </p>
+                  } @else if (
+                    row.delivery?.scheduledAt || row.workflow?.scheduledAt;
+                    as scheduledAt
+                  ) {
+                    <p class="service-date">
+                      {{ t('scheduledAt', { date: date(scheduledAt) }) }}
+                    </p>
+                  }
+                </div>
+                <span class="status-badge" [attr.data-state]="row.status"
+                  ><openg7-admin-icon
+                    [name]="
+                      row.status === 'delivered'
+                        ? 'check'
+                        : ['exception', 'obsolete', 'partial'].includes(
+                              row.status
+                            )
+                          ? 'warning'
+                          : 'clock'
+                    "
+                  />{{
+                    t(
+                      row.status === 'proposal'
+                        ? 'proposalAvailable'
+                        : 'state.' + row.status
+                    )
+                  }}</span
+                >
+                <div class="service-actions">
+                  <button
+                    class="admin-button"
+                    type="button"
+                    data-og7="publication-service-action"
+                    [disabled]="busy()"
+                    (click)="act(row)"
+                  >
+                    {{ actionLabel(row) }}
+                  </button>
+                  @if (row.action !== 'details' && row.action !== 'proof') {
+                    <button
+                      class="details-link"
+                      type="button"
+                      data-og7="publication-service-details"
+                      (click)="details(row)"
+                    >
+                      {{ t('details') }}
+                    </button>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+          @if (!monitor().rows.length) {
+            <div class="empty-state" data-og7="publication-monitor-empty">
+              <openg7-admin-icon name="publications" />
+              <p>{{ t('help.' + monitor().state) }}</p>
+              @if (
+                monitor().agreementState === 'agreement_unknown' ||
+                monitor().agreementState === 'agreement_unconfirmed'
+              ) {
+                <a
+                  class="admin-button"
+                  [routerLink]="sponsorsPath"
+                  [queryParams]="ownerParams('overview')"
+                  fragment="dossier-agreement"
+                  >{{ t('links.agreement') }}</a
+                >
+              }
             </div>
           }
-        </dl>
-      }
-      <p>{{ 'admin.dossier.publicationBridge.website' | translate }}</p>
-    </section>
-  </details>
-  <section
-    class="delivery-board"
-    data-og7="publication-delivery-board"
-    [attr.aria-label]="
-      'admin.dossier.publicationBridge.deliveryTitle' | translate
-    "
-  >
-    @if (scheduling.loading()) {
-      <p role="status" data-og7="publication-schedule-loading">
-        {{ 'admin.dossier.publicationBridge.schedule.loading' | translate }}
-      </p>
-    }
-    @if (scheduling.error()) {
-      <div role="alert" data-og7="publication-schedule-error">
-        <p>{{ scheduling.error() | translate }}</p>
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="publication-schedule-refresh"
-          [disabled]="scheduling.busy() || scheduling.loading()"
-          (click)="scheduling.refresh()"
-        >
-          {{ 'admin.dossier.publicationBridge.schedule.refresh' | translate }}
-        </button>
-      </div>
-    }
-    @if (scheduling.notice()) {
-      <p role="status">{{ scheduling.notice() | translate }}</p>
-    }
-    <details
-      class="obligation-summary"
-      data-og7="publication-obligations"
-      [open]="view.isOpen('obligations')"
-      (toggle)="view.toggle('obligations', $event)"
-      [attr.data-state]="dossier().publicationWorkflow?.state ?? null"
-      [attr.data-responsibility]="
-        dossier().publicationWorkflow?.responsibility ?? null
-      "
-      aria-labelledby="publication-obligations-title"
-    >
-      <summary id="publication-obligations-title">
-        {{
-          'admin.dossier.publicationCleanup.workflowSummaryTitle' | translate
-        }}
-      </summary>
-      @if (dossier().publicationWorkflow; as workflow) {
-        <p>
-          {{
-            'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
-              workflow.responsibility | translate
-          }}
-        </p>
-        <p>
-          {{
-            'admin.dossier.publicationBridge.schedule.workflow.reason.' +
-              workflow.reason | translate
-          }}
-        </p>
-      }
-      <p>
-        {{ 'admin.dossier.publicationCleanup.workflowSummaryHelp' | translate }}
-      </p>
-      <a
-        class="admin-button"
-        data-og7="publication-campaign-benefits"
-        routerLink="/admin/fundraiser/campaigns"
-        [queryParams]="{ sponsorshipId: dossier().contributionId }"
-        >{{ 'admin.dossier.publicationCleanup.openCampaign' | translate }}</a
-      >
-    </details>
-    <div
-      class="channels admin-focus-target"
-      id="dossier-publication-content"
-      tabindex="-1"
-      role="group"
-      [attr.aria-label]="
-        'admin.dossier.publicationBridge.schedule.chain.contentTarget'
-          | translate
-      "
-    >
-      <article
-        class="website-card"
-        data-og7="publication-website"
-        [attr.data-state]="websiteState()"
-      >
-        <header>
-          <div class="channel-heading">
-            <span class="channel-icon"
-              ><openg7-admin-icon name="publications"
-            /></span>
-            <h3>
-              {{ 'admin.dossier.publicationBridge.site.title' | translate }}
-            </h3>
-          </div>
-          <strong class="publication-state">{{
-            'admin.dossier.publicationBridge.site.status.' + websiteState()
-              | translate
-          }}</strong>
-        </header>
-        <p>
-          {{
-            'admin.dossier.publicationBridge.site.help.' + websiteState()
-              | translate
-          }}
-        </p>
-        @if (dossier().website; as site) {
-          <div class="actions website-actions">
-            @if (site.visible) {
+        </section>
+
+        @if (monitor().next; as next) {
+          @if (next.action === 'queue') {
+            <div class="collective-callout">
               <a
-                class="admin-button directory-link"
-                routerLink="/commanditaires"
-                target="_blank"
-                rel="noopener noreferrer"
+                class="admin-button admin-button--primary"
+                [routerLink]="deskPath"
+                [queryParams]="deskParams(next)"
+                ><openg7-admin-icon name="sponsors" />{{ t('action.queue') }}</a
               >
-                {{ 'admin.dossier.publicationBridge.site.view' | translate }}
-                <openg7-admin-icon name="arrow" />
-              </a>
-            }
-            <button
-              type="button"
-              class="admin-button profile-settings"
-              [openg7AutomaticPrepare]="'sponsor.website.edit'"
-              [automaticFor]="dossier().contributionId"
-              (automaticPrepare)="editWebsite.emit()"
-              (click)="editWebsite.emit()"
-            >
-              <openg7-admin-icon name="settings" />
-              {{ 'admin.dossier.publicationBridge.site.edit' | translate }}
-            </button>
-            @if (canManageWebsite()) {
-              <button
-                type="button"
-                class="admin-button website-visibility"
-                [class.admin-button--primary]="!site.visible"
-                [class.hide-profile]="site.visible"
-                data-og7="website-visibility"
-                [disabled]="
-                  websiteDisabled() || (!site.visible && !site.canPublish)
-                "
-                [openg7AutomaticPrepare]="'sponsor.website.visibility'"
-                [automaticFor]="dossier().contributionId"
-                automaticExecutionMode="confirmation_required"
-                (automaticPrepare)="changeWebsiteVisibility.emit(!site.visible)"
-                (click)="changeWebsiteVisibility.emit(!site.visible)"
-              >
-                {{
-                  (site.visible
-                    ? 'admin.dossier.publicationBridge.site.hide'
-                    : 'admin.dossier.publicationBridge.site.publish'
-                  ) | translate
-                }}
-              </button>
-            }
-          </div>
+              <p>{{ t('collectiveHelp') }}</p>
+            </div>
+          }
         }
-        @if (websiteMessage()) {
-          <p class="website-feedback" role="status">{{ websiteMessage() }}</p>
-        }
-      </article>
-      @for (card of cards(); track card.key) {
-        @let source = card.source ?? card.candidate;
-        <article
-          data-og7="publication-channel"
-          [attr.data-og7-id]="card.key"
-          [attr.data-state]="status(card.publication)"
+      </div>
+
+      <aside class="monitor-sidebar">
+        <section
+          class="side-panel delivery-progress"
+          data-og7="publication-delivery-progress"
+          aria-labelledby="publication-progress-title"
         >
-          <header>
-            <h3>
-              {{
-                card.channel === 'facebook'
-                  ? 'Facebook'
-                  : card.channel === 'linkedin'
-                    ? 'LinkedIn'
-                    : card.channel
-              }}
-            </h3>
-            <span class="target">{{
-              card.target === 'openg20' ? 'OpenG20' : 'OpenG7'
-            }}</span>
-          </header>
-          <strong class="publication-state social-state">{{
-            'admin.dossier.publicationBridge.status.' + status(card.publication)
-              | translate
-          }}</strong>
-          @if (card.publication; as p) {
-            @if (p.deliveryMode === 'mock') {
-              <p class="simulation">
-                {{ 'admin.dossier.publicationBridge.simulation' | translate }}
-              </p>
-            }
-            @if (p.feedPaused && status(p) !== 'published') {
-              <p>{{ 'admin.dossier.publicationBridge.paused' | translate }}</p>
-            }
-            @if (p.publishedAt && status(p) === 'published') {
-              <p>
-                {{ 'admin.dossier.publicationBridge.publishedAt' | translate }}
-                {{ date(p.publishedAt) }}
-              </p>
-            } @else if (p.scheduledAt) {
-              <p data-og7="publication-next-slot">
-                {{ publicationDateLabel(p.deliveryStatus ?? '') | translate }}
-                <time [attr.datetime]="p.scheduledAt">{{
-                  date(p.scheduledAt)
-                }}</time>
-                <span>{{
-                  'admin.dossier.publicationBridge.schedule.timezone'
-                    | translate
-                }}</span>
-              </p>
-            }
-            @if (status(p) === 'scheduled') {
-              <p>
-                {{
-                  'admin.dossier.publicationBridge.scheduledHelp' | translate
-                }}
-              </p>
-            }
-            @if (p.deliveryError) {
-              <p>{{ errorMessage(p.deliveryError) }}</p>
-            }
+          <div class="panel-heading">
+            <openg7-admin-icon name="check" />
+            <h3 id="publication-progress-title">{{ t('deliveries') }}</h3>
+            <strong>{{
+              agreementKnown()
+                ? monitor().delivered + ' / ' + monitor().total
+                : '—'
+            }}</strong>
+          </div>
+          @if (monitor().total > 0) {
+            <progress
+              [value]="monitor().delivered"
+              [max]="monitor().total"
+              [attr.aria-label]="
+                t('progressLabel', {
+                  done: monitor().delivered,
+                  total: monitor().total
+                })
+              "
+            ></progress>
           }
-          @if (
-            !card.publication?.scheduledAt && source?.nextOpportunity;
-            as opportunity
-          ) {
-            @if (opportunity.proposedAt; as proposedAt) {
-              <p data-og7="publication-next-slot">
-                {{ 'admin.dossier.publicationBridge.proposedDate' | translate }}
-                <time [attr.datetime]="proposedAt">{{ date(proposedAt) }}</time>
-                <span>{{
-                  'admin.dossier.publicationBridge.schedule.timezone'
-                    | translate
-                }}</span>
-              </p>
-            }
-          }
-          @if (source?.nextOpportunity; as opportunity) {
-            @if (!deliveryId(card.publication, card.source)) {
-              <p>
-                {{
-                  'admin.publicationAutomation.sourceQueue.opportunity.reasons.' +
-                    opportunity.reason | translate
-                }}
-              </p>
-              <p class="schedule-help">
-                {{
-                  'admin.dossier.publicationBridge.schedule.forecast'
-                    | translate
-                }}
-              </p>
-            }
-          }
-          @if (status(card.publication) === 'waiting') {
-            <p>
-              {{ 'admin.dossier.publicationBridge.waitingHelp' | translate }}
+          <dl>
+            <div>
+              <dt><openg7-admin-icon name="check" />{{ t('delivered') }}</dt>
+              <dd>{{ agreementKnown() ? monitor().delivered : '—' }}</dd>
+            </div>
+            <div>
+              <dt><openg7-admin-icon name="clock" />{{ t('remaining') }}</dt>
+              <dd>{{ agreementKnown() ? monitor().remaining : '—' }}</dd>
+            </div>
+          </dl>
+          <p class="unit-label">{{ t('counterUnit') }}</p>
+          @if (monitor().adjusted) {
+            <p class="unit-label">
+              {{ t('adjusted', { count: monitor().adjusted }) }}
             </p>
           }
-          <div class="actions">
-            @if (card.publication && !card.publication.deliveryId) {
-              <a
-                class="admin-button"
-                routerLink="/admin/fundraiser/publications"
-                [queryParams]="params(card.publication)"
-                >{{ 'admin.dossier.openPublication' | translate }}</a
-              >
-            }
-            @if (publicUrl(card.publication); as url) {
-              <a
-                class="admin-button admin-button--primary"
-                [href]="url"
-                target="_blank"
-                rel="noopener noreferrer"
-                >{{ 'admin.dossier.publicationBridge.viewPost' | translate }}</a
-              >
-            }
-            @if (deliveryId(card.publication, card.source); as id) {
-              <button
-                type="button"
-                class="admin-button"
-                [class.admin-button--primary]="
-                  status(card.publication) === 'review'
-                "
-                data-og7="publication-review"
-                [disabled]="scheduling.busy() || scheduling.loading()"
-                [openg7AutomaticPrepare]="'publication.delivery.open:' + id"
-                [automaticFor]="dossier().contributionId"
-                (automaticPrepare)="scheduling.open(id)"
-                (click)="scheduling.open(id)"
-              >
-                {{
-                  'admin.dossier.publicationBridge.action.' +
-                    action(card.publication) | translate
-                }}
-              </button>
-              @if (canEdit(id)) {
-                <button
-                  type="button"
-                  class="admin-button"
-                  data-og7="publication-slot-edit"
-                  [disabled]="scheduling.busy() || scheduling.loading()"
-                  [openg7AutomaticPrepare]="'publication.delivery.edit:' + id"
-                  [automaticFor]="dossier().contributionId"
-                  (automaticPrepare)="scheduling.open(id, true)"
-                  (click)="scheduling.open(id, true)"
-                >
-                  {{
-                    'admin.dossier.publicationBridge.schedule.edit' | translate
-                  }}
-                </button>
-              }
-            } @else if (source && canPrepare(source)) {
-              <button
-                type="button"
-                class="admin-button admin-button--primary"
-                data-og7="publication-prepare"
-                [disabled]="scheduling.busy() || scheduling.loading()"
-                (click)="scheduling.prepare(source.feedId)"
-              >
-                {{
-                  'admin.dossier.publicationBridge.schedule.prepare' | translate
-                }}
-              </button>
-            } @else {
-              <a
-                class="admin-button"
-                [routerLink]="automationPath"
-                [queryParams]="params(card.publication)"
-              >
-                {{
-                  'admin.dossier.publicationBridge.schedule.details' | translate
-                }}
-              </a>
-            }
+        </section>
+
+        <section
+          class="side-panel next-action"
+          data-og7="publication-monitor-next"
+          aria-labelledby="publication-next-title"
+        >
+          <div class="panel-heading">
+            <openg7-admin-icon name="arrow" />
+            <h3 id="publication-next-title">{{ t('next') }}</h3>
           </div>
-        </article>
-      }
+          @if (tracking.error() || scheduling.error()) {
+            <button
+              class="next-button"
+              type="button"
+              [disabled]="busy()"
+              (click)="refresh()"
+            >
+              <openg7-admin-icon name="refresh" /><span
+                ><strong>{{ t('refresh') }}</strong
+                ><small>{{ t('error.unavailable') }}</small></span
+              ><openg7-admin-icon name="arrow" />
+            </button>
+          } @else if (monitor().next; as next) {
+            <button
+              class="next-button"
+              type="button"
+              [disabled]="busy()"
+              (click)="act(next)"
+            >
+              <openg7-admin-icon
+                [name]="
+                  next.action === 'queue'
+                    ? 'sponsors'
+                    : next.action === 'resolve'
+                      ? 'warning'
+                      : 'search'
+                "
+              /><span
+                ><strong>{{ actionLabel(next) }}</strong
+                ><small
+                  >{{ t('channel.' + next.obligation.channel) }} ·
+                  {{
+                    t('passage', {
+                      number: next.obligation.ordinal,
+                      count: next.occurrenceCount
+                    })
+                  }}</small
+                ></span
+              ><openg7-admin-icon name="arrow" />
+            </button>
+          } @else {
+            <p class="completed-notice">
+              <openg7-admin-icon name="check" />{{
+                t(monitor().complete ? 'complete' : 'noAction')
+              }}
+            </p>
+          }
+        </section>
+
+        <nav
+          class="side-panel useful-links"
+          [attr.aria-label]="t('links.title')"
+        >
+          <div class="panel-heading">
+            <openg7-admin-icon name="publications" />
+            <h3>{{ t('links.title') }}</h3>
+          </div>
+          <a [routerLink]="deskPath" [queryParams]="deskParams()"
+            ><openg7-admin-icon name="external" />{{ t('links.desk')
+            }}<openg7-admin-icon name="arrow"
+          /></a>
+          <a [routerLink]="deskPath" [queryParams]="workshopParams()"
+            ><openg7-admin-icon name="search" />{{ t('links.proposals')
+            }}<openg7-admin-icon name="arrow"
+          /></a>
+          <a [routerLink]="sponsorsPath" [queryParams]="ownerParams('audit')"
+            ><openg7-admin-icon name="clock" />{{ t('links.history')
+            }}<openg7-admin-icon name="arrow"
+          /></a>
+          <a
+            [routerLink]="sponsorsPath"
+            [queryParams]="ownerParams('media')"
+            fragment="dossier-website-settings"
+            ><openg7-admin-icon name="settings" />{{ t('links.profile')
+            }}<openg7-admin-icon name="arrow"
+          /></a>
+        </nav>
+        @if (tracking.queueError()) {
+          <p class="secondary-notice">{{ t('queueUnavailable') }}</p>
+        }
+      </aside>
     </div>
-    @if (!cards().length) {
-      <div class="social-notice" data-og7="publication-social-notice">
-        <span class="social-notice-icon"
-          ><openg7-admin-icon name="sponsors"
-        /></span>
-        <div>
-          <h3>
-            {{ 'admin.dossier.publicationBridge.socialTitle' | translate }}
-          </h3>
-          <p>
-            {{
-              (benefitsKnown()
-                ? 'admin.dossier.publicationBridge.noSocial'
-                : 'admin.dossier.publicationBridge.currencyUnknown'
-              ) | translate
-            }}
-          </p>
-        </div>
-      </div>
-    }
-  </section>
-  <details
-    class="workshop-details"
-    data-og7="publication-contract-history"
-    [open]="view.isOpen('contract')"
-    (toggle)="view.toggle('contract', $event)"
-  >
-    <summary>
-      {{ 'admin.dossier.publicationCleanup.contractHistoryTitle' | translate }}
-    </summary>
-    <openg7-admin-sponsorship-commitments
-      [dossier]="dossier()"
-      (changed)="commitmentChanged.emit()"
-    />
-  </details>
-  <footer>
-    <a
-      class="admin-button"
-      [routerLink]="automationPath"
-      [queryParams]="params()"
-      >{{ 'admin.dossier.publicationBridge.engine' | translate }}</a
-    >
-    <p>{{ 'admin.dossier.publicationBridge.authorization' | translate }}</p>
-  </footer>
-</div>
-<openg7-publication-delivery-drawer
-  [controller]="scheduling.delivery"
-  [automaticFor]="dossier().contributionId"
-  [navigationNotice]="journeyNotice()"
-/>
+  }
+</section>
+
+<openg7-admin-drawer
+  [opened]="!!selected()"
+  [title]="t('detailTitle')"
+  [closeLabel]="t('close')"
+  (closed)="selectedId.set(null)"
+>
+  @if (selected(); as row) {
+    <section class="service-details" data-og7="publication-monitor-details">
+      <h3>
+        {{ t('channel.' + row.obligation.channel) }} ·
+        {{ row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+      </h3>
+      <p>
+        {{
+          t('passage', {
+            number: row.obligation.ordinal,
+            count: row.occurrenceCount
+          })
+        }}
+        · {{ t('state.' + row.status) }}
+      </p>
+      @for (code of row.warnings; track code) {
+        <p class="detail-warning">{{ warning(code) }}</p>
+      }
+      @if (row.proposal; as proposal) {
+        <dl>
+          <div>
+            <dt>{{ t('proposalVersion', { version: proposal.version }) }}</dt>
+            <dd>{{ date(proposal.createdAt) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('sourceVersion') }}</dt>
+            <dd>{{ proposal.sourceVersion }}</dd>
+          </div>
+        </dl>
+        <p>{{ row.summary }}</p>
+        @if (proposal.adoptedAt) {
+          <p>{{ t('adoptedAt', { date: date(proposal.adoptedAt) }) }}</p>
+        }
+        <a
+          class="admin-button"
+          [routerLink]="deskPath"
+          [queryParams]="workshopParams()"
+          >{{ t('links.proposals') }}</a
+        >
+      }
+      @if (row.evidence; as evidence) {
+        <section class="evidence" data-og7="publication-monitor-proof">
+          <h4>{{ t('proof') }}</h4>
+          <dl>
+            <div>
+              <dt>{{ t('deliveryDate') }}</dt>
+              <dd>{{ date(evidence.deliveredAt) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('proofReference') }}</dt>
+              <dd>{{ evidence.id }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('proofSource') }}</dt>
+              <dd>{{ t('provenance.' + evidence.provenance) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('visibility') }}</dt>
+              <dd>{{ t('visibilityState.' + evidence.visibility) }}</dd>
+            </div>
+          </dl>
+          @if (safeUrl(evidence.externalPostUrl); as url) {
+            <a
+              class="admin-button"
+              [href]="url"
+              target="_blank"
+              rel="noopener noreferrer"
+              >{{ t('publicLink') }}<openg7-admin-icon name="external"
+            /></a>
+          }
+        </section>
+      }
+      @if (row.queueService?.preparation?.serviceDecision; as decision) {
+        <dl class="review-audit" data-og7="publication-review-audit">
+          <div>
+            <dt>{{ t('reviewDecision') }}</dt>
+            <dd>{{ t('decision.' + decision.decision) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('reviewedAt') }}</dt>
+            <dd>{{ date(decision.createdAt) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('reviewVersion') }}</dt>
+            <dd>{{ decision.contentVersion }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('reviewReference') }}</dt>
+            <dd>{{ decision.id }}</dd>
+          </div>
+        </dl>
+      }
+      @if (differs(row)) {
+        <p class="detail-warning">{{ t('draftDifference') }}</p>
+      }
+      @if (row.delivery; as delivery) {
+        <p>{{ t('deliveryVersion', { version: delivery.version }) }}</p>
+        @if (delivery.approvedAt) {
+          <p>{{ t('authorizedAt', { date: date(delivery.approvedAt) }) }}</p>
+        }
+        @if (delivery.scheduledAt) {
+          <p>{{ t('scheduledAt', { date: date(delivery.scheduledAt) }) }}</p>
+        }
+      }
+      @if (deliveryId(row); as id) {
+        <button
+          class="admin-button"
+          type="button"
+          [disabled]="busy()"
+          (click)="selectedId.set(null); scheduling.open(id)"
+        >
+          {{ t('openDelivery') }}
+        </button>
+      }
+      <a
+        class="admin-button"
+        routerLink="/admin/fundraiser/campaigns"
+        [queryParams]="{
+          sponsorshipId: dossier().contributionId,
+          obligationId: row.obligation.id
+        }"
+        >{{ t('links.evidence') }}</a
+      >
+      @if (row.obligation.channel === 'website') {
+        <a
+          class="admin-button"
+          [routerLink]="sponsorsPath"
+          [queryParams]="ownerParams('media')"
+          fragment="dossier-website-settings"
+          >{{ t('links.profile') }}</a
+        >
+      }
+      @if (row.obligation.channel !== 'website') {
+        <a
+          class="admin-button"
+          [routerLink]="automationPath"
+          [queryParams]="automationParams(row)"
+          >{{ t('links.engine') }}</a
+        >
+      }
+      <p class="authority-note">{{ t('authority') }}</p>
+    </section>
+  }
+</openg7-admin-drawer>
+@if (!accessDenied()) {
+  <openg7-publication-delivery-drawer
+    [controller]="scheduling.delivery"
+    [automaticFor]="dossier().contributionId"
+  />
+}

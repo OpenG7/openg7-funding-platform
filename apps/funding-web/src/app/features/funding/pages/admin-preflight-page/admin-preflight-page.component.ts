@@ -17,11 +17,12 @@ import {
   viewChildren
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   PreflightInboxProposal,
-  PreflightInboxResponse
+  PreflightInboxResponse,
+  AdminSponsorshipProgress
 } from '@openg7/funding-core';
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
@@ -37,6 +38,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { PreflightInboxRequestError } from '../../services/funding-admin-preflight-inbox.client.js';
 import { AdminPreflightWorkSessionCoordinator } from '../../services/admin-preflight-work-session-coordinator.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import { AdminPublicationWorkshopComponent } from '../../components/admin-sponsors/admin-publication-workshop.component.js';
+import { AdminSponsorshipPreparationComponent } from '../../components/admin-sponsors/admin-sponsorship-preparation.component.js';
+import { publicationReturnId } from '../../components/admin-sponsors/publication-monitor-navigation.js';
 
 @Component({
   selector: 'openg7-admin-preflight-page',
@@ -44,11 +49,14 @@ import { AdminPreflightWorkSessionCoordinator } from '../../services/admin-prefl
   providers: [AdminPreflightWorkSessionCoordinator],
   imports: [
     TranslatePipe,
+    RouterLink,
     AdminLayoutComponent,
     AdminPreflightRehearsalComponent,
     AdminPreflightDeskComponent,
     AdminPreflightExaminationComponent,
-    AdminIconComponent
+    AdminIconComponent,
+    AdminPublicationWorkshopComponent,
+    AdminSponsorshipPreparationComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-preflight-page.component.html',
@@ -66,6 +74,17 @@ export class AdminPreflightPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly routeParams = toSignal(this.route.queryParamMap);
+  readonly workshopSelection = computed(() =>
+    this.routeParams()?.get('view') === 'publication'
+      ? publicationReturnId(this.routeParams()?.get('workshopSponsorshipId'))
+      : null
+  );
+  readonly workshopDossier = signal<AdminSponsorshipProgress | null>(null);
+  readonly workshopState = signal<
+    'loading' | 'ready' | 'unavailable' | 'forbidden' | 'not_found'
+  >('loading');
+  private workshopSerial = 0;
+  private workshopContext = '';
   readonly examinationSelection = computed(() => {
     const params = this.routeParams();
     return params?.has('sponsorshipId') || params?.has('obligationId')
@@ -116,6 +135,24 @@ export class AdminPreflightPageComponent implements OnInit {
   constructor() {
     registerAdminPreflightTranslations();
     effect(() => {
+      const id = this.workshopSelection();
+      const context = this.publicationOwnerContext();
+      const revision = this.admin.dataRevision();
+      untracked(() => {
+        void revision;
+        const changed = context !== this.workshopContext;
+        if (changed) {
+          this.workshopContext = context;
+          ++this.workshopSerial;
+          this.workshopDossier.set(null);
+        }
+        // Keep the native receipt mounted during its own versioned refresh so
+        // its approval focus restoration and pending-operation guards survive.
+        if (id && this.browser && this.admin.hasValidAdminSession())
+          void this.loadPublicationOwner(!changed);
+      });
+    });
+    effect(() => {
       const id = this.routeParams()?.get('workSession') ?? '';
       const identity = this.work.identityKey();
       const key = `${identity}:${id}`;
@@ -143,12 +180,78 @@ export class AdminPreflightPageComponent implements OnInit {
     });
     this.destroyRef.onDestroy(() => {
       this.disposed = true;
+      ++this.workshopSerial;
       this.cancelRequest();
     });
   }
 
   ngOnInit(): void {
     if (this.browser) void this.load(1);
+  }
+  async loadPublicationOwner(preserve = false): Promise<void> {
+    const contributionId = this.workshopSelection();
+    if (!this.browser || !contributionId || !this.admin.hasValidAdminSession())
+      return;
+    const serial = ++this.workshopSerial;
+    const generation = this.admin.sessionGeneration();
+    const context = this.publicationOwnerContext();
+    if (!preserve) this.workshopDossier.set(null);
+    this.workshopState.set('loading');
+    try {
+      const result = await this.admin.getSponsorshipProgress(
+        this.admin.getSavedAdminToken(),
+        contributionId
+      );
+      if (
+        this.disposed ||
+        serial !== this.workshopSerial ||
+        generation !== this.admin.sessionGeneration() ||
+        context !== this.publicationOwnerContext() ||
+        contributionId !== this.workshopSelection()
+      )
+        return;
+      if (
+        result.status !== 'ok' ||
+        result.dossier?.contributionId !== contributionId
+      ) {
+        this.workshopDossier.set(null);
+        this.workshopState.set(
+          result.status === 'not_found' || result.status === 'empty'
+            ? 'not_found'
+            : 'unavailable'
+        );
+        return;
+      }
+      this.workshopDossier.set(result.dossier);
+      this.workshopState.set('ready');
+    } catch (error) {
+      if (
+        this.disposed ||
+        serial !== this.workshopSerial ||
+        generation !== this.admin.sessionGeneration() ||
+        context !== this.publicationOwnerContext()
+      )
+        return;
+      const status =
+        error instanceof AdminDashboardRequestError ? error.status : 0;
+      if (status === 401) {
+        this.workshopDossier.set(null);
+        this.signIn();
+        return;
+      }
+      if (status === 403 || status === 404) this.workshopDossier.set(null);
+      this.workshopState.set(
+        status === 403
+          ? 'forbidden'
+          : status === 404
+            ? 'not_found'
+            : 'unavailable'
+      );
+    }
+  }
+  private publicationOwnerContext(): string {
+    const identity = this.admin.identity();
+    return `${this.workshopSelection() ?? ''}:${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'token'}`;
   }
   canLeave(): boolean | Promise<boolean> {
     return this.examination()?.canLeave() ?? true;

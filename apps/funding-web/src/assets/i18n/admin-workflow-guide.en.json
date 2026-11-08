@@ -23,12 +23,12 @@
     "agreement": {
       "title": "Document the agreed benefits",
       "goal": "Document benefits from the original agreement, then have the owner confirm them.",
-      "location": "Dossier Publication tab: Preparation controls, then Recorded commitments.",
+      "location": "Dossier Overview: recorded commitments, original agreement and qualification.",
       "proposed": "Bring the source, local proposal, benefits and confirmation into one continuous journey.",
       "steps": {
         "pilot": {
           "title": "Examine promised publications",
-          "action": "Select Promised publications in the Preparation controls and read the item requiring attention.",
+          "action": "Read the recorded agreement and its promised services in Overview, then identify any qualification still required.",
           "outcome": "The missing check and available actions are identified without validating the agreement."
         },
         "source": {
@@ -56,17 +56,17 @@
     "preparation": {
       "title": "Prepare publications",
       "goal": "Turn recorded obligations into drafts ready for human review.",
-      "location": "Dossier Publication tab: obligations, channel cards and preparation commands.",
+      "location": "Publication monitor: recorded passages and next action; full proposals and preparation controls are in the work desk.",
       "proposed": "Group obligations with their drafts and show the next action for each channel.",
       "steps": {
         "obligations": {
           "title": "Read the obligations",
-          "action": "Read the summary, then follow its Service fulfilment link to compare detailed services with the recorded sponsorship agreement.",
+          "action": "Read each promised passage in the Publication monitor and compare it with the recorded agreement in Overview.",
           "outcome": "The scope of preparation is established from the documented benefits."
         },
         "prepare": {
           "title": "Find the preparation command",
-          "action": "Examine the Prepare command on the channel card and check its destination.",
+          "action": "Read the next action and open the proposals workspace from Useful links when preparation is needed. Check the destination before any explicit preparation command.",
           "outcome": "After explicit execution of the available command, the platform prepares a draft for review."
         },
         "draft": {
@@ -79,12 +79,12 @@
     "authorization": {
       "title": "Review and authorize delivery",
       "goal": "Examine the final content, destination and date before explicit administrative authorization.",
-      "location": "Dossier Publication tab: channel card, then the review drawer opened voluntarily for content, date and authorization.",
+      "location": "Publication monitor: service and next action; Examiner and the native delivery workspace own the detailed decisions.",
       "proposed": "Clarify the transition from review to authorization, with prerequisites beside the confirmation.",
       "steps": {
         "review": {
           "title": "Find the available review",
-          "action": "Read the channel card’s status and identify its review command.",
+          "action": "Read the service’s status and identify the contextual action leading to Examiner or the exact delivery.",
           "outcome": "The entry point for review is identified. The guide leaves the drawer closed; opening it remains voluntary."
         },
         "content": {
@@ -107,7 +107,7 @@
     "delivery": {
       "title": "Track delivery and its evidence",
       "goal": "Understand each obligation’s status and consult the available fulfilment evidence.",
-      "location": "Dossier Publication tab: summary and channel cards; Service fulfilment for service details and evidence.",
+      "location": "Publication monitor: exact passages, next action and confirmed delivery progress; service details contain qualified evidence.",
       "proposed": "Show each obligation’s status, next responsibility and qualified evidence together.",
       "steps": {
         "status": {
@@ -122,7 +122,7 @@
         },
         "evidence": {
           "title": "Consult qualified evidence",
-          "action": "Open Service fulfilment voluntarily from this sponsorship’s services link to consult available qualified evidence and publication links.",
+          "action": "Read confirmed delivery progress, then open the corresponding service’s evidence. Its details link to the exact obligation in Service fulfilment.",
           "outcome": "Fulfilment can be checked against recorded evidence. This guide performs no manual evidence linking."
         }
       }
@@ -130,7 +130,7 @@
     "website": {
       "title": "Prepare the website profile",
       "goal": "Check the public presentation, then examine its visibility independently of social deliveries.",
-      "location": "Dossier Publication tab: Website card; presentation and preview in Advanced settings · visibility and manual tracking.",
+      "location": "Dossier Profile and media: website visibility, profile settings and private preview.",
       "proposed": "Create a Website profile area combining presentation, preview and visibility, separate from historical tracking.",
       "steps": {
         "presentation": {
@@ -153,7 +153,7 @@
     "history": {
       "title": "Keep a historical declaration",
       "goal": "Document a declared status and historical link without treating them as proven delivery.",
-      "location": "Dossier Publication tab → Advanced settings · visibility and manual tracking: declared status, link, notes and save command.",
+      "location": "Dossier Profile and media → profile settings and declared social tracking: status, link, notes and save command.",
       "proposed": "Separate historical tracking from the website profile and clearly explain the scope of manual declarations.",
       "steps": {
         "tracking": {

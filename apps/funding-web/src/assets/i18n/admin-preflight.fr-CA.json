@@ -1,4 +1,15 @@
 {
+  "publicationOwner": {
+    "proposals": "Propositions éditoriales",
+    "controls": "Préparation administrative",
+    "title": "Propositions et préparation de publication",
+    "intro": "Examiner les propositions privées et les adopter dans les brouillons Funding avant la revue de chaque prestation. Une préparation n’autorise jamais la livraison.",
+    "return": "Retour au suivi Publication du dossier",
+    "loading": "Chargement du dossier…",
+    "unavailable": "Le dossier est temporairement indisponible.",
+    "forbidden": "Votre compte ne peut pas accéder à ce dossier.",
+    "not_found": "Ce dossier est introuvable."
+  },
   "title": "Preflight",
   "intro": "Consultez les propositions préparées pour Funding par Preflight.",
   "openConsole": "Ouvrir la console Preflight",

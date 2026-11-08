@@ -26,6 +26,7 @@ import {
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
 import {
+  openSponsorshipWebsiteSettings,
   openDeclaredSponsorshipTracking,
   openSponsorshipModeration
 } from './support/sponsorship-dossier.js';
@@ -585,9 +586,7 @@ for (const amount of [100, 250]) {
                   .locator('[data-og7="dossier-tabs"]')
                   .getByRole('button', { name: 'Publication', exact: true })
               );
-              await xbox.activate(
-                admin.locator('[data-og7="publication-advanced"] > summary')
-              );
+              await openSponsorshipWebsiteSettings(admin, xbox);
               await xbox.text(admin.getByLabel(/Slug public/i), publicSlug);
               await openDeclaredSponsorshipTracking(admin, xbox);
               await xbox.select(
@@ -614,9 +613,7 @@ for (const amount of [100, 250]) {
                   contributionId +
                   '&tab=publication'
               );
-              await admin
-                .locator('[data-og7="publication-advanced"] > summary')
-                .click();
+              await openSponsorshipWebsiteSettings(admin);
               await admin.getByLabel(/Slug public/i).fill(publicSlug);
               await openDeclaredSponsorshipTracking(admin);
               await admin

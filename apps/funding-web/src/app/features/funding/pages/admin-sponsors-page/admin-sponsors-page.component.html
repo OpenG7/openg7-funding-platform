@@ -330,7 +330,11 @@
           <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
               <h2
-                *ngIf="activeTab() !== 'media' && activeTab() !== 'identity'"
+                *ngIf="
+                  activeTab() !== 'media' &&
+                  activeTab() !== 'identity' &&
+                  activeTab() !== 'publication'
+                "
                 id="dossier-section-title"
                 class="dossier-section-title"
               >
@@ -345,7 +349,12 @@
                           : activeTab()) | translate
                 }}
               </h2>
-              @if (activeTab() !== 'media' && progress(); as dossier) {
+              @if (
+                activeTab() !== 'media' &&
+                  activeTab() !== 'publication' &&
+                  progress();
+                as dossier
+              ) {
                 @if (
                   dossier.contributionId === selected.id &&
                   (activeTab() !== 'identity' ||
@@ -395,6 +404,14 @@
                   "
                   (saveReviewNote)="reviewWorkflow.saveReviewNote(selected)"
                 />
+                @if (progress(); as dossier) {
+                  <section class="detail-body">
+                    <openg7-admin-sponsorship-commitments
+                      [dossier]="dossier"
+                      (changed)="loadSponsorships(true)"
+                    />
+                  </section>
+                }
               </ng-container>
 
               <ng-container *ngIf="activeTab() === 'identity'">
@@ -436,33 +453,97 @@
                   *ngIf="progress()"
                   view="publication"
                   [dossier]="progress()"
-                  [canManageWebsite]="canManage()"
-                  [websiteDisabled]="actionsDisabled()"
-                  [websiteMessage]="
-                    publicationWorkflow.websiteMessages()[selected.id] || ''
-                  "
-                  (changeWebsiteVisibility)="
-                    publicationWorkflow.changeWebsiteVisibility(
-                      selected,
-                      $event
-                    )
-                  "
-                  (editWebsite)="openWebsiteSettings()"
                   (commitmentChanged)="loadSponsorships(true)"
                 />
               }
 
               <section
-                class="detail-body"
-                *ngIf="activeTab() === 'publication'"
+                id="dossier-website-settings"
+                class="detail-body admin-focus-target"
+                tabindex="-1"
+                *ngIf="activeTab() === 'media'"
                 [attr.aria-label]="
                   'admin.dossier.publicationBridge.advanced' | translate
                 "
               >
+                @if (progress()?.website; as site) {
+                  <section class="detail-card" data-og7="publication-website">
+                    <h3>
+                      {{
+                        'admin.dossier.publicationBridge.site.title' | translate
+                      }}
+                    </h3>
+                    <p>
+                      {{
+                        'admin.dossier.publicationBridge.site.status.' +
+                          (site.visible
+                            ? 'visible'
+                            : site.canPublish
+                              ? 'hidden'
+                              : 'blocked') | translate
+                      }}
+                    </p>
+                    @if (site.visible) {
+                      <a
+                        class="admin-button"
+                        routerLink="/commanditaires"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {{
+                          'admin.dossier.publicationBridge.site.view'
+                            | translate
+                        }}
+                      </a>
+                    }
+                    @if (canManage()) {
+                      <button
+                        class="admin-button"
+                        type="button"
+                        data-og7="website-visibility"
+                        [disabled]="
+                          actionsDisabled() ||
+                          (!site.visible && !site.canPublish)
+                        "
+                        [openg7AutomaticPrepare]="'sponsor.website.visibility'"
+                        [automaticFor]="selected.id"
+                        automaticExecutionMode="confirmation_required"
+                        (automaticPrepare)="
+                          publicationWorkflow.changeWebsiteVisibility(
+                            selected,
+                            !site.visible
+                          )
+                        "
+                        (click)="
+                          publicationWorkflow.changeWebsiteVisibility(
+                            selected,
+                            !site.visible
+                          )
+                        "
+                      >
+                        {{
+                          (site.visible
+                            ? 'admin.dossier.publicationBridge.site.hide'
+                            : 'admin.dossier.publicationBridge.site.publish'
+                          ) | translate
+                        }}
+                      </button>
+                    }
+                    @if (
+                      publicationWorkflow.websiteMessages()[selected.id];
+                      as message
+                    ) {
+                      <p role="status">{{ message }}</p>
+                    }
+                  </section>
+                }
                 <openg7-admin-sponsor-publication-panel
                   [sponsorship]="selected"
                   [draft]="publicationWorkflow.publicationDraftFor(selected.id)"
-                  [expanded]="websiteSettingsOpen()"
+                  [expanded]="
+                    websiteSettingsOpen() ||
+                    websiteSettingsFragment() === 'dossier-website-settings'
+                  "
                   [actionsDisabled]="actionsDisabled()"
                   [dirty]="publicationWorkflow.publicationDirtyFor(selected)"
                   [canSave]="publicationWorkflow.canSavePublication(selected)"

@@ -16,6 +16,18 @@ import { loadResponsibilityBalanceOnClient } from './admin-responsibility-balanc
 export const preparationDigest = (value: unknown): string =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
+/** Older approvals included the owner URL; navigation alone must not revoke them. */
+export function preparationVersionDraft(
+  draft: AdminPreparationDraft,
+  contributionId: string
+): AdminPreparationDraft {
+  const base = `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}`;
+  return draft.kind === 'website' &&
+    draft.adminUrl === base + '&tab=media#dossier-website-settings'
+    ? { ...draft, adminUrl: base + '&tab=publication' }
+    : draft;
+}
+
 /** Preserve integrity gates without describing every historical delivery issue as an unknown offer. */
 export function preparationBalanceBlockers(
   balance: Pick<ResponsibilityBalance, 'unknown' | 'reasons'>
@@ -270,7 +282,7 @@ export async function projectPreparation(
               channel: 'website',
               target: obligation.target,
               status: 'private',
-              adminUrl: adminUrl + '&tab=publication'
+              adminUrl: adminUrl + '&tab=media#dossier-website-settings'
             });
           }
         } else {
@@ -363,7 +375,7 @@ export async function projectPreparation(
       ...checks.filter((check) => check.code !== 'dossier_examined')
     ],
     authorizations,
-    drafts,
+    drafts: drafts.map((draft) => preparationVersionDraft(draft, id)),
     blockers: contentBlockers,
     media,
     // Two decisions can both grant N0 while representing distinct reviewed

@@ -238,6 +238,20 @@ export class AdminSponsorSchedulingController {
     await this.workflow.run({ action: 'prepare', feedId });
   }
 
+  /** Invalidate in-flight reads when the authenticated dossier context changes. */
+  reset(): void {
+    this.revision++;
+    this.readGeneration++;
+    this.openingGeneration++;
+    this.sponsorshipId.set('');
+    this.state.set(null);
+    this.loading.set(false);
+    this.busy.set(false);
+    this.error.set('');
+    this.notice.set('');
+    this.clearDelivery();
+  }
+
   dispose(): void {
     this.disposed = true;
     this.revision++;

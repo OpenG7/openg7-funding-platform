@@ -51,6 +51,7 @@ import {
   AdminIconComponent,
   type AdminIconName
 } from '../admin-ui/admin-icon.component.js';
+import { publicationReturnId } from '../admin-sponsors/publication-monitor-navigation.js';
 
 import { PreflightServicePreviewComponent } from './preflight-service-preview.component.js';
 import { AdminSponsorshipConsentFormComponent } from './admin-sponsorship-consent-form.component.js';
@@ -103,6 +104,9 @@ export class AdminPreflightExaminationComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly params = toSignal(this.route.queryParamMap);
+  readonly publicationReturn = computed(() =>
+    publicationReturnId(this.params()?.get('publicationReturn'))
+  );
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly injector = inject(Injector);
   private readonly confirmation = inject(AdminConfirmationService);
@@ -757,15 +761,19 @@ export class AdminPreflightExaminationComponent {
   guidedOwnerUrl(code: string): string | null {
     const receipt = this.receipt();
     if (!receipt) return null;
+    if (this.guidedCheckKey(code) === 'draft')
+      return (
+        this.ownerUrl(receipt.links.edit) ??
+        `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${receipt.contributionId}&publicationReturn=${receipt.contributionId}`
+      );
     const targets: Record<string, readonly string[]> = {
       payment: ['billing', 'dossier-billing'],
-      agreement: ['publication', 'dossier-agreement'],
+      agreement: ['overview', 'dossier-agreement'],
       dossierReview: ['overview', 'dossier-review'],
       media: ['media', 'dossier-media-gallery'],
       identity: ['identity', 'dossier-identity'],
-      content: ['publication', 'dossier-publication-content'],
-      draft: ['publication', 'dossier-preparation'],
-      textReview: ['publication', 'dossier-publication-content'],
+      content: ['media', 'dossier-website-settings'],
+      textReview: ['media', 'dossier-website-settings'],
       other: ['overview', 'dossier-review']
     };
     const target = targets[this.guidedCheckKey(code)];
@@ -1029,6 +1037,13 @@ export class AdminPreflightExaminationComponent {
       },
       queryParamsHandling: 'merge'
     });
+  }
+  async returnToPublication(): Promise<void> {
+    const contributionId = this.publicationReturn();
+    if (!contributionId) return;
+    await this.navigateOwner(
+      `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}&tab=publication#dossier-publication`
+    );
   }
   async next(offset: number, defer = false): Promise<void> {
     if (this.continuationBlocked() || !(await this.canLeave())) return;

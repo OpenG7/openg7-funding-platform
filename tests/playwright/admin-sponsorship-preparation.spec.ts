@@ -676,7 +676,7 @@ for (const language of ['fr-CA', 'en']) {
   });
 }
 
-test('the current sponsorship preparation stays in Publication with its offer and private content while agreement traceability belongs to Campaigns', async ({
+test('the current sponsorship preparation stays in its existing owner while Publication only monitors it', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -686,6 +686,7 @@ test('the current sponsorship preparation stays in Publication with its offer an
   await expect(wrapper(page)).toHaveCount(0);
   expect(f.receiptReads).toEqual([]);
   await tabs.getByRole('button', { name: 'Publication', exact: true }).click();
+  await expect(wrapper(page)).toHaveCount(0);
   await expectDossier(page);
   await expect(
     hook(page, 'offer').getByText(/1\s*×\s*Présentation sur le site Web/i)
@@ -708,6 +709,7 @@ test('the current sponsorship preparation stays in Publication with its offer an
     )
   ).toHaveCount(0);
   await page.keyboard.press('Escape');
+  await page.locator('[data-og7="publication-return"]').first().click();
   await tabs.getByRole('button', { name: 'Aperçu', exact: true }).click();
   await expect(wrapper(page)).toHaveCount(0);
   expect(f.writes).toEqual([]);
@@ -732,17 +734,16 @@ test('changing the current dossier only reads data and discards the previous dos
   await page.goto(path());
   await openPublicationSection(page, 'controls');
   await expect.poll(() => f.receiptReads).toContain(firstId);
+  await page.locator('[data-og7="publication-return"]').first().click();
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('sponsorshipId'))
+    .toBe(secondId);
   await expectDossier(page, secondId);
-  const lateResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === receiptPath &&
-      new URL(response.url()).searchParams.get('sponsorshipId') === firstId
-  );
   release();
-  await (await lateResponse).finished();
+  // The old owner is destroyed on navigation; a cancelled HTTP read need not emit a response event.
   await sampledFrames(page);
   await expectDossier(page, secondId);
   await expect(card(page)).toContainText('DEMO-PREP-003');
@@ -999,7 +1000,7 @@ test('a delayed approval response cannot restore an approved stamp after the par
     }))
   });
   f.progressVersions.set(firstId, 'synthetic-dossier-v2');
-  await page.locator('[data-og7="dossier-refresh"]').click();
+  await page.locator('[data-og7="publication-owner-refresh"]').click();
   await expect(card(page)).toContainText('À revoir');
   const delayedResponse = page.waitForResponse(
     (response) => new URL(response.url()).pathname === `${receiptPath}/approve`
@@ -1139,7 +1140,7 @@ for (const [width, language] of [
   [1440, 'fr-CA'],
   [390, 'en']
 ] as const) {
-  test(`the Publication receipt supports keyboard review and approval at 125% in ${language} on ${width}px`, async ({
+  test(`the Publication owner receipt supports keyboard review and approval at 125% in ${language} on ${width}px`, async ({
     page
   }, testInfo) => {
     await page.setViewportSize({ width, height: 960 });
@@ -1242,7 +1243,7 @@ for (const restriction of ['reader', 'server-disallowed'] as const) {
   });
 }
 
-test('Gamepad bumpers leave the preparation issues for Actions and publication settings and return to global navigation without a write', async ({
+test('Gamepad preparation actions retain a keyboard return to the individual monitor without a write', async ({
   page
 }) => {
   // The round trip uses sampled hardware input through the whole dossier.
@@ -1274,7 +1275,6 @@ test('Gamepad bumpers leave the preparation issues for Actions and publication s
   const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
   const issues = pilot.locator('[data-og7="preparation-issue"]');
   const actions = pilot.locator('[data-og7="preparation-pilot-actions"]');
-  const advanced = page.locator('[data-og7="publication-advanced"]');
   await expect(issues).toHaveCount(6);
 
   // reach uses real LB/RB samples. Neither entering nor leaving the issue list
@@ -1284,13 +1284,6 @@ test('Gamepad bumpers leave the preparation issues for Actions and publication s
   await xbox.reach(actions);
   await expect(actions).toBeFocused();
   await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
-  await xbox.activate(advanced.locator(':scope > summary'));
-  await expect(advanced).toHaveJSProperty('open', true);
-  await expect(advanced.locator(':scope > summary')).toBeFocused();
-  expect(f.writes).toEqual([]);
-
-  await xbox.reach(actions);
-  await expect(actions).toBeFocused();
   await xbox.reach(issues.first());
   await expect(issues.first()).toBeFocused();
   // reach also honours the visibility guard's separate reveal gesture.
@@ -1298,6 +1291,11 @@ test('Gamepad bumpers leave the preparation issues for Actions and publication s
   await xbox.reach(hook(page, 'refresh'));
   await expect(hook(page, 'refresh')).toBeFocused();
   await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+  const back = page.locator('[data-og7="publication-return"]').first();
+  await back.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-og7="publication-monitor"]')).toBeVisible();
+  await expect(wrapper(page)).toHaveCount(0);
   expect(f.writes).toEqual([]);
 });
 

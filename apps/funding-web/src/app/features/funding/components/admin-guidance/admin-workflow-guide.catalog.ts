@@ -6,6 +6,7 @@ export interface AdminWorkflowGuideStep {
 
 export interface AdminWorkflowGuideJourney {
   readonly id: string;
+  readonly dossierTab: 'overview' | 'publication' | 'media';
   readonly steps: readonly AdminWorkflowGuideStep[];
 }
 
@@ -14,8 +15,9 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
   [
     {
       id: 'agreement',
+      dossierTab: 'overview',
       steps: [
-        { id: 'pilot', targets: ['preparation-pilot'] },
+        { id: 'pilot', targets: ['admin-commitments'] },
         {
           id: 'source',
           targets: ['assistance-source-form', 'assistance-source-view']
@@ -30,31 +32,35 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
     },
     {
       id: 'preparation',
+      dossierTab: 'publication',
       steps: [
-        { id: 'obligations', targets: ['publication-obligations'] },
-        { id: 'prepare', targets: ['publication-prepare'] },
-        { id: 'draft', targets: ['publication-channel'] }
+        { id: 'obligations', targets: ['publication-service'] },
+        { id: 'prepare', targets: ['publication-monitor-next'] },
+        { id: 'draft', targets: ['publication-service'] }
       ]
     },
     {
       id: 'authorization',
+      dossierTab: 'publication',
       steps: [
-        { id: 'review', targets: ['publication-review'] },
-        { id: 'content', targets: ['publication-channel'] },
-        { id: 'schedule', targets: ['publication-next-slot'] },
-        { id: 'authorize', targets: ['publication-review'] }
+        { id: 'review', targets: ['publication-service-action'] },
+        { id: 'content', targets: ['publication-service'] },
+        { id: 'schedule', targets: ['publication-service'] },
+        { id: 'authorize', targets: ['publication-monitor-next'] }
       ]
     },
     {
       id: 'delivery',
+      dossierTab: 'publication',
       steps: [
-        { id: 'status', targets: ['publication-channel'] },
-        { id: 'responsibility', targets: ['publication-obligations'] },
-        { id: 'evidence', targets: ['publication-campaign-benefits'] }
+        { id: 'status', targets: ['publication-service'] },
+        { id: 'responsibility', targets: ['publication-monitor-next'] },
+        { id: 'evidence', targets: ['publication-delivery-progress'] }
       ]
     },
     {
       id: 'website',
+      dossierTab: 'media',
       steps: [
         {
           id: 'presentation',
@@ -66,6 +72,7 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
     },
     {
       id: 'history',
+      dossierTab: 'media',
       steps: [
         {
           id: 'tracking',

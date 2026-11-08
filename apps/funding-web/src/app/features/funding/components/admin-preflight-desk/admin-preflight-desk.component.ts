@@ -16,7 +16,7 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRoute,
   Router,
@@ -42,6 +42,7 @@ import {
   type AdminIconName
 } from '../admin-ui/admin-icon.component.js';
 import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
+import { publicationReturnId } from '../admin-sponsors/publication-monitor-navigation.js';
 
 type Stage = PreflightDeskQuery['stage'];
 type InboxState =
@@ -70,6 +71,7 @@ export class AdminPreflightDeskComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly params = toSignal(this.route.queryParamMap);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
@@ -94,6 +96,12 @@ export class AdminPreflightDeskComponent implements OnInit {
   readonly stages = stages;
   readonly summary = computed(() => this.response()?.summary ?? null);
   readonly orders = computed(() => this.response()?.orders ?? []);
+  readonly publicationReturn = computed(() =>
+    publicationReturnId(this.params()?.get('publicationReturn'))
+  );
+  readonly contextualObligation = computed(() =>
+    publicationReturnId(this.params()?.get('reviewReturn'))
+  );
   private requestSerial = 0;
   private request?: AbortController;
   private disposed = false;
@@ -187,8 +195,11 @@ export class AdminPreflightDeskComponent implements OnInit {
       this.expansionInitialized = true;
       const returnId = this.route.snapshot.queryParamMap.get('reviewReturn');
       if (returnId) {
-        const order = response.orders.find((order) =>
-          order.services.some((service) => service.id === returnId)
+        const order = response.orders.find(
+          (order) =>
+            (!this.publicationReturn() ||
+              order.contributionId === this.publicationReturn()) &&
+            order.services.some((service) => service.id === returnId)
         );
         if (order)
           this.expanded.update(
@@ -200,7 +211,10 @@ export class AdminPreflightDeskComponent implements OnInit {
               this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
                 '[data-og7="preflight-desk-examine"]'
               )
-            ).find((button) => button.getAttribute('data-og7-id') === returnId);
+            ).find(
+              (button) =>
+                order && button.getAttribute('data-og7-id') === returnId
+            );
             (target ?? this.summaryTitle()?.nativeElement)?.focus({
               preventScroll: true
             });
@@ -250,6 +264,13 @@ export class AdminPreflightDeskComponent implements OnInit {
     if (expanded.has(id)) expanded.delete(id);
     else expanded.add(id);
     this.expanded.set(expanded);
+  }
+
+  isContextService(contributionId: string, obligationId: string): boolean {
+    return (
+      contributionId === this.publicationReturn() &&
+      obligationId === this.contextualObligation()
+    );
   }
 
   examine(order: PreflightDeskOrder, service: PreflightDeskService): void {

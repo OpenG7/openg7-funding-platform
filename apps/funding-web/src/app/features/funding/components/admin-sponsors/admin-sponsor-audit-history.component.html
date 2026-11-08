@@ -30,11 +30,12 @@
         <a
           class="admin-link"
           data-og7-id="preparation"
-          [routerLink]="disabled() ? null : '/admin/fundraiser/sponsors'"
+          [routerLink]="disabled() ? null : '/admin/fundraiser/preflight'"
           [attr.aria-disabled]="disabled() ? 'true' : null"
           [queryParams]="{
-            sponsorshipId: contributionId(),
-            tab: 'publication'
+            view: 'publication',
+            workshopSponsorshipId: contributionId(),
+            publicationReturn: contributionId()
           }"
           fragment="dossier-preparation"
           >{{ 'admin.history.sources.preparation' | translate }}</a

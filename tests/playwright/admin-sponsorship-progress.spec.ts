@@ -13,6 +13,7 @@ import type {
 import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
@@ -27,7 +28,10 @@ import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-his
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
-import { registerPublicationWorkshopTests } from './publication-workshop.ui.js';
+import {
+  registerPublicationMonitorTests,
+  registerPublicationWorkshopTests
+} from './publication-workshop.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
 import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
@@ -391,6 +395,61 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
         }
       });
     }
+    if (url.pathname === '/api/admin/preflight/desk')
+      return route.fulfill({
+        json: {
+          generatedAt: date,
+          orders: [],
+          pagination: {
+            page: 1,
+            pageSize: 50,
+            totalItems: 0,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false
+          },
+          summary: {
+            total: 0,
+            toPrepare: 0,
+            toReview: 0,
+            toDeliver: 0,
+            delivered: 0,
+            excludedAdjusted: 0,
+            orders: 0,
+            scope: 'recorded_promised_services',
+            preflightLink: 'unverified'
+          }
+        }
+      });
+    if (
+      url.pathname === '/api/admin/publication-automation' &&
+      route.request().method() === 'GET'
+    )
+      return route.fulfill({
+        json: {
+          workerEnabled: false,
+          workerVersion: 1,
+          feeds: [],
+          deliveries: [],
+          preparationCandidates: [],
+          queue: {
+            entries: [],
+            summary: { retained: 0, deferred: 0, needsCorrection: 0 },
+            total: 0,
+            offset: 0,
+            limit: 200,
+            hasMore: false,
+            scope: 'filtered',
+            evaluatedAt: date
+          },
+          summary: {
+            awaitingApproval: 0,
+            scheduled: 0,
+            exceptions: 0,
+            publishedToday: 0
+          }
+        }
+      });
     if (url.pathname === '/api/admin/sponsorships') {
       if (options.listGate) await options.listGate;
       if (options.listStatus !== 200)
@@ -765,6 +824,7 @@ registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerPublicationWorkshopTests({ fixtures, path, recordedCommitment });
+registerPublicationMonitorTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
@@ -1120,9 +1180,7 @@ for (const language of ['fr-CA', 'en'] as const)
           });
         await page.goto(path('publication'));
         await revealDesktopQueue();
-        const journey = main.locator(
-          '[data-og7="dossier-publication-journey"]'
-        );
+        const journey = main.locator('[data-og7="publication-monitor"]');
         await expect(journey.getByRole('progressbar')).toHaveAttribute(
           'value',
           '0'
@@ -1140,10 +1198,7 @@ for (const language of ['fr-CA', 'en'] as const)
           expect(await page.evaluate(() => scrollY)).toBe(0);
           await expect(
             journey.getByRole('heading', {
-              name:
-                language === 'en'
-                  ? 'Publications for this sponsorship'
-                  : 'Les publications de cette commandite',
+              name: language === 'en' ? 'Publication' : 'Publication',
               exact: true
             })
           ).toBeInViewport({
@@ -1835,7 +1890,7 @@ test('dossier controls respect reader and operator permissions', async ({
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
-  await page.locator('[data-og7="publication-advanced"] > summary').click();
+  await openSponsorshipWebsiteSettings(page);
   await expect(
     page
       .locator('[data-og7="dossier-publication-editor"]')
@@ -2062,7 +2117,7 @@ test('publication save normalizes the slug, confirms visibility and preserves a 
   options.edited.set(id, { sponsor_review_status: 'approved' });
   await page.goto(path('publication'));
   const editor = page.locator('[data-og7="dossier-publication-editor"]');
-  await page.locator('[data-og7="publication-advanced"] > summary').click();
+  await openSponsorshipWebsiteSettings(page);
   const slug = editor.getByLabel('Slug public', { exact: false });
   const save = editor.locator('[data-og7="publication-tracking-save"]');
   await slug.fill('invalid slug !');
@@ -2109,13 +2164,14 @@ for (const returnBeforeResponse of [false, true]) {
     await tabs(page)
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
-    await page.locator('[data-og7="publication-advanced"] > summary').click();
+    await openSponsorshipWebsiteSettings(page);
     const editor = page.locator('[data-og7="dossier-publication-editor"]');
     await editor
       .getByLabel('Slug public', { exact: false })
       .fill('retour-tardif');
     await editor.locator('[data-og7="publication-tracking-save"]').click();
     await expect.poll(() => postsTo(calls, '/publication').length).toBe(1);
+    await page.locator('[data-og7="dossier-global-tools"] > summary').click();
     await page
       .getByRole('button', { name: 'Dossier suivant', exact: true })
       .click();
@@ -2333,7 +2389,7 @@ for (const blocked of [
     const { calls, options } = await fixtures(page);
     options.edited.set(id, blocked);
     await page.goto(path('publication'));
-    await page.locator('[data-og7="publication-advanced"] > summary').click();
+    await openSponsorshipWebsiteSettings(page);
     await expect(
       page
         .locator('[data-og7="dossier-publication-editor"]')
@@ -2821,7 +2877,7 @@ for (const [width, localNote] of [
     await tabs(page)
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
-    await page.locator('[data-og7="publication-advanced"] > summary').click();
+    await openSponsorshipWebsiteSettings(page);
     const editor = page.locator('[data-og7="dossier-publication-editor"]');
     const slug = editor.getByLabel('Slug public', { exact: false });
     await slug.fill('brouillon-local');
@@ -2837,6 +2893,7 @@ for (const [width, localNote] of [
     options.edited.set(secondId, {
       sponsor_review_note: 'Second dossier actualisé'
     });
+    await page.locator('[data-og7="dossier-global-tools"] > summary').click();
     const refresh = page.locator('[data-og7="dossier-refresh"]');
     for (let pass = 0; pass < 2; pass++) {
       await refresh.click();
@@ -4314,111 +4371,60 @@ function qualifiedWebsiteProgress(
 }
 
 for (const width of [1280, 390]) {
-  test(`publication bridge explains benefits and retains advanced dossier navigation at ${width}px`, async ({
+  test(`publication monitor shows promised passages and directs exceptions to their owner at ${width}px`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
     options.progressOverrides = {
-      amountMinor: 10000,
       commitment: recordedCommitment(10000),
       publicationCompletion: { done: 0, total: 3 },
       publicationBlockers: ['media'],
-      publications: [
-        {
-          ...dossier().publications[0]!,
-          batchStatus: null,
-          deliveryId: secondId,
-          deliveryStatus: 'draft',
-          deliveryMode: 'live',
-          scheduledAt: date
-        }
-      ]
+      publications: []
     };
     await page.setViewportSize({ width, height: 844 });
     await page.goto(path('publication'));
-    const journey = page.locator('[data-og7="dossier-publication-journey"]');
+    const view = page.locator('[data-og7="publication-monitor"]');
+    await expect(view.locator('[data-og7="publication-service"]')).toHaveCount(
+      3
+    );
+    await expect(view.getByRole('progressbar')).toHaveAttribute('value', '0');
+    await expect(view.getByRole('progressbar')).toHaveAttribute('max', '3');
     await expect(
-      journey.getByRole('heading', { name: 'Ce que prévoit la contribution' })
-    ).toBeVisible();
-    await expect(journey).toContainText(
-      'Reconnaissance collective sur Facebook'
-    );
-    await expect(journey).toContainText(
-      'Reconnaissance collective sur LinkedIn'
-    );
-    await expect(journey).toContainText('Contreparties livrées : 0 / 3');
-    await expect(journey.getByRole('progressbar')).toHaveAttribute(
-      'value',
-      '0'
-    );
-    await expect(journey.getByRole('progressbar')).toHaveAttribute('max', '3');
-    await expect(
-      journey.locator('[data-og7="publication-social-notice"]')
-    ).toHaveCount(0);
-    await tabs(page)
-      .getByRole('button', { name: 'Aperçu', exact: true })
-      .click();
-    const blockers = page.locator('[data-og7="publication-blockers"]');
+      view.locator('[data-og7="publication-monitor-summary"]')
+    ).toHaveAttribute('data-state', 'exception');
+    const blockers = view.locator('[data-og7="publication-monitor-blockers"]');
     await expect(blockers).toBeVisible();
-    await expect(
-      blockers.getByRole('link', {
-        name: 'Vérifier et approuver les médias requis par les engagements'
-      })
-    ).toHaveAttribute('href', path('media') + '#dossier-media');
-    await tabs(page)
-      .getByRole('button', { name: 'Publication', exact: true })
-      .click();
-    await expect(blockers).toHaveCount(0);
-    await expect(
-      journey.locator('[data-og7="publication-review"]')
-    ).toHaveAccessibleName('Vérifier et autoriser');
-    const link = journey.getByRole('link', {
-      name: 'Suivre ce dossier dans le moteur'
-    });
-    await expect(link).toHaveAttribute(
-      'href',
-      `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
-    );
-    await expect(
-      page.locator('[data-og7="dossier-publication-editor"]')
-    ).not.toBeVisible();
-    await expect(
-      journey.locator('[data-og7="publication-channel"]')
-    ).toHaveCount(2);
-    const accessibility = await new AxeBuilder({ page })
-      .include('[data-og7="dossier-publication-journey"]')
-      .analyze();
-    expect(accessibility.violations).toEqual([]);
+    const media = blockers.getByRole('link').first();
+    await expect(media).toHaveAttribute('href', path('media'));
+    await expect(view.locator('input, textarea, select')).toHaveCount(0);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth)
-    ).toBeLessThanOrEqual(width);
-    expect(calls.every((call) => call.method === 'GET')).toBe(true);
-    await journey.screenshot({
-      path: `test-results/publication-bridge-${width}.png`
-    });
-    await link.focus();
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="publication-monitor"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    await media.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(
-      new RegExp(`automation\\?sponsorshipId=${id}$`)
-    );
-    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+    await expect(page).toHaveURL(path('media'));
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
 
-for (const [deliveryStatus, deliveryMode, label, qualified] of [
-  ['approved', 'live', 'Programmée avec autorisation', false],
-  ['published', 'mock', 'Simulation terminée', false],
-  ['published', 'live', 'Publiée', true],
-  [
-    'published',
-    'live',
-    'Déclaration historique · livraison non confirmée',
-    false
-  ],
-  ['uncertain', 'live', 'Résultat à vérifier', false],
-  ['blocked', 'live', 'Envoi bloqué', false]
+for (const [deliveryStatus, deliveryMode, expected, qualified] of [
+  ['approved', 'live', 'approved', false],
+  ['published', 'mock', 'simulated', false],
+  ['published', 'live', 'delivered', true],
+  ['published', 'live', 'exception', false],
+  ['uncertain', 'live', 'exception', false],
+  ['blocked', 'live', 'exception', false]
 ] as const) {
-  test(`publication bridge displays ${deliveryStatus}/${deliveryMode} ${qualified ? 'with qualified evidence' : 'without qualified evidence'} without inventing success`, async ({
+  test(`publication monitor displays ${deliveryStatus}/${deliveryMode} ${qualified ? 'with qualified evidence' : 'without qualified evidence'} without inventing success`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
@@ -4453,13 +4459,11 @@ for (const [deliveryStatus, deliveryMode, label, qualified] of [
           ]
         : [],
       qualifiedFulfilmentEvidenceIds: qualified ? [evidenceId] : [],
-      publicationCompletion: {
-        done: qualified ? 1 : 0,
-        total: 3
-      },
+      publicationCompletion: { done: qualified ? 1 : 0, total: 3 },
       publications: [
         {
           ...dossier().publications[0]!,
+          obligationId: obligation.id,
           batchStatus: null,
           deliveryId: secondId,
           deliveryStatus,
@@ -4472,92 +4476,73 @@ for (const [deliveryStatus, deliveryMode, label, qualified] of [
       ]
     };
     await page.goto(path('publication'));
-    const journey = page.locator('[data-og7="dossier-publication-journey"]');
-    await expect(journey).toContainText(label);
-    await expect(journey).not.toContainText('UNKNOWN_PROVIDER_CODE');
-    const published = qualified;
-    await expect(journey).toContainText(
-      `Contreparties livrées : ${published ? 1 : 0} / 3`
+    const view = page.locator('[data-og7="publication-monitor"]');
+    const row = view.locator(
+      `[data-og7="publication-service"][data-og7-id="${obligation.id}"]`
     );
-    await expect(journey.getByRole('progressbar')).toHaveAttribute(
+    await expect(row).toHaveAttribute('data-state', expected);
+    await expect(view).not.toContainText('UNKNOWN_PROVIDER_CODE');
+    await expect(view.getByRole('progressbar')).toHaveAttribute(
       'value',
-      published ? '1' : '0'
+      qualified ? '1' : '0'
     );
-    await expect(
-      journey.getByRole('link', { name: 'Voir la publication', exact: true })
-    ).toHaveCount(published ? 1 : 0);
-    if (deliveryMode === 'mock')
-      await expect(journey).toContainText('aucun envoi réel');
+    if (qualified) {
+      await row.locator('[data-og7="publication-service-action"]').click();
+      const proof = page.locator('[data-og7="publication-monitor-proof"]');
+      await expect(proof).toContainText(evidenceId);
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'href',
+        'https://example.invalid/post'
+      );
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'rel',
+        'noopener noreferrer'
+      );
+    }
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
 
-test('publication bridge keeps unqualified CAD benefits unknown despite current thresholds', async ({
-  page
-}) => {
-  const { options, calls } = await fixtures(page, 'reader');
-  options.progressOverrides = {
-    commitment: null,
-    publications: [],
-    publicationCompletion: { done: 0, total: 0 }
-  };
-  await page.goto(path('publication'));
-  const journey = page.locator('[data-og7="dossier-publication-journey"]');
-  await expect(journey).toContainText(
-    'L’accord d’origine manque dans ce dossier. Indiquez les prestations promises à partir d’un contrat ou d’un courriel'
-  );
-  await expect(journey).not.toContainText(
-    'Reconnaissance collective sur Facebook'
-  );
-  await expect(journey).not.toContainText(
-    'Reconnaissance collective sur LinkedIn'
-  );
-  await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
-    0
-  );
-  expect(calls.every((call) => call.method === 'GET')).toBe(true);
-});
-
-test('publication bridge keeps CAD thresholds out of other currencies and supports English read-only access', async ({
-  page
-}) => {
-  const { options, calls } = await fixtures(page, 'reader');
-  options.progressOverrides = {
-    currency: 'USD',
-    publications: [],
-    publicationCompletion: { done: 0, total: 0 }
-  };
-  await page.goto(path('publication'));
-  await page
-    .getByRole('button', { name: 'Switch administration language to English' })
-    .click();
-  const journey = page.locator('[data-og7="dossier-publication-journey"]');
-  await expect(
-    journey.getByRole('heading', { name: 'Publications for this sponsorship' })
-  ).toBeVisible();
-  await expect(journey).toContainText(
-    'Benefits and destinations need confirmation for this currency.'
-  );
-  await expect(journey.getByRole('progressbar')).toHaveCount(0);
-  await expect(
-    journey.locator('[data-og7="publication-social-notice"]')
-  ).toContainText(
-    'Benefits and destinations need confirmation for this currency.'
-  );
-  await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
-    0
-  );
-  await expect(
-    journey.getByRole('link', { name: 'Follow this dossier in the engine' })
-  ).toHaveAttribute(
-    'href',
-    `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
-  );
-  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
-});
+for (const [currency, language] of [
+  ['CAD', 'fr-CA'],
+  ['USD', 'en']
+] as const) {
+  test(`publication monitor keeps unrecorded ${currency} benefits unknown in ${language}`, async ({
+    page
+  }) => {
+    const { options, calls } = await fixtures(page, 'reader');
+    options.progressOverrides = {
+      currency,
+      commitment: null,
+      publications: [],
+      publicationCompletion: { done: 0, total: 0 }
+    };
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.goto(path('publication'));
+    const view = page.locator('[data-og7="publication-monitor"]');
+    await expect(
+      view.locator('[data-og7="publication-monitor-summary"]')
+    ).toHaveAttribute('data-state', 'agreement_unknown');
+    await expect(view.locator('[data-og7="publication-service"]')).toHaveCount(
+      0
+    );
+    await expect(view.getByRole('progressbar')).toHaveCount(0);
+    const agreement = view
+      .locator('[data-og7="publication-monitor-empty"]')
+      .getByRole('link');
+    await expect(agreement).toHaveAttribute(
+      'href',
+      path('overview') + '#dossier-agreement'
+    );
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
 
 for (const width of [1280, 390]) {
-  test(`website publication is confirmed, waits for server facts, and can be hidden at ${width}px`, async ({
+  test(`website publication remains confirmed in its media owner and proofs persist after hiding at ${width}px`, async ({
     page
   }) => {
     const { options, calls } = await fixtures(page, 'operator');
@@ -4575,30 +4560,15 @@ for (const width of [1280, 390]) {
       publicationCompletion: { done: 0, total: 1 }
     };
     await page.setViewportSize({ width, height: 844 });
-    await page.goto(path('publication'));
+    await page.goto(path('media'));
     const site = page.locator('[data-og7="publication-website"]');
     const action = site.locator('[data-og7="website-visibility"]');
-    const board = page.locator('[data-og7="publication-delivery-board"]');
-    const progress = board.getByRole('progressbar');
-    await expect(site).toContainText('Fiche masquée — prête à publier');
-    await expect(progress).toHaveAttribute('value', '0');
-    await expect(
-      board.locator('[data-og7="publication-social-notice"]')
-    ).toContainText('Aucune publication sociale');
-    await expect(page.locator('[data-og7="publication-channel"]')).toHaveCount(
-      0
-    );
+    await expect(site).toContainText('Fiche masquée');
     await action.click();
     await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+    await page.keyboard.press('Escape');
     expect(
-      calls.filter((c) => c.url.pathname.endsWith('/website-visibility'))
-    ).toHaveLength(0);
-    await page
-      .getByRole('button', { name: 'Annuler', exact: true })
-      .last()
-      .click();
-    expect(
-      calls.filter((c) => c.url.pathname.endsWith('/website-visibility'))
+      calls.filter((call) => call.url.pathname.endsWith('/website-visibility'))
     ).toHaveLength(0);
     let release!: () => void;
     options.mutationGate = new Promise((resolve) => {
@@ -4608,12 +4578,12 @@ for (const width of [1280, 390]) {
     await page.locator('[data-og7="confirm-action"]').click();
     await expect(action).toBeDisabled();
     await expect(site).toContainText('Fiche masquée');
-    await expect(progress).toHaveAttribute('value', '0');
     release();
     options.mutationGate = null;
     await expect(site).toContainText('Fiche visible');
     expect(
-      calls.find((c) => c.url.pathname.endsWith('/website-visibility'))?.body
+      calls.find((call) => call.url.pathname.endsWith('/website-visibility'))
+        ?.body
     ).toEqual({
       contributionId: id,
       expectedVersion: 'site-v1',
@@ -4621,59 +4591,55 @@ for (const width of [1280, 390]) {
       confirmed: true
     });
     await expect(
-      page.locator('[data-og7="dossier-publication-journey"]')
-    ).toContainText('Contreparties livrées : 1 / 1');
-    await expect(progress).toHaveAccessibleName(
-      'Contreparties livrées : 1 / 1'
-    );
-    await expect(progress).toHaveAttribute('value', '1');
-    await expect(site.getByRole('status')).toHaveText(
-      'La visibilité de la fiche a été mise à jour.'
-    );
-    await expect(
       site.getByRole('link', { name: 'Voir l’annuaire' })
     ).toHaveAttribute('href', '/commanditaires');
-    const deliveredA11y = await new AxeBuilder({ page })
-      .include('[data-og7="publication-delivery-board"]')
-      .analyze();
-    expect(deliveredA11y.violations).toEqual([]);
-    await board.screenshot({
-      path: `test-results/publication-delivered-${width}.png`
-    });
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+    const view = page.locator('[data-og7="publication-monitor"]');
+    await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
+    await expect(
+      view.locator('[data-og7="publication-monitor-next"]').getByRole('button')
+    ).toHaveCount(0);
+    await tabs(page)
+      .getByRole('button', { name: 'Fiche et médias', exact: true })
+      .click();
     await action.click();
     await page.locator('[data-og7="confirm-action"]').click();
     await expect(site).toContainText('Fiche masquée');
-    await expect(progress).toHaveAttribute('value', '1');
-    await board.screenshot({
-      path: `test-results/publication-hidden-${width}.png`
-    });
-    await site
-      .getByRole('button', { name: 'Voir les paramètres de la fiche' })
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
       .click();
+    await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
+    await view.locator('[data-og7="publication-service-action"]').click();
     await expect(
-      page.locator('[data-og7="publication-advanced"] > summary')
-    ).toBeFocused();
+      page.locator('[data-og7="publication-monitor-proof"]')
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await openSponsorshipWebsiteSettings(page);
     await expect(
       page.locator('[data-og7="dossier-publication-editor"]')
     ).toBeVisible();
-    const a11y = await new AxeBuilder({ page })
-      .include('[data-og7="publication-website"]')
-      .analyze();
-    expect(a11y.violations).toEqual([]);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('#dossier-website-settings')
+          .analyze()
+      ).violations
+    ).toEqual([]);
     expect(
       await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth
+        () => document.documentElement.scrollWidth <= innerWidth + 1
       )
     ).toBe(true);
   });
 }
 
-test('website publication failure preserves confirmed visibility and readers cannot mutate it', async ({
+test('website readers can inspect confirmed visibility in media without mutation controls', async ({
   page
 }) => {
   const { options, calls } = await fixtures(page, 'reader');
   options.progressOverrides = {
-    amountMinor: 10000,
     ...qualifiedWebsiteProgress({
       commitment: recordedCommitment(10000, false)
     }),
@@ -4687,27 +4653,25 @@ test('website publication failure preserves confirmed visibility and readers can
       blockers: []
     }
   };
+  await page.addInitScript(() => localStorage.setItem('openg7.language', 'en'));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(path('publication'));
-  await page
-    .getByRole('button', { name: 'Switch administration language to English' })
-    .click();
+  await page.goto(path('media'));
   const site = page.locator('[data-og7="publication-website"]');
   await expect(site).toContainText('Profile visible');
   await expect(site.locator('[data-og7="website-visibility"]')).toHaveCount(0);
   await expect(
     site.getByRole('link', { name: 'View the directory' })
   ).toHaveAttribute('href', '/commanditaires');
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
   await expect(
-    page.getByRole('progressbar', { name: '1 of 1 benefits delivered' })
+    page.locator('[data-og7="publication-monitor"]').getByRole('progressbar')
   ).toHaveAttribute('value', '1');
-  await page.locator('[data-og7="publication-delivery-board"]').screenshot({
-    path: 'test-results/publication-delivered-reader-en-390.png'
-  });
-  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+  expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
 });
 
-test('website visibility errors retain the previous state and missing prerequisites disable publishing', async ({
+test('website visibility errors retain confirmed state and missing prerequisites disable publication in media', async ({
   page
 }) => {
   const { options } = await fixtures(page, 'operator');
@@ -4721,14 +4685,13 @@ test('website visibility errors retain the previous state and missing prerequisi
     }
   };
   options.mutationStatus = 503;
-  await page.goto(path('publication'));
+  await page.goto(path('media'));
   const site = page.locator('[data-og7="publication-website"]');
   await site.locator('[data-og7="website-visibility"]').click();
   await page.locator('[data-og7="confirm-action"]').click();
   await expect(site).toContainText('La visibilité n’a pas pu être modifiée');
-  await expect(site).toHaveAttribute('data-state', 'hidden');
+  await expect(site).toContainText('Fiche masquée');
   options.progressOverrides = {
-    ...options.progressOverrides,
     website: {
       visible: false,
       held: true,
@@ -4739,13 +4702,13 @@ test('website visibility errors retain the previous state and missing prerequisi
   };
   await page.reload();
   await expect(site.locator('[data-og7="website-visibility"]')).toBeDisabled();
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
   await expect(
-    site.getByRole('link', {
-      name: 'Vérifier et approuver les médias requis par les engagements'
-    })
-  ).toHaveAttribute('href', path('media'));
+    page.locator('[data-og7="publication-monitor-blockers"]')
+  ).toContainText(/consentement/i);
 });
-
 for (const width of [1920, 1280, 390]) {
   test(
     'workspace opens a spacious dossier and returns to the filtered list at ' +
@@ -4790,7 +4753,7 @@ for (const width of [1920, 1280, 390]) {
         .click();
       await expect(page.locator('[data-og7="dossier-actions"]')).toHaveCount(0);
       await expect(
-        page.locator('[data-og7="publication-website"]')
+        page.locator('[data-og7="publication-monitor"]')
       ).toBeVisible();
       await page.screenshot({
         path: 'test-results/sponsors-workspace-' + width + '.png',

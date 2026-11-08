@@ -7,7 +7,6 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
-import { openPublicationSection } from './support/sponsorship-dossier.js';
 
 const sponsorshipId = '10000000-0000-4000-8000-000000000401';
 
@@ -31,7 +30,7 @@ interface Context {
 }
 
 export function registerSponsorPublicationCleanupTests(context: Context): void {
-  test('publication benefit summary opens Campaigns for the current sponsorship', async ({
+  test('publication monitor leaves profile and historical settings in their media owner', async ({
     page
   }) => {
     const { calls, options } = await context.fixtures(page, 'reader');
@@ -58,27 +57,22 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
       }
     };
     await page.goto(context.path('publication'));
-    const summary = page.locator('[data-og7="publication-obligations"]');
-    await openPublicationSection(page, 'obligations');
-    await expect(summary).toContainText('Prochaine étape : plateforme.');
-    const campaign = summary.locator(
-      '[data-og7="publication-campaign-benefits"]'
+    const view = page.locator('[data-og7="publication-monitor"]');
+    await expect(view).toBeVisible();
+    await expect(view.locator('input, textarea, select')).toHaveCount(0);
+    await expect(page.locator('[data-og7="publication-advanced"]')).toHaveCount(
+      0
     );
-    await expect(campaign).toHaveAttribute(
-      'href',
-      `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
-    );
-    await expect(summary.locator('[data-og7-id]')).toHaveCount(0);
     await expect(
-      page.locator('[data-og7="publication-channel"]').first()
-    ).toBeVisible();
-    await campaign.focus();
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(
-      new RegExp(
-        `/admin/fundraiser/campaigns\\?sponsorshipId=${sponsorshipId}$`
-      )
+      page.locator('[data-og7="publication-contract-history"]')
+    ).toHaveCount(0);
+    await expect(page.locator('[data-og7="publication-workshop"]')).toHaveCount(
+      0
     );
+    await page.goto(context.path('media') + '#dossier-website-settings');
+    await expect(
+      page.locator('[data-og7="publication-advanced"]')
+    ).toBeVisible();
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 
@@ -96,10 +90,12 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
         language
       );
       await page.setViewportSize({ width, height: 1000 });
-      await page.goto(context.path('publication'));
+      await page.goto(context.path('media') + '#dossier-website-settings');
       const advanced = page.locator('[data-og7="publication-advanced"]');
-      await advanced.locator(':scope > summary').focus();
-      await page.keyboard.press('Enter');
+      if ((await advanced.getAttribute('open')) === null) {
+        await advanced.locator(':scope > summary').focus();
+        await page.keyboard.press('Enter');
+      }
       const profile = advanced.locator(
         '[data-og7="publication-profile-settings"]'
       );
@@ -185,9 +181,10 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
     page
   }) => {
     const { calls } = await context.fixtures(page, 'reader');
-    await page.goto(context.path('publication'));
+    await page.goto(context.path('media') + '#dossier-website-settings');
     const advanced = page.locator('[data-og7="publication-advanced"]');
-    await advanced.locator(':scope > summary').click();
+    if ((await advanced.getAttribute('open')) === null)
+      await advanced.locator(':scope > summary').click();
     await advanced
       .locator('[data-og7="publication-declared-tracking"] > summary')
       .click();

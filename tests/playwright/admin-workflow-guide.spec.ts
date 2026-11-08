@@ -8,7 +8,7 @@ import type {
 
 import { extractStructuredPreparationPublications } from '../../packages/funding-core/src/index.js';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
   adminController,
@@ -223,6 +223,23 @@ async function open(page: Page, path = controllerPath('publication')) {
     await journeyPicker(page).locator('summary').click();
 }
 
+async function chooseJourney(page: Page, id: keyof typeof journeys) {
+  if (!(await journey(page, id).isVisible()))
+    await journeyPicker(page).locator('summary').click();
+  await journey(page, id).click();
+  const tab =
+    id === 'agreement'
+      ? 'overview'
+      : ['website', 'history'].includes(id)
+        ? 'media'
+        : 'publication';
+  if (new URL(page.url()).searchParams.get('tab') !== tab) {
+    await hook(page, 'workflow-guide-open-dossier').click();
+    await expect(page).toHaveURL(controllerPath(tab));
+  }
+  await expect(hook(page, 'workflow-guide-show')).toBeEnabled();
+}
+
 async function expectAreaOrExplanation(page: Page) {
   await expect
     .poll(async () => {
@@ -256,7 +273,7 @@ for (const locale of ['fr-CA', 'en']) {
         if (!(await journey(page, id).isVisible()))
           await journeyPicker(page).locator('summary').click();
         await expect(journey(page, id)).toHaveAccessibleName(/\S/);
-        await journey(page, id).click();
+        await chooseJourney(page, id as keyof typeof journeys);
         await expect(hook(page, 'workflow-guide-step')).toHaveCount(
           steps.length
         );
@@ -302,20 +319,38 @@ for (const locale of ['fr-CA', 'en']) {
       ).toBe(true);
       expect(f.mutations).toEqual([]);
       expect(f.base.commands).toEqual([]);
-      await expect(page).toHaveURL(controllerPath('publication'));
+      await expect(page).toHaveURL(controllerPath('media'));
     });
   }
 }
 
-test('source and review URL fragments preserve the publication dossier context for workflow highlighting', async ({
+test('source and review URL fragments preserve the agreement owner context for workflow highlighting', async ({
   page
 }) => {
+  await installAdminController(page);
   const f = await fixtures(page);
+  const controller = adminController(page);
   for (const section of ['source', 'review']) {
-    await open(
-      page,
-      controllerPath('publication') + '#dossier-assistance-' + section
+    await page.goto(
+      controllerPath('overview') + '#dossier-assistance-' + section
     );
+    await restoreLegacyGuideMode(page, 'workflows');
+    const target = page.locator('#dossier-assistance-' + section);
+    await expect(
+      section === 'source' ? target.locator('summary') : target
+    ).toBeFocused();
+    await sampledFrames(page);
+    await controller.ready();
+    // Native source focus may reduce an obstructing guide. Y restores its retained mode.
+    if (!(await hook(page, 'workflow-guide').isVisible()))
+      await controller.press('Y');
+    await expect(hook(page, 'workflow-guide')).toBeVisible();
+    if (
+      !(await journeyPicker(page).evaluate(
+        (element) => (element as HTMLDetailsElement).open
+      ))
+    )
+      await journeyPicker(page).locator('summary').click();
     await journey(page, 'agreement').click();
     await step(page, section === 'source' ? 'source' : 'proposal').click();
     await expect(
@@ -342,7 +377,7 @@ test('pausing, closing and normal dossier navigation remove the workflow highlig
 }) => {
   await installAdminController(page);
   const f = await fixtures(page);
-  await open(page);
+  await open(page, controllerPath('overview'));
   await journey(page, 'agreement').click();
   await step(page, 'qualification').focus();
   await page.keyboard.press('Enter');
@@ -398,7 +433,7 @@ test('a reader can explore the journeys while private agreement sources remain u
   page
 }) => {
   const f = await fixtures(page, { role: 'reader' });
-  await open(page);
+  await open(page, controllerPath('overview'));
   await expect(hook(page, 'workflow-guide-journey')).toHaveCount(6);
   await journey(page, 'agreement').click();
   await step(page, 'source').click();
@@ -409,7 +444,7 @@ test('a reader can explore the journeys while private agreement sources remain u
   await expect(hook(page, 'assistance-source-view')).toHaveCount(0);
   await expect(hook(page, 'commitments-qualification')).toHaveCount(0);
   expect(f.privateReads).toEqual([]);
-  await journey(page, 'website').click();
+  await chooseJourney(page, 'website');
   await step(page, 'visibility').click();
   await expect(hook(page, 'publication-website')).toHaveAttribute(
     'data-og7-guidance-highlight',
@@ -420,23 +455,23 @@ test('a reader can explore the journeys while private agreement sources remain u
   expect(f.base.commands).toEqual([]);
 });
 
-test('delivery evidence highlights the scoped Campaigns link and handles its disappearance without mutation', async ({
+test('delivery evidence highlights confirmed progress and handles its disappearance without mutation', async ({
   page
 }) => {
   const f = await fixtures(page);
   await open(page);
   await journey(page, 'delivery').click();
   await step(page, 'responsibility').click();
-  await expect(hook(page, 'publication-obligations')).toHaveAttribute(
+  await expect(hook(page, 'publication-monitor-next')).toHaveAttribute(
     'data-og7-guidance-highlight',
     ''
   );
   await step(page, 'evidence').click();
-  const campaign = hook(page, 'publication-campaign-benefits');
+  const campaign = hook(page, 'publication-delivery-progress');
   await expect(campaign).toHaveAttribute('data-og7-guidance-highlight', '');
   await expect(campaign).toHaveAttribute(
-    'href',
-    `/admin/fundraiser/campaigns?sponsorshipId=${controllerId}`
+    'aria-labelledby',
+    'publication-progress-title'
   );
   await expect(hook(page, 'workflow-guide-missing')).toBeHidden();
   await expect(page).toHaveURL(/\/admin\/fundraiser\/sponsors\?/);
@@ -445,7 +480,7 @@ test('delivery evidence highlights the scoped Campaigns link and handles its dis
   await expect(page.locator(highlighted)).toHaveCount(0);
   await step(page, 'responsibility').click();
   await expect(hook(page, 'workflow-guide-missing')).toBeHidden();
-  await expect(hook(page, 'publication-obligations')).toHaveAttribute(
+  await expect(hook(page, 'publication-monitor-next')).toHaveAttribute(
     'data-og7-guidance-highlight',
     ''
   );
@@ -457,7 +492,7 @@ test('website and manual-history steps expose only their existing details and ne
   page
 }) => {
   const f = await fixtures(page);
-  await open(page);
+  await open(page, controllerPath('media'));
   const advanced = hook(page, 'publication-advanced');
   const tracking = hook(page, 'publication-declared-tracking');
   await expect(advanced).toHaveJSProperty('open', false);
@@ -537,14 +572,14 @@ for (const validContext of [true, false]) {
     expect([...destination.searchParams.keys()].sort()).toEqual(
       validContext ? ['sponsorshipId', 'tab'] : ['tab']
     );
-    expect(destination.searchParams.get('tab')).toBe('publication');
+    expect(destination.searchParams.get('tab')).toBe('overview');
     expect(destination.searchParams.get('sponsorshipId')).toBe(
       validContext ? controllerId : null
     );
     if (validContext) {
       await link.click();
       await expect(page).toHaveURL(destination.toString());
-      await expect(hook(page, 'preparation-pilot')).toHaveAttribute(
+      await expect(hook(page, 'admin-commitments')).toHaveAttribute(
         'data-og7-guidance-highlight',
         ''
       );

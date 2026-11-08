@@ -6,7 +6,10 @@ import type {
 } from '@openg7/funding-core';
 import type { PoolClient } from 'pg';
 
-import { preparationDigest } from './admin-preparation.projection.js';
+import {
+  preparationDigest,
+  preparationVersionDraft
+} from './admin-preparation.projection.js';
 import { moderationApprovedSql } from './moderation/policy.js';
 import { readMediaPreparation } from './sponsor-media-workspace/preparation.js';
 
@@ -375,7 +378,9 @@ export function servicePreparationScope(
       ordinal: service.ordinal,
       obligationState: service.obligationState
     },
-    draft,
+    draft: draft
+      ? preparationVersionDraft(draft, service.contributionId)
+      : null,
     checks,
     blockers
   });

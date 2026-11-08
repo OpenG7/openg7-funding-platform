@@ -12,11 +12,12 @@ const sectionTabs = {
   'media-gallery': 'media',
   billing: 'billing',
   publication: 'publication',
-  agreement: 'publication',
+  agreement: 'overview',
   preparation: 'publication',
-  'publication-content': 'publication',
-  'assistance-review': 'publication',
-  'assistance-source': 'publication',
+  'publication-content': 'media',
+  'website-settings': 'media',
+  'assistance-review': 'overview',
+  'assistance-source': 'overview',
   refund: 'refund',
   audit: 'audit'
 } as const satisfies Record<string, SponsorshipDossierTab>;

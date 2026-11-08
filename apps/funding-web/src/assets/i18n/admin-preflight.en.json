@@ -1,4 +1,15 @@
 {
+  "publicationOwner": {
+    "proposals": "Editorial proposals",
+    "controls": "Administrative preparation",
+    "title": "Publication proposals and preparation",
+    "intro": "Review private proposals and adopt them into Funding drafts before examining each service. Preparation never authorizes delivery.",
+    "return": "Return to the dossier's publication tracking",
+    "loading": "Loading the dossier…",
+    "unavailable": "The dossier is temporarily unavailable.",
+    "forbidden": "Your account cannot access this dossier.",
+    "not_found": "This dossier was not found."
+  },
   "title": "Preflight",
   "intro": "Review the proposals Preflight has prepared for Funding.",
   "openConsole": "Open Preflight console",
