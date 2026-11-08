@@ -34,6 +34,8 @@
   },
   "filters": {
     "title": "Filtrer les prestations",
+    "advanced": "Filtres avancés",
+    "advancedActive": "Critères personnalisés",
     "search": "Rechercher un dossier",
     "searchPlaceholder": "Commanditaire ou référence",
     "channel": "Canal",

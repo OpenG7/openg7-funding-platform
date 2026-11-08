@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { signal } from '@angular/core';
 
-import { AdminPilotageCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-pilotage-page/admin-pilotage-command-workflow.js';
+import { AdminPilotageCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/services/admin-pilotage-command-workflow.js';
 
 const requestId = '00000000-0000-4000-8000-000000000001';
 const draft = {
@@ -61,6 +61,7 @@ const fixture = () => {
     state,
     actorId: () => page.actor,
     storage: () => ({
+      getItem: (key) => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value),
       removeItem: (key) => {
         removed.push(key);
@@ -385,6 +386,33 @@ test('recovery clears only the actor key captured before the pending response', 
   );
   assert.equal(f.calls.commands.length, 0);
 });
+
+for (const result of ['completed', 'rejected']) {
+  test(`a late ${result} response cannot erase another workspace's newer receipt`, async () => {
+    const f = fixture();
+    const response = deferred();
+    f.ports.admin.pilotageCommand = (command) => {
+      f.calls.commands.push(command);
+      return response.promise;
+    };
+    const sending = f.workflow.send(draft);
+    const key = f.workflow.receiptStorageKey();
+    const newerRequestId = '00000000-0000-4000-8000-000000000002';
+    f.storage.set(key, newerRequestId);
+    if (result === 'completed') response.resolve(receipt());
+    else
+      response.reject(
+        Object.assign(new Error('VERSION_CONFLICT'), { status: 409 })
+      );
+    await sending;
+
+    assert.equal(f.storage.get(key), newerRequestId);
+    assert.deepEqual(f.removed, []);
+    assert.equal(f.state.unresolved(), '');
+    assert.equal(f.calls.commands.length, 1);
+    assert.equal(f.calls.recoveries.length, 0);
+  });
+}
 
 test('blocked session storage retains the identifier in memory until receipt recovery', async () => {
   const f = fixture();

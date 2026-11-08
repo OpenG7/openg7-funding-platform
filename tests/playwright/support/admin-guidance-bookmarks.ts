@@ -5,9 +5,7 @@ export async function restoreLegacyGuideMode(
   page: Page,
   mode: 'payment' | 'automatic' | 'workflows'
 ) {
-  await expect(
-    page.locator('[data-og7="admin-guidance-toggle"]')
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="admin-shell-guide"]')).toBeVisible();
   const reload = await page.evaluate(async (selectedMode) => {
     const response = await fetch('/api/admin/auth/current');
     if (!response.ok)

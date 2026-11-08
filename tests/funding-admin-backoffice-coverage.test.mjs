@@ -35,6 +35,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     read(
       'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.html'
     );
+  const cockpitActivity = read(
+    'apps/funding-web/src/app/features/funding/components/admin-cockpit/admin-cockpit-activity.component.ts'
+  );
   const loginPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-login-page/admin-login-page.component.ts'
   );
@@ -269,13 +272,42 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'sponsorship_review.pending',
       'feed_publication.active',
       'stripe_events.failed',
-      'recent_contributions',
-      '[routerLink]',
-      'queryParams',
-      'contributionId'
+      'openg7-admin-cockpit-activity',
+      '[showContributionsLink]="true"',
+      'openg7-admin-attention-panel'
     ],
     'admin dashboard page'
   );
+  assert.equal(
+    (dashboardPage.match(/<openg7-admin-cockpit-activity\b/g) ?? []).length,
+    1,
+    'the cockpit exposes one recent activity feed'
+  );
+  assertIncludesAll(
+    cockpitActivity,
+    [
+      'data.items',
+      'item.adminUrl',
+      'showContributionsLink()',
+      'routerLink="/admin/fundraiser/contributions"'
+    ],
+    'cockpit activity and contribution access'
+  );
+  assertIncludesAll(
+    read('apps/funding-api/src/contributions-dashboard.repository.ts'),
+    ['recent_contributions: recentContributions'],
+    'preserved admin dashboard API contract'
+  );
+  for (const source of [
+    'apps/funding-web/src/app/features/funding/components/admin-pilotage/editorial-programme.component.html',
+    'apps/funding-web/src/app/features/funding/pages/admin-editorial-programme-page/admin-editorial-programme-page.component.html'
+  ]) {
+    assert.doesNotMatch(
+      read(source),
+      /openg7AutomaticPrepare|automaticPrepare/,
+      'editorial confirmations remain outside the automatic preparation catalogue'
+    );
+  }
 
   assertIncludesAll(
     contributionsPage,
@@ -941,6 +973,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     core,
     [
       'AdminDashboardResponse',
+      'readonly recent_contributions: readonly AdminContributionRecord[];',
       'AdminContributionRecord',
       'AdminContributionsResponse',
       'AdminContributionsSummary',

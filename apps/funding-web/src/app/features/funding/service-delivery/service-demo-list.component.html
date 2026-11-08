@@ -1,32 +1,7 @@
 <section data-og7="service-demo-list">
-  <div class="metrics">
-    <article>
-      <openg7-admin-icon class="metric-icon" name="publications" />
-      <span>{{ 'serviceDemo.metrics.total' | translate }}</span
-      ><strong
-        >{{ totalDossiers }}
-        <small>{{ 'serviceDemo.metrics.dossiers' | translate }}</small></strong
-      >
-    </article>
-    <article>
-      <openg7-admin-icon class="metric-icon" name="transparency" />
-      <span>{{ 'serviceDemo.metrics.services' | translate }}</span
-      ><strong
-        >{{ totalServices }}
-        <small>{{ 'serviceDemo.metrics.promised' | translate }}</small></strong
-      >
-    </article>
-    <article>
-      <openg7-admin-icon class="metric-icon" name="clock" />
-      <span>{{ 'serviceDemo.metrics.next' | translate }}</span
-      ><strong
-        >{{ totalDossiers }}
-        <small>{{
-          'serviceDemo.metrics.interventions' | translate
-        }}</small></strong
-      >
-    </article>
-  </div>
+  <p class="demo-summary" data-og7="service-demo-summary">
+    {{ 'serviceDemo.exampleSummary' | translate: { count: totalDossiers } }}
+  </p>
   <div class="list-toolbar">
     <div class="search-group">
       <label class="search-field" for="service-demo-search">

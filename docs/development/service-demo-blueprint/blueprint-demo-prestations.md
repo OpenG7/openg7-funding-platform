@@ -15,6 +15,11 @@ actuelle. La révision de référence, les captures et les preuves datées reste
 celles du livrable d'origine; cette actualisation ne les réattribue pas au code
 courant et ne décrit aucune activation en production.
 
+Actualisation ciblée du 30 octobre 2026 : l’espace est nommé **Démonstration des
+prestations**, accessible par **Prestations en démo** dans le Guide. Une mention
+des trois dossiers d’exemple Web et Facebook remplace les trois cartes de compteurs.
+Les captures d’origine restent datées de leur révision de référence.
+
 ## 1. Ce que ce blueprint permet de faire
 
 Reprendre la démo sans connaître la conversation d'origine, comprendre chaque
@@ -94,9 +99,9 @@ de pagination distante ou de sélection multiple. Leur ajout serait une
 
 Les trois dossiers sont Atelier Boréal, Collectif Rivages et Studio Canopée.
 Leurs étapes affichées sont respectivement Contenu, Consentement et Publication.
-Leurs statuts ne changent pas lorsqu'on parcourt les écrans. Les compteurs
-« 3 dossiers », « 6 prestations » et « 3 prochaines interventions » proviennent
-de ces fixtures.
+Leurs statuts ne changent pas lorsqu'on parcourt les écrans. Une mention
+« 3 dossiers d’exemple · Site web et Facebook » présente les données fictives,
+sans compteur d’interventions opérationnelles.
 
 L'offre « Commandite Web + Facebook » sert à explorer l'interface. Elle ne fixe
 ni prix, ni nouvelle contrepartie, ni droit à une publication individuelle.
@@ -452,7 +457,7 @@ Ne pas présenter les origines comme des redirections ouvertes ou une autorisati
 
 #### Liste `/demo/prestations`
 
-- Trois métriques de fixtures : 3 dossiers, 6 prestations (Web + Facebook pour chacun), 3 prochaines interventions. Ce ne sont pas des agrégats d'une API.
+- Une mention synthétique présente les trois dossiers d’exemple Web et Facebook ; aucun agrégat d’API ni compteur d’interventions n’est affiché.
 - Recherche par nom, insensible à la casse et aux accents, filtrage par étape; les comptes par onglet restent ceux des fixtures, indépendamment de la recherche.
 - Champ recherche accessible, compteur de résultats en `aria-live`, filtres actifs sous forme de pastilles amovibles, réinitialisation globale. Après suppression d'un filtre, focus rendu au champ recherche.
 - Chaque ligne : initiales et couleur, nom ouvrant la synthèse, badge de brouillon local s'il y a une saisie, offre Web + Facebook, deux prestations, étape et action menant à cette étape.
@@ -639,7 +644,7 @@ L'étape `autorisation` est affichée « Consentement » en français et « Cons
 
 Ces objets n'ont aucun montant, facture, paiement Stripe, identifiant d'engagement réel, identité privée, date de paiement, preuve qualifiée, permission serveur ou numéro de version métier. Les textes « paiement fictif confirmé », date, contact et offre sont des contenus de présentation.
 
-Les métriques sont constantes : trois dossiers, six prestations (`3 * 2`), trois prochaines interventions. Les compteurs de filtres sont calculés sur l'ensemble des trois fixtures, indépendamment du texte recherché. La liste n'est ni paginée ni chargée à distance.
+La mention d’introduction indique les trois dossiers d’exemple Web et Facebook. Les compteurs de filtres sont calculés sur l'ensemble des trois fixtures, indépendamment du texte recherché. La liste n'est ni paginée ni chargée à distance.
 
 L'offre « Commandite Web + Facebook » et les deux prestations par dossier sont des fixtures d'illustration. Elles ne définissent aucun barème, nouveau forfait, seuil monétaire, nombre de passages, durée ou engagement commercial. La future version doit lire les termes enregistrés de l'offre acceptée, sans les déduire de cette démo.
 

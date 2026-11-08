@@ -11,7 +11,7 @@
       data-og7="admin-guidance"
       [attr.aria-label]="t('panelTitle')"
     >
-      <div class="guidance-bar">
+      <div class="guidance-bar" [hidden]="!guidance.enabled()">
         @if (guidance.enabled()) {
           <div class="guide-identity">
             <p class="guide-title">
@@ -24,25 +24,37 @@
           <button
             #toggle
             type="button"
-            class="admin-button mode-toggle"
+            class="admin-button window-control mode-toggle"
             data-og7="admin-guidance-toggle"
-            (click)="guidance.toggle()"
+            (click)="toggleGuidance()"
+            [attr.aria-label]="t(guidance.enabled() ? 'close' : 'toggle')"
+            [title]="t(guidance.enabled() ? 'close' : 'toggle')"
             [attr.aria-expanded]="guidance.enabled()"
             [attr.aria-controls]="
               guidance.enabled() ? 'admin-guidance-panel' : null
             "
           >
-            <openg7-admin-icon name="assistant" />
-            {{ t(guidance.enabled() ? 'close' : 'toggle') }}
+            <openg7-admin-icon
+              [name]="guidance.enabled() ? 'minimize' : 'assistant'"
+            />
+            @if (!guidance.enabled()) {
+              {{ t('toggle') }}
+            }
           </button>
           @if (guidance.enabled()) {
             <button
               type="button"
-              class="admin-button"
+              class="admin-button window-control"
               data-og7="admin-guidance-move"
               (click)="moveCard()"
+              [attr.aria-label]="
+                t(placement() === 'top' ? 'moveBottom' : 'moveTop')
+              "
+              [title]="t(placement() === 'top' ? 'moveBottom' : 'moveTop')"
             >
-              {{ t(placement() === 'top' ? 'moveBottom' : 'moveTop') }}
+              <openg7-admin-icon
+                [name]="placement() === 'top' ? 'dockBottom' : 'dockTop'"
+              />
             </button>
           }
         </div>

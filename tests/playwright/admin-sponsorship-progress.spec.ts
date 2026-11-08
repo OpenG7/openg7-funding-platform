@@ -1613,22 +1613,20 @@ for (const alreadySubmitted of [false, true]) {
   });
 }
 
-test('pending sponsor submission is explained from the cockpit through identity in English on mobile', async ({
+test('pending sponsor submission is explained from the dossier through identity in English on mobile', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page, 'owner');
   options.edited.set(id, { sponsor_details_submitted_at: null });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/admin/fundraiser');
+  await page.goto(path('billing'));
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  await expect(progress(page)).toContainText(
-    'Contact details are present. Waiting for the sponsor'
-  );
-  await progress(page)
-    .getByRole('link', { name: 'View identity', exact: true })
-    .click();
+  await expect(
+    page.locator('[data-og7="dossier-recommendation"]')
+  ).toContainText('Contact details are present. Waiting for the sponsor');
+  await dossierNext(page).click();
   const identity = page.locator('#dossier-identity');
   await expect(identity).toBeFocused();
   await expect(identity).toBeInViewport();
@@ -3411,13 +3409,10 @@ for (const [reason, tab, section, label] of nextDestinations) {
   });
 }
 
-test('next step from the cockpit waits for dossier data before focusing its section', async ({
+test('a direct next-step section waits for dossier data before receiving focus', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
-  await page.goto('/admin/fundraiser');
-  const next = progress(page).locator('[data-og7="dossier-next"]');
-  await expect(next).toBeVisible();
   let releaseList!: () => void;
   let releaseProgress!: () => void;
   options.listGate = new Promise((resolve) => {
@@ -3426,7 +3421,7 @@ test('next step from the cockpit waits for dossier data before focusing its sect
   options.progressGate = new Promise((resolve) => {
     releaseProgress = resolve;
   });
-  await next.click();
+  await page.goto(path() + '#dossier-review');
   await expect(page).toHaveURL(path() + '#dossier-review');
   await expect(page.locator('#dossier-review')).toHaveCount(0);
   releaseList();
@@ -3588,34 +3583,27 @@ test('browser history restores the viewport after visiting a next-step section',
     .toBeCloseTo(destination, 0);
 });
 
-test('completed dossiers have a completion message without a next-step link in either view', async ({
+test('completed dossiers explain completion without a next-step link in both languages', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
   options.next = { reason: 'complete', tab: 'overview', adminUrl: path() };
-  for (const url of [path(), '/admin/fundraiser']) {
-    await page.goto(url);
-    await expect(
-      page.getByText('Dossier terminé', { exact: true })
-    ).toBeVisible();
-    await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
-    if (url === path()) {
-      const details = page.locator('[data-og7="dossier-progress-details"]');
-      await expect(details.getByRole('link')).toHaveCount(0);
-      await details.locator('summary').click();
-      await expect(details.locator('[data-og7-id]')).toHaveCount(6);
-    } else {
-      await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(
-        6
-      );
-    }
-  }
+  await page.goto(path());
+  await expect(
+    page.getByText('Dossier terminé', { exact: true })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
+  const details = page.locator('[data-og7="dossier-progress-details"]');
+  await expect(details.getByRole('link')).toHaveCount(0);
+  await details.locator('summary').click();
+  await expect(details.locator('[data-og7-id]')).toHaveCount(6);
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   await expect(
     page.getByText('Dossier complete', { exact: true })
   ).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
@@ -3739,22 +3727,31 @@ test('version conflict offers reload; pending action is disabled and retry uses 
   ).toEqual(['v1', 'v2']);
 });
 
-test('cockpit remembers selected dossier for this session and clears it on logout', async ({
+test('returning to the cockpit preserves the dossier selection without fetching its details and logout clears it', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(path('billing', secondId));
-  await expect(progress(page)).toBeHidden();
+  await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
+  const dossierReads = calls.filter((c) =>
+    c.url.pathname.endsWith('/progress')
+  ).length;
   await page
     .getByRole('navigation', { name: 'Navigation admin du fonds' })
     .getByRole('link', { name: 'Cockpit', exact: true })
     .click();
-  await expect(progress(page)).toContainText('Atelier Rivage');
+  await expect(
+    page.getByRole('heading', { name: 'Cockpit', exact: true })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="dashboard-refresh"]')).toBeEnabled();
+  await expect(progress(page)).toHaveCount(0);
+  expect(calls.filter((c) => c.url.pathname.endsWith('/progress')).length).toBe(
+    dossierReads
+  );
   expect(
-    calls
-      .filter((c) => c.url.pathname.endsWith('/progress'))
-      .at(-1)
-      ?.url.searchParams.get('sponsorshipId')
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-admin-selected-sponsorship')
+    )
   ).toBe(secondId);
   await page.getByRole('button', { name: 'Déconnexion', exact: true }).click();
   expect(
@@ -3764,23 +3761,21 @@ test('cockpit remembers selected dossier for this session and clears it on logou
   ).toBeNull();
 });
 
-test('unselected cockpit falls back to priority dossier; empty and unavailable remain explicit', async ({
+test('dossier progress keeps empty and unavailable states explicit', async ({
   page
 }) => {
   const { options } = await fixtures(page);
-  await page.goto('/admin/fundraiser');
-  await expect(progress(page)).toContainText('Atelier Boréal');
+  await page.goto(path());
+  await expect(
+    page.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+  ).toBeVisible();
   options.state = 'empty';
-  await progress(page)
-    .getByRole('button', { name: 'Actualiser le dossier' })
-    .click();
+  await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(progress(page)).toContainText(
     'Aucune commandite ne demande une action'
   );
   options.status = 503;
-  await progress(page)
-    .getByRole('button', { name: 'Actualiser le dossier' })
-    .click();
+  await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(progress(page).getByRole('alert')).toContainText('indisponible');
   await expect(progress(page).locator('ol')).toHaveCount(0);
 });
@@ -3842,19 +3837,17 @@ test('refreshing progress clears invoice facts until the server responds', async
   );
 });
 
-test('English compact dossier supports keyboard at mobile width without horizontal overflow', async ({
+test('English dossier next step supports keyboard at mobile width without horizontal overflow', async ({
   page
 }) => {
   await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/admin/fundraiser');
+  await page.goto(path('billing'));
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  await expect(progress(page)).toContainText('Current sponsorship');
-  const next = progress(page).getByRole('link', {
-    name: 'View review actions'
-  });
+  const next = dossierNext(page);
+  await expect(next).toHaveAccessibleName('View review actions');
   await next.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/tab=overview/);

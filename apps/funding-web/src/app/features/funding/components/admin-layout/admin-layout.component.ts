@@ -28,7 +28,6 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
 import { FundingModerationPanelComponent } from '../admin-moderation/funding-moderation-panel.component.js';
 import { AdminControllerComponent } from '../admin-controller/admin-controller.component.js';
 import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
 import {
   AssistantDossierNavigation,
   assistantDossierQuery
@@ -75,7 +74,7 @@ import {
     >
       <openg7-admin-nav id="admin-sidebar" [collapsible]="true" />
       <div class="workspace">
-        <header class="topbar">
+        <header #topbar class="topbar">
           <button
             class="admin-button navigation-toggle"
             type="button"
@@ -97,43 +96,20 @@ import {
           <openg7-admin-global-search />
           <div class="tools">
             @if (guidance.guidance.available()) {
-              @let count = pendingDossierCount();
-              @let hasDossiers = count !== null && count > 0;
               <button
-                class="admin-button admin-button--primary new-passage"
+                #guideButton
+                class="admin-button admin-button--primary guide-button"
                 type="button"
-                data-og7="admin-automatic-portfolio-start"
-                aria-describedby="admin-new-passage-count-description"
-                [title]="pendingDossierDescription()"
-                [disabled]="guidance.portfolioStartDisabled()"
-                (click)="guidance.startPortfolio()"
+                data-og7="admin-shell-guide"
+                [attr.aria-expanded]="guidance.guidance.enabled()"
+                [attr.aria-controls]="
+                  guidance.guidance.enabled() ? 'admin-guidance-panel' : null
+                "
+                (click)="guidance.openDiscovery()"
               >
-                <span
-                  class="new-passage-bell"
-                  [class.active]="hasDossiers"
-                  data-og7="admin-automatic-portfolio-bell"
-                  [attr.data-og7-id]="hasDossiers ? 'active' : 'inactive'"
-                  aria-hidden="true"
-                  ><openg7-admin-icon
-                    [name]="hasDossiers ? 'bellActive' : 'bell'"
-                /></span>
-                <span>{{ 'admin.shell.startPass' | translate }}</span>
-                <span
-                  class="new-passage-count"
-                  [class.active]="hasDossiers"
-                  data-og7="admin-automatic-portfolio-count"
-                  aria-hidden="true"
-                  >{{ count ?? '—' }}</span
-                >
+                <openg7-admin-icon name="assistant" />
+                <span>{{ 'admin.shell.guide' | translate }}</span>
               </button>
-              <span
-                class="visually-hidden"
-                id="admin-new-passage-count-description"
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-                >{{ pendingDossierDescription() }}</span
-              >
             }
             <openg7-contribution-activity />
             <a
@@ -169,7 +145,10 @@ import {
           </div>
         </header>
         <div class="guidance-tools" data-og7="admin-guidance-tools">
-          <openg7-admin-guidance #guidance />
+          <openg7-admin-guidance
+            #guidance
+            (collapsed)="restoreGuidanceFocus($event.restoreFocus)"
+          />
           <openg7-admin-controller />
         </div>
         <main id="admin-main" #main tabindex="-1"><ng-content /></main>
@@ -229,15 +208,18 @@ export class AdminLayoutComponent {
   readonly sandbox = inject(AdminSandboxService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly topbar =
+    viewChild.required<ElementRef<HTMLElement>>('topbar');
   private readonly radialSlot = viewChild<ElementRef<HTMLElement>>(
     'controllerRadialSlot'
   );
   private readonly deckSlot =
     viewChild<ElementRef<HTMLElement>>('controllerDeckSlot');
-  private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly assistantLink =
     viewChild<ElementRef<HTMLAnchorElement>>('assistantLink');
+  private readonly guideButton =
+    viewChild<ElementRef<HTMLButtonElement>>('guideButton');
   readonly assistantNavigation = computed(() => {
     const id = this.sponsorshipId();
     return id ? new AssistantDossierNavigation(id, 'shell') : undefined;
@@ -259,23 +241,60 @@ export class AdminLayoutComponent {
     return true;
   }
 
-  readonly pendingDossierCount = computed(() => {
-    const queue = this.admin.workQueue();
-    const count = queue?.pendingDossierCount;
-    if (
-      !queue?.available ||
-      queue.coverage !== 'complete' ||
-      queue.missingSources.length ||
-      typeof count !== 'number' ||
-      !Number.isSafeInteger(count) ||
-      count < 0
-    )
-      return null;
-    return count;
-  });
+  restoreGuidanceFocus(restoreFocus: boolean): void {
+    if (!restoreFocus) return;
+    const button = this.guideButton()?.nativeElement;
+    if (button?.getClientRects().length) button.focus();
+    else this.main().nativeElement.focus({ preventScroll: true });
+  }
 
   constructor() {
     registerAdminFinancialTranslations();
+    afterRenderEffect((onCleanup) => {
+      const root = this.element.nativeElement;
+      const header = this.topbar().nativeElement;
+      const view = root.ownerDocument.defaultView;
+      if (!view) return;
+      let previousTop = 0;
+      let frame = 0;
+      const updateGuideTop = (): void => {
+        const top = Math.max(
+          12,
+          Math.ceil(header.getBoundingClientRect().bottom + 12)
+        );
+        if (top !== previousTop) {
+          previousTop = top;
+          root.style.setProperty('--admin-guidance-top', `${top}px`);
+        }
+      };
+      const scheduleGuideTop = (): void => {
+        if (frame) return;
+        frame = view.requestAnimationFrame(() => {
+          frame = 0;
+          updateGuideTop();
+        });
+      };
+      updateGuideTop();
+      const observer =
+        typeof ResizeObserver === 'undefined'
+          ? null
+          : new ResizeObserver(scheduleGuideTop);
+      observer?.observe(header);
+      const sidebar = root.querySelector<HTMLElement>('#admin-sidebar');
+      if (sidebar) observer?.observe(sidebar);
+      view.addEventListener('resize', scheduleGuideTop);
+      view.addEventListener('scroll', scheduleGuideTop, {
+        capture: true,
+        passive: true
+      });
+      onCleanup(() => {
+        observer?.disconnect();
+        view.removeEventListener('resize', scheduleGuideTop);
+        view.removeEventListener('scroll', scheduleGuideTop, true);
+        if (frame) view.cancelAnimationFrame(frame);
+        root.style.removeProperty('--admin-guidance-top');
+      });
+    });
     afterRenderEffect((onCleanup) => {
       const document = this.element.nativeElement.ownerDocument;
       // One Escape gesture closes one surface, even after focus returns to its parent.
@@ -346,12 +365,5 @@ export class AdminLayoutComponent {
       onCleanup(disconnect);
     });
     inject(DestroyRef).onDestroy(() => disconnect());
-  }
-
-  pendingDossierDescription(): string {
-    const count = this.pendingDossierCount();
-    return count === null
-      ? this.i18n.t('admin.shell.startPassCountUnavailable')
-      : this.i18n.t('admin.shell.startPassDossierCount', { count });
   }
 }

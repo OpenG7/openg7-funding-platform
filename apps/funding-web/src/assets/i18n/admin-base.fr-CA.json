@@ -1348,6 +1348,9 @@
     },
     "attention": {
       "title": "À traiter",
+      "queueTitle": "Interventions actives",
+      "globalCountsHelp": "Ensemble de la file · compteurs avant filtres.",
+      "examineDecision": "Examiner la décision",
       "todayTitle": "À traiter aujourd’hui",
       "help": "Les interventions sont classées selon leur priorité. Une tâche disparaît lorsque sa condition est résolue.",
       "todayHelp": "Priorités et échéances · Heure de Toronto.",
@@ -1763,7 +1766,7 @@
       },
       "modeLabel": "Type de guide",
       "discoveryMode": "Découvrir",
-      "serviceDeliveryMode": "Prestations",
+      "serviceDeliveryMode": "Prestations en démo",
       "tour": {
         "title": "Visite des prestations",
         "play": "Play",
@@ -1842,9 +1845,7 @@
     },
     "shell": {
       "skip": "Aller au contenu principal",
-      "startPass": "Vérifier un nouveau lot",
-      "startPassCountUnavailable": "Compteur des dossiers indisponible.",
-      "startPassDossierCount": "Dossiers à traiter : {{count}}",
+      "guide": "Guide",
       "workspace": "Fonds des bâtisseurs · Administration",
       "identity": "Administration",
       "toEnglish": "Switch administration language to English",
@@ -3153,6 +3154,8 @@
       "showQueue": "Afficher la file",
       "hideQueue": "Masquer la file",
       "title": "Poste de pilotage",
+      "targetUnavailable": "Cette décision n’est plus disponible ou ne peut pas être chargée. Consultez son dossier ou revenez à la file.",
+      "backToQueue": "Retour à la file",
       "overview": "Vue d’ensemble",
       "pendingDecisions": "À examiner",
       "inThisSpace": "Dans cet espace",
@@ -3403,6 +3406,7 @@
       "acknowledgeIncident": "Consigner mon constat et reprendre le pilotage",
       "audit": "Consulter l’audit",
       "programme": "Ma semaine",
+      "programmeHelp": "Préparez le calendrier, les textes et les préférences éditoriales de vos publications.",
       "fiveMinutes": "Session de cinq minutes",
       "sessionDecisions": "décisions terminées",
       "endSession": "Terminer la session"
@@ -3424,6 +3428,20 @@
       "forbidden": "La configuration et ses tests sont réservés au propriétaire."
     },
     "programme": {
+      "guidance": {
+        "read": {
+          "title": "Lire le briefing",
+          "body": "Consultez les publications prêtes, programmées et bloquées. Une priorité ouvre sa décision dans le poste de pilotage."
+        },
+        "choose": {
+          "title": "Préparer la semaine",
+          "body": "Choisissez le calendrier, une variante de texte ou les préférences. Les propositions restent privées avant confirmation."
+        },
+        "verify": {
+          "title": "Vérifier la proposition",
+          "body": "Relisez les changements et leurs conséquences avant de confirmer. Un reçu incertain doit être vérifié avant toute nouvelle commande."
+        }
+      },
       "views": {
         "brief": "Mon briefing",
         "calendar": "Composer la semaine",

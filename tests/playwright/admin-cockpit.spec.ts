@@ -33,6 +33,10 @@ const metrics = (page: Page) => page.locator('[data-og7="cockpit-metrics"]');
 const activity = (page: Page) => page.locator('[data-og7="cockpit-activity"]');
 const systems = (page: Page) => page.locator('[data-og7="cockpit-systems"]');
 
+async function openDiagnostics(page: Page): Promise<void> {
+  await page.locator('[data-og7="dashboard-supervision"] > summary').click();
+}
+
 async function renderedDashboardFixtures(page: Page) {
   const data = await fixtures(page);
   // Empty synthetic operations render the dashboard's own layout surfaces.
@@ -105,6 +109,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       );
       await renderedDashboardFixtures(page);
       await page.goto('/admin/fundraiser');
+      await openDiagnostics(page);
       await expect(metrics(page).getByRole('article')).toHaveCount(4);
       await expect(page.locator('html')).toHaveAttribute('lang', language);
       await expect(page.locator('html')).toHaveAttribute(
@@ -176,10 +181,9 @@ test('dashboard and cockpit queries follow the same resized container rather tha
   await page.setViewportSize({ width: 2000, height: 1000 });
   await renderedDashboardFixtures(page);
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   const dashboard = page.locator('[data-og7="admin-dashboard"]');
-  const recent = dashboard.locator(
-    'section[aria-labelledby="admin-recent-title"]'
-  );
+  const recent = activity(page);
   await expect(recent).toBeVisible();
   const summary = dashboard.getByRole('region', {
     name: 'Synthèse des opérations'
@@ -201,24 +205,21 @@ test('dashboard and cockpit queries follow the same resized container rather tha
         await dashboard.evaluate((node) => node.getBoundingClientRect().width)
       ).toBe(width);
       await expect.poll(() => gridColumns(summary)).toBe(width < 960 ? 1 : 2);
-      await expect
-        .poll(() => gridColumns(recent.locator('..')))
-        .toBe(width < 960 ? 1 : 2);
       // At exactly 38rem both cockpit queries match; the later max query wins.
       await expect
         .poll(() => gridColumns(metricGrid))
         .toBe(width <= 608 ? 1 : width < 1024 ? 2 : 4);
-      await expect.poll(() => gridColumns(workflow)).toBe(width < 1024 ? 1 : 2);
+      await expect.poll(() => gridColumns(workflow)).toBe(1);
       await expect
-        .poll(() => gridColumns(secondary))
+        .poll(() =>
+          gridColumns(
+            supervision.locator('[data-og7="dashboard-supervision-details"]')
+          )
+        )
         .toBe(width < 1024 ? 1 : 2);
       await expect(dashboard.locator(':scope > header')).toHaveCSS(
         'flex-direction',
         width <= 608 ? 'column' : 'row'
-      );
-      await expect(recent.locator('header')).toHaveCSS(
-        'flex-direction',
-        width <= 992 ? 'column' : 'row'
       );
       await expect(
         supervision.locator('[data-og7="cockpit-systems"]')
@@ -491,6 +492,7 @@ test('cockpit separates currencies, missing fees and net from available balance'
 }) => {
   await fixtures(page);
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   await expect(
     metrics(page).getByRole('article', { name: 'Net des encaissements' })
   ).toContainText(/276\s?420/);
@@ -557,6 +559,7 @@ test('cockpit presents a failed Stripe connection separately from successful web
     )
   };
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   const stripe = systems(page).locator('[data-og7-id="stripe"]');
   await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
     'Indisponible'
@@ -577,6 +580,7 @@ test('a failed metrics source leaves activity and system status usable', async (
     route.fulfill({ status: 503, json: {} })
   );
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   await expect(metrics(page).getByRole('alert')).toContainText('indisponible');
   await expect(
     activity(page).getByRole('link', { name: /FAC-COCKPIT/ })
@@ -619,6 +623,7 @@ test('system retry keeps failed observations unknown until a successful response
 }) => {
   const data = await fixtures(page);
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   const database = systems(page).locator('[data-og7-id="database"]');
   const refresh = systems(page).getByRole('button', { name: 'Actualiser' });
   await expect(database).toContainText('Opérationnel');
@@ -654,6 +659,7 @@ test('expired system observations lose their operational indication without a re
   await page.clock.install();
   await fixtures(page);
   await page.goto('/admin/fundraiser');
+  await openDiagnostics(page);
   const database = systems(page).locator('[data-og7-id="database"]');
   await expect(database).toContainText('Opérationnel');
   await page.clock.fastForward(90_000);

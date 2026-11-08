@@ -27,6 +27,9 @@ const paths = {
   bellActive:
     'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M2 8a10 10 0 0 1 2-5m18 5a10 10 0 0 0-2-5',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  minimize: 'M5 12h14',
+  dockBottom: 'M4 4h16v16H4V4ZM4 16h16M12 7v6m-3-3 3 3 3-3',
+  dockTop: 'M4 4h16v16H4V4ZM4 8h16M12 17v-6m-3 3 3-3 3 3',
   close: 'm6 6 12 12M6 18 18 6',
   refresh:
     'M20 10a8 8 0 0 0-14-5L3 8m0-5v5h5m-4 6a8 8 0 0 0 14 5l3-3m0 5v-5h-5',

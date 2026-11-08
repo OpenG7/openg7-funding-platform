@@ -130,11 +130,12 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 23);
+  assert.equal(discovered.length, 24);
   assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
   assert.ok(discovered.includes('/admin/fundraiser/preflight'));
   assert.ok(discovered.includes('/admin/fundraiser/sponsors/quality'));
   assert.ok(discovered.includes('/admin/fundraiser/publications/calendar'));
+  assert.ok(discovered.includes('/admin/fundraiser/publications/programme'));
   const nginx = readFileSync('apps/funding-web/nginx.conf', 'utf8');
   const location = nginx
     .split('\n')
@@ -178,6 +179,21 @@ test('admin route coverage follows declarations and the publication matcher spac
     readFileSync('tests/admin-e2e-coverage.json', 'utf8')
   );
   assert.deepEqual([...coverage.routes].sort(), [...discovered].sort());
+  assert.ok(
+    coverage.guarantees.some(
+      (guarantee) =>
+        guarantee.routes.includes('/admin/fundraiser/publications/programme') &&
+        guarantee.evidence.some(
+          (proof) =>
+            proof.level === 'e2e' &&
+            proof.file ===
+              'tests/identity/editorial-programme-journey.spec.ts' &&
+            proof.title ===
+              'weekly programme: preview, discard, stale plan, lost response, renewed approval and expired session'
+        )
+    ),
+    'the editorial programme route retains its real role, confirmation and receipt journey'
+  );
   const extra = source.replace(
     "path: 'fundraiser/access'",
     "path: 'fundraiser/new-capability'"

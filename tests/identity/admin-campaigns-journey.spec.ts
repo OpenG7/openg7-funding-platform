@@ -18,6 +18,13 @@ const path = '/admin/fundraiser/campaigns';
 const endpoint = '/api/admin/campaigns';
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 
+async function openAdvancedFilters(page: Page): Promise<void> {
+  const filters = hook(page, 'campaigns-advanced-filters');
+  if (!(await filters.evaluate((element) => element.hasAttribute('open')))) {
+    await hook(page, 'campaigns-advanced-toggle').click();
+  }
+}
+
 const listResponse = (
   page: Page,
   filters: Readonly<Record<string, string>> = {},
@@ -156,6 +163,7 @@ test('campaigns store reads the real authenticated API, retains its view across 
     await test.step('filters and pagination reach the server and select one exact promised passage', async () => {
       await hook(page, 'campaigns-search').fill(filters.search);
       await hook(page, 'campaigns-channel').selectOption(filters.channel);
+      await openAdvancedFilters(page);
       await hook(page, 'campaigns-target').selectOption(filters.target);
       await hook(page, 'campaigns-state').selectOption(filters.state);
       await hook(page, 'campaigns-sort').selectOption(filters.sort);

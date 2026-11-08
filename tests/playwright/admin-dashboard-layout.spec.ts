@@ -1,8 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
-  AdminCockpitMetrics,
-  AdminCockpitSystems,
   AdminContributionRecord,
   AdminDashboardResponse
 } from '@openg7/funding-core';
@@ -232,7 +230,6 @@ for (const language of ['fr-CA', 'en'] as const)
       const cards = metrics.getByRole('article');
       const workflow = root.locator('[data-og7="dashboard-workflow"]');
       const queue = workflow.locator('[data-og7="attention-panel"]');
-      const dossier = workflow.locator('[data-og7="sponsorship-progress"]');
       const secondary = root.locator('[data-og7="dashboard-secondary"]');
       const supervision = root.locator('[data-og7="dashboard-supervision"]');
       const firstTask = queue
@@ -245,7 +242,18 @@ for (const language of ['fr-CA', 'en'] as const)
         root.locator('[data-og7="dashboard-refresh"]')
       ).toBeEnabled();
       await expect(cards).toHaveCount(4);
-      await expect(dossier).toContainText('NordVale Énergie');
+      await expect(
+        root.locator('[data-og7="sponsorship-progress"]')
+      ).toHaveCount(0);
+      await expect(root.locator('[data-og7="assistant-context"]')).toHaveCount(
+        0
+      );
+      await expect(root.locator('[data-og7="admin-celebrations"]')).toHaveCount(
+        0
+      );
+      await expect(root.locator('[data-og7="open-service-demo"]')).toHaveCount(
+        0
+      );
       await expect(firstTask).toContainText('DEMO-2026-000');
       await expectAdminFontsReady(page);
 
@@ -272,26 +280,13 @@ for (const language of ['fr-CA', 'en'] as const)
           }
         }
         const queueBox = (await queue.boundingBox())!;
-        const dossierBox = (await dossier.boundingBox())!;
-        if (stacked) {
-          expect(dossierBox.x).toBeCloseTo(queueBox.x, 0);
-          expect(dossierBox.y).toBeGreaterThanOrEqual(
-            queueBox.y + queueBox.height - 1
-          );
-        } else {
-          // The queue's emphasis border sits above its inner section.
-          expect(Math.abs(dossierBox.y - queueBox.y)).toBeLessThanOrEqual(4);
-          expect(dossierBox.x).toBeGreaterThanOrEqual(
-            queueBox.x + queueBox.width - 1
-          );
-          expect(queueBox.width / dossierBox.width).toBeCloseTo(1.5, 1);
-        }
+        const workflowBox = (await workflow.boundingBox())!;
+        expect(queueBox.width).toBeCloseTo(workflowBox.width, 0);
         const metricsBox = (await metrics.boundingBox())!;
         const journeysBox = (await journeys.boundingBox())!;
         expect(metricsBox.y).toBeGreaterThanOrEqual(
           journeysBox.y + journeysBox.height - 1
         );
-        const workflowBox = (await workflow.boundingBox())!;
         expect(workflowBox.y).toBeGreaterThanOrEqual(
           metricsBox.y + metricsBox.height - 1
         );
@@ -310,21 +305,11 @@ for (const language of ['fr-CA', 'en'] as const)
       await test.step('journey status leads the metrics and work queue before secondary information', async () => {
         await expectComposition(viewport.width === 390);
         await expect(
-          secondary.locator('[data-og7="assistant-context"]')
-        ).toHaveCount(1);
-        await expect(
           secondary.locator('[data-og7="cockpit-activity"]')
         ).toHaveCount(1);
         await expect(
           supervision.locator('[data-og7="cockpit-systems"]')
         ).toHaveCount(1);
-        const workflowBox = (await workflow.boundingBox())!;
-        const celebrationBox = (await root
-          .locator('[data-og7="admin-celebrations"]')
-          .boundingBox())!;
-        expect(celebrationBox.y).toBeGreaterThanOrEqual(
-          workflowBox.y + workflowBox.height - 1
-        );
         const secondaryBox = (await secondary.boundingBox())!;
         const supervisionBox = (await supervision.boundingBox())!;
         expect(supervisionBox.y).toBeGreaterThanOrEqual(
@@ -484,9 +469,7 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
   const main = page.getByRole('main');
   const banner = page.getByRole('banner');
   const search = banner.locator('openg7-admin-global-search');
-  const newPassage = banner.locator(
-    '[data-og7="admin-automatic-portfolio-start"]'
-  );
+  const guide = banner.locator('[data-og7="admin-shell-guide"]');
   const tools = banner
     .getByRole('button', {
       name: 'Switch administration language to English'
@@ -518,7 +501,7 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
         width <= 480 ? '100%' : '0%'
       );
       await expect(banner).toHaveCSS('flex-wrap', 'wrap');
-      await expect(newPassage).toHaveCSS(
+      await expect(guide).toHaveCSS(
         'flex-basis',
         width <= 480 ? '100%' : 'auto'
       );
@@ -737,10 +720,13 @@ test('dashboard displays truthful metrics and preserves every navigation destina
     'page'
   );
   await expect(
-    page.getByRole('link', { name: /Atelier Boréal/ })
-  ).toHaveAttribute(
+    page
+      .locator('[data-og7="cockpit-activity"]')
+      .getByRole('link', { name: 'Contributions', exact: true })
+  ).toHaveAttribute('href', '/admin/fundraiser/contributions');
+  await expect(page.getByRole('link', { name: /FAC-COCKPIT/ })).toHaveAttribute(
     'href',
-    '/admin/fundraiser/contributions?contributionId=ui-sponsorship-1'
+    '/admin/fundraiser/invoices?contributionId=11111111-1111-4111-8111-111111111111'
   );
   await page.keyboard.press('Tab');
   await expect(
@@ -868,20 +854,20 @@ test('unavailable storage is distinct from an empty fund', async ({ page }) => {
   );
   await page.locator('[data-og7=dashboard-refresh]').click();
   await expect(
-    page.getByRole('heading', { name: 'Aucune contribution enregistrée' })
+    page.getByText('Aucun encaissement confirmé enregistré.')
   ).toBeVisible();
   await expect(
     page.getByRole('article', { name: 'Commandites', exact: true })
   ).toContainText('0');
 });
 
-test('a forbidden response removes previously displayed private data', async ({
+test('a forbidden response removes previously displayed operation summaries', async ({
   page
 }) => {
   await fixtures(page);
   await page.goto('/admin/fundraiser');
   await expect(
-    page.getByRole('link', { name: /Atelier Boréal/ })
+    page.getByRole('region', { name: 'Synthèse des opérations' })
   ).toBeVisible();
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ status: 403, json: {} })
@@ -890,9 +876,9 @@ test('a forbidden response removes previously displayed private data', async ({
   await expect(
     page.getByRole('alert').filter({ hasText: 'Accès refusé' })
   ).toContainText('Accès refusé');
-  await expect(page.getByRole('link', { name: /Atelier Boréal/ })).toHaveCount(
-    0
-  );
+  await expect(
+    page.getByRole('region', { name: 'Synthèse des opérations' })
+  ).toHaveCount(0);
 });
 
 test('an expired session returns to login before loading the dashboard', async ({
@@ -1094,379 +1080,38 @@ test('desktop, tablet and mobile views fit their viewport with translated long c
   expect(errors).toEqual([]);
 });
 
-type CelebrationFixture = ReturnType<typeof cockpitFixtures> & {
-  metricsStatus: number;
-  systemsStatus: number;
-};
-
-async function celebrationFixtures(page: Page): Promise<CelebrationFixture> {
-  await fixtures(page);
-  const data = {
-    ...cockpitFixtures(),
-    metricsStatus: 200,
-    systemsStatus: 200
-  };
-  data.systems = {
-    ...data.systems,
-    systems: data.systems.systems.map((system) => ({
-      ...system,
-      state: 'operational',
-      evidence: system.id === 'stripe' ? 'recent_webhook' : system.evidence,
-      observedAt: data.systems.generatedAt,
-      ...(system.id === 'stripe'
-        ? {
-            connection: {
-              ...system.connection!,
-              observedAt: data.systems.generatedAt
-            }
-          }
-        : {})
-    }))
-  } satisfies AdminCockpitSystems;
-  await page.route('**/api/admin/cockpit/metrics', (route) =>
-    route.fulfill({ status: data.metricsStatus, json: data.metrics })
-  );
-  await page.route('**/api/admin/cockpit/systems', (route) =>
-    route.fulfill({ status: data.systemsStatus, json: data.systems })
-  );
-  return data;
-}
-
-function nextCelebrationMetrics(
-  data: CelebrationFixture,
-  changes: Partial<AdminCockpitMetrics>
-): void {
-  data.metrics = {
-    ...data.metrics,
-    generatedAt: new Date(
-      Date.parse(data.metrics.generatedAt) + 1
-    ).toISOString(),
-    ...changes
-  };
-}
-
-async function refreshCelebrationBlock(
-  page: Page,
-  block: 'metrics' | 'systems'
-): Promise<void> {
-  const button = page
-    .locator(`[data-og7="cockpit-${block}"]`)
-    .getByRole('button', { name: 'Actualiser', exact: true });
-  await Promise.all([
-    page.waitForResponse((response) =>
-      new URL(response.url()).pathname.endsWith('/cockpit/' + block)
-    ),
-    button.click()
-  ]);
-  await expect(button).toBeEnabled();
-}
-
-test('dashboard celebrations use a confirmed baseline and keep gains in their own currencies', async ({
-  page
-}) => {
-  await page.clock.install();
-  const data = await celebrationFixtures(page);
-  await page.goto('/admin/fundraiser');
-  const celebrations = page.locator('[data-og7="admin-celebrations"]');
-  const gains = celebrations.locator('[data-og7="celebration-gains"]');
-  await expect(celebrations).toBeVisible();
-  await expect(
-    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
-  ).toHaveCount(4);
-  await expect(gains).toBeHidden();
-
-  nextCelebrationMetrics(data, {
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      confirmedFeesMinor: currency.confirmedFeesMinor + 100,
-      netReceivedMinor:
-        currency.netReceivedMinor === null
-          ? null
-          : currency.netReceivedMinor - 100,
-      refundedMinor: currency.refundedMinor + 500,
-      netAfterRefundsMinor:
-        currency.netAfterRefundsMinor === null
-          ? null
-          : currency.netAfterRefundsMinor - 600,
-      grossTrend: { ...currency.grossTrend, current: 999999 }
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-
-  nextCelebrationMetrics(data, {
-    warnings: ['unlinked_transactions'],
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 10000
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-  nextCelebrationMetrics(data, { warnings: [] });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-
-  nextCelebrationMetrics(data, {
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      grossMinor:
-        currency.grossMinor + (currency.currency === 'CAD' ? 2500 : 1234)
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeVisible();
-  await expect(gains).toContainText(/25,00\s*CAD/);
-  await expect(gains).toContainText(/12,34\s*USD/);
-  await expect(gains).not.toContainText(/37,34/);
-  await expect(
-    celebrations.locator('[data-og7="celebration-coins"]')
-  ).toHaveAttribute('aria-hidden', 'true');
-  await page.clock.fastForward(5_100);
-  await expect(gains).toBeHidden();
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-});
-
-test('dashboard celebrations never replay a decrease and rebound or a failed or stale snapshot', async ({
-  page
-}) => {
-  await page.clock.install();
-  const data = await celebrationFixtures(page);
-  const baseline = data.metrics;
-  data.metricsStatus = 503;
-  await page.goto('/admin/fundraiser');
-  const gains = page.locator('[data-og7="celebration-gains"]');
-  await expect(
-    page.locator('[data-og7="cockpit-metrics"]').getByRole('alert')
-  ).toBeVisible();
-  await expect(gains).toBeHidden();
-  data.metricsStatus = 200;
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-
-  nextCelebrationMetrics(data, {
-    currencies: baseline.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor - 1000
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-  nextCelebrationMetrics(data, { currencies: baseline.currencies });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-
-  data.metricsStatus = 503;
-  nextCelebrationMetrics(data, {
-    currencies: baseline.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 100000
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-  data.metricsStatus = 200;
-  nextCelebrationMetrics(data, {
-    generatedAt: new Date(Date.parse(baseline.generatedAt) - 1000).toISOString()
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-
-  nextCelebrationMetrics(data, {
-    generatedAt: new Date(Date.parse(baseline.generatedAt) + 10).toISOString(),
-    currencies: baseline.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 500
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toContainText(/5,00\s*CAD/);
-  await page.clock.fastForward(5_100);
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-});
-
-test('dashboard celebrations can be disabled with the keyboard and retain that choice after reload', async ({
-  page
-}) => {
-  const data = await celebrationFixtures(page);
-  await page.goto('/admin/fundraiser');
-  const section = page.locator('[data-og7="admin-celebrations"]');
-  const toggle = section.locator('[data-og7="celebrations-toggle"]');
-  const gains = section.locator('[data-og7="celebration-gains"]');
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
-  ).toHaveCount(4);
-  nextCelebrationMetrics(data, {
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 100
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeVisible();
-  await toggle.focus();
-  await page.keyboard.press('Space');
-  await expect(toggle).toBeFocused();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await expect(gains).toBeHidden();
-  expect(
-    await page.evaluate(() =>
-      localStorage.getItem('openg7.admin.celebrations.v1')
-    )
-  ).toBe('off');
-  expect(
-    await section.evaluate(
-      (element) => element.getAnimations({ subtree: true }).length
-    )
-  ).toBe(0);
-  await page.reload();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await expect(
-    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
-  ).toHaveCount(4);
-  nextCelebrationMetrics(data, {
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 100
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(gains).toBeHidden();
-  await toggle.focus();
-  await page.keyboard.press('Enter');
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await expect(gains).toBeHidden();
-});
-
-test('dashboard health requires fresh observations from every system and both Stripe checks', async ({
-  page
-}) => {
-  const data = await celebrationFixtures(page);
-  const healthy = data.systems;
-  await page.goto('/admin/fundraiser');
-  const health = page.locator('[data-og7="celebration-health"]');
-  await expect(health).toHaveAttribute('data-state', 'operational');
-  expect(
-    await health.evaluate((element) =>
-      element
-        .getAnimations({ subtree: true })
-        .every(
-          (animation) =>
-            Number(animation.effect?.getComputedTiming().endTime ?? 0) < 5000
-        )
-    )
-  ).toBe(true);
-
-  data.systems = {
-    ...healthy,
-    systems: healthy.systems.map((system) =>
-      system.id === 'stripe'
-        ? {
-            ...system,
-            connection: { ...system.connection!, state: 'unavailable' }
-          }
-        : system
-    )
-  };
-  await refreshCelebrationBlock(page, 'systems');
-  await expect(health).toHaveAttribute('data-state', 'attention');
-  data.systems = {
-    ...healthy,
-    systems: healthy.systems.map((system) =>
-      system.id === 'stripe'
-        ? { ...system, state: 'unknown', evidence: 'no_recent_observation' }
-        : system
-    )
-  };
-  await refreshCelebrationBlock(page, 'systems');
-  await expect(health).toHaveAttribute('data-state', 'unknown');
-  data.systems = {
-    ...healthy,
-    systems: healthy.systems.filter((system) => system.id !== 'identity')
-  };
-  await refreshCelebrationBlock(page, 'systems');
-  await expect(health).toHaveAttribute('data-state', 'unknown');
-  data.systems = healthy;
-  await refreshCelebrationBlock(page, 'systems');
-  await expect(health).toHaveAttribute('data-state', 'operational');
-  data.systemsStatus = 503;
-  await refreshCelebrationBlock(page, 'systems');
-  await expect(health).toHaveAttribute('data-state', 'unknown');
-});
-
-test('dashboard health stops indicating success when observations expire without a reload', async ({
-  page
-}) => {
-  await page.clock.install();
-  await celebrationFixtures(page);
-  await page.goto('/admin/fundraiser');
-  const health = page.locator('[data-og7="celebration-health"]');
-  await expect(health).toHaveAttribute('data-state', 'operational');
-  await page.clock.fastForward(90_000);
-  await expect(health).toHaveAttribute('data-state', 'unknown');
-});
-
-test('dashboard celebrations respect reduced motion and remain accessible on mobile in French and English', async ({
-  page
-}) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.setViewportSize({ width: 320, height: 844 });
-  const data = await celebrationFixtures(page);
-  await page.goto('/admin/fundraiser');
-  const section = page.locator('[data-og7="admin-celebrations"]');
-  await expect(
-    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
-  ).toHaveCount(4);
-  nextCelebrationMetrics(data, {
-    currencies: data.metrics.currencies.map((currency) => ({
-      ...currency,
-      grossMinor: currency.grossMinor + 2500
-    }))
-  });
-  await refreshCelebrationBlock(page, 'metrics');
-  await expect(section.locator('[data-og7="celebration-gains"]')).toBeVisible();
-  for (const language of ['fr-CA', 'en']) {
-    if (language === 'en')
-      await page
-        .getByRole('button', {
-          name: 'Switch administration language to English'
-        })
-        .click();
-    await expect(
-      page.getByRole('heading', {
-        level: 1,
-        name: 'Cockpit',
-        exact: true
-      })
-    ).toBeVisible();
-    await expect(
-      section.getByRole('heading', {
-        name: language === 'en' ? 'The little wins' : 'Les petites victoires',
-        exact: true
-      })
-    ).toBeVisible();
-    await expect(
-      section.locator('[data-og7="celebrations-toggle"]')
-    ).toHaveAccessibleName(
-      language === 'en' ? 'Animations On' : 'Animations Activées'
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`dashboard technical diagnostics are optional and keyboard accessible in ${language}`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    await page.addInitScript(
+      (language) => localStorage.setItem('openg7.language', language),
+      language
     );
-    expect(
-      await section.evaluate(
-        (element) => element.getAnimations({ subtree: true }).length
-      )
-    ).toBe(0);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth
-      )
-    ).toBe(true);
+    await page.goto('/admin/fundraiser');
+    const diagnostics = page.locator('[data-og7="dashboard-supervision"]');
+    const summary = diagnostics.locator(':scope > summary');
+    const systems = diagnostics.locator('[data-og7="cockpit-systems"]');
+    await expect(diagnostics).not.toHaveAttribute('open');
+    await expect(systems).toBeHidden();
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(diagnostics).toHaveAttribute('open', '');
+    await expect(systems).toBeVisible();
+    await expect(
+      diagnostics.getByRole('heading', {
+        name: language === 'en' ? 'Stripe events' : 'Événements Stripe'
+      })
+    ).toBeVisible();
     const audit = await new AxeBuilder({ page })
-      .include('[data-og7="admin-celebrations"]')
+      .include('[data-og7="dashboard-supervision"]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
       .analyze();
     expect(audit.violations).toEqual([]);
-  }
-});
+    await summary.focus();
+    await page.keyboard.press('Space');
+    await expect(systems).toBeHidden();
+    await expect(summary).toBeFocused();
+  });
+}

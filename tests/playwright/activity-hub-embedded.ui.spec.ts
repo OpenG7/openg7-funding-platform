@@ -5,10 +5,13 @@ import type { AdminDashboardResponse } from '@openg7/funding-core';
 import { expect, test } from './support/test.js';
 import { controllerJourneysFixtures } from './support/controller-journeys.fixtures.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 
 const hostPath = '/admin/fundraiser?search=synthetic-hub-filter#guide-context';
 const guidance = (page: Page, name: string) =>
   page.locator(`[data-og7="admin-guidance-${name}"]`);
+const shellGuide = (page: Page) =>
+  page.locator('[data-og7="admin-shell-guide"]');
 const hub = (page: Page) => page.locator('[data-og7="activity-hub-embedded"]');
 const hook = (page: Page, name: string) =>
   hub(page).locator(`[data-og7="activity-hub-${name}"]`);
@@ -83,6 +86,9 @@ async function fixtures(
           : {}
     });
   });
+  await page.route('**/api/admin/automatic-runs', (route) =>
+    route.fulfill({ json: { run: null, balance: null } })
+  );
   await page.route('**/api/**', (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -104,7 +110,7 @@ async function openHost(
   state: Awaited<ReturnType<typeof fixtures>>
 ) {
   await page.goto(hostPath);
-  await expect(guidance(page, 'toggle')).toBeVisible();
+  await expect(shellGuide(page)).toBeVisible();
   await expect
     .poll(() =>
       ['metrics', 'activity', 'systems'].every((block) =>
@@ -115,10 +121,7 @@ async function openHost(
 }
 
 async function openDiscovery(page: Page) {
-  if (!(await guidance(page, 'panel').isVisible()))
-    await guidance(page, 'toggle').click();
-  if (!(await hub(page).isVisible()))
-    await guidance(page, 'discovery-mode').click();
+  if (!(await hub(page).isVisible())) await shellGuide(page).click();
   await expect(hub(page)).toBeVisible();
 }
 
@@ -146,6 +149,89 @@ const conciseViolations = (
     }))
   }));
 
+for (const locale of ['fr-CA', 'en']) {
+  for (const width of [1440, 600, 390]) {
+    test(`the shell Guide opens discovery without starting a batch in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = await fixtures(page, 'owner', locale);
+      await openHost(page, state);
+      const sourceUrl = page.url();
+      const guide = shellGuide(page);
+      const preparationViews = page.locator('[data-og7="automatic-view"]');
+      await expect(guide).toHaveAccessibleName('Guide');
+      await expect(guide).toBeEnabled();
+      await expect(guide).toHaveAttribute('aria-expanded', 'false');
+      await expect(guidance(page, 'toggle')).toBeHidden();
+      await expect(guidance(page, 'panel')).toHaveCount(0);
+      await guide.focus();
+      await page.keyboard.press('Enter');
+      await expect(hub(page)).toBeVisible();
+      await expect(guide).toHaveAttribute('aria-expanded', 'true');
+      await expect(guidance(page, 'discovery-mode')).toBeFocused();
+      await expect(guidance(page, 'discovery-mode')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await expect(preparationViews).toHaveCount(0);
+      expect(
+        state.reads.some((request) =>
+          request.startsWith('/api/admin/automatic-runs')
+        )
+      ).toBe(false);
+      await section(page, 'briefing');
+      const instance = await hub(page).elementHandle();
+      await guide.click();
+      await guide.click();
+      await expect(hook(page, 'briefing')).toBeVisible();
+      await expect(guide).toHaveAttribute('aria-expanded', 'true');
+      expect(await instance!.evaluate((element) => element.isConnected)).toBe(
+        true
+      );
+      await expect(preparationViews).toHaveCount(0);
+
+      await guidance(page, 'service-delivery-mode').click();
+      await expect(
+        page.locator('[data-og7="service-delivery-embedded"]')
+      ).toBeVisible();
+      await expect(hub(page)).toBeHidden();
+      await guide.click();
+      await expect(hook(page, 'briefing')).toBeVisible();
+      await expect(
+        page.locator('[data-og7="service-delivery-embedded"]')
+      ).toBeHidden();
+      await expect(preparationViews).toHaveCount(0);
+      await expect(page).toHaveURL(sourceUrl);
+      await instance!.dispose();
+
+      await restoreLegacyGuideMode(page, 'automatic');
+      await expect(preparationViews).toHaveCount(3);
+      await expect(preparationViews.first()).toBeVisible();
+      await guide.focus();
+      await page.keyboard.press('Enter');
+      await expect(hub(page)).toBeVisible();
+      await expect(preparationViews).toHaveCount(0);
+      await expect(guidance(page, 'discovery-mode')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await expect(guidance(page, 'discovery-mode')).toBeFocused();
+      await expect(page).toHaveURL(sourceUrl);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      const bounds = await guide.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expectReadOnly(state);
+    });
+  }
+}
+
 for (const [role, locale] of [
   ['owner', 'fr-CA'],
   ['reader', 'en']
@@ -168,7 +254,7 @@ for (const [role, locale] of [
     const hostMain = await page.locator('#admin-main').elementHandle();
     expect(hostMain).not.toBeNull();
     const before = [...state.reads];
-    await guidance(page, 'toggle').focus();
+    await shellGuide(page).focus();
     await page.keyboard.press('Enter');
     await expect(hub(page)).toBeVisible();
     await expect.poll(() => hubChunks.length).toBe(1);
@@ -188,7 +274,13 @@ for (const [role, locale] of [
     await expect(hook(page, 'briefing')).toBeVisible();
     await guidance(page, 'toggle').click();
     await expect(hub(page)).toBeHidden();
-    await guidance(page, 'toggle').click();
+    await expect(guidance(page, 'toggle')).toBeHidden();
+    await shellGuide(page).click();
+    await expect(guidance(page, 'discovery-mode')).toBeFocused();
+    await expect(guidance(page, 'discovery-mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
     await expect(hook(page, 'briefing')).toBeVisible();
     expect(hubChunks).toHaveLength(1);
     await expect(page).toHaveURL(sourceUrl);
@@ -232,7 +324,13 @@ test('retains readings, saved items and journal filters through service delivery
   await expect(hook(page, 'activity-row')).toHaveCount(2);
   await guidance(page, 'toggle').click();
   await expect(hub(page)).toBeHidden();
-  await guidance(page, 'toggle').click();
+  await expect(guidance(page, 'toggle')).toBeHidden();
+  await shellGuide(page).click();
+  await expect(guidance(page, 'discovery-mode')).toBeFocused();
+  await expect(guidance(page, 'discovery-mode')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   await expect(hook(page, 'activity-row')).toHaveCount(2);
   await section(page, 'saved');
   await expect(card(page, 'guide-context')).toBeVisible();
@@ -379,7 +477,7 @@ test('can retry a failed lazy discovery import without navigating or writing bus
   });
   await openHost(page, state);
   const sourceUrl = page.url();
-  await guidance(page, 'toggle').click();
+  await shellGuide(page).click();
   await expect(guidance(page, 'content').getByRole('alert')).toBeVisible();
   await expect(hub(page)).toHaveCount(0);
   expect(new Set(failed).size).toBe(1);
