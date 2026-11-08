@@ -54,6 +54,15 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [068](../../apps/funding-api/migrations/068_publication_workshop.sql)
+ajoute le registre des changements source, les missions immuables, les propositions
+privées et les reçus d’adoption de l’[Atelier de publication](../technical/publication-workshop.md).
+Appliquer après 067, puis rafraîchir les grants du rôle API avant le démarrage.
+Les triggers conservent les changements dans la transaction métier; le réseau
+reste hors transaction. La migration ne prépare, n’approuve et ne publie aucun
+contenu. Le relais exige son activation explicite séparée. Les données et audits
+existants restent conservés; aucune migration de production n’a été exécutée.
+
 La migration [067](../../apps/funding-api/migrations/067_documented_sponsorship_consent.sql)
 ajoute le registre immuable des [accords publics documentés](../technical/sponsorship-public-consent.md)
 et leur identité dans les empreintes de modération. Appliquer après 066, puis

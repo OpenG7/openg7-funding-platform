@@ -1,0 +1,8 @@
+# Optional durable preparation of real Funding dossiers, disabled by default.
+# Layer after docker-compose.preflight-inbox.yml and the existing identity stack.
+# Migration 068 and a scoped service identity are required; no publication is enabled.
+services:
+  api:
+    environment:
+      PREFLIGHT_ENABLED: ${PREFLIGHT_ENABLED:-false}
+      PREFLIGHT_MAX_COST_USD: ${PREFLIGHT_MAX_COST_USD:-0.5}

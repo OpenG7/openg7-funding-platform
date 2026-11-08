@@ -1,0 +1,330 @@
+<section
+  class="workshop"
+  data-og7="publication-workshop"
+  aria-labelledby="workshop-title"
+  [attr.aria-busy]="loading() || busy()"
+>
+  <header class="workshop-heading">
+    <div>
+      <span class="eyebrow">Preflight</span>
+      <h3 id="workshop-title">{{ t('title') }}</h3>
+      <p>{{ t('help') }}</p>
+    </div>
+    <div class="workshop-actions">
+      @if (data()?.enabled && !readOnly()) {
+        <button
+          type="button"
+          class="admin-button admin-button--primary"
+          data-og7="workshop-prepare"
+          [disabled]="!canPrepare()"
+          (click)="prepare()"
+        >
+          <openg7-admin-icon name="refresh" />{{
+            t(data()?.proposal ? 'regenerate' : 'generate')
+          }}
+        </button>
+      }
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="workshop-refresh"
+        [disabled]="loading() || busy()"
+        (click)="load()"
+      >
+        {{ t('refresh') }}
+      </button>
+    </div>
+  </header>
+  @if (error()) {
+    <p class="workshop-error" role="alert" data-og7="workshop-error">
+      {{ t('errors.' + error()) }}
+    </p>
+  }
+  @if (notice() || data()?.proposal?.adoptedAt) {
+    <p class="workshop-notice" role="status" data-og7="workshop-notice">
+      {{ t(notice() || 'adopted') }}
+    </p>
+  }
+  @if (loading() && !data()) {
+    <p role="status">{{ t('loading') }}</p>
+  }
+  @if (data(); as state) {
+    @if (!state.enabled) {
+      <p data-og7="workshop-disabled">{{ t('disabled') }}</p>
+    } @else {
+      <dl class="metadata" data-og7="workshop-mission">
+        <div>
+          <dt>{{ t('mission.title') }}</dt>
+          <dd>
+            <span role="status">{{ missionLabel() }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('sourceVersion') }}</dt>
+          <dd>{{ state.sourceVersion ?? '—' }}</dd>
+        </div>
+        @if (state.mission) {
+          <div>
+            <dt>{{ t('updatedAt') }}</dt>
+            <dd>
+              <time [attr.datetime]="state.mission.updatedAt">{{
+                date(state.mission.updatedAt)
+              }}</time>
+            </dd>
+          </div>
+        }
+      </dl>
+      @if (proposal(); as proposal) {
+        @let editorial = proposal.editorialPreparation;
+        <div class="workshop-layout">
+          <div class="editorial-content">
+            <div class="proposal-heading">
+              <div>
+                <h4>{{ t('common') }}</h4>
+                <p>
+                  {{
+                    t('proposalVersion', {
+                      version: proposal.version,
+                      source: proposal.sourceVersion
+                    })
+                  }}
+                </p>
+              </div>
+              <span
+                class="state"
+                [class.is-obsolete]="!active()"
+                data-og7="workshop-proposal-state"
+                >{{ t(!active() ? 'obsolete' : editorial.state) }}</span
+              >
+            </div>
+            <p class="provenance" data-og7="workshop-provenance">
+              <strong>{{
+                t(proposal.provenance.simulated ? 'simulated' : 'real')
+              }}</strong>
+              · {{ proposal.provenance.provider }} ·
+              {{ proposal.provenance.model }} ·
+              <time [attr.datetime]="proposal.createdAt">{{
+                date(proposal.createdAt)
+              }}</time>
+            </p>
+            <p class="authorization" data-og7="workshop-not-authorized">
+              <openg7-admin-icon name="audit" />{{ t('notAuthorized') }}
+            </p>
+            @if (editorial.common.missingInformation.length) {
+              <div class="missing" data-og7="workshop-missing">
+                <h4>{{ t('missingTitle') }}</h4>
+                <ul>
+                  @for (
+                    code of editorial.common.missingInformation;
+                    track code
+                  ) {
+                    <li>{{ missingLabel(code) }}</li>
+                  }
+                </ul>
+              </div>
+            }
+            <div class="workshop-actions">
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="workshop-preview"
+                [attr.aria-expanded]="previewOpen()"
+                aria-controls="workshop-preview-content"
+                (click)="previewOpen.set(!previewOpen())"
+              >
+                {{ t('preview') }}
+              </button>
+              @if (canAdopt()) {
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  data-og7="workshop-adopt"
+                  [disabled]="busy() || loading()"
+                  (click)="adopt()"
+                >
+                  {{ t('adopt') }}
+                </button>
+              }
+            </div>
+            @if (previewOpen()) {
+              <div
+                id="workshop-preview-content"
+                class="preview"
+                data-og7="workshop-preview-content"
+              >
+                <h4>{{ editorial.common.title || t('partialTitle') }}</h4>
+                @if (editorial.common.presentation) {
+                  <p>{{ editorial.common.presentation }}</p>
+                }
+                @if (editorial.common.recognition) {
+                  <p>{{ editorial.common.recognition }}</p>
+                }
+                @if (
+                  !editorial.common.presentation &&
+                  !editorial.common.recognition
+                ) {
+                  <p>{{ t('partialContent') }}</p>
+                }
+                <div class="variants">
+                  @for (
+                    variant of editorial.variants;
+                    track variant.obligationId
+                  ) {
+                    <article
+                      class="variant"
+                      data-og7="workshop-variant"
+                      [attr.data-og7-id]="variant.obligationId"
+                    >
+                      <header>
+                        <h4>
+                          {{ t('destinations.' + variant.destination) }} ·
+                          {{ targetLabel(variant.obligationId) }}
+                        </h4>
+                        <span>{{
+                          t('contentVersion', { version: variant.version })
+                        }}</span>
+                      </header>
+                      <h5>{{ variant.title || t('partialTitle') }}</h5>
+                      <p>{{ variant.body || t('partialContent') }}</p>
+                      @if (variant.destination === 'website') {
+                        <dl
+                          class="summary-comparison"
+                          data-og7="workshop-summary-comparison"
+                        >
+                          <div>
+                            <dt>{{ t('sourceSummary') }}</dt>
+                            <dd>
+                              {{ sourcePresentation() || t('noSourceSummary') }}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>{{ t('proposedSummary') }}</dt>
+                            <dd>
+                              {{ variant.summary || t('partialContent') }}
+                            </dd>
+                          </div>
+                        </dl>
+                      } @else if (variant.summary) {
+                        <p>{{ variant.summary }}</p>
+                      }
+                      @if (variant.destination === 'facebook') {
+                        <p class="format">
+                          {{ t('formats.' + variant.format) }}
+                        </p>
+                      }
+                      <p class="authorization">{{ t('notAuthorized') }}</p>
+                      @if (active() && proposal.adoptedAt) {
+                        <a
+                          class="admin-button"
+                          routerLink="/admin/fundraiser/preflight"
+                          [queryParams]="{
+                            sponsorshipId: state.contributionId,
+                            obligationId: variant.obligationId
+                          }"
+                          data-og7="workshop-examine"
+                          [attr.data-og7-id]="variant.obligationId"
+                          >{{
+                            t(readOnly() ? 'viewFundingDraft' : 'examine')
+                          }}</a
+                        >
+                      }
+                    </article>
+                  }
+                </div>
+                <details class="source-facts">
+                  <summary>{{ t('sourceFacts') }}</summary>
+                  <dl>
+                    @for (fact of editorial.common.sourceFacts; track $index) {
+                      <div>
+                        <dt>{{ fact.key }}</dt>
+                        <dd>{{ fact.value }}</dd>
+                      </div>
+                    }
+                  </dl>
+                  <p>
+                    {{
+                      t('commitmentVersion', {
+                        version: editorial.commitmentVersion
+                      })
+                    }}
+                  </p>
+                  <p class="digest">
+                    {{ t('snapshot') }} : {{ editorial.sourceSnapshotDigest }}
+                  </p>
+                </details>
+              </div>
+            }
+          </div>
+          <aside
+            class="assistant"
+            data-og7="workshop-assistant"
+            aria-labelledby="workshop-assistant-title"
+          >
+            <openg7-admin-icon name="info" />
+            <h4 id="workshop-assistant-title">{{ t('assistant.title') }}</h4>
+            <p>
+              {{
+                t(
+                  !active()
+                    ? 'assistant.obsolete'
+                    : editorial.state === 'partial'
+                      ? 'assistant.partial'
+                      : proposal.adoptedAt
+                        ? 'assistant.adopted'
+                        : 'assistant.ready'
+                )
+              }}
+            </p>
+            <p>
+              {{
+                t('assistant.versions', {
+                  proposal: proposal.version,
+                  source: proposal.sourceVersion
+                })
+              }}
+            </p>
+            <p>{{ t('assistant.authority') }}</p>
+          </aside>
+        </div>
+      } @else {
+        <p data-og7="workshop-empty">
+          {{ t(running() ? 'preparing' : 'empty') }}
+        </p>
+      }
+      @if (state.history.length) {
+        <details class="versions" data-og7="workshop-versions">
+          <summary>{{ t('versions') }}</summary>
+          <ol>
+            @for (version of state.history; track version.id) {
+              <li>
+                <button
+                  type="button"
+                  class="version-button"
+                  [attr.aria-pressed]="proposal()?.id === version.id"
+                  [attr.data-og7-id]="version.id"
+                  (click)="selectProposal(version)"
+                >
+                  {{
+                    t('proposalVersion', {
+                      version: version.version,
+                      source: version.sourceVersion
+                    })
+                  }}
+                  · {{ date(version.createdAt) }} ·
+                  {{
+                    t(
+                      version.obsolete ||
+                        version.sourceVersion !== state.sourceVersion
+                        ? 'obsolete'
+                        : 'current'
+                    )
+                  }}
+                </button>
+              </li>
+            }
+          </ol>
+        </details>
+      }
+    }
+  }
+</section>

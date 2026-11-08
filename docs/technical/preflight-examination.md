@@ -205,9 +205,11 @@ La continuité du travail, sa sauvegarde et sa reprise sont décrites dans le
 [contrat des sessions d’examen](preflight-work-sessions.md). Ces sessions
 personnelles réutilisent les décisions et brouillons propriétaires ci-dessus.
 
-L’adoption d’une proposition distante exige un rattachement persistant et vérifié
-à la contribution, à l’engagement versionné, aux obligations et aux brouillons.
-Les droits et consentements média doivent être vérifiés pour chaque destination.
-La correction automatisée et la régénération demandent un contrat Preflight réel,
-versionné et soumis à un nouvel examen. Ces limites ne désactivent pas l’examen
-des préparations Funding existantes.
+L’[Atelier du dossier](publication-workshop.md) possède désormais un raccordement
+versionné et une adoption privée, avec rattachement persistant à la contribution,
+à l’engagement, aux obligations et aux brouillons. Sa provenance distante vérifiée
+est exposée dans son propre contrat. Le reçu natif de cet écran conserve son
+origine `funding` et son lien `unverified`; il gouverne le contenu Funding courant.
+La régénération crée une nouvelle proposition à examiner. La sélection des médias,
+leurs droits par destination et la correction automatisée restent à qualifier;
+aucun consentement ou autorisation n’est déduit de la préparation.

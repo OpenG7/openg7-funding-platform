@@ -7,6 +7,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 
 const sponsorshipId = '10000000-0000-4000-8000-000000000401';
 
@@ -58,6 +59,7 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
     };
     await page.goto(context.path('publication'));
     const summary = page.locator('[data-og7="publication-obligations"]');
+    await openPublicationSection(page, 'obligations');
     await expect(summary).toContainText('Prochaine étape : plateforme.');
     const campaign = summary.locator(
       '[data-og7="publication-campaign-benefits"]'

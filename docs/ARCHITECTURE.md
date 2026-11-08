@@ -107,6 +107,8 @@ et contrôles d'implémentation.
 
 ## Commandites et publication
 
+Atelier : [contrat](technical/publication-workshop.md).
+
 Paiement, consentement, revue, visibilité et publication restent distincts.
 L’[accord public documenté](technical/sponsorship-public-consent.md) exige une
 preuve et une confirmation auditée. Il maintient la visibilité en attente et

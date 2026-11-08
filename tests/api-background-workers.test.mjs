@@ -101,6 +101,50 @@ const fixture = (overrides = {}) => {
   };
 };
 
+test('Preflight connector runs without a browser and retries with safe failure logs', async () => {
+  let attempts = 0;
+  const app = fixture({
+    publicationWorkshop: {
+      tick: async () => {
+        attempts++;
+        if (attempts === 1)
+          throw new Error('Synthetic private connection diagnostic');
+      }
+    }
+  });
+  app.workers.start();
+  await setImmediate();
+  assert.equal(attempts, 1);
+  assert.deepEqual(app.logs, [
+    [
+      'error',
+      'Preflight preparation interrupted; inspect connector availability and migration 068.'
+    ]
+  ]);
+  const timer = app.timers[0];
+  assert.equal(timer.intervalMs, 2000);
+  assert.equal(timer.unrefCalls, 1);
+  timer.callback();
+  await setImmediate();
+  assert.equal(attempts, 2);
+});
+
+test('Preflight connector is not scheduled without a database or an enabled runtime service', async () => {
+  let attempts = 0;
+  const app = fixture({
+    hasDatabase: false,
+    publicationWorkshop: { tick: async () => attempts++ }
+  });
+  app.workers.start();
+  await setImmediate();
+  assert.equal(attempts, 0);
+  assert.equal(app.timers.length, 0);
+  const disabled = fixture({ publicationWorkshop: null });
+  disabled.workers.start();
+  await setImmediate();
+  assert.equal(disabled.timers.length, 4);
+});
+
 test('media analysis and cleanup resume independently without overlapping ticks or private failure logs', async () => {
   const pending = deferred();
   let analyses = 0;

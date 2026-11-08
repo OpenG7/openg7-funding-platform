@@ -401,3 +401,4 @@ export * from './sponsor-media-actions.js';
 export * from './preflight-inbox.js';
 export * from './preflight-rehearsal.js';
 export * from './preflight-desk.js';
+export * from './publication-workshop.js';

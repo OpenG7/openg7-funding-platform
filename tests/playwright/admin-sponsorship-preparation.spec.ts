@@ -8,6 +8,7 @@ import type {
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
 
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 import { expect, sampledFrames, test } from './support/test.js';
 import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
 import {
@@ -432,6 +433,7 @@ async function fixture(page: Page, language = 'fr-CA') {
 }
 
 async function expectDossier(page: Page, id = firstId) {
+  await openPublicationSection(page, 'controls');
   await expect(wrapper(page)).toBeVisible();
   await expect(card(page)).toHaveCount(1);
   await expect(card(page)).toHaveAttribute('data-og7-id', id);
@@ -475,6 +477,7 @@ for (const language of ['fr-CA', 'en']) {
       f.receiptStatus = 503;
       f.receiptCode = failure.code;
       await page.goto(path());
+      await openPublicationSection(page, 'controls');
       await expect(hook(page, 'error')).toContainText(failure.message);
       await expect(card(page)).toHaveCount(0);
       await expect(wrapper(page)).not.toContainText(
@@ -502,6 +505,7 @@ for (const language of ['fr-CA', 'en']) {
       const f = await fixture(page, language);
       f.approvalFailure = { status: 503, code: failure.code };
       await page.goto(path());
+      await openPublicationSection(page, 'controls');
       await expectDossier(page);
       await approveReceipt(page);
       await expect(hook(page, 'error')).toContainText(failure.message);
@@ -546,6 +550,7 @@ for (const language of ['fr-CA', 'en']) {
       blockers: [{ code: 'commitment_needs_confirmation', adminUrl: path() }]
     });
     await page.goto(path());
+    await openPublicationSection(page, 'controls');
     const summary = card(page).locator(
       '[data-og7="preparation-receipt-no-destination"]'
     );
@@ -635,6 +640,7 @@ test('changing the current dossier only reads data and discards the previous dos
     })
   );
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expect.poll(() => f.receiptReads).toContain(firstId);
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
@@ -707,6 +713,7 @@ test('the dossier receipt and a batch receipt for the same payment keep separate
     });
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await restoreLegacyGuideMode(page, 'automatic');
   const receipts = page.locator('[data-og7="preparation-receipt"]');
@@ -796,6 +803,7 @@ test('a dossier agreement refreshes the mounted batch receipt during a pending r
     });
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await restoreLegacyGuideMode(page, 'automatic');
   const batch = page.locator('[data-og7="preparation-receipts-carousel"]');
@@ -838,6 +846,7 @@ test('approving a dossier preparation records its version and actor without publ
     release = resolve;
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await approveReceipt(page);
   await expect(hook(page, 'approve')).toBeDisabled();
@@ -877,6 +886,7 @@ test('a delayed approval response cannot restore an approved stamp after the par
     release = resolve;
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await approveReceipt(page);
   await expect.poll(() => f.receipts.get(firstId)?.status).toBe('approved');
@@ -929,6 +939,7 @@ test('a changed preparation reloads À revoir and keeps the previous version agr
 }) => {
   const f = await fixture(page);
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   const original = f.receipts.get(firstId)!;
   const prior: AdminPreparationApproval = {
@@ -985,6 +996,7 @@ test('a missing consent is explained in the dossier receipt and disables prepara
     blockers: [{ code: 'public_consent_missing', adminUrl: path('identity') }]
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await expect(hook(page, 'blockers')).toContainText(/consentement/i);
   await expect(
@@ -1000,6 +1012,7 @@ test('a reader can open exact dossier content while preparation approval stays d
   const f = await fixture(page);
   f.role = 'reader';
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   await hook(page, 'content').locator('summary').click();
   await expect(hook(page, 'content')).toContainText(
@@ -1015,6 +1028,7 @@ for (const status of [401, 403]) {
   }) => {
     const f = await fixture(page);
     await page.goto(path());
+    await openPublicationSection(page, 'controls');
     await expectDossier(page);
     f.receiptStatus = status;
     f.receiptCode = 'PREPARATION_SCHEMA_INCOMPATIBLE';
@@ -1041,6 +1055,7 @@ for (const [width, language] of [
     await page.setViewportSize({ width, height: 960 });
     const f = await fixture(page, language);
     await page.goto(path());
+    await openPublicationSection(page, 'controls');
     await expectDossier(page);
     await page.evaluate(() => {
       document.documentElement.style.zoom = '1.25';
@@ -1083,6 +1098,7 @@ test('the dossier approval button requires its own explicit confirmation and can
 }) => {
   const f = await fixture(page);
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   const approval = hook(page, 'approve');
   await approval.focus();
@@ -1112,6 +1128,7 @@ for (const restriction of ['reader', 'server-disallowed'] as const) {
     });
     if (restriction === 'reader') f.role = 'reader';
     await page.goto(path());
+    await openPublicationSection(page, 'controls');
     await expectDossier(page);
     const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
     await pilot.locator('[data-og7="preparation-pilot-actions"]').click();
@@ -1219,6 +1236,7 @@ test('the dossier pilot supports any number of server checks and updates only af
     ]
   });
   await page.goto(path());
+  await openPublicationSection(page, 'controls');
   await expectDossier(page);
   const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
   const progress = pilot.locator('[data-og7="preparation-pilot-progress"]');

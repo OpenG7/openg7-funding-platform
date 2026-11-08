@@ -104,9 +104,11 @@ le consommateur Funding devra vérifier et persister ensemble :
    avec version courante, autorisation et audit avant toute mutation.
 
 Le protocole générique mission v1 ne constitue pas à lui seul cette adoption.
-Le connecteur durable préparé séparément doit être intégré et qualifié avant
-d’annoncer un parcours opérationnel complet de préparation en lot. Ces besoins
-ne modifient pas les contrats de recette actuels.
+L’[Atelier du dossier](publication-workshop.md) ajoute le raccordement durable et
+l’adoption privée contrôlée. La provenance vérifiée y reste distincte du contrat
+historique `funding/unverified` de l’examen natif. La préparation en lot, les médias
+et la production exigent leur qualification propre; les contrats de recette
+synthétique ne sont pas modifiés.
 
 ## Validation
 

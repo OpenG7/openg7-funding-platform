@@ -5,6 +5,7 @@ import type {
   SponsorshipHistoricalAuditReviewRequest
 } from '@openg7/funding-core';
 
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 import { expect, test } from './support/test.js';
 
 interface Context {
@@ -134,6 +135,7 @@ export function registerSponsorshipHistoricalAuditTests(
           height: width === 1280 ? 520 : width === 768 ? 432 : 864
         });
         await page.goto(context.path('publication'));
+        await openPublicationSection(page, 'contract');
         const panel = page.locator('[data-og7="historical-evidence-audit"]');
         await panel.locator('[data-og7-id="historical-audit-load"]').click();
         await expect(
@@ -253,6 +255,7 @@ export function registerSponsorshipHistoricalAuditTests(
       const state = await fixtures(page, context);
       await page.setViewportSize({ width, height: 900 });
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'contract');
       if (locale === 'en')
         await page
           .getByRole('button', {
@@ -308,6 +311,7 @@ export function registerSponsorshipHistoricalAuditTests(
   }) => {
     const state = await fixtures(page, context);
     await page.goto(context.path('publication'));
+    await openPublicationSection(page, 'contract');
     const panel = page.locator('[data-og7="historical-evidence-audit"]');
     await panel.locator('[data-og7-id="historical-audit-load"]').click();
     await panel.locator('[data-og7-id="historical-audit-review"]').click();

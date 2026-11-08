@@ -286,10 +286,14 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
 
   private revealDossierControl(target: HTMLElement | null | undefined): void {
-    const tools = target?.closest<HTMLDetailsElement>(
-      '[data-og7="dossier-global-tools"]'
-    );
-    if (tools) tools.open = true;
+    for (
+      let parent = target?.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      if (parent.tagName === 'DETAILS')
+        (parent as HTMLDetailsElement).open = true;
+    }
   }
 
   openReviewNote(): void {
@@ -893,6 +897,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
       if (!element) return;
       this.pendingSection.set(null);
+      this.revealDossierControl(element);
       // Resolve the new section's layout before native focus/scroll alignment.
       // Keep scrollIntoView so nested workspaces and CSS scroll margins apply.
       element.getBoundingClientRect();

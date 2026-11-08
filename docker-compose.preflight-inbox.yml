@@ -22,7 +22,7 @@ services:
       - /bin/sh
       - -ec
       - >-
-        if [ "$$PREFLIGHT_INBOX_ENABLED" = "true" ] || [ "$${PREFLIGHT_REHEARSAL_ENABLED:-false}" = "true" ]; then
+        if [ "$$PREFLIGHT_INBOX_ENABLED" = "true" ] || [ "$${PREFLIGHT_REHEARSAL_ENABLED:-false}" = "true" ] || [ "$${PREFLIGHT_ENABLED:-false}" = "true" ]; then
         umask 077;
         cp /run/secrets/funding-preflight-inbox-client /run/preflight-inbox/client-secret;
         chmod 0400 /run/preflight-inbox/client-secret;

@@ -4,8 +4,12 @@ import type { SponsorFeedChannel } from '@openg7/funding-core';
 import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
-import { loadPreflightInboxConfig } from './preflight/inbox-config.js';
+import {
+  loadPreflightInboxConfig,
+  loadPreflightConnectorConfig
+} from './preflight/inbox-config.js';
 import { loadPreflightRehearsalConfig } from './preflight/rehearsal-config.js';
+import { PublicationWorkshopService } from './preflight/workshop.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
 import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
@@ -87,6 +91,7 @@ import { createApiRequestListener } from './http-composition/request-listener.js
 const startupConfig = loadApiRuntimeConfig();
 const preflightInboxConfig = loadPreflightInboxConfig();
 const preflightRehearsalConfig = loadPreflightRehearsalConfig();
+const preflightConnectorConfig = loadPreflightConnectorConfig();
 const {
   port,
   stripeSecretKey,
@@ -328,6 +333,13 @@ const { getDatabaseConnectionStatus, buildAdminSetupStatus } =
 const publicationAutomation = dbPool
   ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
   : null;
+if (preflightConnectorConfig.enabled && !dbPool)
+  throw new Error(
+    'Preflight preparation requires a configured Funding database.'
+  );
+const publicationWorkshop = dbPool
+  ? new PublicationWorkshopService(dbPool, preflightConnectorConfig)
+  : null;
 const contributionNotifications = loadApiRuntimeContributionNotificationConfig(
   process.env
 );
@@ -351,6 +363,9 @@ const backgroundWorkers = createApiBackgroundWorkers({
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
   publicationAutomation,
+  publicationWorkshop: preflightConnectorConfig.enabled
+    ? publicationWorkshop
+    : null,
   mediaAnalysis: dbPool
     ? new SponsorMediaAnalysisService(dbPool, sponsorMediaStorage)
     : null,
@@ -407,6 +422,7 @@ const adminHandlers = createAdminHttpHandlers({
   dbPool,
   preflightInboxConfig,
   preflightRehearsalConfig,
+  publicationWorkshop,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,
@@ -481,6 +497,7 @@ const handleRequest = createHttpDispatcher({
 try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
   if (dbPool) {
+    await publicationWorkshop?.ready();
     await assertPreparationReadiness(dbPool, 'approve');
     await assertPreparationAssistanceReadiness(dbPool);
     await assertSponsorMediaReadiness(dbPool);

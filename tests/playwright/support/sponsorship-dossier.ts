@@ -3,6 +3,24 @@ import type { Locator, Page } from '@playwright/test';
 import type { AdminController } from './admin-controller.js';
 import { expect } from './test.js';
 
+/** Reach an advanced workshop section through its keyboard-accessible disclosure. */
+export async function openPublicationSection(
+  page: Page,
+  section: 'controls' | 'contract' | 'navigation' | 'obligations' | 'offer'
+): Promise<void> {
+  const hook = {
+    controls: 'publication-administrative-controls',
+    contract: 'publication-contract-history',
+    navigation: 'publication-navigation-details',
+    obligations: 'publication-obligations',
+    offer: 'publication-agreement-details'
+  }[section];
+  const disclosure = page.locator(`[data-og7="${hook}"]`);
+  await expect(disclosure).toBeVisible();
+  if ((await disclosure.getAttribute('open')) === null)
+    await disclosure.locator(':scope > summary').click();
+}
+
 /** Open the separate historical declaration through its visible disclosure. */
 export async function openDeclaredSponsorshipTracking(
   page: Page,

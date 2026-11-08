@@ -45,6 +45,7 @@ export interface ApiBackgroundWorkersDependencies {
   > | null;
   readonly mediaAnalysis?: { tick(): Promise<unknown> } | null;
   readonly mediaReview?: { tick(): Promise<unknown> } | null;
+  readonly publicationWorkshop?: { tick(): Promise<unknown> } | null;
   readonly logger?: Pick<Console, 'info' | 'warn' | 'error'>;
   readonly setInterval?: (
     callback: () => void,
@@ -199,8 +200,23 @@ export const createApiBackgroundWorkers = (
     }
   };
 
+  const runPublicationWorkshop = async (): Promise<void> => {
+    try {
+      await dependencies.publicationWorkshop?.tick();
+    } catch {
+      logger.error(
+        'Preflight preparation interrupted; inspect connector availability and migration 068.'
+      );
+    }
+  };
+
   const start = (): void => {
     if (!hasDatabase) return;
+
+    if (dependencies.publicationWorkshop) {
+      void runPublicationWorkshop();
+      scheduleInterval(() => void runPublicationWorkshop(), 2000).unref();
+    }
 
     if (dependencies.mediaAnalysis || dependencies.mediaReview) {
       void runMediaWorkers();
@@ -256,6 +272,7 @@ export const createApiBackgroundWorkers = (
     runPublicationWorker,
     runSponsorshipVisibilityWorker,
     runPreparationAssistanceWorker,
+    runPublicationWorkshop,
     start
   };
 };
