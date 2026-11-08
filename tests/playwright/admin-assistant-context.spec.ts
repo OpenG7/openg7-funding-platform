@@ -1339,13 +1339,15 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toHaveAccessibleName(
         source === 'dossier'
           ? language === 'en'
-            ? 'Profile & media'
-            : 'Fiche et médias'
+            ? 'Identity'
+            : 'Identité'
           : language === 'en'
             ? 'History'
             : 'Historique'
       );
-      await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
+      if (source === 'dossier')
+        await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
+      else await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
       await expect(trigger).toBeFocused();
       await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(
         0
@@ -1476,7 +1478,11 @@ test('Assistant reconstructs its dossier origin without private or nested query 
   await back.focus();
   await back.press('Enter');
   await expect(page).toHaveURL(origin);
-  await expect(page.locator('#dossier-identity')).toBeFocused();
+  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-main"]')).toBeVisible();
+  await expect(
+    page.locator('[data-og7="dossier-tabs"] [aria-current="page"]')
+  ).toHaveAccessibleName('Identité');
   await expect(
     page.locator('[data-og7="dossier-assistant"]')
   ).not.toBeFocused();
@@ -1533,7 +1539,7 @@ test('Assistant return does not take focus back after a tab change during a pend
     return route.fulfill({ json: projection });
   });
   try {
-    const origin = dossierPath('identity', 'dossier-identity');
+    const origin = dossierPath('publication', 'dossier-publication');
     await page.goto(origin);
     const progress = page.locator('[data-og7="sponsorship-progress"]');
     await expect(progress).toHaveAttribute('aria-busy', 'false');

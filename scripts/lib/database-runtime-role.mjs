@@ -81,13 +81,13 @@ BEGIN
       IF item.relname NOT IN ('admin_audit_log', 'sponsorship_website_exposure_observations',
         'sponsorship_obligation_duration_attestations', 'sponsorship_historical_evidence_reviews',
         'sponsorship_public_visibility_observations', 'admin_automatic_run_entries',
-        'admin_preparation_approvals','preparation_assistance_sources',
+        'admin_preparation_approvals','admin_service_preparation_decisions','admin_preflight_work_session_commands','preparation_assistance_sources',
         'preparation_assistance_suggestions','preparation_assistance_reviews',
         'preparation_assistance_requests','sponsor_media_rule_versions',
         'sponsor_media_workspace_commands','sponsor_media_batch_plans',
         'sponsor_media_analysis_suggestions','sponsor_media_analysis_reviews',
         'sponsor_media_analysis_requests','sponsorship_information_request_receipts',
-        'expense_creation_receipts') THEN
+        'expense_creation_receipts','admin_sponsorship_consent_records') THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);
       END IF;
     END IF;

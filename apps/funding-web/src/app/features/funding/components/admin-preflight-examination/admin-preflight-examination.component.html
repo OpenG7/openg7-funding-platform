@@ -1,0 +1,1538 @@
+<section
+  class="examination"
+  data-og7="examination"
+  [attr.data-state]="state()"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <div class="breadcrumb">
+    <button
+      type="button"
+      class="back-link"
+      data-og7="examination-back"
+      (click)="back()"
+      [disabled]="continuationBlocked()"
+    >
+      <span aria-hidden="true">←</span> {{ t('back') }}
+    </button>
+    @if (receipt(); as item) {
+      <span class="breadcrumb-reference">/ {{ item.reference }}</span>
+    }
+  </div>
+  <header class="examination-header">
+    <span class="service-symbol" aria-hidden="true"
+      ><openg7-admin-icon name="dashboard"
+    /></span>
+    <div class="heading-copy">
+      <h1 #title tabindex="-1">{{ t('title', { channel: channel() }) }}</h1>
+      <p>{{ receipt()?.companyName || t('organizationUnavailable') }}</p>
+    </div>
+    @if (receipt(); as item) {
+      <span class="channel-badge"
+        >{{ channel() }} ·
+        {{ item.service.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}</span
+      >
+      <span
+        class="status-badge"
+        data-og7="examination-status"
+        [attr.data-status]="item.status"
+        ><openg7-admin-icon
+          [name]="item.status === 'approved' ? 'check' : 'clock'"
+        />{{ t('statuses.' + item.status) }}</span
+      >
+      <nav
+        class="sibling-navigation"
+        [attr.aria-label]="t('siblingNavigation')"
+      >
+        <button
+          class="admin-button icon-button"
+          type="button"
+          data-og7="examination-previous"
+          [attr.aria-label]="t('previous')"
+          [disabled]="!navigation().previous || continuationBlocked()"
+          (click)="next(-1)"
+        >
+          ‹
+        </button>
+        <span>
+          @if (position() > 0) {
+            {{
+              t('position', { position: position(), total: navigation().total })
+            }}
+          } @else {
+            {{ work.t('outsideFilter', { count: navigation().total }) }}
+          }
+        </span>
+        <button
+          class="admin-button icon-button"
+          type="button"
+          data-og7="examination-next"
+          [attr.aria-label]="t('next')"
+          [disabled]="!navigation().next || continuationBlocked()"
+          (click)="next(1)"
+        >
+          ›
+        </button>
+      </nav>
+    }
+  </header>
+
+  @if (state() === 'loading') {
+    <p class="state-panel" role="status">{{ t('states.loading') }}</p>
+  }
+  @if (state() !== 'ready' && state() !== 'loading') {
+    <section
+      class="state-panel error-panel"
+      role="alert"
+      data-og7="examination-error"
+    >
+      <h2>{{ t('states.' + state()) }}</h2>
+      <p>{{ t('states.recovery') }}</p>
+      @if (state() !== 'forbidden' && state() !== 'expired') {
+        <button
+          class="admin-button"
+          type="button"
+          data-og7="examination-refresh"
+          (click)="load(true)"
+        >
+          {{ t('refresh') }}
+        </button>
+      }
+      @if (state() === 'expired') {
+        <a class="admin-button" routerLink="/admin/login">{{ t('signIn') }}</a>
+      }
+    </section>
+  }
+  @if (message(); as key) {
+    <p
+      class="decision-message"
+      [class.success-message]="success()"
+      [attr.role]="success() ? 'status' : 'alert'"
+    >
+      {{ t(key) }}
+    </p>
+  }
+  @if (stale() || versionMismatch()) {
+    <div class="stale-banner" data-og7="examination-stale" role="alert">
+      <openg7-admin-icon name="warning" />
+      <div>
+        <strong>{{ t('stale.title') }}</strong>
+        <p>{{ t('stale.description') }}</p>
+      </div>
+      <button
+        class="admin-button"
+        type="button"
+        data-og7="examination-refresh"
+        [disabled]="busy() || mediaBusy()"
+        (click)="load(true)"
+      >
+        {{ t('stale.refresh') }}
+      </button>
+    </div>
+  }
+
+  @if (receipt(); as item) {
+    <section
+      class="preparation-summary"
+      aria-labelledby="examination-summary-title"
+    >
+      <h2 id="examination-summary-title">
+        <openg7-admin-icon name="assistant" />{{ t('summary.title') }}
+      </h2>
+      <p>{{ t(item.draft ? 'summary.prepared' : 'summary.notReady') }}</p>
+      <div class="summary-totals">
+        <span class="summary-count confirmed"
+          ><openg7-admin-icon name="check" />{{
+            t('summary.confirmed', { count: confirmedCount() })
+          }}</span
+        ><span class="summary-count attention"
+          ><openg7-admin-icon name="warning" />{{
+            t('summary.attention', { count: interventionCount() })
+          }}</span
+        >
+      </div>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="examination-guided-open"
+        (click)="openGuided()"
+        [disabled]="mediaBusy()"
+      >
+        <openg7-admin-icon name="audit" />{{ t('guided.open') }}
+      </button>
+    </section>
+
+    <div class="workshop-grid">
+      <aside class="left-column">
+        <section class="workshop-panel section-navigation">
+          <h2>{{ t('contentTitle') }}</h2>
+          <nav [attr.aria-label]="t('contentNavigation')">
+            @for (view of sections; track view) {
+              <button
+                type="button"
+                data-og7="examination-section"
+                [attr.data-og7-id]="view"
+                [class.selected]="section() === view"
+                [attr.aria-current]="section() === view ? 'page' : null"
+                [disabled]="mediaBusy()"
+                aria-controls="examination-content"
+                (click)="selectSection(view)"
+              >
+                <openg7-admin-icon [name]="icon(view)" />{{
+                  t('sections.' + view)
+                }}
+              </button>
+            }
+          </nav>
+        </section>
+        <section class="workshop-panel information-panel">
+          <h2>{{ t('informationTitle') }}</h2>
+          <dl>
+            <div>
+              <dt>{{ t('information.order') }}</dt>
+              <dd>{{ item.reference }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('information.organization') }}</dt>
+              <dd>{{ item.companyName || t('notAvailable') }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('information.service') }}</dt>
+              <dd>
+                {{ channel() }} · {{ item.service.ordinal }}/{{
+                  item.service.quantity
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>{{ t('information.preparedAt') }}</dt>
+              <dd>{{ formatDate(item.provenance.preparedAt) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('information.provenance') }}</dt>
+              <dd data-og7="examination-provenance">
+                {{ t('provenance.funding') }}
+              </dd>
+            </div>
+          </dl>
+          <p class="provenance-note">{{ t('provenance.unlinked') }}</p>
+        </section>
+      </aside>
+
+      <section
+        id="examination-content"
+        class="workshop-panel central-panel"
+        [attr.aria-label]="t('sections.' + section())"
+      >
+        <header class="central-header">
+          <h2 id="examination-content-title" tabindex="-1">
+            {{ t('sections.' + section()) }}
+          </h2>
+          @if (section() === 'preview') {
+            <div
+              class="preview-tools"
+              role="group"
+              [attr.aria-label]="t('viewportLabel')"
+            >
+              @for (format of viewports; track format) {
+                <button
+                  class="format-button"
+                  type="button"
+                  data-og7="examination-viewport"
+                  [attr.data-og7-id]="format"
+                  [attr.aria-pressed]="viewport() === format"
+                  (click)="viewport.set(format)"
+                >
+                  {{ t('viewports.' + format) }}
+                </button>
+              }
+              <button
+                #enlargeButton
+                type="button"
+                class="format-button enlarge-button"
+                data-og7="examination-enlarge"
+                [attr.aria-label]="t('enlarge')"
+                (click)="openEnlarged()"
+              >
+                ↗
+              </button>
+            </div>
+          }
+        </header>
+
+        @switch (section()) {
+          @case ('preview') {
+            <div
+              class="preview-stage"
+              data-og7="examination-preview"
+              [attr.data-viewport]="viewport()"
+            >
+              <openg7-preflight-service-preview
+                [companyName]="item.companyName || t('organizationUnavailable')"
+                [contributionId]="item.contributionId"
+                [obligationId]="item.service.id"
+                [draft]="item.draft"
+                [channel]="item.service.channel"
+                [target]="item.service.target"
+                [viewport]="viewport()"
+                [navigationDisabled]="continuationBlocked()"
+                (ownerRequested)="openOwner($event)"
+                (accessLost)="mediaAccessLost($event)"
+              />
+            </div>
+            <p class="preview-caption">{{ t('preview.caption') }}</p>
+          }
+          @case ('text') {
+            @if (item.draft; as draft) {
+              @if (socialEditable()) {
+                <form
+                  class="work-draft-editor"
+                  (submit)="$event.preventDefault(); saveDraft()"
+                  data-og7="examination-draft-editor"
+                >
+                  <label for="examination-draft-title">{{
+                    work.t('draftTitle')
+                  }}</label>
+                  <input
+                    id="examination-draft-title"
+                    data-og7="examination-draft-title"
+                    maxlength="160"
+                    required
+                    [value]="draftTitle()"
+                    [disabled]="continuationBlocked()"
+                    (input)="setDraft('title', $event)"
+                  />
+                  <label for="examination-draft-body">{{
+                    work.t('draftBody')
+                  }}</label>
+                  <textarea
+                    id="examination-draft-body"
+                    data-og7="examination-draft-body"
+                    rows="8"
+                    maxlength="2500"
+                    required
+                    [value]="draftBody()"
+                    [disabled]="continuationBlocked()"
+                    (input)="setDraft('body', $event)"
+                  ></textarea>
+                  <label for="examination-draft-disclosure">{{
+                    work.t('draftDisclosure')
+                  }}</label>
+                  <textarea
+                    id="examination-draft-disclosure"
+                    data-og7="examination-draft-disclosure"
+                    rows="2"
+                    maxlength="300"
+                    required
+                    [value]="draftDisclosure()"
+                    [disabled]="continuationBlocked()"
+                    (input)="setDraft('disclosure', $event)"
+                  ></textarea>
+                  <button
+                    class="admin-button"
+                    type="submit"
+                    data-og7="examination-draft-save"
+                    [disabled]="
+                      !draftDirty() ||
+                      continuationBlocked() ||
+                      stale() ||
+                      versionMismatch() ||
+                      state() !== 'ready'
+                    "
+                  >
+                    {{ work.t('saveDraft') }}
+                  </button>
+                </form>
+              }
+              @if (draft.kind === 'website') {
+                <p class="work-help">{{ work.t('webReadOnly') }}</p>
+              }
+              @if (draftDirty() && !socialEditable()) {
+                <section
+                  class="work-local-copy"
+                  data-og7="examination-unsaved-copy"
+                  aria-labelledby="work-local-copy-title"
+                >
+                  <h3 id="work-local-copy-title">
+                    {{ work.t('localCopyTitle') }}
+                  </h3>
+                  <p class="work-help">{{ work.t('localCopyHelp') }}</p>
+                  <h4>{{ draftTitle() }}</h4>
+                  <p
+                    class="proposed-body"
+                    data-og7="examination-local-buffer-body"
+                  >
+                    {{ draftBody() }}
+                  </p>
+                  <p>{{ draftDisclosure() }}</p>
+                </section>
+              }
+              <article class="text-content">
+                <span class="small-label"
+                  >{{ t('text.savedVersion') }} {{ draft.version }}</span
+                >
+                @if (!socialEditable() || draftSourceConflict()) {
+                  <h3>{{ draft.title || t('text.noTitle') }}</h3>
+                  <p class="proposed-body">{{ draft.body }}</p>
+                  @if (draft.disclosureText) {
+                    <aside class="disclosure-text">
+                      {{ draft.disclosureText }}
+                    </aside>
+                  }
+                }
+                <p class="muted">{{ t('text.provenance') }}</p>
+                @if (ownerUrl(item.links.edit); as url) {
+                  <a class="admin-button" [routerLink]="ownerLink(url)"
+                    >{{ t('text.edit') }} <openg7-admin-icon name="arrow"
+                  /></a>
+                }
+                <p class="muted">{{ t('text.regenerationUnavailable') }}</p>
+              </article>
+            } @else {
+              <p class="empty-view">{{ t('text.notReady') }}</p>
+            }
+          }
+          @case ('media') {
+            <p class="view-intro">{{ t('media.shared') }}</p>
+            <openg7-preflight-service-preview
+              [companyName]="item.companyName || t('organizationUnavailable')"
+              [contributionId]="item.contributionId"
+              [obligationId]="item.service.id"
+              [draft]="item.draft"
+              [channel]="item.service.channel"
+              [target]="item.service.target"
+              view="media"
+              [navigationDisabled]="continuationBlocked()"
+              (ownerRequested)="openOwner($event)"
+              (accessLost)="mediaAccessLost($event)"
+            />
+          }
+          @case ('checks') {
+            <div
+              data-og7="examination-guided-preparation"
+              class="guided-preparation"
+            >
+              <p class="view-intro">{{ t('guided.intro') }}</p>
+              @for (check of item.checks; track check.code) {
+                <article
+                  class="expanded-check guided-check"
+                  tabindex="-1"
+                  data-og7="examination-guided-check"
+                  [attr.data-og7-id]="check.code"
+                  [attr.data-state]="check.state"
+                >
+                  <div class="guided-check-heading">
+                    <span class="check-icon" [attr.data-state]="check.state"
+                      ><openg7-admin-icon
+                        [name]="
+                          check.state === 'complete'
+                            ? 'check'
+                            : check.state === 'missing'
+                              ? 'warning'
+                              : 'minimize'
+                        "
+                    /></span>
+                    <div>
+                      <h3>{{ checkLabel(check) }}</h3>
+                      <span
+                        class="check-state"
+                        [attr.data-state]="check.state"
+                        >{{ checkState(check) }}</span
+                      >
+                    </div>
+                  </div>
+                  <p>
+                    {{
+                      t(
+                        check.state === 'not_required'
+                          ? 'guided.notRequired'
+                          : 'guided.causes.' + guidedCheckKey(check.code)
+                      )
+                    }}
+                  </p>
+                  @if (check.state !== 'not_required') {
+                    @if (guidedCheckKey(check.code) === 'consent') {
+                      <span
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        ><button
+                          type="button"
+                          class="admin-button"
+                          data-og7="examination-consent-open"
+                          (click)="openConsent()"
+                          [disabled]="
+                            busy() ||
+                            mediaBusy() ||
+                            work.busy() ||
+                            consent.busy()
+                          "
+                        >
+                          {{
+                            t(
+                              check.state === 'complete' || readOnly()
+                                ? 'guided.actions.viewConsent'
+                                : 'guided.actions.consent'
+                            )
+                          }}
+                        </button></span
+                      >
+                    } @else if (
+                      guidedCheckKey(check.code) === 'textReview' &&
+                      item.draft?.kind === 'publication'
+                    ) {
+                      <button
+                        type="button"
+                        class="admin-button"
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        (click)="openTextReview()"
+                        [disabled]="continuationBlocked()"
+                      >
+                        {{ t('guided.actions.textReview') }}
+                      </button>
+                    } @else if (guidedOwnerUrl(check.code); as owner) {
+                      <a
+                        class="admin-button"
+                        data-og7="examination-check-action"
+                        [attr.data-og7-id]="check.code"
+                        [routerLink]="ownerLink(owner)"
+                        [attr.aria-disabled]="
+                          continuationBlocked() ? 'true' : null
+                        "
+                        (click)="guidedOwnerRequested($event, check.code)"
+                        >{{ t('guided.actions.' + guidedCheckKey(check.code))
+                        }}<openg7-admin-icon name="arrow"
+                      /></a>
+                    }
+                  }
+                  <details class="guided-reference">
+                    <summary>{{ t('attention.reference') }}</summary>
+                    <p>
+                      {{ t('checks.sourceLabel') }}
+                      {{ t('provenance.funding') }}
+                    </p>
+                    <p class="muted">
+                      {{ t('checks.version') }}
+                      <code>{{ item.contentVersion }}</code>
+                    </p>
+                  </details>
+                </article>
+              }
+              <article class="expanded-check">
+                <h3>{{ t('checks.human') }}</h3>
+                <p>
+                  {{
+                    t(
+                      item.decision
+                        ? 'checks.humanRecorded'
+                        : 'checks.humanRequired'
+                    )
+                  }}
+                </p>
+              </article>
+            </div>
+          }
+          @case ('details') {
+            <dl class="reference-list">
+              <div>
+                <dt>{{ t('details.obligation') }}</dt>
+                <dd>
+                  <code>{{ item.service.id }}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('details.proposal') }}</dt>
+                <dd>
+                  <code>{{ item.draft?.id || t('notAvailable') }}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('details.version') }}</dt>
+                <dd>
+                  <code>{{ item.version }}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('details.contentVersion') }}</dt>
+                <dd>
+                  <code>{{ item.contentVersion }}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('details.checkedAt') }}</dt>
+                <dd>{{ formatDate(item.generatedAt) }} · America/Toronto</dd>
+              </div>
+            </dl>
+            <p class="view-intro">{{ t('details.authority') }}</p>
+            <div class="reference-links">
+              @if (ownerUrl(item.links.dossier); as url) {
+                <a class="admin-button" [routerLink]="ownerLink(url)">{{
+                  t('details.dossier')
+                }}</a>
+              }
+              @if (ownerUrl(item.links.evidence); as url) {
+                <a class="admin-button" [routerLink]="ownerLink(url)">{{
+                  t('details.evidence')
+                }}</a>
+              }
+            </div>
+          }
+          @case ('history') {
+            @if (!item.history.length) {
+              <p class="empty-view">{{ t('history.empty') }}</p>
+            }
+            <ol class="decision-history">
+              @for (decision of item.history; track decision.id) {
+                <li data-og7="examination-history-entry">
+                  <span class="history-marker"
+                    ><openg7-admin-icon
+                      [name]="
+                        decision.decision === 'approved' ? 'check' : 'clock'
+                      "
+                  /></span>
+                  <div>
+                    <h3>{{ t('statuses.' + decision.decision) }}</h3>
+                    <p>
+                      {{ formatDate(decision.createdAt) }} ·
+                      {{ decision.actor }}
+                    </p>
+                    @if (decision.reason) {
+                      <blockquote>{{ decision.reason }}</blockquote>
+                    }
+                    <details>
+                      <summary>{{ t('history.references') }}</summary>
+                      <dl>
+                        <dt>{{ t('details.contentVersion') }}</dt>
+                        <dd>
+                          <code>{{ decision.contentVersion }}</code>
+                        </dd>
+                        <dt>{{ t('history.audit') }}</dt>
+                        <dd>
+                          <code>{{ decision.auditReference }}</code>
+                        </dd>
+                      </dl>
+                    </details>
+                  </div>
+                </li>
+              }
+            </ol>
+          }
+        }
+      </section>
+
+      <aside class="right-column">
+        <section class="workshop-panel checks-panel">
+          <h2>{{ t('checks.title') }}</h2>
+          <button
+            type="button"
+            class="admin-button guided-sidebar-open"
+            data-og7="examination-guided-sidebar-open"
+            (click)="openGuided()"
+            [disabled]="mediaBusy()"
+          >
+            {{ t('guided.open') }}
+          </button>
+          @for (check of item.checks; track check.code) {
+            <details
+              class="check-row"
+              data-og7="examination-check"
+              [attr.data-og7-id]="check.code"
+              [attr.data-state]="check.state"
+            >
+              <summary>
+                <span class="check-icon" [attr.data-state]="check.state"
+                  ><openg7-admin-icon
+                    [name]="
+                      check.state === 'complete'
+                        ? 'check'
+                        : check.state === 'missing'
+                          ? 'warning'
+                          : 'minimize'
+                    " /></span
+                ><span
+                  ><strong>{{ checkLabel(check) }}</strong
+                  ><small>{{ checkState(check) }}</small></span
+                ><span class="chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="check-details">
+                <p>
+                  {{ t('checks.sourceLabel') }} {{ t('provenance.funding') }}
+                </p>
+                <code>{{ check.code }}</code>
+                <p>{{ formatDate(item.generatedAt) }}</p>
+                @if (check.state === 'missing') {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    (click)="openGuided(check.code)"
+                    [disabled]="mediaBusy()"
+                  >
+                    {{ t('guided.complete') }}
+                  </button>
+                }
+              </div>
+            </details>
+          }
+          <details class="check-row human-check">
+            <summary>
+              <span
+                class="check-icon"
+                [attr.data-state]="item.decision ? 'complete' : 'missing'"
+                ><openg7-admin-icon
+                  [name]="item.decision ? 'check' : 'warning'" /></span
+              ><span
+                ><strong>{{ t('checks.human') }}</strong
+                ><small>{{
+                  t(
+                    item.decision
+                      ? 'checks.humanRecorded'
+                      : 'checks.humanRequired'
+                  )
+                }}</small></span
+              ><span class="chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <p class="check-details">{{ t('checks.humanScope') }}</p>
+          </details>
+        </section>
+        <section class="workshop-panel attention-panel">
+          <h2>
+            <openg7-admin-icon name="warning" />{{ t('attention.title') }}
+          </h2>
+          @if (item.blockers.length) {
+            <ul>
+              @for (code of item.blockers; track code) {
+                <li>
+                  <strong>{{ t('attention.blocking') }}</strong>
+                  {{ blockerLabel(code) }}
+                  @if (code === 'public_consent_missing') {
+                    <button
+                      type="button"
+                      class="attention-action"
+                      data-og7="examination-blocker-action"
+                      [attr.data-og7-id]="code"
+                      (click)="openConsent()"
+                      [disabled]="
+                        busy() || mediaBusy() || work.busy() || consent.busy()
+                      "
+                    >
+                      {{ t('guided.actions.consent') }}
+                    </button>
+                  } @else if (
+                    guidedOwnerUrl(blockerOwnerCode(code));
+                    as owner
+                  ) {
+                    <a
+                      class="attention-action"
+                      data-og7="examination-blocker-action"
+                      [attr.data-og7-id]="code"
+                      [routerLink]="ownerLink(owner)"
+                      (click)="
+                        guidedOwnerRequested($event, blockerOwnerCode(code))
+                      "
+                      [attr.aria-disabled]="
+                        continuationBlocked() ? 'true' : null
+                      "
+                      >{{
+                        t(
+                          'guided.actions.' +
+                            guidedCheckKey(blockerOwnerCode(code))
+                        )
+                      }}</a
+                    >
+                  }
+                  <details>
+                    <summary>{{ t('attention.reference') }}</summary>
+                    <code>{{ code }}</code>
+                  </details>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p>
+              {{ t(item.canDecide ? 'attention.human' : 'attention.recorded') }}
+            </p>
+          }
+          @if (readOnly()) {
+            <p class="reader-notice">{{ t('readOnly') }}</p>
+          }
+        </section>
+      </aside>
+    </div>
+
+    <section
+      class="decision-panel"
+      aria-labelledby="examination-decision-title"
+    >
+      <div class="decision-heading">
+        <span class="decision-symbol"><openg7-admin-icon name="audit" /></span>
+        <div>
+          <h2 id="examination-decision-title">{{ t('decision.title') }}</h2>
+          <p>{{ t('decision.scope') }}</p>
+        </div>
+      </div>
+      @if (approvalReason(); as reason) {
+        <div
+          class="approval-guidance"
+          data-og7="examination-decision-guidance"
+          [attr.data-reason]="reason"
+          role="status"
+          aria-live="polite"
+        >
+          <p id="examination-approval-guidance">
+            {{ t('approvalGuidance.' + reason) }}
+          </p>
+          @if (item.blockers.length) {
+            <details
+              class="approval-prerequisites"
+              data-og7="examination-guidance-prerequisites"
+            >
+              <summary>
+                {{
+                  t('approvalActions.prerequisites', {
+                    count: item.blockers.length
+                  })
+                }}
+              </summary>
+              <ul data-og7="examination-approval-reasons">
+                @for (code of item.blockers; track code) {
+                  <li [attr.data-og7-id]="code">{{ blockerLabel(code) }}</li>
+                }
+              </ul>
+            </details>
+          }
+          @if (needsSponsorProfile()) {
+            <p
+              class="approval-profile-help"
+              data-og7="examination-guidance-profile-help"
+            >
+              {{ t('approvalActions.profileSubmissionHelp') }}
+            </p>
+          }
+          <div class="approval-guidance-actions">
+            @if (reason === 'incomplete' || reason === 'missing-draft') {
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="examination-guided-complete"
+                (click)="openGuided()"
+                [disabled]="mediaBusy()"
+              >
+                {{ t('guided.complete') }}
+              </button>
+            }
+            @switch (reason) {
+              @case ('readonly') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-checks"
+                  (click)="selectSection('checks')"
+                >
+                  {{ t('approvalActions.checks') }}
+                </button>
+              }
+              @case ('session-inactive') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-resume"
+                  (click)="resumeWork()"
+                >
+                  {{ work.t('resume') }}
+                </button>
+                @if (work.current()?.status === 'finished') {
+                  <button
+                    class="admin-button"
+                    type="button"
+                    data-og7="examination-guidance-start-new"
+                    (click)="startWork()"
+                  >
+                    {{ t('approvalActions.startNew') }}
+                  </button>
+                }
+              }
+              @case ('dirty') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-save"
+                  (click)="saveDraft()"
+                >
+                  {{ work.t('saveDraft') }}
+                </button>
+              }
+              @case ('buffer-readonly') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-local-copy"
+                  (click)="selectSection('text')"
+                >
+                  {{ t('approvalActions.localCopy') }}
+                </button>
+              }
+              @case ('stale') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-refresh"
+                  (click)="reconcileWork()"
+                >
+                  {{ t('stale.refresh') }}
+                </button>
+              }
+              @case ('unavailable') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-refresh"
+                  (click)="load(true)"
+                >
+                  {{ t('refresh') }}
+                </button>
+              }
+              @case ('uncertain') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-refresh"
+                  (click)="reconcileWork()"
+                >
+                  {{ work.t('refresh') }}
+                </button>
+              }
+              @case ('recorded') {
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="examination-guidance-history"
+                  (click)="selectSection('history')"
+                >
+                  {{ t('sections.history') }}
+                </button>
+              }
+              @case ('closed') {
+                @if (ownerLink(item.links.evidence); as url) {
+                  <a
+                    class="admin-button"
+                    data-og7="examination-guidance-evidence"
+                    [routerLink]="url"
+                    >{{ t('details.evidence') }}</a
+                  >
+                }
+              }
+            }
+            @if (
+              reason === 'missing-draft' ||
+              reason === 'incomplete' ||
+              (reason === 'session-inactive' && item.blockers.length)
+            ) {
+              @if (dossierCompletionLink(); as url) {
+                <a
+                  class="admin-button"
+                  data-og7="examination-guidance-dossier"
+                  [routerLink]="url"
+                  >{{ t('approvalActions.completeDossier') }}</a
+                >
+              }
+              @if (needsPublicationDraft()) {
+                @if (ownerLink(item.links.delivery); as url) {
+                  <a
+                    class="admin-button"
+                    data-og7="examination-guidance-publication"
+                    [routerLink]="url"
+                    >{{ t('approvalActions.preparePublication') }}</a
+                  >
+                }
+              }
+            }
+          </div>
+        </div>
+      }
+      @if (item.service.obligationState !== 'fulfilled') {
+        <div class="decision-actions">
+          <button
+            type="button"
+            class="decision-action approve-action"
+            data-og7="examination-approve"
+            [attr.aria-describedby]="
+              approvalReason() ? 'examination-approval-guidance' : null
+            "
+            [disabled]="!canApprove()"
+            (click)="startDecision('approved')"
+          >
+            <openg7-admin-icon name="check" /><span
+              ><strong>{{ t('decision.approve') }}</strong
+              ><small>{{ t('decision.approveHelp') }}</small></span
+            >
+          </button>
+          <button
+            type="button"
+            class="decision-action correction-action"
+            data-og7="examination-correction"
+            [disabled]="!canDecide()"
+            (click)="startDecision('correction_requested')"
+          >
+            <openg7-admin-icon name="publications" /><span
+              ><strong>{{ t('decision.correction') }}</strong
+              ><small>{{ t('decision.correctionHelp') }}</small></span
+            >
+          </button>
+          <button
+            type="button"
+            class="decision-action reject-action"
+            data-og7="examination-reject"
+            [disabled]="!canDecide()"
+            (click)="startDecision('rejected')"
+          >
+            <openg7-admin-icon name="close" /><span
+              ><strong>{{ t('decision.reject') }}</strong
+              ><small>{{ t('decision.rejectHelp') }}</small></span
+            >
+          </button>
+        </div>
+        @if (pendingDecision(); as kind) {
+          <form class="reason-form" (submit)="submitReason($event)">
+            <label for="examination-reason">{{ t('reason.' + kind) }}</label
+            ><textarea
+              #reasonInput
+              id="examination-reason"
+              data-og7="examination-reason"
+              rows="3"
+              minlength="10"
+              maxlength="2000"
+              required
+              [value]="reason()"
+              [disabled]="busy()"
+              [attr.aria-invalid]="reasonInvalid()"
+              aria-describedby="examination-reason-help"
+              (input)="setReason($event)"
+            ></textarea>
+            <p id="examination-reason-help" [class.invalid]="reasonInvalid()">
+              {{ t('reason.help') }}
+            </p>
+            <p>{{ t('reason.noAutomaticReturn') }}</p>
+            <div>
+              <button
+                class="admin-button primary"
+                type="submit"
+                data-og7="examination-submit"
+                [disabled]="!canDecide()"
+              >
+                {{ t('reason.submit') }}</button
+              ><button
+                class="admin-button"
+                type="button"
+                [disabled]="busy()"
+                (click)="cancelReason()"
+              >
+                {{ t('cancel') }}
+              </button>
+            </div>
+          </form>
+        }
+      }
+      @if (item.decision && ownerUrl(item.links.delivery); as url) {
+        <a class="next-step-link" [routerLink]="ownerLink(url)"
+          >{{ t('decision.deliveryWorkflow') }} <openg7-admin-icon name="arrow"
+        /></a>
+      }
+      <details class="secondary-actions">
+        <summary>{{ t('otherActions') }}</summary>
+        <div>
+          <button
+            type="button"
+            class="back-link"
+            (click)="selectSection('history')"
+          >
+            {{ t('sections.history') }}</button
+          ><button
+            type="button"
+            class="back-link"
+            (click)="selectSection('details')"
+          >
+            {{ t('sections.details') }}</button
+          ><button
+            type="button"
+            class="back-link"
+            [disabled]="busy() || mediaBusy()"
+            (click)="load(true)"
+          >
+            {{ t('refresh') }}
+          </button>
+        </div>
+      </details>
+    </section>
+
+    @if (!readOnly()) {
+      <section
+        class="work-continuation"
+        aria-labelledby="work-continuation-title"
+        data-og7="work-session-state"
+        [attr.data-state]="work.current()?.status ?? work.state()"
+        [attr.aria-busy]="work.busy() || busy()"
+      >
+        <header>
+          <h2 id="work-continuation-title">
+            <openg7-admin-icon name="arrow" />{{ work.t('continueTitle') }}
+          </h2>
+          @if (work.current(); as session) {
+            <p data-og7="work-session-progress">
+              {{
+                work.t('progress', {
+                  visited: session.report.visited,
+                  total: session.report.total
+                })
+              }}
+            </p>
+          }
+        </header>
+        @if (workNotice(); as notice) {
+          <p role="status">{{ work.t(notice) }}</p>
+        }
+        @if (sourceChanged()) {
+          <p role="alert" data-og7="work-session-source-changed">
+            {{ work.t('sourceChanged') }}
+          </p>
+        }
+        @if (work.error(); as error) {
+          <p role="alert">{{ work.t('errors.' + error) }}</p>
+        }
+        @if (work.error() || draftUncertain() || decisionUncertain()) {
+          <div class="work-actions">
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="work-session-reconcile"
+              [disabled]="busy() || work.busy()"
+              (click)="reconcileWork()"
+            >
+              {{ work.t('refresh') }}
+            </button>
+            @if (work.unresolved()) {
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="work-session-retry"
+                [disabled]="!work.canRetryPending()"
+                (click)="work.retryPending()"
+              >
+                {{ work.t('retry') }}
+              </button>
+            }
+            @if (decisionUncertain() && !work.unresolved()) {
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="work-session-retry-decision"
+                [disabled]="busy() || work.busy() || !decisionReconciled()"
+                (click)="retryDecision()"
+              >
+                {{ work.t('retry') }}
+              </button>
+            }
+            @if (draftUncertain() && !work.unresolved()) {
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="work-session-retry-draft"
+                [disabled]="busy() || work.busy() || !canRetryDraft()"
+                (click)="retryDraft()"
+              >
+                {{ work.t('retry') }}
+              </button>
+            }
+          </div>
+        }
+        @if (item.draft?.kind === 'website') {
+          <p class="work-help">{{ work.t('personalHelp') }}</p>
+        }
+        <div class="work-actions">
+          @if (!work.current()) {
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="work-session-start"
+              [disabled]="continuationBlocked()"
+              (click)="startWork()"
+            >
+              {{ work.t('start') }}
+            </button>
+          } @else if (work.current()?.status !== 'active') {
+            @if (work.current()?.status === 'finished') {
+              <button
+                class="admin-button work-next"
+                type="button"
+                data-og7="work-session-start-new"
+                [disabled]="continuationBlocked()"
+                (click)="startWork()"
+              >
+                {{ work.t('startNew') }}
+              </button>
+            }
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="work-session-resume"
+              [disabled]="continuationBlocked()"
+              (click)="resumeWork()"
+            >
+              {{ work.t('resume') }}
+            </button>
+          } @else {
+            <details class="work-secondary" open>
+              <summary>{{ work.t('secondaryActions') }}</summary>
+              <div class="work-actions">
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="work-session-defer"
+                  [disabled]="continuationBlocked()"
+                  (click)="next(1, true)"
+                >
+                  {{ work.t('skip') }}
+                </button>
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="work-session-save-later"
+                  [disabled]="continuationBlocked()"
+                  (click)="saveLater()"
+                >
+                  {{ work.t('saveLater') }}
+                </button>
+                @if (
+                  item.decision?.decision === 'approved' &&
+                  item.service.obligationState !== 'fulfilled' &&
+                  ownerUrl(item.links.delivery)
+                ) {
+                  <button
+                    class="admin-button"
+                    type="button"
+                    data-og7="work-session-schedule"
+                    [disabled]="continuationBlocked()"
+                    (click)="openOwner('delivery')"
+                  >
+                    {{ work.t('schedule') }}
+                  </button>
+                }
+                <button
+                  class="admin-button"
+                  type="button"
+                  data-og7="work-session-evidence"
+                  [disabled]="continuationBlocked()"
+                  (click)="openOwner('evidence')"
+                >
+                  {{ work.t('evidence') }}
+                </button>
+              </div>
+            </details>
+            <button
+              class="admin-button work-next"
+              type="button"
+              data-og7="work-session-next"
+              [disabled]="continuationBlocked()"
+              (click)="next(1)"
+            >
+              {{ work.t('next') }}
+            </button>
+          }
+        </div>
+        @if (work.current(); as session) {
+          <footer class="work-session-summary">
+            <h3>{{ work.t('finishTitle') }}</h3>
+            <dl class="work-metrics">
+              @for (
+                metric of [
+                  { key: 'approved', count: session.report.decisions.approved },
+                  {
+                    key: 'corrections',
+                    count: session.report.decisions.correctionRequested
+                  },
+                  { key: 'toResume', count: session.report.toResume },
+                  { key: 'toDeliver', count: session.report.readyForDelivery }
+                ];
+                track metric.key
+              ) {
+                <div [attr.data-metric]="metric.key">
+                  <dt>{{ work.t('metrics.' + metric.key) }}</dt>
+                  <dd>{{ metric.count }}</dd>
+                </div>
+              }
+            </dl>
+            @if (session.status === 'active') {
+              <button
+                class="admin-button work-finish"
+                type="button"
+                data-og7="work-session-finish"
+                [disabled]="busy() || work.busy() || mediaBusy()"
+                (click)="openFinish()"
+              >
+                <openg7-admin-icon name="check" />{{ work.t('finish') }}
+              </button>
+            }
+            <p class="work-metric-scope">{{ work.t('metricScope') }}</p>
+          </footer>
+        }
+      </section>
+
+      <dialog
+        #finishDialog
+        class="work-dialog"
+        data-og7="work-session-finish-dialog"
+        aria-labelledby="work-finish-title"
+        (cancel)="$event.preventDefault(); closeFinish()"
+      >
+        <h2 id="work-finish-title">{{ work.t('finishTitle') }}</h2>
+        <p>{{ work.t('finishHelp') }}</p>
+        @if (work.unresolved() || draftUncertain() || decisionUncertain()) {
+          <p role="alert">{{ work.t('errors.uncertain') }}</p>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="work-session-reconcile"
+            [disabled]="busy() || work.busy()"
+            (click)="reconcileWork()"
+          >
+            {{ work.t('refresh') }}
+          </button>
+        }
+        @if (work.current(); as session) {
+          <section data-og7="work-session-report" class="work-report">
+            <p>
+              {{
+                work.t('progress', {
+                  visited: session.report.visited,
+                  total: session.report.total
+                })
+              }}
+            </p>
+            <dl class="work-metrics">
+              @for (
+                metric of [
+                  { key: 'approved', count: session.report.decisions.approved },
+                  {
+                    key: 'corrections',
+                    count: session.report.decisions.correctionRequested
+                  },
+                  { key: 'toResume', count: session.report.toResume },
+                  { key: 'toDeliver', count: session.report.readyForDelivery }
+                ];
+                track metric.key
+              ) {
+                <div [attr.data-metric]="metric.key">
+                  <dt>{{ work.t('metrics.' + metric.key) }}</dt>
+                  <dd>{{ metric.count }}</dd>
+                </div>
+              }
+            </dl>
+            <p class="work-metric-scope">{{ work.t('metricScope') }}</p>
+            @if (
+              session.report.visited === 0 &&
+              session.report.decisions.total === 0
+            ) {
+              <p>{{ work.t('noActivity') }}</p>
+            }
+            <ul>
+              <li>
+                {{
+                  work.t('rejected', {
+                    count: session.report.decisions.rejected
+                  })
+                }}
+              </li>
+              <li>
+                {{ work.t('deferred', { count: session.report.deferred }) }}
+              </li>
+              <li>
+                {{ work.t('remaining', { count: session.report.remaining }) }}
+              </li>
+            </ul>
+            <h3>{{ work.t('stock') }}</h3>
+            <ul>
+              <li>
+                {{ work.t('delivered', { count: session.report.delivered }) }}
+              </li>
+              <li>
+                {{
+                  work.t('unavailable', { count: session.report.unavailable })
+                }}
+              </li>
+            </ul>
+            @if (session.report.attention.length) {
+              <h3>{{ work.t('attention') }}</h3>
+              <ul>
+                @for (
+                  attention of session.report.attention;
+                  track attention.obligationId
+                ) {
+                  <li>
+                    @if (ownerUrl(attention.adminUrl); as url) {
+                      <a class="admin-link" [routerLink]="ownerLink(url)"
+                        >{{ attention.companyName || attention.reference }} ·
+                        {{ work.t('attentionKinds.' + attention.kind) }}</a
+                      >
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+        }
+        <footer class="work-actions">
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="work-session-continue"
+            (click)="closeFinish()"
+          >
+            {{ work.t('continue') }}
+          </button>
+          <button
+            class="admin-button admin-button--primary"
+            type="button"
+            data-og7="work-session-save-end"
+            [disabled]="continuationBlocked()"
+            (click)="finishWork()"
+          >
+            {{ work.t('saveEnd') }}
+          </button>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="work-session-discard-end"
+            [disabled]="continuationBlocked()"
+            (click)="finishWork(true)"
+          >
+            {{ work.t('discardEnd') }}
+          </button>
+        </footer>
+      </dialog>
+      <dialog
+        #leaveDialog
+        class="work-dialog"
+        data-og7="examination-unsaved-dialog"
+        aria-labelledby="work-leave-title"
+        (cancel)="$event.preventDefault(); answerLeave(false)"
+      >
+        <h2 id="work-leave-title">{{ work.t('unsavedTitle') }}</h2>
+        <p>{{ work.t('unsavedHelp') }}</p>
+        <footer class="work-actions">
+          <button
+            class="admin-button admin-button--primary"
+            type="button"
+            data-og7="examination-unsaved-save"
+            [disabled]="continuationBlocked()"
+            (click)="leaveWithSave()"
+          >
+            {{ work.t('saveLeave') }}
+          </button>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="examination-unsaved-discard"
+            [disabled]="continuationBlocked()"
+            (click)="answerLeave(true)"
+          >
+            {{ work.t('discardLeave') }}
+          </button>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="examination-unsaved-cancel"
+            [disabled]="busy() || work.busy()"
+            (click)="answerLeave(false)"
+          >
+            {{ work.t('cancelLeave') }}
+          </button>
+        </footer>
+      </dialog>
+    }
+
+    <dialog
+      #enlargedDialog
+      class="enlarged-dialog"
+      [attr.aria-label]="t('enlarge')"
+      (cancel)="$event.preventDefault(); closeEnlarged()"
+    >
+      <header>
+        <h2>{{ t('sections.preview') }}</h2>
+        <button class="admin-button" type="button" (click)="closeEnlarged()">
+          {{ t('close') }}
+        </button>
+      </header>
+      @if (enlarged()) {
+        <openg7-preflight-service-preview
+          [companyName]="item.companyName || t('organizationUnavailable')"
+          [contributionId]="item.contributionId"
+          [obligationId]="item.service.id"
+          [draft]="item.draft"
+          [channel]="item.service.channel"
+          [target]="item.service.target"
+          [viewport]="viewport()"
+          [navigationDisabled]="continuationBlocked()"
+          (ownerRequested)="closeEnlarged(); openOwner($event)"
+          (accessLost)="closeEnlarged(); mediaAccessLost($event)"
+        />
+      }
+    </dialog>
+  }
+  <openg7-admin-drawer
+    [opened]="consentOpened()"
+    [title]="t('consent.title')"
+    [closeLabel]="t('close')"
+    [busy]="consent.busy()"
+    (closed)="closeConsent()"
+  >
+    @if (consentOpened()) {
+      <openg7-admin-sponsorship-consent-form
+        [receipt]="consent.summary()"
+        [result]="consent.result()"
+        [busy]="consent.busy()"
+        [loading]="consent.reading()"
+        [readonly]="readOnly()"
+        [unresolved]="consent.uncertain()"
+        [notice]="consent.notice()"
+        [needsRefresh]="consent.needsRefresh()"
+        [retryAllowed]="consent.retryAllowed()"
+        (recordRequested)="consent.record($event)"
+        (refreshRequested)="refreshConsent()"
+        (reconcileRequested)="consent.reconcile()"
+        (retryRequested)="consent.retry()"
+      />
+    }
+  </openg7-admin-drawer>
+  <openg7-admin-drawer
+    [opened]="textReviewSubject() !== null"
+    [title]="t('guided.textReviewTitle')"
+    [closeLabel]="t('close')"
+    [busy]="textReviewBusy()"
+    (closed)="closeTextReview()"
+  >
+    @if (textReviewSubject(); as subject) {
+      <section
+        data-og7="examination-text-review"
+        [attr.data-og7-id]="subject.id"
+      >
+        <p class="view-intro">{{ t('guided.textReviewScope') }}</p>
+        <openg7-funding-moderation-actions
+          [subject]="subject"
+          [initialLevel]="'N0'"
+          [disabled]="
+            readOnly() ||
+            busy() ||
+            mediaBusy() ||
+            consent.busy() ||
+            consent.uncertain() ||
+            work.busy() ||
+            work.unresolved() ||
+            decisionUncertain() ||
+            draftUncertain()
+          "
+          (busyChanged)="textReviewBusy.set($event)"
+          (accessLost)="mediaAccessLost($event)"
+          (changed)="textReviewChanged()"
+        />
+      </section>
+    }
+  </openg7-admin-drawer>
+</section>

@@ -3,14 +3,22 @@ import type {
   AdminPreparationApproveRequest,
   AdminPreparationReceipt,
   AdminPreparationReceiptData,
-  AdminDossierPreparationReceipt
+  AdminDossierPreparationReceipt,
+  AdminServicePreparationReceipt
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
 import { AdminAutomaticRunError } from './admin-automatic-run-error.js';
 import { assertPreparationReadiness } from './admin-preparation-readiness.js';
+import { assertServicePreparationReadiness } from './admin-service-preparation-readiness.js';
+import { loadServicePreparationFacts } from './admin-service-preparation-scope.js';
 import { isValidUuid } from './business-helpers/request-validation.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import {
+  parseServicePreparationDecision,
+  projectServicePreparation,
+  type ServicePreparationDecisionRow
+} from './admin-service-preparation.js';
 import {
   preparationDigest,
   projectPreparation,
@@ -58,6 +66,232 @@ type PreparationReceipt =
 /** No dispatch or financial port exists. Approval and audit share one transaction. */
 export class AdminPreparationService {
   constructor(private readonly pool: Pool) {}
+
+  /** Reuse a caller-owned snapshot when projecting several services of one dossier. */
+  dossierPreparationOnConnection(
+    db: PoolClient,
+    contributionId: string
+  ): Promise<AdminDossierPreparationReceipt> {
+    return this.dossierReceipt(db, contributionId);
+  }
+
+  async servicePreparationOnConnection(
+    db: PoolClient,
+    contributionId: string,
+    obligationId: string
+  ): Promise<AdminServicePreparationReceipt> {
+    return projectServicePreparation(
+      db,
+      await this.dossierReceipt(db, contributionId),
+      obligationId
+    );
+  }
+
+  /** Same private review owner, now with an exact promised passage scope. */
+  async servicePreparation(
+    contributionId: string,
+    obligationId: string
+  ): Promise<AdminServicePreparationReceipt> {
+    check(
+      isValidUuid(contributionId) && isValidUuid(obligationId),
+      'RUN_INVALID_REQUEST',
+      400
+    );
+    await assertPreparationReadiness(this.pool);
+    await assertServicePreparationReadiness(this.pool);
+    return withPostgresTransaction(
+      this.pool,
+      (db) =>
+        this.servicePreparationOnConnection(
+          db,
+          contributionId.toLowerCase(),
+          obligationId.toLowerCase()
+        ),
+      { readOnlySnapshot: true }
+    );
+  }
+
+  async decideServicePreparation(
+    raw: unknown,
+    actor: string
+  ): Promise<AdminServicePreparationReceipt> {
+    const input = parseServicePreparationDecision(raw);
+    check(
+      typeof actor === 'string' &&
+        actor.trim().length > 0 &&
+        actor.length <= 200,
+      'PREPARATION_ACTOR_REQUIRED',
+      403
+    );
+    await assertPreparationReadiness(this.pool, 'approve');
+    await assertServicePreparationReadiness(this.pool, 'decide');
+    const hash = preparationDigest({ ...input, actor });
+    const reconcile = async (
+      db: PoolClient
+    ): Promise<AdminServicePreparationReceipt | null> => {
+      const receipt = await this.servicePreparationOnConnection(
+        db,
+        input.contributionId,
+        input.obligationId
+      );
+      const prior = (
+        await db.query<ServicePreparationDecisionRow>(
+          'SELECT * FROM admin_service_preparation_decisions WHERE request_id=$1::uuid',
+          [input.requestId]
+        )
+      ).rows[0];
+      if (prior) {
+        check(
+          prior.actor === actor && prior.request_hash === hash,
+          'PREPARATION_REQUEST_CONFLICT'
+        );
+        return receipt;
+      }
+      const latest = (
+        await db.query<ServicePreparationDecisionRow>(
+          'SELECT * FROM admin_service_preparation_decisions WHERE contribution_id=$1::uuid AND obligation_id=$2::uuid ORDER BY created_at DESC,id DESC LIMIT 1',
+          [input.contributionId, input.obligationId]
+        )
+      ).rows[0];
+      if (
+        latest &&
+        latest.content_version === receipt.contentVersion &&
+        latest.expected_version === input.expectedVersion &&
+        latest.decision === input.decision &&
+        latest.reason === (input.reason || null)
+      )
+        return receipt;
+      return null;
+    };
+    try {
+      return await withPostgresTransaction(
+        this.pool,
+        async (db) => {
+          await db.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+            ['service-preparation-request:' + input.requestId]
+          );
+          const source = await db.query(
+            'SELECT id FROM fund_contributions WHERE id=$1::uuid FOR UPDATE',
+            [input.contributionId]
+          );
+          check(source.rows[0], 'PREPARATION_NOT_FOUND', 404);
+          // The same determinant locks as dossier review; navigation never takes them.
+          for (const table of [
+            'sponsorship_commitments',
+            'sponsorship_obligations',
+            'sponsor_publication_drafts',
+            'sponsor_media_assets',
+            'contribution_activity',
+            'moderation_cases'
+          ]) {
+            await db.query(
+              `SELECT 1 FROM ${table} WHERE contribution_id=$1::uuid FOR SHARE`,
+              [input.contributionId]
+            );
+          }
+          await db.query('SELECT version FROM moderation_policies FOR SHARE');
+          const receipt = await this.servicePreparationOnConnection(
+            db,
+            input.contributionId,
+            input.obligationId
+          );
+          const recovered = await reconcile(db);
+          if (recovered) return recovered;
+          check(
+            receipt.version === input.expectedVersion,
+            'PREPARATION_VERSION_CONFLICT'
+          );
+          check(!receipt.decision, 'PREPARATION_ALREADY_DECIDED');
+          check(
+            receipt.canDecide && receipt.draft,
+            'PREPARATION_DRAFT_UNAVAILABLE'
+          );
+          if (input.decision === 'approved')
+            check(receipt.canApprove, 'PREPARATION_INCOMPLETE');
+          const audit = (
+            await db.query<{ id: string }>(
+              `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,summary,metadata)
+           VALUES($1,'preparation.service_decided','sponsorship_obligation',$2,'Private service preparation reviewed; no publication or delivery authorized.',$3::jsonb) RETURNING id`,
+              [
+                actor,
+                input.obligationId,
+                JSON.stringify({
+                  contributionId: input.contributionId,
+                  obligationId: input.obligationId,
+                  draftId: receipt.draft.id,
+                  contentVersion: receipt.contentVersion,
+                  decision: input.decision,
+                  requestId: input.requestId,
+                  correlationId: input.requestId
+                })
+              ]
+            )
+          ).rows[0];
+          check(audit, 'RUN_AUDIT_UNAVAILABLE', 503);
+          await db.query(
+            `INSERT INTO admin_service_preparation_decisions(contribution_id,obligation_id,draft_id,draft_version,content_version,expected_version,decision,reason,actor,request_id,request_hash,audit_reference,snapshot)
+           VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10::uuid,$11,$12::uuid,$13::jsonb)`,
+            [
+              input.contributionId,
+              input.obligationId,
+              receipt.draft.id,
+              receipt.draft.version,
+              receipt.contentVersion,
+              input.expectedVersion,
+              input.decision,
+              input.reason || null,
+              actor,
+              input.requestId,
+              hash,
+              audit.id,
+              JSON.stringify({
+                contentVersion: receipt.contentVersion,
+                payment: receipt.dossier.payment,
+                acceptedOffer: receipt.dossier.acceptedOffer,
+                obligation:
+                  receipt.dossier.balance?.obligations.find(
+                    (obligation) => obligation.id === input.obligationId
+                  ) ?? null,
+                determiningFacts: await loadServicePreparationFacts(
+                  db,
+                  input.contributionId,
+                  receipt.service,
+                  receipt.draft.id
+                ),
+                draft: receipt.draft,
+                checks: receipt.checks,
+                blockers: receipt.blockers,
+                service: receipt.service,
+                provenance: receipt.provenance
+              })
+            ]
+          );
+          return this.servicePreparationOnConnection(
+            db,
+            input.contributionId,
+            input.obligationId
+          );
+        },
+        { repeatableRead: true }
+      );
+    } catch (error) {
+      if (error instanceof AdminAutomaticRunError) throw error;
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        ['40001', '40P01', '23505'].includes(String(error.code))
+      ) {
+        const recovered = await withPostgresTransaction(this.pool, reconcile, {
+          readOnlySnapshot: true
+        });
+        if (recovered) return recovered;
+        throw new AdminAutomaticRunError('PREPARATION_VERSION_CONFLICT');
+      }
+      throw error;
+    }
+  }
 
   private async manifest(
     db: PoolClient,

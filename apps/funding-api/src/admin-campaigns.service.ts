@@ -16,6 +16,10 @@ import {
 } from './admin-preparation.projection.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { sponsorshipCommitmentProjectionSql } from './sponsorship-commitments/projection.js';
+import {
+  loadServicePreparationFacts,
+  servicePreparationScope
+} from './admin-service-preparation-scope.js';
 import { loadSponsorshipProgressFacts } from './sponsorship-progress.repository.js';
 import { buildSponsorshipProgress } from './sponsorship-progress.service.js';
 import {
@@ -35,9 +39,23 @@ export interface AdminCampaignSource extends PreparationSource {
 }
 
 export interface AdminCampaignsReadPorts {
+  servicePreparationFacts?: typeof loadServicePreparationFacts;
+  serviceDecisions?(
+    db: PoolClient,
+    obligationIds: readonly string[]
+  ): Promise<
+    readonly {
+      id: string;
+      obligation_id: string;
+      content_version: string;
+      decision: 'approved' | 'correction_requested' | 'rejected';
+      created_at: Date;
+    }[]
+  >;
   sources(
     db: PoolClient,
-    query: AdminCampaignsQuery
+    query: AdminCampaignsQuery,
+    contributionIds?: readonly string[]
   ): Promise<readonly AdminCampaignSource[]>;
   preparation(
     db: PoolClient,
@@ -51,7 +69,31 @@ export interface AdminCampaignsReadPorts {
 }
 
 const defaultPorts: AdminCampaignsReadPorts = {
-  async sources(db, query) {
+  servicePreparationFacts: loadServicePreparationFacts,
+  async serviceDecisions(db, obligationIds) {
+    if (!obligationIds.length) return [];
+    const available = (
+      await db.query<{ present: string | null }>(
+        "SELECT to_regclass('public.admin_service_preparation_decisions')::text AS present"
+      )
+    ).rows[0]?.present;
+    if (!available) return [];
+    return (
+      await db.query<{
+        id: string;
+        obligation_id: string;
+        content_version: string;
+        decision: 'approved' | 'correction_requested' | 'rejected';
+        created_at: Date;
+      }>(
+        `SELECT DISTINCT ON (obligation_id) id,obligation_id,content_version,decision,created_at
+       FROM admin_service_preparation_decisions WHERE obligation_id=ANY($1::uuid[])
+       ORDER BY obligation_id,created_at DESC,id DESC`,
+        [obligationIds]
+      )
+    ).rows;
+  },
+  async sources(db, query, contributionIds) {
     const result = await db.query<AdminCampaignSource>(
       `SELECT c.id AS contribution_id,COALESCE(c.public_reference,c.id::text) AS reference,
         c.amount_cents::text AS amount_minor,upper(c.currency) AS currency,
@@ -69,6 +111,7 @@ const defaultPorts: AdminCampaignsReadPorts = {
              AND ($1::text IS NULL OR ob.channel=$1) AND ($2::text IS NULL OR ob.target=$2)
              AND ($5::uuid IS NULL OR ob.id=$5::uuid))
          AND ($4::uuid IS NULL OR c.id=$4::uuid)
+         ${contributionIds === undefined ? '' : 'AND c.id=ANY($6::uuid[])'}
          AND ($3::text IS NULL OR position(lower($3) in lower(COALESCE(c.sponsor_company_name,'')||' '||COALESCE(c.public_reference,c.id::text)))>0)
        ORDER BY c.id`,
       [
@@ -76,7 +119,8 @@ const defaultPorts: AdminCampaignsReadPorts = {
         query.target ?? null,
         query.search ?? null,
         query.sponsorshipId ?? null,
-        query.obligationId ?? null
+        query.obligationId ?? null,
+        ...(contributionIds === undefined ? [] : [contributionIds])
       ]
     );
     return result.rows;
@@ -164,7 +208,8 @@ export async function loadAdminCampaignsOnClient(
   db: PoolClient,
   query: AdminCampaignsQuery,
   now = new Date(),
-  ports: AdminCampaignsReadPorts = defaultPorts
+  ports: AdminCampaignsReadPorts = defaultPorts,
+  scope: 'page' | 'snapshot' = 'page'
 ): Promise<AdminCampaignsResponse> {
   const sponsorshipId = query.sponsorshipId?.toLowerCase();
   const obligationId = query.obligationId?.toLowerCase();
@@ -271,10 +316,13 @@ export async function loadAdminCampaignsOnClient(
   );
   const totalItems = filtered.length;
   const totalPages = Math.ceil(totalItems / query.pageSize);
-  const selected = filtered.slice(
-    (query.page - 1) * query.pageSize,
-    query.page * query.pageSize
-  );
+  const selected =
+    scope === 'snapshot'
+      ? filtered
+      : filtered.slice(
+          (query.page - 1) * query.pageSize,
+          query.page * query.pageSize
+        );
   const items: AdminCampaignItem[] = [];
   for (const candidate of selected) {
     const { source } = candidate;
@@ -308,6 +356,50 @@ export async function loadAdminCampaignsOnClient(
       adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${source.contribution_id}&tab=publication`
     });
   }
+  if (ports.serviceDecisions && items.length) {
+    const decisions = await ports.serviceDecisions(
+      db,
+      items.map((item) => item.id)
+    );
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      const row = decisions.find((entry) => entry.obligation_id === item.id);
+      if (!row) continue;
+      const source = sources.find(
+        (entry) => entry.contribution_id === item.contributionId
+      )!;
+      const receipt = await preparation(source);
+      if (!ports.servicePreparationFacts) continue;
+      const matchingDraft = receipt.drafts.find(
+        (draft) =>
+          draft.channel === item.channel &&
+          draft.target === item.target &&
+          draft.title === item.content?.title &&
+          draft.body === item.content?.body
+      );
+      const facts = await ports.servicePreparationFacts(
+        db,
+        item.contributionId,
+        item,
+        matchingDraft?.id ?? null
+      );
+      const scope = servicePreparationScope(receipt, item, facts);
+      if (row.content_version !== scope.contentVersion) continue;
+      items[index] = {
+        ...item,
+        preparation: {
+          ...item.preparation,
+          blockers: scope.blockers,
+          serviceDecision: {
+            id: row.id,
+            decision: row.decision,
+            createdAt: row.created_at.toISOString(),
+            contentVersion: row.content_version
+          }
+        }
+      };
+    }
+  }
   return {
     generatedAt: now.toISOString(),
     items,
@@ -319,6 +411,97 @@ export async function loadAdminCampaignsOnClient(
       hasPreviousPage: query.page > 1,
       hasNextPage: query.page < totalPages
     }
+  };
+}
+
+export interface AdminCampaignDeskRow {
+  readonly campaign: AdminCampaignItem;
+  readonly amountMinor: string;
+  readonly currency: string;
+  readonly commitmentId: string;
+  readonly commitmentVersion: number;
+  readonly authorizedDelivery: boolean;
+}
+
+/** Reuses the campaign snapshot and its per-dossier caches; no second workflow is evaluated. */
+export async function loadAdminCampaignDeskSnapshot(
+  db: PoolClient,
+  search: string | undefined,
+  now = new Date(),
+  ports: AdminCampaignsReadPorts = defaultPorts,
+  contributionIds?: readonly string[]
+): Promise<{ generatedAt: string; rows: readonly AdminCampaignDeskRow[] }> {
+  const sources = new Map<string, AdminCampaignSource>();
+  const progress = new Map<string, AdminSponsorshipProgress>();
+  const result = await loadAdminCampaignsOnClient(
+    db,
+    {
+      page: 1,
+      pageSize: 100,
+      sort: 'paid_at',
+      direction: 'desc',
+      ...(search ? { search } : {})
+    },
+    now,
+    {
+      sources: async (client, query) => {
+        const rows =
+          contributionIds === undefined
+            ? await ports.sources(client, query)
+            : await ports.sources(client, query, contributionIds);
+        for (const row of rows) sources.set(row.contribution_id, row);
+        return rows;
+      },
+      preparation: ports.preparation,
+      serviceDecisions: ports.serviceDecisions,
+      servicePreparationFacts: ports.servicePreparationFacts,
+      progress: async (client, source, date) => {
+        const value = await ports.progress(client, source, date);
+        progress.set(source.contribution_id, value);
+        return value;
+      }
+    },
+    'snapshot'
+  );
+  const authorizedReasons = new Set([
+    'publication_scheduled',
+    'publication_retry_pending',
+    'publication_publishing',
+    'publication_paused',
+    'publication_worker_disabled'
+  ]);
+  return {
+    generatedAt: result.generatedAt,
+    rows: result.items.map((campaign) => {
+      const source = sources.get(campaign.contributionId)!;
+      const facts = progress.get(campaign.contributionId)!;
+      const exactDelivery = facts.publications.find(
+        (publication) =>
+          publication.obligationId === campaign.id &&
+          publication.deliveryId === campaign.workflow.deliveryId &&
+          publication.channel === campaign.channel &&
+          publication.target === campaign.target &&
+          publication.deliveryMode === 'live' &&
+          ['approved', 'publishing'].includes(publication.deliveryStatus ?? '')
+      );
+      const websiteDuration =
+        campaign.channel === 'website' &&
+        campaign.workflow.reason === 'duration_in_progress' &&
+        !!campaign.timing?.startObservation &&
+        campaign.timing.durationState === 'awaiting_review';
+      return {
+        campaign,
+        amountMinor: source.amount_minor,
+        currency: source.currency,
+        commitmentId: source.commitment.id,
+        commitmentVersion: source.commitment.version,
+        authorizedDelivery:
+          websiteDuration ||
+          (!!exactDelivery &&
+            !!campaign.workflow.deliveryId &&
+            authorizedReasons.has(campaign.workflow.reason))
+      };
+    })
   };
 }
 

@@ -330,6 +330,7 @@ test('OIDC discovery is shared across concurrent starts and retries after a reje
     const browser = cookie.split(';')[0].split('=')[1];
     assert.equal(challenge.browserHash, identityHash(browser));
     assert.equal(authorization.searchParams.get('nonce'), challenge.nonce);
+    assert.equal(authorization.searchParams.get('prompt'), null);
     assert.equal(
       authorization.searchParams.get('redirect_uri'),
       `${config.origin}/api/admin/auth/callback`
@@ -575,17 +576,37 @@ test('password-only localhost callbacks still verify signed password claims, PKC
       return { finish, before, request, callback };
     };
 
-    const expectDenied = async (options) => {
+    const expectDenied = async (options, missingAssurance = false) => {
       const { finish, before } = await login(options);
       assert.equal(
         finish.getHeader('Location'),
         '/admin/login?identityError=1'
       );
       assert.equal(sessions, before);
-      assert.match(finish.getHeader('Set-Cookie'), /Max-Age=0; Secure$/);
+      if (missingAssurance) {
+        assert.match(
+          finish.getHeader('Set-Cookie'),
+          /-login=reauthenticate;.*HttpOnly;.*Max-Age=300; Secure$/
+        );
+        const retry = response();
+        await handler(
+          {
+            method: 'GET',
+            headers: { cookie: finish.getHeader('Set-Cookie').split(';')[0] }
+          },
+          retry,
+          new URL('/api/admin/auth/start', config.origin),
+          '/admin/auth/start'
+        );
+        assert.equal(
+          new URL(retry.getHeader('Location')).searchParams.get('prompt'),
+          'login'
+        );
+        assert.match(retry.getHeader('Set-Cookie'), /-login=[\w-]{43};/);
+      } else assert.match(finish.getHeader('Set-Cookie'), /Max-Age=0; Secure$/);
     };
     claimsOverride = {};
-    if (!localPasswordOnly) await expectDenied();
+    if (!localPasswordOnly) await expectDenied(undefined, true);
     else {
       const accepted = await login();
       assert.equal(accepted.finish.getHeader('Location'), '/admin/fundraiser');
@@ -623,7 +644,7 @@ test('password-only localhost callbacks still verify signed password claims, PKC
         { exp: 1 }
       ]) {
         claimsOverride = override;
-        await expectDenied();
+        await expectDenied(undefined, Object.hasOwn(override, 'amr'));
       }
       claimsOverride = {};
       badSignature = true;

@@ -7,7 +7,9 @@
         : commands().form() === 'batch'
           ? 'newBatch'
           : commands().form() === 'reject'
-            ? 'rejectTitle'
+            ? commands().decisionAction() === 'request_correction'
+              ? 'library.correctionTitle'
+              : 'rejectTitle'
             : 'planTitle'
     )
   "
@@ -102,24 +104,50 @@
   }
   @if (commands().form() === 'reject') {
     <label class="field"
-      >{{ view().t('rejectReason')
+      >{{
+        view().t(
+          commands().decisionAction() === 'request_correction'
+            ? 'library.correctionReason'
+            : 'rejectReason'
+        )
       }}<select
         [value]="commands().rejectReason()"
         (change)="commands().rejectReason.set(view().value($event))"
       >
         <option value="">{{ view().t('chooseReason') }}</option>
-        @for (reason of commands().reasons; track reason.code) {
+        @for (reason of commands().reasons(); track reason.code) {
           <option [value]="reason.code">
             {{ reason.label[i18n.currentLanguage() === 'en' ? 'en' : 'fr'] }}
           </option>
         }
       </select></label
     >
+    @if (commands().rejectReason() === 'EDITORIAL_INCOMPATIBILITY') {
+      <label class="field"
+        >{{ view().t('library.editorialProvision')
+        }}<select
+          required
+          [value]="commands().editorialProvision()"
+          (change)="commands().editorialProvision.set(view().value($event))"
+          data-og7="media-correction-provision"
+        >
+          <option value="">{{ view().t('library.chooseProvision') }}</option>
+          @for (provision of commands().provisions; track provision.id) {
+            <option [value]="provision.id">
+              {{
+                provision.label[i18n.currentLanguage() === 'en' ? 'en' : 'fr']
+              }}
+            </option>
+          }
+        </select></label
+      >
+    }
     <label class="field"
       >{{ view().t('internalReason')
       }}<textarea
         maxlength="1000"
         [value]="commands().rejectInternalReason()"
+        required
         (input)="commands().rejectInternalReason.set(view().value($event))"
       ></textarea>
     </label>
@@ -128,6 +156,7 @@
       }}<textarea
         maxlength="1000"
         [value]="commands().rejectExplanation()"
+        required
         (input)="commands().rejectExplanation.set(view().value($event))"
       ></textarea>
     </label>
@@ -137,11 +166,20 @@
       [disabled]="
         !commands().c.canWrite() ||
         !commands().rejectReason() ||
-        !commands().rejectExplanation().trim()
+        !commands().rejectInternalReason().trim() ||
+        !commands().rejectExplanation().trim() ||
+        (commands().rejectReason() === 'EDITORIAL_INCOMPATIBILITY' &&
+          !commands().editorialProvision())
       "
       (click)="commands().prepareReject()"
     >
-      {{ view().t('prepareDecision') }}
+      {{
+        view().t(
+          commands().decisionAction() === 'request_correction'
+            ? 'library.prepareCorrection'
+            : 'prepareDecision'
+        )
+      }}
     </button>
   }
   @if (commands().form() === 'plan') {
@@ -153,6 +191,32 @@
         {{ view().t('planAction') }} :
         <strong>{{ view().t('actions.' + plan.action) }}</strong>
       </p>
+      @if (plan.effects.length) {
+        <section class="notice" data-og7="media-plan-effects">
+          <h4>{{ view().t('library.effectsTitle') }}</h4>
+          <ul>
+            @for (effect of plan.effects; track effect) {
+              <li>{{ view().effectLabel(effect) }}</li>
+            }
+          </ul>
+        </section>
+      }
+      @if (plan.preparationTarget; as target) {
+        <section class="notice" data-og7="media-preparation-manifest-target">
+          <strong>{{ view().obligationLabel(target) }}</strong>
+          <p>
+            {{
+              view().t('library.obligationVersion', { version: target.version })
+            }}
+          </p>
+          <p>{{ view().t('library.privateAssignmentHelp') }}</p>
+        </section>
+      }
+      @if (plan.action === 'request_correction') {
+        <p class="notice" data-og7="media-correction-notification-scope">
+          {{ view().t('library.correctionNoMessage') }}
+        </p>
+      }
       @if (plan.blocked.length) {
         <div role="alert" class="notice error">
           <p>{{ view().t('blockedPlan') }}</p>

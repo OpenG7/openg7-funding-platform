@@ -5,7 +5,8 @@ import type {
   SponsorMediaBatchPlanRequest,
   SponsorMediaBatchPlan,
   SponsorMediaBatchExecuteRequest,
-  SponsorMediaBatchReceipt
+  SponsorMediaBatchReceipt,
+  SponsorMediaExportRequest
 } from '@openg7/funding-core';
 import type {
   SponsorMediaKind,
@@ -110,6 +111,30 @@ export class FundingAdminMediaReviewClient {
     );
     if (!response.ok) throw new AdminDashboardRequestError(response.status);
     return response.blob();
+  }
+  async export(input: SponsorMediaExportRequest): Promise<Blob> {
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/export',
+      {
+        auth: 'saved',
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Accept: 'image/webp' },
+        body: input
+      }
+    );
+    if (!response.ok) {
+      const details = await errorDetailsFromResponse(response);
+      throw new AdminDashboardRequestError(
+        response.status,
+        undefined,
+        details.code
+      );
+    }
+    const blob = await response.blob();
+    if (blob.type !== 'image/webp')
+      throw new Error('Media export did not return the expected file.');
+    return blob;
   }
   private async request<T>(suffix: string, body?: object): Promise<T> {
     const response = await this.session.requestAdminJson(

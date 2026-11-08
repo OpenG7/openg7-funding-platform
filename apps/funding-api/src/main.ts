@@ -4,6 +4,8 @@ import type { SponsorFeedChannel } from '@openg7/funding-core';
 import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
+import { loadPreflightInboxConfig } from './preflight/inbox-config.js';
+import { loadPreflightRehearsalConfig } from './preflight/rehearsal-config.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
 import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
@@ -83,6 +85,8 @@ import { createHttpDispatcher } from './http-composition/dispatcher.js';
 import { createApiRequestListener } from './http-composition/request-listener.js';
 
 const startupConfig = loadApiRuntimeConfig();
+const preflightInboxConfig = loadPreflightInboxConfig();
+const preflightRehearsalConfig = loadPreflightRehearsalConfig();
 const {
   port,
   stripeSecretKey,
@@ -401,6 +405,8 @@ const publicHandlers = createPublicHttpHandlers({
 
 const adminHandlers = createAdminHttpHandlers({
   dbPool,
+  preflightInboxConfig,
+  preflightRehearsalConfig,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,

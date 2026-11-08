@@ -18,7 +18,15 @@ interface MediaReviewUploadPorts {
 export class MediaReviewUpload {
   readonly busy = signal(false);
   readonly kind = signal<SponsorMediaKind>('supporting_image');
-  readonly result = signal<{ received: number; failed: number } | null>(null);
+  readonly result = signal<{
+    received: number;
+    failed: number;
+    items: readonly {
+      name: string;
+      state:
+        'received' | 'invalid' | 'rejected' | 'uncertain' | 'not_processed';
+    }[];
+  } | null>(null);
   private generation = 0;
   private destroyed = false;
   constructor(private readonly ports: MediaReviewUploadPorts) {}
@@ -33,7 +41,8 @@ export class MediaReviewUpload {
   }
   async upload(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement,
-      files = Array.from(input.files ?? []).slice(0, 100);
+      allFiles = Array.from(input.files ?? []),
+      files = allFiles.slice(0, 100);
     input.value = '';
     if (!files.length || !this.ports.controller.canWrite()) return;
     const generation = this.generation,
@@ -43,11 +52,22 @@ export class MediaReviewUpload {
     this.result.set(null);
     let received = 0,
       failed = 0;
+    const items: {
+      name: string;
+      state:
+        'received' | 'invalid' | 'rejected' | 'uncertain' | 'not_processed';
+    }[] = [];
+    const record = (file: File, state: (typeof items)[number]['state']) => {
+      items.push({ name: file.name, state });
+      if (!this.destroyed && generation === this.generation)
+        this.result.set({ received, failed, items: [...items] });
+    };
     try {
-      for (const file of files) {
+      for (const [index, file] of files.entries()) {
         if (this.destroyed || generation !== this.generation) return;
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
           failed++;
+          record(file, 'invalid');
           continue;
         }
         const requestId = crypto.randomUUID();
@@ -60,6 +80,7 @@ export class MediaReviewUpload {
           );
           if (!result.uploaded) throw new Error('Unconfirmed upload.');
           received++;
+          record(file, 'received');
         } catch (error) {
           failed++;
           if (
@@ -71,17 +92,25 @@ export class MediaReviewUpload {
             this.ports.controller.uncertainRequest.set(requestId);
             this.ports.controller.uncertain.set(true);
             this.ports.controller.error.set('uncertain');
+            record(file, 'uncertain');
+            for (const remaining of files.slice(index + 1))
+              record(remaining, 'not_processed');
             break;
           }
+          record(file, 'rejected');
           if (
             error instanceof AdminDashboardRequestError &&
             (error.status === 401 || error.status === 403)
-          )
+          ) {
+            for (const remaining of files.slice(index + 1))
+              record(remaining, 'not_processed');
             break;
+          }
         }
       }
       if (!this.destroyed && generation === this.generation) {
-        this.result.set({ received, failed });
+        for (const extra of allFiles.slice(100)) record(extra, 'not_processed');
+        this.result.set({ received, failed, items });
         await this.ports.refresh();
         this.ports.changed();
       }

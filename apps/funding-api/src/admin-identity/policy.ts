@@ -14,7 +14,10 @@ const operatorActions = new Set([
   '/admin/automatic-runs/control',
   '/admin/automatic-runs/preparation/approve',
   '/admin/sponsorships/preparation/approve',
+  '/admin/sponsorships/preparation/service/decision',
+  '/admin/sponsorships/preparation/service/save-draft',
   '/admin/sponsorships/details',
+  '/admin/sponsorships/consent/record',
   '/admin/sponsorships/interventions',
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',
@@ -33,6 +36,7 @@ const operatorActions = new Set([
   '/admin/sponsorships/media/analyses',
   '/admin/sponsorships/media/analyses/review',
   '/admin/sponsorships/media/upload',
+  '/admin/sponsorships/media/export',
   '/admin/sponsorships/logo',
   '/admin/sponsorships/logo/delete',
   '/admin/email-queue/retry',
@@ -65,7 +69,19 @@ export const adminRoleAllows = (
 ): boolean => {
   const path = pathname.replace(/^\/api(?=\/)/, '');
   if (role === 'owner') return true;
+  if (
+    /^\/admin\/preflight\/work-sessions(?:\/[0-9a-f-]{36}\/commands)?$/i.test(
+      path
+    )
+  )
+    return method === 'GET' || (role === 'operator' && method === 'POST');
+  if (
+    /^\/admin\/preflight\/rehearsals(?:\/[0-9a-f-]{36}\/resume)?$/i.test(path)
+  )
+    return method === 'GET' || (role === 'operator' && method === 'POST');
   if (path === '/admin/expenses/create-receipt') return false;
+  if (path === '/admin/sponsorships/consent/receipt')
+    return role === 'operator' && method === 'GET';
   if (
     path === '/admin/sponsorship-documents/resend-receipt' ||
     path === '/admin/sponsorships/information-request-receipt'

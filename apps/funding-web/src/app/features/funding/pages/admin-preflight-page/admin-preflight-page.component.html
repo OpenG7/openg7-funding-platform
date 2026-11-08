@@ -1,0 +1,530 @@
+<openg7-admin-layout>
+  <section
+    class="preflight-content"
+    data-og7="admin-preflight"
+    [attr.data-state]="state()"
+  >
+    @if (examinationSelection(); as selection) {
+      <openg7-admin-preflight-examination
+        [contributionId]="selection.contributionId"
+        [obligationId]="selection.obligationId"
+      />
+    } @else {
+      @if (work.permitted()) {
+        @if (work.current(); as session) {
+          <section
+            class="work-resume"
+            data-og7="work-session-state"
+            [attr.data-state]="session.status"
+          >
+            <div>
+              <h2>{{ work.t('resumeTitle') }}</h2>
+              <p>
+                {{ work.t(session.status) }} ·
+                {{
+                  work.t('progress', {
+                    visited: session.report.visited,
+                    total: session.report.total
+                  })
+                }}
+              </p>
+              <p>
+                {{ work.t('saved', { count: session.report.saved }) }} ·
+                {{ work.t('deferred', { count: session.report.deferred }) }}
+              </p>
+              @for (item of session.items; track item.obligationId) {
+                @if (item.position === session.lastPosition) {
+                  <p>
+                    {{
+                      work.t('position', {
+                        reference: item.companyName || item.reference
+                      })
+                    }}
+                  </p>
+                }
+              }
+              <p class="authority-note">{{ work.t('resumeHelp') }}</p>
+            </div>
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="work-session-resume"
+              [disabled]="work.busy() || work.unresolved()"
+              (click)="resumeWorkSession(session.id)"
+            >
+              {{
+                work.t(
+                  session.status === 'finished' ? 'resumeFinished' : 'resume'
+                )
+              }}
+            </button>
+          </section>
+        }
+        @for (session of work.recent(); track session.id) {
+          @if (session.id !== work.current()?.id) {
+            <section class="work-resume">
+              <p>
+                {{ work.t(session.status) }} · {{ session.updatedAt }} ·
+                {{ session.itemCount }}
+              </p>
+              <button
+                class="admin-button"
+                type="button"
+                data-og7="work-session-resume"
+                [attr.data-og7-id]="session.id"
+                [disabled]="work.busy()"
+                (click)="resumeWorkSession(session.id)"
+              >
+                {{ work.t('resume') }}
+              </button>
+            </section>
+          }
+        }
+        @if (work.error(); as error) {
+          <p role="alert">{{ work.t('errors.' + error) }}</p>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="work-session-reconcile"
+            [disabled]="work.busy()"
+            (click)="work.load(work.current()?.id, true)"
+          >
+            {{ work.t('refresh') }}
+          </button>
+        }
+      }
+      <header class="page-header">
+        <div class="heading-block">
+          <div class="heading-line">
+            <span class="preflight-mark" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m22 2-7 20-4-9-9-4L22 2ZM22 2 11 13" /></svg
+            ></span>
+            <div>
+              <h1>{{ 'admin.preflight.title' | translate }}</h1>
+              <p class="subtitle">
+                {{ 'admin.preflight.workspace.subtitle' | translate }}
+              </p>
+            </div>
+            <span class="funding-badge">OpenG7 Funding</span>
+          </div>
+          <p class="hero-intro">
+            {{ 'admin.preflight.workspace.intro' | translate }}
+            <strong>{{
+              'admin.preflight.workspace.principle' | translate
+            }}</strong>
+          </p>
+        </div>
+        @if (consoleUrl(); as url) {
+          <a
+            class="admin-button"
+            data-og7="preflight-console"
+            [href]="url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ 'admin.preflight.openConsole' | translate }}
+            <span class="sr-only">{{
+              'admin.preflight.newTab' | translate
+            }}</span>
+          </a>
+        }
+      </header>
+      <nav
+        class="workspace-tabs"
+        role="tablist"
+        [attr.aria-label]="'admin.preflight.workspace.navigation' | translate"
+      >
+        @for (view of workspaceViews; track view) {
+          <button
+            #workspaceTab
+            type="button"
+            role="tab"
+            data-og7="preflight-workspace-tab"
+            [attr.data-og7-id]="view"
+            [id]="'preflight-tab-' + view"
+            [attr.aria-selected]="activeView() === view"
+            [attr.tabindex]="activeView() === view ? 0 : -1"
+            aria-controls="preflight-workspace-content"
+            (click)="selectView(view)"
+            (keydown)="tabKey($event, view)"
+          >
+            <openg7-admin-icon [name]="viewIcon(view)" />{{
+              'admin.preflight.workspace.tabs.' + view | translate
+            }}
+          </button>
+        }
+      </nav>
+      <section
+        id="preflight-workspace-content"
+        role="tabpanel"
+        data-og7="preflight-workspace-panel"
+        [attr.data-og7-id]="activeView()"
+        [attr.aria-labelledby]="'preflight-tab-' + activeView()"
+      >
+        @if (activeView() === 'desk') {
+          <openg7-admin-preflight-desk
+            [inboxState]="state()"
+            [inboxCheckedAt]="inboxCheckedAt()"
+          />
+        }
+        @if (activeView() === 'rehearsal' || activeView() === 'evidence') {
+          <openg7-admin-preflight-rehearsal
+            [mode]="activeView() === 'evidence' ? 'evidence' : 'rehearsal'"
+            (proposalReturned)="load()"
+          />
+        }
+        @if (activeView() === 'proposals') {
+          <p class="authority-note">
+            {{ 'admin.preflight.authority' | translate }}
+          </p>
+          <section
+            class="inbox-panel"
+            data-og7="preflight-inbox"
+            [attr.data-state]="state()"
+            aria-labelledby="preflight-inbox-title"
+            [attr.aria-busy]="state() === 'loading'"
+          >
+            <header class="inbox-header">
+              <h2 id="preflight-inbox-title">
+                {{ 'admin.preflight.inboxTitle' | translate }}
+              </h2>
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="preflight-refresh"
+                [disabled]="state() === 'loading' || state() === 'forbidden'"
+                (click)="load()"
+              >
+                {{ 'admin.preflight.refresh' | translate }}
+              </button>
+            </header>
+            @switch (state()) {
+              @case ('loading') {
+                <p class="state" role="status">
+                  {{ 'admin.preflight.loading' | translate }}
+                </p>
+              }
+              @case ('disabled') {
+                <p class="state" role="status">
+                  {{ 'admin.preflight.disabled' | translate }}
+                </p>
+              }
+              @case ('unavailable') {
+                <p class="state error" role="alert">
+                  {{ 'admin.preflight.unavailable' | translate }}
+                </p>
+              }
+              @case ('forbidden') {
+                <p class="state error" role="alert">
+                  {{ 'admin.preflight.forbidden' | translate }}
+                </p>
+              }
+              @case ('ready') {
+                @if (response(); as inbox) {
+                  <p class="result-count" role="status">
+                    {{
+                      'admin.preflight.count'
+                        | translate: { count: inbox.total }
+                    }}
+                  </p>
+                  @if (!inbox.items.length) {
+                    <p class="state">
+                      {{ 'admin.preflight.empty' | translate }}
+                    </p>
+                  }
+                  <div class="proposal-list">
+                    @for (proposal of inbox.items; track proposal.id) {
+                      <article
+                        class="proposal-card"
+                        data-og7="preflight-proposal"
+                        [attr.data-og7-id]="proposal.id"
+                      >
+                        <header class="proposal-header">
+                          <h3>{{ proposalTitle(proposal) | translate }}</h3>
+                          <div class="badges">
+                            <span class="badge">{{
+                              'admin.preflight.prepared' | translate
+                            }}</span>
+                            @if (proposal.provenance.simulated) {
+                              <span class="badge simulation">{{
+                                'admin.preflight.simulated' | translate
+                              }}</span>
+                            }
+                            <span class="badge">{{
+                              riskKey(proposal.risk) | translate
+                            }}</span>
+                          </div>
+                        </header>
+                        <p class="created-at">
+                          {{ 'admin.preflight.created' | translate }}
+                          {{ formatDate(proposal.createdAt) }}
+                        </p>
+                        <button
+                          type="button"
+                          class="admin-button proposal-examine"
+                          data-og7="preflight-proposal-examine"
+                          (click)="examineProposal(proposal)"
+                        >
+                          {{ 'admin.preflight.workspace.examine' | translate }}
+                          <openg7-admin-icon name="arrow" />
+                        </button>
+                        @if (proposal.explanations.length) {
+                          <ul>
+                            @for (
+                              explanation of proposal.explanations;
+                              track $index
+                            ) {
+                              <li>{{ explanation }}</li>
+                            }
+                          </ul>
+                        }
+                        @if (proposal.blockingConditions.length) {
+                          <div class="blocking">
+                            <h4>
+                              {{ 'admin.preflight.blocking' | translate }}
+                            </h4>
+                            <ul>
+                              @for (
+                                condition of proposal.blockingConditions;
+                                track $index
+                              ) {
+                                <li>{{ condition }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                        @if (proposal.anomalies.length) {
+                          <h4>{{ 'admin.preflight.anomalies' | translate }}</h4>
+                          <ul>
+                            @for (anomaly of proposal.anomalies; track $index) {
+                              <li>{{ anomaly }}</li>
+                            }
+                          </ul>
+                        }
+                        @if (proposal.limitations.length) {
+                          <h4>
+                            {{ 'admin.preflight.limitations' | translate }}
+                          </h4>
+                          <ul>
+                            @for (
+                              limitation of proposal.limitations;
+                              track $index
+                            ) {
+                              <li>{{ limitation }}</li>
+                            }
+                          </ul>
+                        }
+                        <details>
+                          <summary>
+                            {{ 'admin.preflight.details' | translate }}
+                          </summary>
+                          <dl>
+                            <dt>
+                              {{ 'admin.preflight.reference' | translate }}
+                            </dt>
+                            <dd>
+                              {{ proposal.source.subjectType }} ·
+                              {{ proposal.source.subjectId }} · v{{
+                                proposal.source.version
+                              }}
+                            </dd>
+                            <dt>
+                              {{ 'admin.preflight.proposalId' | translate }}
+                            </dt>
+                            <dd>{{ proposal.id }} · v{{ proposal.version }}</dd>
+                            <dt>
+                              {{ 'admin.preflight.missionId' | translate }}
+                            </dt>
+                            <dd>{{ proposal.missionId }}</dd>
+                            <dt>
+                              {{ 'admin.preflight.provider' | translate }}
+                            </dt>
+                            <dd>
+                              {{ proposal.provenance.provider }} /
+                              {{ proposal.provenance.model }}
+                            </dd>
+                          </dl>
+                          @if (proposal.checks.length) {
+                            <h4>{{ 'admin.preflight.checks' | translate }}</h4>
+                            <ul>
+                              @for (check of proposal.checks; track $index) {
+                                <li>
+                                  {{ check.kind }} —
+                                  {{
+                                    (check.passed
+                                      ? 'admin.preflight.checkPassed'
+                                      : 'admin.preflight.checkFailed'
+                                    ) | translate
+                                  }}
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </details>
+                      </article>
+                    }
+                  </div>
+                  @if (inbox.total > inbox.pageSize) {
+                    <nav
+                      class="pagination"
+                      [attr.aria-label]="
+                        'admin.preflight.pagination' | translate
+                      "
+                    >
+                      <button
+                        class="admin-button"
+                        data-og7="preflight-previous"
+                        #previousButton
+                        type="button"
+                        [disabled]="page() <= 1"
+                        (click)="changePage(page() - 1, 'previous')"
+                      >
+                        {{ 'admin.preflight.previous' | translate }}
+                      </button>
+                      <span>{{
+                        'admin.preflight.page'
+                          | translate: { page: page(), pages: pageCount() }
+                      }}</span>
+                      <button
+                        class="admin-button"
+                        data-og7="preflight-next"
+                        #nextButton
+                        type="button"
+                        [disabled]="page() >= pageCount()"
+                        (click)="changePage(page() + 1, 'next')"
+                      >
+                        {{ 'admin.preflight.next' | translate }}
+                      </button>
+                    </nav>
+                  }
+                }
+              }
+            }
+          </section>
+        }
+      </section>
+      <dialog
+        #proposalDialog
+        class="proposal-dialog"
+        data-og7="preflight-proposal-detail"
+        aria-labelledby="preflight-proposal-detail-title"
+        (close)="selectedProposal.set(null)"
+      >
+        <header class="detail-header">
+          <h2 id="preflight-proposal-detail-title">
+            {{ 'admin.preflight.workspace.examine' | translate }}
+          </h2>
+          <button
+            type="button"
+            class="admin-button"
+            (click)="closeProposal()"
+            [attr.aria-label]="'admin.preflight.workspace.close' | translate"
+          >
+            <openg7-admin-icon name="close" />
+          </button>
+        </header>
+        @if (selectedProposal(); as proposal) {
+          <div class="detail-body">
+            <p class="linkage-note">
+              {{ 'admin.preflight.workspace.unlinkedProposal' | translate }}
+            </p>
+            <div class="badges">
+              <span class="badge">{{
+                riskKey(proposal.risk) | translate
+              }}</span>
+              @if (proposal.provenance.simulated) {
+                <span class="badge simulation">{{
+                  'admin.preflight.simulated' | translate
+                }}</span>
+              }
+            </div>
+            @for (explanation of proposal.explanations; track $index) {
+              <p>{{ explanation }}</p>
+            }
+            @if (proposal.blockingConditions.length) {
+              <h3>{{ 'admin.preflight.blocking' | translate }}</h3>
+              <ul>
+                @for (condition of proposal.blockingConditions; track $index) {
+                  <li>{{ condition }}</li>
+                }
+              </ul>
+            }
+            @if (proposal.limitations.length) {
+              <h3>{{ 'admin.preflight.limitations' | translate }}</h3>
+              <ul>
+                @for (limitation of proposal.limitations; track $index) {
+                  <li>{{ limitation }}</li>
+                }
+              </ul>
+            }
+            @if (proposal.anomalies.length) {
+              <h3>{{ 'admin.preflight.anomalies' | translate }}</h3>
+              <ul>
+                @for (anomaly of proposal.anomalies; track $index) {
+                  <li>{{ anomaly }}</li>
+                }
+              </ul>
+            }
+            <details>
+              <summary>{{ 'admin.preflight.details' | translate }}</summary>
+              <dl>
+                <dt>{{ 'admin.preflight.proposalId' | translate }}</dt>
+                <dd>{{ proposal.id }} · v{{ proposal.version }}</dd>
+                <dt>{{ 'admin.preflight.missionId' | translate }}</dt>
+                <dd>{{ proposal.missionId }}</dd>
+                <dt>{{ 'admin.preflight.reference' | translate }}</dt>
+                <dd>
+                  {{ proposal.source.subjectType }} ·
+                  {{ proposal.source.subjectId }} · v{{
+                    proposal.source.version
+                  }}
+                </dd>
+                <dt>{{ 'admin.preflight.provider' | translate }}</dt>
+                <dd>
+                  {{ proposal.provenance.provider }} /
+                  {{ proposal.provenance.model }}
+                </dd>
+              </dl>
+              @if (proposal.checks.length) {
+                <h3>{{ 'admin.preflight.checks' | translate }}</h3>
+                <ul>
+                  @for (check of proposal.checks; track $index) {
+                    <li>
+                      {{ check.kind }} —
+                      {{
+                        (check.passed
+                          ? 'admin.preflight.checkPassed'
+                          : 'admin.preflight.checkFailed'
+                        ) | translate
+                      }}
+                    </li>
+                  }
+                </ul>
+              }
+            </details>
+            @if (consoleUrl(); as url) {
+              <a
+                class="admin-button"
+                [href]="url"
+                target="_blank"
+                rel="noopener noreferrer"
+                >{{ 'admin.preflight.openConsole' | translate }}
+                <span class="sr-only">{{
+                  'admin.preflight.newTab' | translate
+                }}</span></a
+              >
+            }
+          </div>
+        }
+      </dialog>
+    }
+  </section>
+</openg7-admin-layout>

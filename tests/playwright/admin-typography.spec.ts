@@ -28,6 +28,10 @@ const adminPages: {
     title: { 'fr-CA': 'Assistant', en: 'Assistant' }
   },
   {
+    path: '/admin/fundraiser/preflight',
+    title: { 'fr-CA': 'Preflight', en: 'Preflight' }
+  },
+  {
     path: '/admin/fundraiser/contributions',
     title: { 'fr-CA': 'Contributions', en: 'Contributions' }
   },

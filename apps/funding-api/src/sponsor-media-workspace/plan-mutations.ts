@@ -27,7 +27,9 @@ export async function applyPlanMutations(
   const invalidateIds: string[] = [];
   for (const member of plan.manifest) {
     const selected = plan.request.assets.find((a) => a.id === member.id)!;
-    if (plan.request.action === 'approve' || plan.request.action === 'reject') {
+    if (
+      ['approve', 'reject', 'request_correction'].includes(plan.request.action)
+    ) {
       if (plan.request.action === 'approve' && selected.altText !== undefined)
         await db.query(
           'UPDATE sponsor_media_assets SET alt_text=$2,updated_at=clock_timestamp() WHERE id=$1 AND alt_text IS DISTINCT FROM $2',
@@ -51,10 +53,16 @@ export async function applyPlanMutations(
         contentFingerprint: content.fingerprint,
         expectedDecisionId: content.currentDecisionId,
         confirmation: member.id,
-        level: plan.request.action === 'approve' ? 'N0' : 'N3',
-        ...(plan.request.action === 'reject'
+        level:
+          plan.request.action === 'approve'
+            ? 'N0'
+            : plan.request.action === 'request_correction'
+              ? 'N1'
+              : 'N3',
+        ...(['reject', 'request_correction'].includes(plan.request.action)
           ? {
               primaryReason: plan.request.reason,
+              editorialProvision: plan.request.editorialProvision,
               internalReason:
                 plan.request.internalReason ?? plan.request.sponsorExplanation,
               sponsorExplanation: plan.request.sponsorExplanation
@@ -64,7 +72,10 @@ export async function applyPlanMutations(
       await recordModerationDecision(db, {
         subject: { type: 'media', id: member.id },
         decision,
-        actor
+        actor,
+        ...(plan.request.action === 'request_correction'
+          ? { notification: 'deferred' as const }
+          : {})
       });
       if (plan.request.action === 'approve')
         await db.query(
@@ -95,6 +106,38 @@ export async function applyPlanMutations(
       await db.query(
         'UPDATE sponsor_media_assets SET website_selected=$2,updated_at=clock_timestamp() WHERE id=$1',
         [member.id, plan.request.action === 'website_select']
+      );
+    } else if (plan.request.action === 'preparation_assign') {
+      await db.query(
+        `INSERT INTO sponsor_media_preparation_assignments(contribution_id,obligation_id,obligation_version,
+          obligation_fingerprint,asset_id,asset_version,actor,media_fingerprint,moderation_decision_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        ON CONFLICT(obligation_id,asset_id) DO UPDATE SET obligation_version=EXCLUDED.obligation_version,
+          obligation_fingerprint=EXCLUDED.obligation_fingerprint,asset_version=EXCLUDED.asset_version,
+          media_fingerprint=EXCLUDED.media_fingerprint,moderation_decision_id=EXCLUDED.moderation_decision_id,
+          actor=EXCLUDED.actor,active=TRUE,created_at=clock_timestamp()`,
+        [
+          plan.request.contributionId,
+          plan.request.targetObligationId,
+          plan.request.targetObligationVersion,
+          plan.preparationFingerprint,
+          member.id,
+          member.version,
+          actor,
+          member.fingerprint,
+          member.currentDecisionId
+        ]
+      );
+    } else if (plan.request.action === 'preparation_unassign') {
+      await db.query(
+        `UPDATE sponsor_media_preparation_assignments SET active=FALSE,actor=$4
+          WHERE contribution_id=$1 AND obligation_id=$2 AND asset_id=$3 AND active`,
+        [
+          plan.request.contributionId,
+          plan.request.targetObligationId,
+          member.id,
+          actor
+        ]
       );
     } else {
       if (plan.request.action === 'move')

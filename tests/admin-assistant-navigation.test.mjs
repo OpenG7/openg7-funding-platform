@@ -25,10 +25,11 @@ test('an origin without a tab returns the same dossier overview', () => {
   assert.equal(router.serializeUrl(returned(path())), path('overview'));
 });
 
-test('the five canonical dossier tabs retain their own recognized fragment', () => {
+test('the six canonical dossier tabs retain their own recognized fragment', () => {
   for (const tab of [
     'overview',
     'identity',
+    'media',
     'publication',
     'billing',
     'audit'
@@ -39,17 +40,21 @@ test('the five canonical dossier tabs retain their own recognized fragment', () 
   }
 });
 
-test('media and refund aliases retain fragments from the same visible workspace', () => {
+test('media sections and refund aliases retain fragments from their own workspace', () => {
   for (const [tab, fragment] of [
     ['media', 'dossier-media-gallery'],
-    ['media', 'dossier-identity'],
-    ['identity', 'dossier-media-gallery'],
     ['refund', 'dossier-refund'],
     ['refund', 'dossier-billing'],
     ['billing', 'dossier-refund']
   ]) {
     const origin = path(tab, fragment);
     assert.equal(router.serializeUrl(returned(origin)), origin, origin);
+  }
+  for (const [tab, fragment] of [
+    ['media', 'dossier-identity'],
+    ['identity', 'dossier-media-gallery']
+  ]) {
+    assert.equal(router.serializeUrl(returned(path(tab, fragment))), path(tab));
   }
 });
 
@@ -141,12 +146,12 @@ test('Assistant query parameters carry only the exact ID and sanitized return or
   assert.deepEqual(
     assistantDossierQuery(
       router,
-      path('identity') + '&search=PRIVATE-SEARCH#dossier-media-gallery',
+      path('media') + '&search=PRIVATE-SEARCH#dossier-media-gallery',
       sponsorshipId
     ),
     {
       sponsorshipId,
-      returnTo: path('identity', 'dossier-media-gallery')
+      returnTo: path('media', 'dossier-media-gallery')
     }
   );
 });

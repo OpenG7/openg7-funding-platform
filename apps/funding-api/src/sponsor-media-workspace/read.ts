@@ -12,6 +12,7 @@ import { selectAssetColumns } from '../sponsor-media/persistence-queries.js';
 import type { SponsorMediaAssetRow } from '../sponsor-media/persistence-contracts.js';
 
 import { ensure } from './policy.js';
+import { readMediaPreparation } from './preparation.js';
 
 export async function readWorkspace(
   db: PoolClient,
@@ -109,7 +110,15 @@ export async function readWorkspace(
       [contributionId]
     )
   ).rows;
-  return { contributionId, revision, assets, rules, batches, writable };
+  return {
+    contributionId,
+    revision,
+    assets,
+    rules,
+    batches,
+    writable,
+    ...(await readMediaPreparation(db, contributionId))
+  };
 }
 
 /** Use the same stable selected columns in individual and batch mutations. */

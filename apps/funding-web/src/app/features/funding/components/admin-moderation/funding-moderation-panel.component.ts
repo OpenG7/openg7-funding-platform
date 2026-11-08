@@ -26,6 +26,7 @@ import {
   type ModerationRequest
 } from '../../services/funding-moderation.service.js';
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import { fundingAdminIdentityKey } from '../../services/funding-admin-identity-key.js';
 import type { ModerationContent } from '../../services/funding-admin-moderation.client.js';
 
 /** Funding decision form: exact content, contextual reason and separate private/public explanations. */
@@ -94,11 +95,11 @@ export class FundingModerationPanelComponent {
   );
 
   constructor() {
-    let sessionGeneration = this.admin.sessionGeneration();
+    let sessionIdentity = fundingAdminIdentityKey(this.admin);
     effect(() => {
-      const next = this.admin.sessionGeneration();
-      if (sessionGeneration === next) return;
-      sessionGeneration = next;
+      const next = fundingAdminIdentityKey(this.admin);
+      if (sessionIdentity === next) return;
+      sessionIdentity = next;
       untracked(() => {
         this.generation++;
         this.content.set(null);
@@ -135,8 +136,7 @@ export class FundingModerationPanelComponent {
   private async loadContent(request: ModerationRequest): Promise<void> {
     const generation = ++this.generation;
     const sessionToken = this.admin.getSavedAdminToken();
-    const identity = this.admin.identity();
-    const sessionGeneration = this.admin.sessionGeneration();
+    const sessionIdentity = fundingAdminIdentityKey(this.admin);
     this.content.set(null);
     this.confirmed.set(false);
     this.error.set('');
@@ -145,7 +145,9 @@ export class FundingModerationPanelComponent {
       const content = await this.admin.moderationContent(request.subject);
       if (
         generation !== this.generation ||
-        request !== this.moderation.pending()
+        request !== this.moderation.pending() ||
+        sessionToken !== this.admin.getSavedAdminToken() ||
+        sessionIdentity !== fundingAdminIdentityKey(this.admin)
       )
         return;
       this.content.set(content);
@@ -157,13 +159,12 @@ export class FundingModerationPanelComponent {
       if (status === 401) {
         const currentToken = this.admin.getSavedAdminToken();
         const sameSession =
-          sessionGeneration === this.admin.sessionGeneration() &&
           sessionToken === currentToken &&
-          identity === this.admin.identity();
+          sessionIdentity === fundingAdminIdentityKey(this.admin);
         // Another private read may have cleared this session before this catch.
         // A refusal from an older session must leave a new valid session alone.
-        if (!currentToken || sameSession) {
-          this.moderation.answer(null);
+        if (sameSession || (!currentToken && !this.admin.identity())) {
+          this.moderation.rejectAccess(request, 401);
           this.admin.clearAdminSession();
           void this.router.navigate(['/admin/login'], {
             queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
@@ -173,18 +174,22 @@ export class FundingModerationPanelComponent {
       }
       if (
         generation !== this.generation ||
-        request !== this.moderation.pending()
+        request !== this.moderation.pending() ||
+        sessionToken !== this.admin.getSavedAdminToken() ||
+        sessionIdentity !== fundingAdminIdentityKey(this.admin)
       )
         return;
       this.loading.set(false);
+      if (status === 403) {
+        this.moderation.rejectAccess(request, 403);
+        return;
+      }
       this.error.set(
-        status === 403
-          ? 'admin.moderation.forbidden'
-          : status === 404
-            ? 'admin.moderation.notFound'
-            : status === 409
-              ? 'admin.moderation.changed'
-              : 'admin.moderation.unavailable'
+        status === 404
+          ? 'admin.moderation.notFound'
+          : status === 409
+            ? 'admin.moderation.changed'
+            : 'admin.moderation.unavailable'
       );
     }
   }

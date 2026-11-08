@@ -30,10 +30,20 @@ export async function recordModerationDecision(
     decision: ModerationDecisionInput;
     actor: string;
     resolvingAppealId?: string;
+    /** Internal media-workspace preparation only; never accepted from a public decision body. */
+    notification?: 'deferred';
   }
 ): Promise<ModerationDecisionRecord> {
   const error = validateModerationDecision(input.subject, input.decision);
   if (error) throw new ModerationError(error, 400);
+  if (
+    input.notification !== undefined &&
+    (input.notification !== 'deferred' ||
+      input.subject.type !== 'media' ||
+      input.decision.level !== 'N1' ||
+      input.resolvingAppealId)
+  )
+    throw new ModerationError('MODERATION_NOTIFICATION_SCOPE_INVALID', 400);
   if (
     typeof input.actor !== 'string' ||
     input.actor.length < 1 ||
@@ -144,7 +154,15 @@ export async function recordModerationDecision(
   const decision = mapModerationDecision(inserted);
   await applyRestriction(db, decision);
   await audit(db, decision, 'moderation.decision', input.actor);
-  if (!pending && decision.level !== 'N0')
-    await enqueueModerationNotification(db, decision);
+  if (!pending && decision.level !== 'N0') {
+    if (input.notification === 'deferred')
+      await audit(
+        db,
+        decision,
+        'moderation.notification_deferred',
+        input.actor
+      );
+    else await enqueueModerationNotification(db, decision);
+  }
   return decision;
 }

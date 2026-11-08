@@ -573,6 +573,9 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
     ) +
     read(
       'apps/funding-web/src/app/features/funding/pages/sponsors-page/sponsors-page.component.html'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/components/sponsor-presentation-card/sponsor-presentation-card.component.html'
     );
   const sponsorshipsService = read(
     'apps/funding-web/src/app/features/funding/services/sponsorships.service.ts'
@@ -613,7 +616,7 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
   assertIncludesAll(
     sponsorsPage,
     [
-      'hasFeedPlacement',
+      'presentationPlacement',
       'publicationUrl',
       'feed_public_url',
       'funding.sponsorsPage.directory.feedLink',

@@ -359,6 +359,9 @@ export type {
 } from './admin-responsibility-balance.js';
 export * from './admin-automatic-runs.js';
 export * from './admin-preparation.js';
+export * from './admin-service-preparation.js';
+export * from './admin-preflight-work-sessions.js';
+export * from './admin-sponsorship-consent.js';
 export * from './admin-campaigns.js';
 export {
   PREPARATION_SOURCE_MAX_LENGTH,
@@ -395,3 +398,6 @@ export {
 } from './preparation-assistance-summary.js';
 export * from './sponsor-media-analysis.js';
 export * from './sponsor-media-actions.js';
+export * from './preflight-inbox.js';
+export * from './preflight-rehearsal.js';
+export * from './preflight-desk.js';
