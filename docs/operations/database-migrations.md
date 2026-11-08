@@ -54,6 +54,16 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [068](../../apps/funding-api/migrations/068_create_preflight_connector.sql)
+ajoute les sources versionnées, l’outbox, les missions suivies, les préparations
+privées et le heartbeat du relais Preflight. Elle ne crée aucune mission pour
+les anciens dossiers et n’active aucun traitement. Appliquer avant d’activer
+le connecteur puis rafraîchir les grants du rôle applicatif avec le runner.
+Les payloads restent immuables. Voir [le contrat et les limites](../technical/preflight-connector.md).
+Le numéro 068 conserve les migrations 064 à 067 déjà intégrées. Une base d’essai
+jetable créée avec l’ancien numéro 064 du connecteur doit être recréée; ne pas
+renommer une entrée de registre ni rejouer le SQL sur une base existante.
+
 La migration [067](../../apps/funding-api/migrations/067_documented_sponsorship_consent.sql)
 ajoute le registre immuable des [accords publics documentés](../technical/sponsorship-public-consent.md)
 et leur identité dans les empreintes de modération. Appliquer après 066, puis

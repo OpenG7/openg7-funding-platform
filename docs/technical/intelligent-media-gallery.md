@@ -232,14 +232,13 @@ consigne les six couches Compose conservées, la sauvegarde DB chiffrée et
 restaurée sur une cible isolée, l’ancienne image conservée et la reprise.
 La recette n’a exécuté ni décision métier, ni publication, ni export de média réel.
 
-Coordination avant fusion : la base de la PR #398 s’arrête à la migration 063.
-La [PR #396](https://github.com/OpenG7/openg7-funding-platform/pull/396) utilise
-également le numéro 064 pour `064_create_preflight_connector.sql`, tandis que
-cette branche ajoute `064_service_preparation_decisions.sql`, puis 065/066.
-Leur réunion exige une réconciliation explicite des numéros et des registres.
-La migration 064 des décisions est déjà appliquée en développement local et
-reste immuable; aucun renommage ou remplacement d’une migration appliquée
-n’est réalisé par cette livraison.
+La réunion de la [PR #396](https://github.com/OpenG7/openg7-funding-platform/pull/396)
+avec le workspace conserve `064_service_preparation_decisions.sql`, puis les
+migrations 065 à 067. Le connecteur utilise désormais la migration additive
+[068](../../apps/funding-api/migrations/068_create_preflight_connector.sql),
+dont le SQL est inchangé. La migration 064 des décisions, déjà appliquée en
+développement local, reste immuable. Les bases d’essai jetables de l’ancienne
+branche du connecteur se recréent; aucun registre existant n’est réécrit.
 
 Les évolutions restantes sont le contrat visuel Preflight réellement raccordé,
 le stockage et la politique d’accès de documents génériques, et les originaux ou

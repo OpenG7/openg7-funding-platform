@@ -1,0 +1,92 @@
+<section
+  data-og7="preflight-preparations"
+  [attr.aria-busy]="controller.loading() || !languageReady()"
+>
+  @if (languageError()) {
+    <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
+  } @else if (languageReady()) {
+    <header>
+      <div>
+        <h3>{{ t('title') }}</h3>
+        <p>{{ t('authority') }}</p>
+      </div>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="controller.load()"
+        [disabled]="controller.loading()"
+        data-og7="preflight-refresh"
+      >
+        {{ t('refresh') }}
+      </button>
+    </header>
+    @if (controller.loading()) {
+      <p role="status">{{ t('loading') }}</p>
+    }
+    @if (controller.error(); as error) {
+      <p role="alert" class="preflight-error" data-og7="preflight-error">
+        {{ t('errors.' + error) }}
+      </p>
+    }
+    @if (controller.data(); as data) {
+      @if (!data.enabled) {
+        <p data-og7="preflight-disabled">{{ t('disabled') }}</p>
+      } @else {
+        <p class="preflight-state">{{ t('configured') }}</p>
+        @for (item of data.items; track item.missionId) {
+          <article
+            [class.preflight-obsolete]="item.obsolete"
+            data-og7="preflight-preparation"
+            [attr.data-og7-id]="item.missionId"
+          >
+            <div class="preflight-badges">
+              <span>{{ t(item.obsolete ? 'obsolete' : 'proposed') }}</span>
+              @if (item.provenance.simulated) {
+                <span class="preflight-simulation">{{ t('simulated') }}</span>
+              }
+            </div>
+            <h4>{{ item.title }}</h4>
+            <p>{{ item.summary }}</p>
+            <dl>
+              <dt>{{ t('version') }}</dt>
+              <dd>
+                {{ item.sourceVersion }} · {{ item.sourceHash.slice(0, 12) }}
+              </dd>
+              <dt>{{ t('provider') }}</dt>
+              <dd>
+                {{ item.provenance.provider }} / {{ item.provenance.model }}
+              </dd>
+              <dt>{{ t('generated') }}</dt>
+              <dd>{{ item.provenance.generatedAt | date: 'short' }}</dd>
+            </dl>
+            <details>
+              <summary>{{ t('draft') }}</summary>
+              <div class="preflight-body">{{ item.body }}</div>
+              @if (item.warnings.length) {
+                <h5>{{ t('warnings') }}</h5>
+                <ul>
+                  @for (warning of item.warnings; track $index) {
+                    <li>{{ warning }}</li>
+                  }
+                </ul>
+              }
+              @if (item.blockingConditions.length) {
+                <h5>{{ t('conditions') }}</h5>
+                <ul>
+                  @for (condition of item.blockingConditions; track $index) {
+                    <li>{{ condition }}</li>
+                  }
+                </ul>
+              }
+              <p class="preflight-reference">
+                {{ t('mission') }} : {{ item.missionId }}
+              </p>
+            </details>
+          </article>
+        } @empty {
+          <p data-og7="preflight-empty">{{ t('empty') }}</p>
+        }
+      }
+    }
+  }
+</section>

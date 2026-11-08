@@ -189,11 +189,13 @@ conserver la même sémantique et éviter le double comptage lors d'un changemen
 
 ## Exploitation et évolution
 
-En production, Compose est exploité depuis `/opt/openg7-funding-platform`.
-Traefik termine TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans
-port public. Secrets et sauvegardes restent hors Git. Santé, logs corrélés, état
-des webhooks, reprises et audits font partie de la capacité livrée.
-Les alertes indépendantes et leurs limites sont décrites dans le
+Le [connecteur Preflight](technical/preflight-connector.md) est opt-in :
+outbox, relais séparé, propositions privées; Funding décide.
+
+Production : Compose sous `/opt/openg7-funding-platform`; Traefik termine
+TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans port public.
+Secrets et sauvegardes restent hors Git. Santé, logs corrélés, webhooks, reprise
+et audit sont requis. Alertes et limites :
 [runbook identité/alertes](operations/admin-identity-and-alerts.md).
 
 Sauvegarder avant opération destructive; restaurer DB et médias de façon cohérente.

@@ -1,0 +1,123 @@
+:host {
+  display: block;
+  min-width: 0;
+  margin-top: 1.5rem;
+  color: var(--admin-text);
+}
+section {
+  border: 1px solid var(--admin-border);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: var(--admin-panel);
+  overflow-wrap: anywhere;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+h3,
+h4,
+h5 {
+  margin: 0 0 0.5rem;
+  font-weight: 650;
+}
+h3 {
+  font-size: 1rem;
+}
+h4 {
+  font-size: 0.95rem;
+}
+p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--admin-muted);
+}
+article {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+}
+.preflight-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+.preflight-badges span {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+}
+.preflight-simulation {
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+}
+.preflight-obsolete {
+  border-inline-start: 3px solid var(--admin-warning);
+}
+.preflight-error {
+  padding: 0.75rem;
+  border-inline-start: 3px solid var(--admin-warning);
+  background: var(--admin-warning-bg);
+}
+dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  margin: 1rem 0;
+}
+dt {
+  color: var(--admin-muted);
+}
+dd {
+  margin: 0;
+}
+summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  min-height: 2.75rem;
+}
+summary:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+.preflight-body {
+  white-space: pre-wrap;
+  max-height: 18rem;
+  overflow: auto;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  padding: 0.75rem;
+  background: var(--admin-subtle);
+}
+.preflight-reference {
+  font-size: 0.75rem;
+}
+li {
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+h5 {
+  margin-top: 1rem;
+}
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+  }
+  header button {
+    min-height: 2.75rem;
+  }
+  dl {
+    grid-template-columns: 1fr;
+  }
+  dd {
+    margin-bottom: 0.5rem;
+  }
+}

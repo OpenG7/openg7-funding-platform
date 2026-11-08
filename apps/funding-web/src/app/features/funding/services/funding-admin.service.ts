@@ -140,6 +140,7 @@ import { FundingAdminCampaignsClient } from './funding-admin-campaigns.client.js
 import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 import { FundingAdminPreparationAssistanceClient } from './funding-admin-preparation-assistance.client.js';
 import { FundingAdminMediaAnalysisClient } from './funding-admin-media-analysis.client.js';
+import { FundingAdminPreflightClient } from './funding-admin-preflight.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -241,6 +242,12 @@ export class FundingAdminService {
   private readonly mediaAnalysisClient = new FundingAdminMediaAnalysisClient(
     this.session
   );
+  private readonly preflightClient = new FundingAdminPreflightClient(
+    this.session
+  );
+  getPreflightPreparations(contributionId: string) {
+    return this.preflightClient.read(contributionId);
+  }
   getSponsorMediaAnalyses(contributionId: string) {
     return this.mediaAnalysisClient.read(contributionId);
   }

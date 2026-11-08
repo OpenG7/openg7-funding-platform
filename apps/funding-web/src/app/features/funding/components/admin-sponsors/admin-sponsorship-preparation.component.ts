@@ -40,11 +40,17 @@ import {
   type PreparationReturnRequest
 } from '../admin-preparation/preparation-return.service.js';
 
+import { AdminPreflightPreparationsComponent } from './admin-preflight-preparations.component.js';
+
 /** The open sponsorship's receipt, independent of an automatic run or publication. */
 @Component({
   selector: 'openg7-admin-sponsorship-preparation',
   standalone: true,
-  imports: [AdminPreparationReceiptComponent, AdminIconComponent],
+  imports: [
+    AdminPreparationReceiptComponent,
+    AdminIconComponent,
+    AdminPreflightPreparationsComponent
+  ],
   templateUrl: './admin-sponsorship-preparation.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
