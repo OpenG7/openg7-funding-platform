@@ -11,6 +11,11 @@
       {{ 'funding.followup.media.usage.withdrawn' | translate }}
     </p>
   }
+  @if (usesSuggestedScope()) {
+    <p data-og7="media-usage-suggestion">
+      {{ 'funding.followup.media.usage.suggestedScope' | translate }}
+    </p>
+  }
   <fieldset>
     <legend>{{ 'funding.followup.media.usage.channels' | translate }}</legend>
     @for (channel of channels; track channel) {

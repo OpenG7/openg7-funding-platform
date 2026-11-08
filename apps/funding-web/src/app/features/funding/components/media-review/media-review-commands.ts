@@ -2,12 +2,17 @@ import { computed, signal } from '@angular/core';
 import {
   MODERATION_REASONS,
   MODERATION_EDITORIAL_PROVISIONS,
+  SPONSOR_MEDIA_USAGE_CHANNELS,
+  SPONSOR_MEDIA_USAGE_TARGETS,
   type MediaRuleScope,
   type SponsorMediaBatchAction,
   type SponsorMediaWorkspaceAsset
 } from '@openg7/funding-core';
 
-import type { SponsorMediaUsageSubmission } from '../sponsor-media-usage/sponsor-media-usage-editor.component.js';
+import type {
+  SponsorMediaUsageScope,
+  SponsorMediaUsageSubmission
+} from '../sponsor-media-usage/sponsor-media-usage-editor.component.js';
 
 import type { MediaReviewWorkspaceController } from './media-review-workspace.controller.js';
 
@@ -18,6 +23,7 @@ export class MediaReviewCommands {
   readonly inheritRequested = signal(false);
   readonly includesFutureUploads = signal(false);
   readonly rulesScope = signal<MediaRuleScope>('dossier');
+  readonly rulesSuggestedScope = signal<SponsorMediaUsageScope | null>(null);
   readonly rulesBatch = signal('');
   readonly targetBatch = signal('');
   readonly batchName = signal('');
@@ -128,6 +134,22 @@ export class MediaReviewCommands {
     this.inheritRequested.set(false);
     this.includesFutureUploads.set(false);
     this.rulesScope.set(scope);
+    // Keep suggestions stable if the service projection refreshes while editing.
+    const obligations = (this.c.data()?.preparationObligations ?? []).filter(
+      (obligation) => obligation.acceptsMedia
+    );
+    this.rulesSuggestedScope.set(
+      obligations.length
+        ? {
+            channels: SPONSOR_MEDIA_USAGE_CHANNELS.filter((channel) =>
+              obligations.some((obligation) => obligation.channel === channel)
+            ),
+            targets: SPONSOR_MEDIA_USAGE_TARGETS.filter((target) =>
+              obligations.some((obligation) => obligation.target === target)
+            )
+          }
+        : null
+    );
     this.rulesBatch.set(
       this.c.inspected()?.batchId ?? this.c.data()?.batches[0]?.id ?? ''
     );
@@ -136,6 +158,7 @@ export class MediaReviewCommands {
   restoreInheritance(asset: SponsorMediaWorkspaceAsset): void {
     this.c.inspectedId.set(asset.id);
     this.openRules('media');
+    this.rulesSuggestedScope.set(null);
     this.inheritRequested.set(true);
   }
   readonly rulesScopeId = computed(() =>
