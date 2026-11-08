@@ -1,3 +1,4 @@
+@let identity = presentation();
 <section
   data-og7="dossier-identity"
   id="dossier-identity"
@@ -5,177 +6,206 @@
   tabindex="-1"
   aria-labelledby="dossier-identity-section-title"
 >
-  <h3 id="dossier-identity-section-title" class="section-title">
-    {{ 'admin.dossier.identityHelp.sectionTitle' | translate }}
-  </h3>
-  <section class="profile-card" aria-labelledby="dossier-identity-title">
-    <header class="identity-heading">
-      <div class="identity-title">
-        <h4 id="dossier-identity-title">
-          {{ 'admin.dossier.identityHelp.coordinates' | translate }}
-        </h4>
-        <span
-          class="identity-state"
-          data-og7="identity-coordinates-state"
-          [attr.data-state]="coordinatesComplete() ? 'complete' : 'missing'"
-        >
-          {{
-            'admin.dossier.identityHelp.' +
-              (coordinatesComplete() ? 'completeLabel' : 'missingLabel')
-              | translate
-          }}
-        </span>
-      </div>
-      @if (canEdit()) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="identity-edit"
-          [disabled]="disabled()"
-          (click)="editRequested.emit()"
-        >
-          {{ 'admin.dossier.identityHelp.edit' | translate }}
-        </button>
-      }
-    </header>
-    <p data-og7="identity-coordinates-status" class="identity-help">
-      {{
-        'admin.dossier.identityHelp.' +
-          (coordinatesComplete() ? 'coordinatesComplete' : 'coordinatesMissing')
-          | translate
-      }}
-    </p>
-    <dl class="identity-coordinates" data-og7="identity-coordinates">
-      <div>
-        <dt>{{ 'admin.dossier.company' | translate }}</dt>
-        <dd>
-          {{
-            sponsorship().sponsor_company_name ||
-              ('admin.dossier.notProvided' | translate)
-          }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.publicName' | translate }}</dt>
-        <dd>{{ identity().publicNameLabel }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.contact' | translate }}</dt>
-        <dd>{{ identity().contactName }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.email' | translate }}</dt>
-        <dd>
-          {{
-            identity().contactEmail || ('admin.dossier.notProvided' | translate)
-          }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.website' | translate }}</dt>
-        <dd>
-          {{
-            identity().websiteUrl || ('admin.dossier.notProvided' | translate)
-          }}
-        </dd>
-      </div>
-    </dl>
-    @if (!canEdit()) {
-      <p class="identity-help readonly-help">
-        {{ 'admin.dossier.identityHelp.readonly' | translate }}
-      </p>
-    }
-  </section>
+  <header class="section-heading">
+    <span class="section-icon" aria-hidden="true">
+      <openg7-admin-icon name="person" />
+    </span>
+    <h2 id="dossier-identity-section-title">
+      {{ 'admin.dossier.identityHelp.sectionTitle' | translate }}
+    </h2>
+    <p>{{ 'admin.dossier.identityHelp.sectionSubtitle' | translate }}</p>
+  </header>
 
-  <section class="profile-card" aria-labelledby="identity-submission-title">
-    <header class="identity-heading">
-      <h4 id="identity-submission-title">
-        {{ 'admin.dossier.identityHelp.submission' | translate }}
-      </h4>
-      <span
-        class="identity-state"
-        data-og7="identity-submission-state"
-        [attr.data-state]="
-          sponsorship().sponsor_details_submitted_at ? 'submitted' : 'pending'
-        "
-      >
-        {{
-          'admin.dossier.identityHelp.' +
-            (sponsorship().sponsor_details_submitted_at
-              ? 'submittedLabel'
-              : 'pendingLabel') | translate
-        }}
-      </span>
-    </header>
-    <p data-og7="identity-submission-status" class="identity-help">
-      {{
-        'admin.dossier.identityHelp.' +
-          (sponsorship().sponsor_details_submitted_at
-            ? 'submitted'
-            : 'submissionPending') | translate
-      }}
-    </p>
-    @if (submittedAtLabel(); as dateLabel) {
-      <dl class="submission-date">
-        <div>
-          <dt>{{ 'admin.dossier.identityHelp.submittedAt' | translate }}</dt>
-          <dd>
-            <time
-              [attr.datetime]="sponsorship().sponsor_details_submitted_at"
-              >{{ dateLabel }}</time
-            >
-          </dd>
-        </div>
-      </dl>
-    }
-    @if (!sponsorship().sponsor_details_submitted_at) {
-      <p data-og7="identity-submission-required" class="submission-required">
-        {{ 'admin.dossier.identityHelp.submissionRequired' | translate }}
-      </p>
-      @if (canResendAccess()) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="identity-followup-access"
-          [disabled]="disabled()"
-          (click)="accessRequested.emit()"
-        >
-          {{ 'admin.dossier.identityHelp.access' | translate }}
-        </button>
-      } @else {
-        <p class="identity-help">
-          {{ 'admin.dossier.identityHelp.ownerHelp' | translate }}
-        </p>
-      }
-    }
-    <aside
-      class="identity-explanation"
-      aria-labelledby="identity-explanation-title"
+  <aside
+    class="identity-role-help"
+    data-og7="identity-role-help"
+    role="note"
+    aria-labelledby="identity-role-title"
+  >
+    <openg7-admin-icon name="info" />
+    <div>
+      <h3 id="identity-role-title">
+        {{ 'admin.dossier.identityHelp.adminRoleTitle' | translate }}
+      </h3>
+      <p>{{ 'admin.dossier.identityHelp.adminRoleBody' | translate }}</p>
+    </div>
+  </aside>
+
+  <ol class="identity-steps">
+    <li
+      class="identity-step"
+      data-og7="identity-step"
+      data-og7-id="coordinates"
     >
-      <details>
-        <summary id="identity-explanation-title">
-          {{ 'admin.dossier.identityHelp.differenceTitle' | translate }}
-        </summary>
-        @if (!sponsorship().sponsor_details_submitted_at) {
-          <p class="identity-help">
-            {{ 'admin.dossier.identityHelp.submissionHelp' | translate }}
-          </p>
-        }
-        <dl>
-          <div>
-            <dt>{{ 'admin.dossier.identityHelp.adminEntry' | translate }}</dt>
-            <dd>
-              {{ 'admin.dossier.identityHelp.adminEntryMeaning' | translate }}
-            </dd>
+      <span
+        class="step-index"
+        [class.is-complete]="identity.coordinatesComplete"
+        aria-hidden="true"
+        >1</span
+      >
+      <section class="profile-card" aria-labelledby="dossier-identity-title">
+        <header class="identity-heading">
+          <span class="step-icon" aria-hidden="true"
+            ><openg7-admin-icon name="sponsors"
+          /></span>
+          <div class="step-introduction">
+            <div class="identity-title">
+              <h3 id="dossier-identity-title">
+                {{ 'admin.dossier.identityHelp.coordinates' | translate }}
+              </h3>
+              <span
+                class="identity-state"
+                data-og7="identity-coordinates-state"
+                [attr.data-state]="
+                  identity.coordinatesComplete ? 'complete' : 'missing'
+                "
+                role="status"
+                aria-atomic="true"
+              >
+                @if (identity.coordinatesComplete) {
+                  <openg7-admin-icon name="check" />
+                }
+                {{
+                  'admin.dossier.identityHelp.' +
+                    (identity.coordinatesComplete
+                      ? 'completeLabel'
+                      : 'missingLabel') | translate
+                }}
+              </span>
+            </div>
+            <p data-og7="identity-coordinates-status" class="identity-help">
+              {{
+                'admin.dossier.identityHelp.' +
+                  (identity.coordinatesComplete
+                    ? 'coordinatesComplete'
+                    : 'coordinatesMissing') | translate
+              }}
+            </p>
           </div>
-          <div>
-            <dt>{{ 'admin.dossier.identityHelp.sponsorEntry' | translate }}</dt>
-            <dd>
-              {{ 'admin.dossier.identityHelp.sponsorEntryMeaning' | translate }}
-            </dd>
-          </div>
+          @if (canEdit()) {
+            <button
+              type="button"
+              class="admin-button admin-button--primary identity-action"
+              data-og7="identity-edit"
+              [disabled]="disabled()"
+              (click)="editRequested.emit()"
+            >
+              <openg7-admin-icon name="edit" />
+              {{ 'admin.dossier.identityHelp.edit' | translate }}
+            </button>
+          }
+        </header>
+        <dl class="identity-coordinates" data-og7="identity-coordinates">
+          @for (field of identity.fields; track field.id) {
+            <div
+              class="identity-field"
+              data-og7="identity-field"
+              [attr.data-og7-id]="field.id"
+              [attr.data-state]="field.state"
+              [attr.data-required]="field.required"
+            >
+              <dt>
+                <openg7-admin-icon [name]="field.icon" />
+                <span
+                  >{{ field.label | translate }}
+                  <small class="field-requirement">
+                    {{
+                      'admin.dossier.identityHelp.' +
+                        (field.required ? 'requiredLabel' : 'optionalLabel')
+                        | translate
+                    }}
+                  </small>
+                </span>
+              </dt>
+              <dd>
+                @if (field.value) {
+                  <span class="field-value">{{ field.value }}</span>
+                } @else {
+                  <span class="field-empty">
+                    {{
+                      (field.state === 'unconsented'
+                        ? 'admin.messages.non_consenti'
+                        : 'admin.dossier.notProvided'
+                      ) | translate
+                    }}
+                  </span>
+                }
+              </dd>
+            </div>
+          }
         </dl>
-      </details>
-    </aside>
-  </section>
+      </section>
+    </li>
+    <li class="identity-step" data-og7="identity-step" data-og7-id="submission">
+      <span
+        class="step-index"
+        [class.is-complete]="identity.submitted"
+        aria-hidden="true"
+        >2</span
+      >
+      <section class="profile-card" aria-labelledby="identity-submission-title">
+        <header class="identity-heading">
+          <span class="step-icon" aria-hidden="true"
+            ><openg7-admin-icon name="upload"
+          /></span>
+          <div class="step-introduction">
+            <div class="identity-title">
+              <h3 id="identity-submission-title">
+                {{ 'admin.dossier.identityHelp.submission' | translate }}
+              </h3>
+              <span
+                class="identity-state"
+                data-og7="identity-submission-state"
+                [attr.data-state]="identity.submitted ? 'submitted' : 'pending'"
+                role="status"
+                aria-atomic="true"
+              >
+                @if (identity.submitted) {
+                  <openg7-admin-icon name="check" />
+                }
+                {{
+                  'admin.dossier.identityHelp.' +
+                    (identity.submitted ? 'submittedLabel' : 'pendingLabel')
+                    | translate
+                }}
+              </span>
+            </div>
+            <p data-og7="identity-submission-status" class="identity-help">
+              {{
+                'admin.dossier.identityHelp.' +
+                  (identity.submitted ? 'submitted' : 'submissionPending')
+                  | translate
+              }}
+            </p>
+            @if (identity.submittedAtLabel; as dateLabel) {
+              <p class="submission-date">
+                <span>{{
+                  'admin.dossier.identityHelp.submittedAt' | translate
+                }}</span>
+                <time [attr.datetime]="identity.submittedAt">{{
+                  dateLabel
+                }}</time>
+              </p>
+            }
+          </div>
+          @if (canResendAccess()) {
+            <button
+              type="button"
+              class="admin-button identity-action"
+              data-og7="identity-followup-access"
+              [disabled]="disabled()"
+              (click)="accessRequested.emit()"
+            >
+              <openg7-admin-icon name="external" />
+              {{ 'admin.dossier.identityHelp.access' | translate }}
+            </button>
+          } @else if (!identity.submitted) {
+            <p class="identity-help owner-help">
+              {{ 'admin.dossier.identityHelp.ownerHelp' | translate }}
+            </p>
+          }
+        </header>
+      </section>
+    </li>
+  </ol>
 </section>
