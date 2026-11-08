@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type {
   AdminSponsorshipRecord,
   SponsorMediaAsset
@@ -25,7 +25,6 @@ interface SponsorProfileTestContext {
 const id = '10000000-0000-4000-8000-000000000401';
 const date = '2026-09-16T14:00:00Z';
 const identity = (page: Page) => page.locator('[data-og7="dossier-identity"]');
-const logo = (page: Page) => page.locator('[data-og7="dossier-logo"]');
 const media = (page: Page) =>
   page.locator('[data-og7="media-review-workspace"]');
 
@@ -37,19 +36,20 @@ async function useEnglish(page: Page): Promise<void> {
     .click();
 }
 
-async function expectResponsiveProfile(page: Page): Promise<void> {
+async function expectResponsiveProfile(
+  page: Page,
+  panel: Locator
+): Promise<void> {
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1
     )
   ).toBe(true);
-  for (const panel of [identity(page), logo(page), media(page)]) {
-    expect(
-      await panel.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth + 1
-      )
-    ).toBe(true);
-  }
+  expect(
+    await panel.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1
+    )
+  ).toBe(true);
   expect(
     (
       await new AxeBuilder({ page })
@@ -59,7 +59,7 @@ async function expectResponsiveProfile(page: Page): Promise<void> {
   ).toEqual([]);
 }
 
-/** All profile and media data is synthetic and every endpoint is intercepted. */
+/** Identity and the native media library use separate tabs and synthetic APIs. */
 export function registerSponsorProfileTests({
   fixtures,
   path,
@@ -129,15 +129,15 @@ export function registerSponsorProfileTests({
           identity(page).locator('[data-og7="identity-coordinates-status"]')
         ).toHaveText(
           english
-            ? 'The company name and contact email are present.'
-            : 'Le nom de l’entreprise et le courriel du contact sont renseignés.'
+            ? 'The organization name and contact email are present.'
+            : 'Le nom de l’organisation et le courriel de contact sont renseignés.'
         );
         await expect(
           identity(page).locator('[data-og7="identity-submission-status"]')
         ).toHaveText(
           english
-            ? 'The sponsor has submitted their form.'
-            : 'Le commanditaire a transmis son formulaire.'
+            ? 'The form has been submitted by the sponsor.'
+            : 'Le formulaire a été transmis par le commanditaire.'
         );
         await expect(identity(page).locator('time[datetime]')).toHaveAttribute(
           'datetime',
@@ -148,29 +148,40 @@ export function registerSponsorProfileTests({
           await expect(
             identity(page).getByText(value, { exact: true })
           ).toHaveCount(1);
-          await expect(logo(page)).not.toContainText(value);
         }
         await expect(
           identity(page).locator('[data-og7="identity-edit"]')
         ).toHaveCount(0);
-        await expect(logo(page).getByRole('img')).toHaveCount(0);
-        await expect(logo(page)).toContainText(
-          english ? 'No logo available.' : 'Aucun logo disponible.'
-        );
+        await expect(media(page)).toHaveCount(0);
+        await expect(page.locator('[data-og7="dossier-logo"]')).toHaveCount(0);
+        await expectResponsiveProfile(page, identity(page));
+
+        await page.goto(path('media'));
+        await expect(media(page)).toBeVisible();
+        await expect(identity(page)).toHaveCount(0);
+        for (const value of [publicName, website, email])
+          await expect(media(page)).not.toContainText(value);
+        await expect(media(page).getByRole('img')).toHaveCount(0);
         await expect(
-          logo(page).getByRole('button', {
+          media(page).locator('[data-og7="media-gallery-empty"]')
+        ).toBeVisible();
+        await expect(media(page)).not.toContainText('admin.mediaReview.');
+        await expect(
+          media(page).getByRole('button', {
             name: english ? 'Delete logo' : 'Supprimer le logo',
             exact: true
           })
         ).toHaveCount(0);
-        await expect(logo(page).locator('input[type="file"]')).toHaveCount(0);
+        await expect(
+          media(page).locator('[data-og7="media-upload-files"]')
+        ).toBeDisabled();
         await expect(
           media(page).locator('[data-og7="media-tile"]')
         ).toHaveCount(0);
         await expect(
           media(page).locator('[data-og7="media-batch-approve"]')
         ).toHaveCount(0);
-        await expectResponsiveProfile(page);
+        await expectResponsiveProfile(page, media(page));
         if ((!english && width === 1280) || (english && width === 390)) {
           await page.locator('[data-og7="sponsorship-dossier"]').screenshot({
             path: `test-results/admin-profile-empty-${locale}-${width}.png`
@@ -205,17 +216,22 @@ export function registerSponsorProfileTests({
         identity(page).locator('[data-og7="identity-submission-status"]')
       ).toHaveText(
         english
-          ? 'Waiting for the sponsor to submit their form.'
-          : 'En attente de la transmission du formulaire par le commanditaire.'
+          ? 'The sponsor must submit their form through their private follow-up access.'
+          : 'Le commanditaire doit transmettre son formulaire depuis son accès privé de suivi.'
       );
       await expect(identity(page).locator('time')).toHaveCount(0);
       await expect(identity(page)).not.toContainText(
         'Synthetic unconsented public name'
       );
       await expect(
-        identity(page).locator('[data-og7="identity-submission-required"]')
+        identity(page).locator('[data-og7="identity-role-help"]')
       ).toBeVisible();
-      await expectResponsiveProfile(page);
+      await expect(
+        identity(page).locator(
+          '[data-og7="identity-field"][data-og7-id="public-name"]'
+        )
+      ).toHaveAttribute('data-state', 'unconsented');
+      await expectResponsiveProfile(page, identity(page));
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
 
@@ -233,7 +249,7 @@ export function registerSponsorProfileTests({
         panel.style.maxInlineSize = '560px';
       });
       expect((await dossier.boundingBox())!.width).toBeLessThanOrEqual(560);
-      await expectResponsiveProfile(page);
+      await expectResponsiveProfile(page, identity(page));
 
       const edit = identity(page).locator('[data-og7="identity-edit"]');
       await edit.focus();
@@ -257,7 +273,7 @@ export function registerSponsorProfileTests({
       await expect(identity(page)).not.toContainText(
         'Synthetic unsaved company'
       );
-      await expectResponsiveProfile(page);
+      await expectResponsiveProfile(page, identity(page));
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
 
@@ -291,7 +307,7 @@ export function registerSponsorProfileTests({
       await expect(
         media(page).locator('[data-og7="media-inspector-approve"]')
       ).toBeDisabled();
-      await expectResponsiveProfile(page);
+      await expectResponsiveProfile(page, media(page));
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
   }

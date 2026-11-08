@@ -6,7 +6,9 @@ import { signInAsAdmin } from './support/admin-auth.js';
 // failure may coexist with successfully loaded metrics and activity.
 
 test.describe('Docker admin dashboard', () => {
-  test('renders fund metrics and recent contributions', async ({ page }) => {
+  test('renders fund metrics and recent activity with the contributions link', async ({
+    page
+  }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser');
 
@@ -17,9 +19,13 @@ test.describe('Docker admin dashboard', () => {
     await expect(
       page.getByText('En attente de revue', { exact: true })
     ).toBeVisible();
+    const activity = page.locator('[data-og7="cockpit-activity"]');
     await expect(
-      page.getByRole('heading', { name: 'Dernières contributions' })
+      activity.getByRole('heading', { name: 'Activité récente' })
     ).toBeVisible();
+    await expect(
+      activity.getByRole('link', { name: 'Contributions' })
+    ).toHaveAttribute('href', '/admin/fundraiser/contributions');
   });
 
   test('shows an error state when the dashboard request fails and recovers on refresh', async ({

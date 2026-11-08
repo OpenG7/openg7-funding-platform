@@ -623,6 +623,10 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         )
         .toBe(true);
       await admin
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: 'Aperçu', exact: true })
+        .click();
+      await admin
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
       await completeModeration(admin);

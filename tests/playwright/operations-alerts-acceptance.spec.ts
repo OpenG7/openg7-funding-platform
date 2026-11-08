@@ -146,6 +146,21 @@ test('operations alert: signed delivery, refusal, lost response, restart, recurr
     await expect(email).toBeVisible();
     await email.getByRole('link').click();
     await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/admin/fundraiser/pilotage' &&
+        url.searchParams.get('decisionId') ===
+          `email_delivery_failed:${emailId}`
+    );
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+      'data-og7-id',
+      `email_delivery_failed:${emailId}`
+    );
+    await page.locator('[data-og7="pilot-details"]').click();
+    await page
+      .locator('[data-og7="pilot-details-footer"]')
+      .getByRole('link')
+      .click();
+    await expect(page).toHaveURL(
       new RegExp(`/admin/fundraiser/email-queue\\?messageId=${emailId}`)
     );
     await expect(

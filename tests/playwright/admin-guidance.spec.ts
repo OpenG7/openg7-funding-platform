@@ -2322,7 +2322,25 @@ for (const width of [1440, 320]) {
       await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
       const afterScroll = (await card.boundingBox())!;
       expect(afterScroll.x).toBeCloseTo(initial.x, 0);
-      expect(afterScroll.y).toBeCloseTo(initial.y, 0);
+      await expect(card).toHaveCSS('position', 'fixed');
+      // The mobile window follows the visible shell header, then uses the
+      // twelve-pixel viewport inset once that header has scrolled away.
+      await expect
+        .poll(async () => {
+          const top = await page
+            .getByRole('banner')
+            .evaluate((header) =>
+              Math.max(
+                12,
+                Math.ceil(header.getBoundingClientRect().bottom + 12)
+              )
+            );
+          return Math.abs(
+            (await card.boundingBox())!.y - (width <= 860 ? top : initial.y)
+          );
+        })
+        .toBeLessThan(1);
+      await expect(card).toBeInViewport({ ratio: 0.98 });
       const retained = await stored(page);
       await hook(page, 'move').click();
       await expect(card).toHaveAttribute('data-og7-placement', 'bottom');

@@ -282,8 +282,10 @@ export class PreparationPilotComponent {
             : attention;
         target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         // Keep the selected native control reachable, including in a short guide.
-        if (active.getAttribute('data-og7') === 'preparation-issue')
+        if (active.getAttribute('data-og7') === 'preparation-issue') {
           active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          if (attention) this.revealAttentionAndSelection(attention, active);
+        }
       },
       { injector: this.injector }
     );
@@ -380,6 +382,46 @@ export class PreparationPilotComponent {
     else if (action.id === 'preparation-campaigns')
       this.campaignsRequested.emit();
     else if (action.id === 'preparation-history') this.historyRequested.emit();
+  }
+
+  private revealAttentionAndSelection(
+    attention: HTMLElement,
+    active: HTMLElement
+  ): void {
+    const view = this.document.defaultView;
+    if (!view) return;
+    for (
+      let scroller = attention.parentElement;
+      scroller && scroller !== this.document.scrollingElement;
+      scroller = scroller.parentElement
+    ) {
+      if (
+        !/^(auto|scroll|hidden)$/.test(
+          view.getComputedStyle(scroller).overflowY
+        ) ||
+        scroller.scrollHeight <= scroller.clientHeight
+      )
+        continue;
+      const clip = scroller.getBoundingClientRect();
+      const clipTop = Math.max(0, clip.top + scroller.clientTop);
+      const clipBottom = Math.min(
+        view.innerHeight,
+        clip.top + scroller.clientTop + scroller.clientHeight
+      );
+      const message = attention.getBoundingClientRect();
+      const selected = active.getBoundingClientRect();
+      const top = Math.min(message.top, selected.top);
+      const bottom = Math.max(message.bottom, selected.bottom);
+      // Two native nearest scrolls can clip the message while exposing the
+      // selected control. Keep both in the same scrollport whenever they fit.
+      if (bottom - top <= clipBottom - clipTop) {
+        const delta =
+          top < clipTop ? top - clipTop : Math.max(0, bottom - clipBottom);
+        if (Math.abs(delta) >= 1)
+          scroller.scrollBy({ top: delta, behavior: 'instant' });
+      }
+      return;
+    }
   }
 
   private actionButtons(): HTMLButtonElement[] {
