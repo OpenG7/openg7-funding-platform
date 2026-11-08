@@ -330,7 +330,7 @@
           <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
               <h2
-                *ngIf="activeTab() !== 'media'"
+                *ngIf="activeTab() !== 'media' && activeTab() !== 'identity'"
                 id="dossier-section-title"
                 class="dossier-section-title"
               >
@@ -346,7 +346,11 @@
                 }}
               </h2>
               @if (activeTab() !== 'media' && progress(); as dossier) {
-                @if (dossier.contributionId === selected.id) {
+                @if (
+                  dossier.contributionId === selected.id &&
+                  (activeTab() !== 'identity' ||
+                    dossier.next.tab !== 'identity')
+                ) {
                   <div class="dossier-worklist" data-og7="dossier-worklist">
                     <openg7-admin-sponsorship-next-step
                       [dossier]="dossier"
@@ -395,13 +399,11 @@
 
               <ng-container *ngIf="activeTab() === 'identity'">
                 <openg7-admin-sponsor-detail-identity
-                  *ngIf="selectedSponsorDetailOverview() as identity"
-                  [identity]="identity"
                   [sponsorship]="selected"
                   [canEdit]="canManage()"
                   [canResendAccess]="canUseOwnerActions()"
-                  [disabled]="actionsDisabled()"
-                  (editRequested)="sponsorEdit.open()"
+                  [disabled]="actionsDisabled() || dossierToolBusy()"
+                  (editRequested)="openIdentityEditor()"
                   (accessRequested)="openFollowupAccess()"
                 />
               </ng-container>

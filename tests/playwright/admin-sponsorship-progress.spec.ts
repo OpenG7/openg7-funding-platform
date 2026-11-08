@@ -28,6 +28,7 @@ import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
+import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
@@ -747,6 +748,7 @@ registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
+registerSponsorIdentityTests({ fixtures, path, id, date });
 registerSponsorsQualityTests({ fixtures, path });
 registerDossierServiceSummaryTests({ fixtures, path, recordedCommitment });
 registerContributionActivityOverlayTests({
@@ -1630,18 +1632,36 @@ test('pending sponsor submission is explained from the dossier through identity 
   const identity = page.locator('#dossier-identity');
   await expect(identity).toBeFocused();
   await expect(identity).toBeInViewport();
-  await expect(identity).toContainText(
-    'The company name and contact email are present.'
+  await expect(
+    identity.locator('[data-og7="identity-coordinates-status"]')
+  ).toHaveText('The organization name and contact email are present.');
+  await expect(
+    identity.locator('[data-og7="identity-submission-status"]')
+  ).toHaveText(
+    'The sponsor must submit their form through their private follow-up access.'
   );
-  await expect(identity).toContainText(
-    'Waiting for the sponsor to submit their form.'
+  const roleHelp = identity.locator('[data-og7="identity-role-help"]');
+  await expect(roleHelp).toHaveCount(1);
+  await expect(roleHelp).toContainText(
+    'Administration’s role: complete contact details without submitting the form.'
   );
-  await expect(identity.getByRole('complementary')).toContainText(
-    'Contact details and submission: two separate actions'
+  await expect(roleHelp).toContainText(
+    'Only the sponsor can submit their form through their follow-up access.'
   );
+  await expect(identity.locator('[data-og7="identity-step"]')).toHaveCount(2);
+  await expect(
+    identity.locator('[data-og7="identity-coordinates-state"]')
+  ).toHaveAttribute('data-state', 'complete');
+  await expect(
+    identity.locator('[data-og7="identity-submission-state"]')
+  ).toHaveAttribute('data-state', 'pending');
+  await expect(page.locator('[data-og7="dossier-worklist"]')).toHaveCount(0);
+  await expect(identity.locator('details')).toHaveCount(0);
+  await expect(identity.locator('time')).toHaveCount(0);
   await expect(
     identity.locator('[data-og7="identity-submission-required"]')
-  ).toContainText('Even if you fill in every field');
+  ).toHaveCount(0);
+  await expect(identity).not.toContainText('Even if you fill in every field');
   await expect(
     identity.getByRole('button', { name: 'Edit identity and contact details' })
   ).toBeEnabled();

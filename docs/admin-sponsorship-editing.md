@@ -22,7 +22,9 @@ aucun contenu.
 L’en-tête affiche la référence, le montant avec sa devise et des états distincts
 pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
 **Aperçu** contient une seule recommandation détaillée issue de la progression
-serveur. Les autres onglets, hors **Fiche et médias**, en gardent un rappel navigable. Les points à traiter
+serveur. Les autres onglets, hors **Fiche et médias**, en gardent un rappel navigable.
+Dans **Identité**, le rappel est masqué lorsque la prochaine étape vise déjà cet
+onglet; une recommandation vers un autre onglet reste accessible. Les points à traiter
 se regroupent par domaine, avec trois familles visibles puis une commande pour
 toutes les afficher. L’ordre par domaine n’est pas un calcul de priorité ; le
 responsable reste à déterminer quand la projection ne le renseigne pas. Les
@@ -85,10 +87,34 @@ Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
 `/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
 dans un dossier reste borné à ce dossier.
 
-La saisie administrative et la transmission datée du commanditaire restent deux
-actions distinctes. Corriger les coordonnées ne soumet pas son formulaire à la
-revue; les contrôles métier de progression et du formulaire de correction
-conservent cette règle.
+## Identité et coordonnées
+
+L’onglet **Identité** présente deux étapes, **Coordonnées du commanditaire** et
+**Transmission par le commanditaire**, avec un seul encadré expliquant le rôle de
+l’administration. Leurs états restent indépendants : des coordonnées complètes
+ne prouvent aucune transmission, et une transmission existante ne complète pas
+les coordonnées manquantes.
+
+Les cinq tuiles affichent l’organisation, le courriel, la personne-ressource, le
+site web et le nom public. Seuls le nom de l’organisation et le courriel de contact
+déterminent l’état **Complet** ou **À compléter** des coordonnées. L’absence d’un
+champ facultatif reste neutre. Le nom public distingue **Non fourni**, lorsque le
+consentement existe sans nom enregistré, de **Non consenti**, qui ne dévoile pas
+un nom public enregistré sans cet accord.
+
+**Modifier l’identité et les coordonnées** ouvre le formulaire de correction
+existant pour les opérateurs et propriétaires; les lecteurs conservent la lecture
+seule. Après confirmation de l’enregistrement, le dossier est relu depuis le
+serveur. Corriger les coordonnées conserve les consentements et la revue, ne
+soumet pas le formulaire au nom du commanditaire et ne crée aucune date de
+transmission.
+
+L’étape de transmission affiche **En attente** ou **Transmis**, avec la date
+réellement enregistrée lorsqu’elle existe. **Voir l’accès au suivi commanditaire**
+rejoint l’outil privé existant, réservé au propriétaire; ouvrir cet outil n’envoie
+aucun courriel. Les autres rôles disposent de l’explication pour solliciter un
+propriétaire. Les deux étapes s’empilent sur mobile et conservent l’ordre de
+lecture et l’accès clavier.
 
 La progression expose `identity_missing` / `blocked` lorsque le nom ou le courriel manque, `identity_submission_pending` / `pending` lorsque seules les informations transmises sont attendues, et `identity_complete` / `complete` lorsque les deux conditions sont satisfaites. Le nouveau motif s’applique au jalon et à la prochaine étape du dossier/cockpit. Le format de la réponse est conservé ; déployer les traductions Web avant ou avec l’API qui émet ce motif. Les dossiers existants ne sont pas marqués comme transmis automatiquement.
 
@@ -197,9 +223,10 @@ Livrer l’API avec le Web ; une API indisponible affiche une erreur de journal.
 
 ## Lecture des finances et de l’activité
 
-Les cinq onglets conservent leurs responsabilités. Le bloc commun **À traiter**
+Les six onglets conservent leurs responsabilités. Le bloc commun **À traiter**
 présente la prochaine étape choisie par le serveur, le responsable de la publication
-et les prérequis encore ouverts. Les liens ciblent la section concernée, y compris
+et les prérequis encore ouverts, selon les règles d’affichage décrites plus haut.
+Les liens ciblent la section concernée, y compris
 au clavier sur mobile. Les indicateurs des onglets reprennent les états disponibles;
 une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
 La préparation, la revue, le paiement et l’autorisation de publication restent
