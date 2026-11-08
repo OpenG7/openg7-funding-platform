@@ -185,6 +185,8 @@ export interface AdminHttpCompositionContext
     Pick<AdminSetupHttpDependencies, 'buildAdminSetupStatus'> {
   readonly dbPool: Pool | null;
   readonly preflightConfig?: import('../preflight/config.js').PreflightConfig;
+  readonly preflightInboxConfig?: import('../preflight/inbox-config.js').PreflightInboxConfig;
+  readonly preflightRehearsalConfig?: import('../preflight/rehearsal-config.js').PreflightRehearsalConfig;
   readonly readBody: typeof readBody;
   readonly sponsorshipFollowupTokenTtlDays: ApiRuntimeConfig['sponsorshipFollowupTokenTtlDays'];
   readonly adminAssistantConfig: ApiRuntimeConfig['adminAssistantConfig'];

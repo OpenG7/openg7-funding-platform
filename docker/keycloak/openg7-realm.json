@@ -25,11 +25,59 @@
   "otpPolicyPeriod": 30,
   "otpPolicyLookAheadWindow": 1,
   "otpPolicyCodeReusable": false,
-  "browserFlow": "openg7-password-otp",
+  "browserFlow": "openg7-browser-sso",
   "authenticationFlows": [
     {
+      "alias": "openg7-browser-sso",
+      "description": "Reuse the realm session; a new session requires password and OTP. Applications verify the completed MFA reference.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "flowAlias": "openg7-sso-password-otp",
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "openg7-sso-password-otp",
+      "description": "OpenG7 managed SSO credentials: required password and OTP with native factor references.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorConfig": "openg7-sso-password-reference",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorConfig": "openg7-sso-otp-reference",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": true
+        }
+      ]
+    },
+    {
       "alias": "openg7-password-otp",
-      "description": "Password and OTP are both mandatory; no SSO or identity-provider bypass.",
+      "description": "A fresh authentication requires both password and OTP; also used by the isolated local client override.",
       "providerId": "basic-flow",
       "topLevel": true,
       "builtIn": false,
@@ -54,6 +102,20 @@
     }
   ],
   "authenticatorConfig": [
+    {
+      "alias": "openg7-sso-password-reference",
+      "config": {
+        "default.reference.value": "pwd",
+        "default.reference.maxAge": "3600"
+      }
+    },
+    {
+      "alias": "openg7-sso-otp-reference",
+      "config": {
+        "default.reference.value": "mfa",
+        "default.reference.maxAge": "3600"
+      }
+    },
     {
       "alias": "openg7-password-reference",
       "config": {

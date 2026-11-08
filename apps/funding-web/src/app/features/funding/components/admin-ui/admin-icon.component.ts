@@ -13,6 +13,8 @@ const paths = {
   sponsors:
     'M8 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM16 4a3 3 0 0 1 0 6M2 21v-4a6 6 0 0 1 12 0v4H2Zm16-8a5 5 0 0 1 4 5v3h-4',
   publications: 'M5 3h10l4 4v14H5V3Zm9 0v5h5M8 12h8M8 16h6',
+  image: 'M3 3h18v18H3V3Zm0 13 5-5 5 5 3-3 5 5M15 8h.01',
+  grid: 'M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z',
   invoices: 'M5 3h14v18l-3-2-4 2-4-2-3 2V3Zm3 5h8M8 12h8M8 16h4',
   expenses: 'M3 3v18h18M6 15l4-6 4 3 6-8M16 4h4v4',
   transparency: 'M12 3 2 8l10 5 10-5-10-5ZM2 12l10 5 10-5M2 16l10 5 10-5',
@@ -25,6 +27,9 @@ const paths = {
   bellActive:
     'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M2 8a10 10 0 0 1 2-5m18 5a10 10 0 0 0-2-5',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  minimize: 'M5 12h14',
+  dockBottom: 'M4 4h16v16H4V4ZM4 16h16M12 7v6m-3-3 3 3 3-3',
+  dockTop: 'M4 4h16v16H4V4ZM4 8h16M12 17v-6m-3 3 3-3 3 3',
   close: 'm6 6 12 12M6 18 18 6',
   refresh:
     'M20 10a8 8 0 0 0-14-5L3 8m0-5v5h5m-4 6a8 8 0 0 0 14 5l3-3m0 5v-5h-5',

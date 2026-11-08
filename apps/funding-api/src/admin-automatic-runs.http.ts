@@ -36,10 +36,18 @@ export interface AdminAutomaticRunsHttpDependencies {
     | 'preparation'
     | 'approvePreparation'
   > | null;
-  readonly dossierPreparations?: Pick<
-    AdminPreparationService,
-    'dossierPreparation' | 'approveDossierPreparation'
-  > | null;
+  readonly dossierPreparations?:
+    | (Pick<
+        AdminPreparationService,
+        'dossierPreparation' | 'approveDossierPreparation'
+      > &
+        Partial<
+          Pick<
+            AdminPreparationService,
+            'servicePreparation' | 'decideServicePreparation'
+          >
+        >)
+    | null;
   readonly reportPreparationFailure?: (
     diagnostic: PreparationFailureDiagnostic
   ) => void;

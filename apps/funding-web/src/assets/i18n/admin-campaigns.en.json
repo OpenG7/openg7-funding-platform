@@ -34,6 +34,8 @@
   },
   "filters": {
     "title": "Filter services",
+    "advanced": "Advanced filters",
+    "advancedActive": "Custom criteria",
     "search": "Find a dossier",
     "searchPlaceholder": "Sponsor or reference",
     "channel": "Channel",

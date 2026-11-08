@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test';
+
 import { test, expect } from '../support/test.js';
 
 import {
@@ -5,6 +7,16 @@ import {
   createMediaWorkspaceFixture,
   type MediaWorkspaceTestContext
 } from './fixture.js';
+
+async function openDossierRules(page: Page): Promise<void> {
+  const button = area(page).locator('[data-og7="media-dossier-rules"]');
+  // The recommendations container and its nested rules panel are both details.
+  // Scope the disclosure to the panel that directly owns the canonical command.
+  const panel = button.locator('..');
+  if ((await panel.getAttribute('open')) === null)
+    await panel.locator(':scope > summary').click();
+  await button.click();
+}
 
 export function registerMediaWorkspaceDecisionTests(
   context: MediaWorkspaceTestContext
@@ -26,6 +38,9 @@ export function registerMediaWorkspaceDecisionTests(
             name: 'Switch administration language to English'
           })
           .click();
+      await area(page)
+        .locator('[data-og7="media-page-size"]')
+        .selectOption('25');
       await expect(area(page).locator('[data-og7="media-tile"]')).toHaveCount(
         25
       );
@@ -128,7 +143,7 @@ export function registerMediaWorkspaceDecisionTests(
     const tiles = area(page).locator('[data-og7="media-tile"]');
     await tiles.nth(0).getByRole('checkbox').check();
     await tiles.nth(1).getByRole('checkbox').check();
-    await area(page).locator('[data-og7="media-dossier-rules"]').click();
+    await openDossierRules(page);
     const editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
     await expect(
       page.locator('[data-og7="media-rules-future"]')
@@ -235,7 +250,7 @@ export function registerMediaWorkspaceDecisionTests(
     const { state, calls } = await fixture(page);
     Object.assign(state, { assets: [] });
     await page.goto(context.path('media'));
-    await area(page).locator('[data-og7="media-dossier-rules"]').click();
+    await openDossierRules(page);
     const future = page.locator('[data-og7="media-rules-future"]');
     const editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
     await expect(future).not.toBeChecked();

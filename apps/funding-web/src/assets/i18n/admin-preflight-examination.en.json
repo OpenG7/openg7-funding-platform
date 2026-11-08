@@ -1,0 +1,306 @@
+{
+  "back": "Preflight",
+  "title": "Review the {{channel}} service",
+  "organizationUnavailable": "Organization not provided",
+  "notAvailable": "Not available",
+  "siblingNavigation": "Services in this order",
+  "position": "Service {{position}} of {{total}}",
+  "previous": "Previous service",
+  "next": "Next service",
+  "refresh": "Refresh",
+  "signIn": "Sign in again",
+  "cancel": "Cancel",
+  "close": "Close",
+  "enlarge": "Enlarge preview",
+  "otherActions": "Other actions",
+  "readOnly": "Read only: your role cannot record a decision.",
+  "channels": {
+    "website": "Web",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
+  "statuses": {
+    "not_ready": "To prepare",
+    "ready": "To review",
+    "blocked": "Blocked",
+    "approved": "Preparation approved",
+    "correction_requested": "Correction requested",
+    "rejected": "Proposal rejected",
+    "review_required": "New review required"
+  },
+  "states": {
+    "loading": "Loading the service and its version…",
+    "unavailable": "The preparation is temporarily unavailable.",
+    "forbidden": "You do not have access to this service.",
+    "not_found": "This service was not found in this dossier.",
+    "expired": "Your session has expired.",
+    "recovery": "No decision was inferred from this error. Return to the desk or try reading the data again."
+  },
+  "stale": {
+    "title": "The reviewed version needs to be checked",
+    "description": "A different version was retrieved or the last action has an uncertain result. Read the recorded state before making another decision.",
+    "refresh": "Read the current version"
+  },
+  "summary": {
+    "title": "Preparation summary",
+    "prepared": "Prepared content is available. Review its appearance and checks before deciding. Publication remains a separate step.",
+    "notReady": "No proposal matches this service yet. The available information can still be consulted.",
+    "confirmed": "Confirmed checks: {{count}}",
+    "attention": "Pending interventions: {{count}}"
+  },
+  "contentTitle": "Service content",
+  "contentNavigation": "Content to review",
+  "sections": {
+    "preview": "Rendering preview",
+    "text": "Proposed text",
+    "media": "Dossier media",
+    "checks": "Checks",
+    "details": "Details and references",
+    "history": "History"
+  },
+  "informationTitle": "Service information",
+  "information": {
+    "order": "Order",
+    "organization": "Organization",
+    "service": "Service",
+    "preparedAt": "Prepared on",
+    "provenance": "Provenance"
+  },
+  "provenance": {
+    "funding": "Private Funding preparation",
+    "unlinked": "The link to an external Preflight proposal has not been verified. No content is attributed to AI without confirmed provenance."
+  },
+  "viewportLabel": "Preview format",
+  "viewports": { "desktop": "Desktop", "tablet": "Tablet", "mobile": "Mobile" },
+  "preview": {
+    "caption": "Private preview, without publication. Web uses Funding’s public component; social platform layouts may differ."
+  },
+  "text": {
+    "savedVersion": "Saved version:",
+    "noTitle": "Untitled",
+    "provenance": "This content comes from the preparation saved in Funding. Its version remains identifiable in the history.",
+    "edit": "Edit in the Funding editor",
+    "regenerationUnavailable": "Automatic Preflight rewriting is not connected to this workflow.",
+    "notReady": "The text for this service is not available yet. Open the dossier to continue preparing it."
+  },
+  "media": {
+    "shared": "One media library for this dossier. Selections and usage rights remain specific to each destination; Web approval does not authorize social publication."
+  },
+  "checks": {
+    "title": "Controls and checks",
+    "explanation": "These checks describe facts recorded in Funding. Having text or an image does not establish editorial compliance.",
+    "sourceLabel": "Source:",
+    "version": "Content version:",
+    "human": "Human review",
+    "humanRecorded": "A decision is recorded for this version.",
+    "humanRequired": "A preparation decision is pending.",
+    "humanScope": "The decision covers this private proposal. It cancels no obligation and authorizes no publication.",
+    "payment_confirmed": "Payment confirmed",
+    "accepted_offer": "Agreement identified",
+    "company": "Sponsor identity",
+    "consent": "Consent",
+    "consent_public": "Public consent",
+    "website": "Web preparation",
+    "website_content": "Web content",
+    "publication_draft": "Publication draft",
+    "media": "Media",
+    "publication_content": "Publication content",
+    "source": "Source identified",
+    "draft": "Prepared proposal",
+    "agreement": "Agreement identified",
+    "content": "Content available",
+    "media_rights": "Usage rights",
+    "editorial_review": "Editorial review",
+    "other": "Preparation check",
+    "public_consent": "Public consent",
+    "sponsor_review": "Sponsor review",
+    "moderation_review": "Dossier editorial review",
+    "draft_moderation_review": "Text editorial review",
+    "service_draft_identified": "Proposal identified"
+  },
+  "checkStates": {
+    "complete": "Confirmed by Funding",
+    "missing": "Intervention required",
+    "not_required": "Not applicable to this preparation"
+  },
+  "attention": {
+    "title": "Points requiring attention",
+    "blocking": "Blocker:",
+    "reference": "View reference",
+    "human": "The preparation awaits your judgement. Private approval allows the delivery workflow to continue; publication authorization remains separate.",
+    "recorded": "The decision for this version is retained. A content change will require a new review."
+  },
+  "blockers": {
+    "payment": "Check payment eligibility in the dossier.",
+    "consent": "The required consent must be verified.",
+    "media": "Media or its usage rights require intervention.",
+    "content": "The proposal must be completed or match this exact service.",
+    "agreement": "The agreement or promised service must be confirmed.",
+    "review": "A business or editorial validation is still required.",
+    "other": "A preparation condition is not satisfied. Open the dossier and the check reference."
+  },
+  "details": {
+    "obligation": "Promised service",
+    "proposal": "Reviewed draft",
+    "version": "Review version",
+    "contentVersion": "Content fingerprint",
+    "checkedAt": "Data read on",
+    "authority": "Funding owns the agreement, rights, decisions, delivery and evidence. Technical references identify the exact reviewed version.",
+    "dossier": "Open dossier",
+    "evidence": "View service and evidence"
+  },
+  "history": {
+    "empty": "No decision has been recorded for this service yet.",
+    "references": "Decision references",
+    "audit": "Audit reference"
+  },
+  "approvalGuidance": {
+    "readonly": "Your role allows viewing preparations, but does not allow approving them.",
+    "busy": "An operation is in progress. Wait for its result before approving.",
+    "unavailable": "The preparation could not be reloaded. Refresh its state before approving.",
+    "uncertain": "Check the result of your last action before making another approval.",
+    "session-inactive": "Your work session is paused or finished. Resume it before deciding; a finished session can also be replaced by a new session.",
+    "stale": "The reviewed version needs checking. Reload the recorded state before approving; your unsaved entries are retained.",
+    "dirty": "Your private draft changes have not been saved. Save them before approving this preparation.",
+    "buffer-readonly": "This service is no longer editable in the workshop. Your entries remain readable and copyable; they cannot replace the saved content.",
+    "recorded": "A decision has already been recorded for this version. View its history to continue.",
+    "missing-draft": "This exact service does not yet have a private draft to approve. Complete its preparation in Funding.",
+    "incomplete": "Funding does not yet allow approval of this version. Complete its preparation prerequisites.",
+    "closed": "This service is no longer open for another approval. View its workflow and evidence in Funding."
+  },
+  "approvalActions": {
+    "prerequisites": "View missing prerequisites ({{count}})",
+    "checks": "View checks",
+    "completeDossier": "Complete the dossier",
+    "profileSubmissionHelp": "To find the sponsor’s private form, open Follow-up access in the dossier toolbar. Saving the form for later or correcting contact details in the administration does not replace submitting the information to the team.",
+    "preparePublication": "Prepare the social draft",
+    "startNew": "Start a new session",
+    "localCopy": "View my unsaved entries"
+  },
+  "blockerReasons": {
+    "public_consent_missing": "The required public consent has not been recorded.",
+    "sponsor_review_required": "The sponsorship must be approved in the Funding dossier.",
+    "moderation_review_required": "The required editorial review is not approved for this version.",
+    "company_missing": "The organization name is missing from the dossier.",
+    "presentation_missing": "The organization presentation is missing from the dossier.",
+    "required_media_missing": "The required media have not yet been validated for this destination, including their selection and usage rights.",
+    "prepared_media_stale": "An assignment uses an older media or service version. Review it in the dossier’s library.",
+    "prepared_media_unavailable": "An assigned media item does not yet have the required rights, review or version for this destination.",
+    "service_draft_missing": "No private draft matches this exact promised service.",
+    "obligation_blocked": "This promised service is currently blocked in Funding.",
+    "service_closed": "This service or its draft is no longer open for another preparation decision."
+  },
+  "guided": {
+    "open": "Guided preparation",
+    "complete": "Complete prerequisites",
+    "intro": "Review each recorded check and open its Funding owner to complete what is missing. Each check retains its own state; completing one does not approve the preparation.",
+    "notRequired": "Funding does not require this check for this exact service.",
+    "textReviewTitle": "Review the prepared text",
+    "textReviewScope": "This review concerns only the saved publication draft identified below. It grants no publication authorization and does not approve the service preparation.",
+    "causes": {
+      "payment": "Payment and refund eligibility must be confirmed in the financial record.",
+      "agreement": "The accepted agreement must identify this exact promised service.",
+      "consent": "Public use of the organization name and presentation requires recorded consent. Record only an agreement actually received.",
+      "dossierReview": "The dossier requires its business review and editorial review. The native dossier action reviews both together.",
+      "media": "Media selection, assignment, current version and usage rights must match this destination.",
+      "textReview": "The saved publication text needs its own editorial review, distinct from the dossier review.",
+      "draft": "A private draft must match this exact service, channel and destination.",
+      "identity": "The organization name must be completed in the sponsor identity.",
+      "content": "The public presentation or prepared content must be completed in the Funding publication editor.",
+      "other": "Consult the source record to verify this prerequisite. Funding determines its state."
+    },
+    "actions": {
+      "payment": "View payment",
+      "agreement": "View accepted agreement",
+      "consent": "Record an agreement received",
+      "viewConsent": "View public consent",
+      "dossierReview": "Review sponsorship and dossier",
+      "media": "Review dossier media",
+      "textReview": "Review the saved text",
+      "draft": "Prepare the private draft",
+      "identity": "Complete sponsor identity",
+      "content": "Review presentation and content",
+      "other": "Open the source dossier"
+    }
+  },
+  "consent": {
+    "title": "Public consent · Record an agreement received",
+    "intro": "Use this form only when a person has already given an explicit agreement and you can identify its evidence. This action records the agreement received; it does not request or invent consent.",
+    "scopeTitle": "Fixed purpose",
+    "scope": "Public sponsor profile: organization name and presentation.",
+    "separate": "Image usage rights, social publication authorization and payment remain separate checks.",
+    "loading": "Reading consent recorded in Funding…",
+    "existing": "The required public consent is already recorded.",
+    "recordingActor": "Recorded by the authenticated Funding actor:",
+    "actor": "Recorded by",
+    "recordedAt": "Recorded on",
+    "audit": "Audit record",
+    "saved": "Documented agreement recorded",
+    "invalidation": "Funding invalidated {{count}} affected delivery approval(s). Review the current versions before authorizing delivery again.",
+    "noPublication": "No email was sent. Public visibility remains on hold; this action publishes no content.",
+    "agreement": "I confirm that an explicit agreement for the purpose above has already been received.",
+    "date": "Agreement date",
+    "dateHelp": "Enter the actual calendar date of the agreement. Future dates are refused using America/Toronto.",
+    "evidence": "Evidence or private reference",
+    "evidenceHelp": "Identify the agreement received, for example a dated message or an internal document reference. Required, 1 to 1,000 characters. This reference is private; no document is downloaded or sent.",
+    "submit": "Record the documented agreement",
+    "saving": "Recording and verifying…",
+    "readonly": "Your role permits viewing the consent state. Recording an agreement and its private evidence requires an authorized operator.",
+    "history": "Recorded agreement history",
+    "checkReceipt": "Check the recorded receipt",
+    "retry": "Retry the same checked request",
+    "refresh": "Read the current consent state",
+    "confirm": "Record the explicit agreement received on {{date}} for the public sponsor name and presentation? Its private reference will be audited. No email or publication is triggered; affected delivery approvals must be reviewed again.",
+    "blockers": {
+      "already_granted": "Public consent has already been granted.",
+      "permission_required": "Your role cannot record a documented agreement.",
+      "operation_processing": "A consent operation is in progress. Wait and read the recorded state before continuing.",
+      "operation_uncertain": "A previous consent operation has an uncertain result. Check its recorded receipt before continuing."
+    },
+    "messages": {
+      "loadFailed": "Consent could not be read. Try reading its current state again.",
+      "conflict": "Consent changed in another session. Your entries are retained. Explicitly read the current state before submitting a new confirmed request.",
+      "uncertain": "The result is uncertain. Check the exact receipt before continuing. No command will be replayed automatically.",
+      "notFound": "The exact receipt was not found. You may explicitly confirm a retry of the same request; its identity and content are retained.",
+      "receiptMismatch": "The receipt could not be verified against the acknowledged request. Keep this dossier open and check its receipt again.",
+      "recorded": "The exact receipt was verified and the current service preparation was read again. No preparation approval was inferred.",
+      "refreshRequired": "Read the current consent and preparation state before continuing. No previous command will be reconstructed.",
+      "invalid": "Funding refused the request. Check the actual agreement, date and evidence before submitting a new request.",
+      "retainedRequest": "A previous request reference was retained for this actor and dossier. Only its recorded receipt can be checked after reopening; the private form was not stored."
+    }
+  },
+  "decision": {
+    "title": "Proposal decision",
+    "scope": "This service, this version. Publication and delivery evidence remain separate.",
+    "approve": "Approve",
+    "approveHelp": "Validate the private preparation.",
+    "correction": "Request a correction",
+    "correctionHelp": "Specify the required changes.",
+    "reject": "Reject",
+    "rejectHelp": "Reject the content with a reason.",
+    "deliveryWorkflow": "Continue in the delivery workflow"
+  },
+  "reason": {
+    "correction_requested": "Which changes are needed?",
+    "rejected": "Why are you rejecting this proposal?",
+    "help": "A reason is required: 10 to 2,000 characters. Do not include unnecessary sensitive information.",
+    "noAutomaticReturn": "The request is recorded in Funding. No automatic return to Preflight or cancellation of the service is triggered.",
+    "submit": "Record the decision"
+  },
+  "confirm": {
+    "approved": "Approve the {{channel}} preparation for {{reference}}, version {{version}}? This decision publishes no content.",
+    "correction_requested": "Record a correction request for {{reference}}, version {{version}}? The previous proposal will be retained.",
+    "rejected": "Reject the proposal for {{reference}}, version {{version}}? The delivery obligation will be retained."
+  },
+  "decided": {
+    "approved": "Preparation approved for this service. Publication authorization must still be given in Funding.",
+    "correction_requested": "Correction request recorded. The proposal and reason remain in the history.",
+    "rejected": "Proposal rejected with a reason. The promised service remains due."
+  },
+  "errors": {
+    "conflict": "The version or decision changed in another session. Read the current state; your reason has been retained.",
+    "expired": "Your session has expired. Sign in again before continuing.",
+    "forbidden": "Your role no longer permits this decision.",
+    "uncertain": "The decision result is unconfirmed. Read the recorded state before continuing; no action is replayed automatically."
+  }
+}

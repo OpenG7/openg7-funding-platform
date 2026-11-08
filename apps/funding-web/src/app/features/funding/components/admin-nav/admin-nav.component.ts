@@ -280,6 +280,11 @@ export class AdminNavComponent implements OnInit {
           key: 'assistant',
           url: '/admin/fundraiser/assistant',
           icon: 'assistant'
+        },
+        {
+          key: 'preflight',
+          url: '/admin/fundraiser/preflight',
+          icon: 'cloud'
         }
       ]
     },

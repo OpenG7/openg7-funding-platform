@@ -1111,6 +1111,7 @@ for (const draft of ['source', 'evidence'] as const) {
   test(`returning to the guide protects unsaved ${draft} before restoring its record view, receipt, position and focus`, async ({
     page
   }) => {
+    await installAdminController(page);
     const { fixture, base, receipt } = await fixtures(page);
     const guide = await guideFixtures(page, receipt, 2);
     await openGuide(page);
@@ -1154,8 +1155,12 @@ for (const draft of ['source', 'evidence'] as const) {
     const recordsView = page.locator(
       '[data-og7="automatic-view"][data-og7-id="records"]'
     );
-    if (!(await hook(page, 'admin-guidance-panel').isVisible()))
-      await hook(page, 'admin-guidance-toggle').click();
+    if (!(await hook(page, 'admin-guidance-panel').isVisible())) {
+      // Y restores the retained preparation view without reloading local edits.
+      const controller = adminController(page);
+      await controller.ready();
+      await controller.press('Y');
+    }
     await expect(batchView).toBeVisible();
     await batchView.click();
     await expect(batchView).toHaveAttribute('aria-pressed', 'true');

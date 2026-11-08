@@ -28,6 +28,13 @@ async function openDossierAssistance(
   const sponsorshipId = new URL(origin, page.url()).searchParams.get(
     'sponsorshipId'
   );
+  const tools = page.locator('[data-og7="dossier-global-tools"]');
+  if (
+    (await tools.isVisible()) &&
+    (await tools.getAttribute('open')) === null
+  ) {
+    await tools.locator(':scope > summary').click();
+  }
   await assistance(page).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(
@@ -365,6 +372,7 @@ export function registerSponsorToolTests({
     const { calls } = await fixtures(page, 'owner');
     await page.goto(path('identity'));
     await expect(page.locator('[data-og7="dossier-identity"]')).toBeVisible();
+    await expect(page.locator('[data-og7="dossier-refresh"]')).toBeEnabled();
     let release!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;

@@ -1,6 +1,7 @@
 import { computed, signal } from '@angular/core';
 import {
   MODERATION_REASONS,
+  MODERATION_EDITORIAL_PROVISIONS,
   type MediaRuleScope,
   type SponsorMediaBatchAction,
   type SponsorMediaWorkspaceAsset
@@ -24,8 +25,15 @@ export class MediaReviewCommands {
   readonly rejectExplanation = signal('');
   readonly rejectInternalReason = signal('');
   readonly rejectSingleId = signal<string | null>(null);
-  readonly reasons = MODERATION_REASONS.filter((reason) =>
-    reason.allowedLevels.includes('N3')
+  readonly editorialProvision = signal('');
+  readonly provisions = MODERATION_EDITORIAL_PROVISIONS;
+  readonly decisionAction = signal<'reject' | 'request_correction'>('reject');
+  readonly reasons = computed(() =>
+    MODERATION_REASONS.filter((reason) =>
+      reason.allowedLevels.includes(
+        this.decisionAction() === 'request_correction' ? 'N1' : 'N3'
+      )
+    )
   );
   constructor(
     readonly c: MediaReviewWorkspaceController,
@@ -52,27 +60,53 @@ export class MediaReviewCommands {
     if (this.c.plan()) this.form.set('plan');
   }
   openReject(single?: SponsorMediaWorkspaceAsset): void {
+    this.openDecision('reject', single);
+  }
+  openCorrection(single?: SponsorMediaWorkspaceAsset): void {
+    this.openDecision('request_correction', single);
+  }
+  private openDecision(
+    action: 'reject' | 'request_correction',
+    single?: SponsorMediaWorkspaceAsset
+  ): void {
+    this.decisionAction.set(action);
     this.rejectSingleId.set(single?.id ?? null);
     this.rejectReason.set('');
     this.rejectExplanation.set('');
     this.rejectInternalReason.set('');
+    this.editorialProvision.set('');
     this.form.set('reject');
   }
   async prepareReject(): Promise<void> {
-    if (!this.rejectReason() || !this.rejectExplanation().trim()) return;
+    if (
+      !this.rejectReason() ||
+      !this.rejectExplanation().trim() ||
+      !this.rejectInternalReason().trim()
+    )
+      return;
     const single = this.c
       .assets()
       .find((asset) => asset.id === this.rejectSingleId());
-    const reason = this.reasons.find(
+    const reason = this.reasons().find(
       (reason) => reason.code === this.rejectReason()
     );
-    if (!reason) return;
+    if (
+      !reason ||
+      (reason.code === 'EDITORIAL_INCOMPATIBILITY' &&
+        !this.provisions.some(
+          (provision) => provision.id === this.editorialProvision()
+        ))
+    )
+      return;
     await this.c.prepare(
-      'reject',
+      this.decisionAction(),
       {
         reason: reason.code,
         sponsorExplanation: this.rejectExplanation().trim(),
-        internalReason: this.rejectInternalReason().trim()
+        internalReason: this.rejectInternalReason().trim(),
+        ...(reason.code === 'EDITORIAL_INCOMPATIBILITY'
+          ? { editorialProvision: this.editorialProvision() }
+          : {})
       },
       single
     );

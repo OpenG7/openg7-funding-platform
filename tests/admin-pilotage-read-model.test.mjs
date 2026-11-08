@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { loadAdminPilotageState } from '../dist/apps/funding-api/src/admin-pilotage.read-model.js';
 import { pilotageVersion } from '../dist/apps/funding-api/src/admin-pilotage-version.js';
+import { loadAdminWorkQueue } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const version = '2026-10-03 12:34:56.123456+00';
@@ -187,6 +188,7 @@ const fixture = (options = {}) => {
   };
   return {
     calls,
+    queue: () => loadAdminWorkQueue(pool),
     load: (query = {}, writable = true, owner = true) =>
       loadAdminPilotageState(pool, publications, query, writable, owner)
   };
@@ -211,7 +213,7 @@ test('independent failed sources retain available decisions and unavailable rece
   assert.equal(absent.writable, false);
 });
 
-test('pilotage retains publication preparation when no delivery represents the recorded promise', async () => {
+test('preparation and fulfilment stay in the work queue instead of the decision deck', async () => {
   const s = sponsor('preparation', { sponsor_review_status: 'approved' });
   s.commitment.obligations.push({
     ...s.commitment.obligations[0],
@@ -219,18 +221,19 @@ test('pilotage retains publication preparation when no delivery represents the r
     channel: 'facebook',
     benefitId: 'facebook_batch'
   });
-  const state = await fixture({ sponsors: [s] }).load();
+  const f = fixture({ sponsors: [s] });
+  const state = await f.load();
   assert.equal(state.coverage, 'complete');
+  assert.deepEqual(state.decisions, []);
+  const queue = await f.queue();
   assert.ok(
-    state.decisions.some((d) => d.kind === 'publication_needs_preparation')
+    queue.items.some((d) => d.type === 'publication_needs_preparation')
   );
-  assert.ok(
-    state.decisions.some((d) => d.kind === 'sponsorship_needs_fulfilment')
-  );
+  assert.ok(queue.items.some((d) => d.type === 'sponsorship_needs_fulfilment'));
 });
 
-test('a represented delivery does not suppress the payment’s reliability incident', async () => {
-  const state = await fixture({
+test('reliability investigation remains in the work queue beside its represented delivery decision', async () => {
+  const f = fixture({
     sponsors: [sponsor('represented')],
     deliveries: [
       delivery('represented-delivery', { sponsors: [{ id: 'represented' }] })
@@ -243,16 +246,21 @@ test('a represented delivery does not suppress the payment’s reliability incid
         sponsorshipId: 'represented'
       }
     ]
-  }).load();
-  const incident = state.decisions.find(
-    (d) => d.kind === 'publication_reliability_incident'
+  });
+  const state = await f.load();
+  assert.deepEqual(
+    state.decisions.map((d) => d.id),
+    ['publication:represented-delivery']
+  );
+  const queue = await f.queue();
+  const incident = queue.items.find(
+    (d) => d.type === 'publication_reliability_incident'
   );
   assert.ok(incident);
   assert.equal(
-    incident.detailsUrl,
+    incident.adminUrl,
     '/admin/fundraiser/sponsors?sponsorshipId=represented&tab=publication'
   );
-  assert.deepEqual(incident.actions, []);
 });
 
 test('partial attention and the publication window report their exact missing sources', async () => {
@@ -269,6 +277,36 @@ test('partial attention and the publication window report their exact missing so
   ]);
   assert.equal(state.total, 1);
   assert.equal(state.writable, true);
+});
+
+test('an uncertain news delivery without a sponsor stays an urgent investigation, never a decision or retry', async () => {
+  const id = 'synthetic-uncertain-news';
+  const f = fixture({
+    deliveries: [delivery(id, { status: 'uncertain', kind: 'news' })],
+    incidents: [
+      {
+        code: 'ACCOUNT_RESULT_UNCERTAIN',
+        subjectType: 'delivery',
+        subjectId: id,
+        deliveryId: id
+      }
+    ]
+  });
+  const state = await f.load();
+  assert.deepEqual(state.decisions, []);
+  const { items } = await f.queue();
+  assert.equal(items.length, 1);
+  assert.equal(items[0].type, 'publication_reliability_incident');
+  assert.equal(items[0].severity, 'urgent');
+  assert.equal(items[0].sponsorshipId, undefined);
+  assert.equal(
+    items[0].adminUrl,
+    `/admin/fundraiser/publications/automation?deliveryId=${id}`
+  );
+  assert.deepEqual(
+    items[0].suggestedActions.map((a) => a.executionMode),
+    ['navigate']
+  );
 });
 
 test('sponsor and email enrichment failures remain independent and preserve other domains', async () => {
@@ -292,7 +330,10 @@ test('sponsor and email enrichment failures remain independent and preserve othe
   );
   assert.deepEqual(
     sponsorFailure.decisions.find((d) => d.domain === 'sponsors').actions,
-    []
+    [
+      { id: 'sponsor.approve', blocked: 'READ_ONLY' },
+      { id: 'sponsor.reject', blocked: 'READ_ONLY' }
+    ]
   );
 
   const emailFailure = await fixture({ ...options, failEmails: true }).load();
@@ -303,7 +344,7 @@ test('sponsor and email enrichment failures remain independent and preserve othe
   );
   assert.deepEqual(
     emailFailure.decisions.find((d) => d.domain === 'email').actions,
-    []
+    [{ id: 'email.retry', blocked: 'READ_ONLY' }]
   );
 });
 
@@ -353,16 +394,16 @@ test('priority, due date, ID ties and duplicate IDs are resolved before paginati
   const first = await f.load({ domain: 'publications' });
   assert.deepEqual(
     first.decisions.slice(0, 5).map((d) => d.targetId),
-    ['urgent-a', 'urgent-b', 'today', 'earlier', 'draft-00']
+    ['today', 'earlier', 'draft-00', 'draft-01', 'draft-02']
   );
-  assert.equal(first.decisions[4].title, 'Latest duplicate card');
+  assert.equal(first.decisions[2].title, 'Latest duplicate card');
   assert.equal(first.pageSize, 30);
-  assert.equal(first.total, 37);
-  assert.equal(first.domains.publications, 37);
+  assert.equal(first.total, 35);
+  assert.equal(first.domains.publications, 35);
   assert.equal(first.domains.projects, 1);
   const second = await f.load({ domain: 'publications', page: 1000 });
   assert.equal(second.page, 2);
-  assert.equal(second.decisions.length, 7);
+  assert.equal(second.decisions.length, 5);
   const focus = await f.load({
     domain: 'publications',
     id: 'publication:draft-32'
@@ -473,8 +514,9 @@ test('approval guards keep connection, schedule, sponsor media and review preced
     assert.equal(card.actions[1].blocked, null);
     assert.equal(card.actions[2].blocked, null);
   }
-  assert.deepEqual(
-    state.decisions.find((d) => d.targetId === 'uncertain').actions,
-    []
+  assert.equal(
+    state.decisions.find((d) => d.targetId === 'uncertain'),
+    undefined
   );
+  assert.ok(state.decisions.every((d) => d.actions.length > 0));
 });

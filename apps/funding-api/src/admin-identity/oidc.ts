@@ -105,6 +105,8 @@ export const createAdminOidcHandler = (
   ): Promise<boolean> => {
     if (path === '/admin/auth/start' && request.method === 'GET') {
       const discovered = await client();
+      const reauthenticate =
+        cookie(request, `${config.cookieName}-login`) === 'reauthenticate';
       const state = randomIdentityToken(),
         browser = randomIdentityToken(),
         verifier = oidc.randomPKCECodeVerifier(),
@@ -127,6 +129,7 @@ export const createAdminOidcHandler = (
           nonce,
           code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
           code_challenge_method: 'S256',
+          ...(reauthenticate ? { prompt: 'login' } : {}),
           ...(config.mfaAcr
             ? { acr_values: config.mfaAcr.replace(/,/g, ' ') }
             : {})
@@ -136,6 +139,7 @@ export const createAdminOidcHandler = (
     }
     if (path === '/admin/auth/callback' && request.method === 'GET') {
       setCookie(response, '', 0, config, `${config.cookieName}-login`);
+      let missingAssurance = false;
       try {
         const state = url.searchParams.get('state') ?? '';
         const challenge = await persistence.consumeChallenge(
@@ -168,8 +172,10 @@ export const createAdminOidcHandler = (
                   .map((value) => value.trim())
                   .filter(Boolean)
               ))
-        )
+        ) {
+          missingAssurance = true;
           throw new Error('Required authentication assurance missing');
+        }
         const token = randomIdentityToken();
         await persistence.issueSession({
           subject: claims.sub,
@@ -189,6 +195,18 @@ export const createAdminOidcHandler = (
         ]);
         redirect(response, challenge.returnPath);
       } catch {
+        // A valid realm session created before OTP enrollment (or by the local
+        // password-only client) must not trap subsequent logins in SSO denial.
+        // This non-secret marker can only request a stronger fresh login; the
+        // next start replaces it with its ordinary one-time browser challenge.
+        if (missingAssurance)
+          setCookie(
+            response,
+            'reauthenticate',
+            300,
+            config,
+            `${config.cookieName}-login`
+          );
         // No provider errors, claims, codes or browser cookies enter the audit.
         await persistence.auditSignInDenied().catch(() => undefined);
         redirect(response, '/admin/login?identityError=1');

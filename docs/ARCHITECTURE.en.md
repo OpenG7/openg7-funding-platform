@@ -137,6 +137,9 @@ proportionate confirmation and audit; minimize secrets and returned data. See
 the [identity decision](decisions/2026-09-19-admin-identity-and-operations.md).
 Admin routes load on navigation; unknown URLs retain HTTP 404.
 
+[Examination work sessions](technical/preflight-work-sessions.md) keep private
+actor-owned progress with revisions, separate from business decisions and delivery.
+
 The administrative control surface normalizes keyboard, visible controls and
 Gamepad input into intentions. It reuses domain services and a closed command
 catalog without a second authoritative calendar or delivery queue. Each command
@@ -178,17 +181,14 @@ without double counting during a mode change.
 
 ## Operations and evolution
 
-The [Preflight connector](technical/preflight-connector.md), disabled by default,
-records intent in the transaction and delivers through an independent relay.
-Imports remain private proposals; Funding retains its business authority.
-See the [ADR](decisions/2026-11-02-preflight-connector.md).
+The [Preflight connector](technical/preflight-connector.md) is opt-in:
+outbox, separate relay, private proposals; Funding decides.
 
-Operate production Compose from `/opt/openg7-funding-platform`. Traefik terminates
-TLS and exposes Web/API; PostgreSQL remains private on `data`, without a public
-port. Keep secrets and backups outside Git. Health, correlated logs, webhook
-processing status, recovery and audit are product capabilities.
-The [identity/alerts runbook](operations/admin-identity-and-alerts.md) describes
-independent monitoring and its limits.
+Production: Compose under `/opt/openg7-funding-platform`; Traefik terminates
+TLS and exposes Web/API; PostgreSQL stays private on `data`, without a public port.
+Keep secrets and backups outside Git. Health, correlated logs, webhooks, recovery
+and audit are required. Monitoring and limits:
+[identity/alerts runbook](operations/admin-identity-and-alerts.md).
 
 Back up before destructive operations; restore DB and media consistently.
 Verify health, transparency, connectivity and reconciliation after recovery.

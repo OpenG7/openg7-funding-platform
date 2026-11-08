@@ -1,7 +1,8 @@
 {
   "serviceDemo": {
-    "title": "Prestations de services",
-    "subtitle": "Retrouvez chaque dossier et sa prochaine intervention.",
+    "title": "Démonstration des prestations",
+    "subtitle": "Explorez le suivi d’un dossier fictif et préparez un brouillon local.",
+    "exampleSummary": "{{count}} dossiers d’exemple · Site web et Facebook",
     "workspace": "Espace de préparation",
     "skip": "Aller au contenu",
     "demoTag": "Démo interactive",
@@ -19,7 +20,6 @@
     "comment": "Ajouter un commentaire interne",
     "back": "Retour",
     "backList": "Retour aux prestations",
-    "fixtureLabel": "3 dossiers de démonstration",
     "draftChanged": "Brouillon modifié · en mémoire",
     "draftSaved": "Brouillon conservé pour cette visite",
     "localOnly": "Exploration locale uniquement",
@@ -34,14 +34,6 @@
         "title": "Publication",
         "hint": "Destination et horaire"
       }
-    },
-    "metrics": {
-      "total": "Dossiers à suivre",
-      "dossiers": "dossiers",
-      "services": "Prestations prévues",
-      "promised": "prestations",
-      "next": "Prochaines interventions",
-      "interventions": "à explorer"
     },
     "search": "Rechercher un dossier…",
     "resultCount": "{{count}} résultat(s)",

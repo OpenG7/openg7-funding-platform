@@ -110,16 +110,14 @@ export function registerSponsorWorkspaceTests({
       await media.press('Enter');
       await expect(page).toHaveURL(/tab=media.*#dossier-media$/);
       await expect(page.locator('#dossier-media')).toBeFocused();
-      await expect(recommendation).toHaveCount(1);
+      await expect(recommendation).toHaveCount(0);
+      await expect(frame.locator('[data-og7="dossier-main"]')).toBeVisible();
+      await expect(frame.locator('[data-og7="dossier-worklist"]')).toHaveCount(
+        0
+      );
       await expect(
-        recommendation.locator('[data-og7="dossier-next"]')
-      ).toHaveCount(1);
-      await expect(
-        recommendation.locator('[data-og7="publication-blockers"]')
-      ).toHaveCount(0);
-      await expect(
-        recommendation.locator('[data-og7="dossier-next-owner"]')
-      ).toHaveCount(0);
+        frame.locator('[data-og7="dossier-tabs"]').getByRole('button')
+      ).toHaveCount(6);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1

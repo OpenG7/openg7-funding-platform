@@ -1,4 +1,4 @@
-# Optional Funding overlay. Configure the private .env, apply 064, then opt in explicitly.
+# Optional Funding overlay. Configure the private .env, apply 068, then opt in explicitly.
 # No ports, Stripe keys, email credentials or migration-owner credentials reach this relay.
 services:
   api:

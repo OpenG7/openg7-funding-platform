@@ -1,6 +1,8 @@
 # Ma semaine — préparation éditoriale supervisée
 
-Depuis `/admin/fundraiser/pilotage`, ouvrir **Ma semaine**. Les six parcours
+Depuis **Publications**, ouvrir **Ma semaine** à
+`/admin/fundraiser/publications/programme`. Le raccourci du poste de pilotage
+rejoint ce même espace, sans seconde interface de préparation. Les six parcours
 partagent une projection des publications, leurs faits actuels et les reçus du
 pilotage. Il n'existe pas de deuxième file d'envoi.
 
@@ -8,9 +10,12 @@ pilotage. Il n'existe pas de deuxième file d'envoi.
 
 - **Mon briefing** : brouillons à examiner, autorisations, incidents et dernière
   publication approuvée. Cette dernière date ne garantit pas une couverture sans
-  trou. Les priorités reprennent la file courante et ses filtres. La session de
+  trou. Les priorités reprennent les premières décisions disponibles. La session de
   cinq minutes conserve son début et son compteur dans la session du navigateur,
   liés au compte, sans interrompre la revue à l'expiration des cinq minutes.
+  Le bouton ouvre le poste de pilotage; une priorité y ouvre la décision exacte
+  après relecture serveur. Les reçus et leur réconciliation sont communs aux
+  deux espaces; une réponse perdue n'entraîne aucun rejeu.
 - **Composer la semaine** : cadence de 1 à 7 publications, réparties dans les sept
   prochains jours au fuseau du feed. Les autorisations existantes restent fixes
   par défaut. Leur inclusion est explicite. Alternance des commanditaires quand

@@ -1039,6 +1039,228 @@ async function emailDetailFixtures(page: Page) {
   return { ...f, decision };
 }
 
+test('a queue decision link selects its exact current version beyond the first page without a command', async ({
+  page
+}) => {
+  const f = await fixtures(page, 65);
+  const target = { ...f.state.decisions[64]!, version: '7' };
+  f.state.decisions[64] = target;
+  const reads: URLSearchParams[] = [];
+  await page.addInitScript((id) => {
+    sessionStorage.setItem(
+      'og7-pilot-context',
+      JSON.stringify({ id, domain: 'email', page: 1 })
+    );
+  }, f.state.decisions[0]!.id);
+  await page.route('**/api/admin/pilotage?*', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    reads.push(params);
+    const focused = params.has('id');
+    const requestedPage = Number(params.get('page') || 1);
+    await route.fulfill({
+      json: {
+        ...f.state,
+        total: focused ? 1 : f.state.total,
+        page: focused ? 1 : requestedPage,
+        ...(focused ? { focusPage: 3 } : {}),
+        decisions: focused
+          ? params.get('id') === target.id
+            ? [target]
+            : []
+          : f.state.decisions.slice(
+              (requestedPage - 1) * 30,
+              requestedPage * 30
+            )
+      }
+    });
+  });
+  const params = new URLSearchParams({
+    decisionId: target.id,
+    returnTo: '/admin/fundraiser/attention?priority=today&page=2',
+    dossier: target.detailsUrl
+  });
+  await page.goto('/admin/fundraiser/pilotage?' + params);
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    target.id
+  );
+  expect(reads[0]!.get('id')).toBe(target.id);
+  expect(
+    reads.some((query) => query.get('page') === '3' && !query.has('domain'))
+  ).toBe(true);
+  await expect(
+    page.locator('[data-og7="pilot-target-return"]')
+  ).toHaveAttribute(
+    'href',
+    '/admin/fundraiser/attention?priority=today&page=2'
+  );
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect(f.commands).toEqual([]);
+});
+
+test('a delayed targeted decision read keeps the previous dossier unselected', async ({
+  page
+}) => {
+  const f = await fixtures(page, 2);
+  const target = f.state.decisions[1]!;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/admin/pilotage?*', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (!params.has('id')) return route.fallback();
+    await gate;
+    return route.fulfill({
+      json: { ...f.state, total: 1, focusPage: 1, decisions: [target] }
+    });
+  });
+  const pending = page.waitForRequest((request) =>
+    request.url().includes('/api/admin/pilotage?id=')
+  );
+  await page.goto(
+    '/admin/fundraiser/pilotage?decisionId=' + encodeURIComponent(target.id)
+  );
+  await pending;
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="pilot-accept"]:enabled')).toHaveCount(
+    0
+  );
+  expect(f.commands).toEqual([]);
+  release();
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    target.id
+  );
+  expect(f.commands).toEqual([]);
+});
+
+test('removing a queued decision target during a command cancels its deferred navigation', async ({
+  page
+}) => {
+  const f = await fixtures(page, 2);
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-accept"]').click();
+  const release = f.hold();
+  const targetedReads: string[] = [];
+  try {
+    await page.locator('[data-og7="pilot-confirm"]').click();
+    await completeModeration(page);
+    await expect.poll(() => f.commands.length).toBe(1);
+    const programme = page.locator('[data-og7="open-programme"]');
+    await expect(programme).toHaveAttribute('aria-disabled', 'true');
+    await expect(programme).not.toHaveAttribute('href');
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/admin/pilotage' && url.searchParams.has('id'))
+        targetedReads.push(url.searchParams.get('id')!);
+    });
+    for (const url of [
+      '/admin/fundraiser/pilotage?decisionId=' +
+        encodeURIComponent(f.state.decisions[1]!.id),
+      '/admin/fundraiser/pilotage'
+    ]) {
+      await page.evaluate(async (destination) => {
+        history.pushState({}, '', destination);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        );
+      }, url);
+    }
+  } finally {
+    release();
+  }
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeHidden();
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('[data-og7="pilot-target-return"]')).toHaveCount(0);
+  expect(targetedReads).toEqual([]);
+  expect(f.commands).toHaveLength(1);
+});
+
+test('leaving a targeted decision closes its pending confirmation before restoring the queue', async ({
+  page
+}) => {
+  const f = await fixtures(page, 2);
+  await page.goto(
+    '/admin/fundraiser/pilotage?decisionId=' +
+      encodeURIComponent(f.state.decisions[1]!.id)
+  );
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await page.evaluate(() => {
+    history.pushState({}, '', '/admin/fundraiser/pilotage');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeHidden();
+  await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
+  await expect(page.locator('[data-og7="pilot-target-return"]')).toHaveCount(0);
+  expect(f.commands).toEqual([]);
+});
+
+test('an empty decision parameter restores the queue instead of leaving it loading', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage?decisionId=');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
+  expect(f.commands).toEqual([]);
+});
+
+for (const scenario of ['missing', 'forbidden', 'unavailable'] as const) {
+  test(`a ${scenario} queue decision never selects an unrelated card or executes a command`, async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    await page.route('**/api/admin/pilotage?*', async (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      if (!params.has('id')) return route.fallback();
+      return route.fulfill(
+        scenario === 'missing'
+          ? // Even an unrelated row in a targeted response must never be selected.
+            { json: f.state }
+          : { status: scenario === 'forbidden' ? 403 : 503, json: {} }
+      );
+    });
+    await page.goto(
+      '/admin/fundraiser/pilotage?' +
+        new URLSearchParams({
+          decisionId: 'email_delivery_failed:missing',
+          dossier: '/admin/fundraiser/email-queue?messageId=missing',
+          returnTo:
+            '/admin/fundraiser/attention?type=email_delivery_failed&page=2'
+        })
+    );
+    await expect(
+      page.locator('[data-og7="pilot-target-unavailable"]')
+    ).toBeVisible();
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
+    await expect(page.locator('[data-og7="pilot-accept"]:enabled')).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(
+      page.locator('[data-og7="pilot-target-return"]')
+    ).toHaveAttribute(
+      'href',
+      '/admin/fundraiser/attention?type=email_delivery_failed&page=2'
+    );
+    const dossier = new URL(
+      (await page
+        .locator('[data-og7="pilot-target-unavailable"] a')
+        .first()
+        .getAttribute('href'))!,
+      page.url()
+    );
+    expect(dossier.pathname).toBe('/admin/fundraiser/email-queue');
+    expect(dossier.searchParams.get('messageId')).toBe('missing');
+    expect(dossier.searchParams.get('returnTo')).toBe(
+      '/admin/fundraiser/attention?type=email_delivery_failed&page=2'
+    );
+    expect(f.commands).toEqual([]);
+  });
+}
+
 test('email details require an explicit reread of a changed version and retain the confirmation flow', async ({
   page
 }) => {
@@ -1342,19 +1564,17 @@ test('project details show the public description and expected outcome once', as
   expect(f.commands).toEqual([]);
 });
 
-test('overview counts confirmed decisions and opened details for this visit only', async ({
+test('overview counts confirmed decisions for this visit only', async ({
   page
 }) => {
   const { commands, hold } = await fixtures(page);
   await page.goto('/admin/fundraiser/pilotage');
   const pending = overviewCount(page, 'À examiner');
   const done = overviewCount(page, 'décisions traitées');
-  const details = overviewCount(page, 'dossiers ouverts');
   await expect(pending).toHaveText('4');
   await expect(done).toHaveText('0');
-  await expect(details).toHaveText('0');
   await page.locator('[data-og7="pilot-details"]').click();
-  await expect(details).toHaveText('1');
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.locator('[data-og7="pilot-accept"]').click();
   await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
@@ -1396,7 +1616,6 @@ test('overview counts confirmed decisions and opened details for this visit only
   await page.reload();
   await expect(pending).toHaveText('3');
   await expect(done).toHaveText('0');
-  await expect(details).toHaveText('0');
   expect(commands).toHaveLength(1);
 });
 
@@ -1437,12 +1656,10 @@ test('empty overview and unavailable actions remain clear in French and English'
   await page.goto('/admin/fundraiser/pilotage');
   await expect(overviewCount(page, 'À examiner')).toHaveText('0');
   await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
-  await expect(overviewCount(page, 'dossiers ouverts')).toHaveText('0');
   await page.evaluate(() => localStorage.setItem('openg7.language', 'en'));
   await page.reload();
   await expect(overviewCount(page, 'To review')).toHaveText('0');
   await expect(overviewCount(page, 'decisions processed')).toHaveText('0');
-  await expect(overviewCount(page, 'details opened')).toHaveText('0');
   await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
   await page.locator('[data-og7="pilot-focus"]').click();
   await expect(page.locator('[data-og7="pilot-show-queue"]')).toHaveCount(0);
@@ -2178,7 +2395,7 @@ test('guide owns controller shortcuts, requires release and traps keyboard focus
   expect(commands).toHaveLength(0);
 });
 
-test('weekly guide opens each workspace, preserves unfinished edits and resumes inside its drawer', async ({
+test('weekly guide opens each workspace, preserves unfinished edits and resumes in Publications', async ({
   page
 }) => {
   const f = await programmeFixtures(page);
@@ -2210,11 +2427,10 @@ test('weekly guide opens each workspace, preserves unfinished edits and resumes 
     await page.keyboard.down('Escape');
     await expect(tour).not.toBeVisible();
     await expect(guideLaunch(page, 'programme')).toBeFocused();
-    // The programme drawer is a sibling of the shared layout. A repeat from
-    // the same held Escape must not dismiss it after the guide returns focus.
+    // Escape closes the guide while keeping the Publications workspace open.
     await page.keyboard.down('Escape');
     await expect(
-      page.getByRole('dialog', { name: 'Ma semaine', exact: true })
+      page.locator('[data-og7="publications-programme"]')
     ).toBeVisible();
     await expect(
       programme.locator('[data-og7="programme-instruction"]')
@@ -2226,8 +2442,9 @@ test('weekly guide opens each workspace, preserves unfinished edits and resumes 
   }
   await page.keyboard.press('Escape');
   await expect(
-    page.getByRole('dialog', { name: 'Ma semaine', exact: true })
-  ).not.toBeVisible();
+    page.locator('[data-og7="publications-programme"]')
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/publications\/programme$/);
   await f.open();
   await expect(guideLaunch(page, 'programme')).toHaveText(/Reprendre le guide/);
   await guideLaunch(page, 'programme').click();
@@ -2968,10 +3185,10 @@ for (const width of [390, 1512]) {
     await expect(page).toHaveURL(/\/pilotage$/);
     await expect(page.getByRole('main')).toHaveCount(1);
     const spaces = page.getByRole('group', { name: 'Espaces de pilotage' });
-    const invoices = spaces.getByRole('button', { name: /^Factures/ });
-    await invoices.focus();
+    const sponsors = spaces.getByRole('button', { name: /^Commanditaires/ });
+    await sponsors.focus();
     await page.keyboard.press('Enter');
-    await expect(invoices).toHaveAttribute('aria-pressed', 'true');
+    await expect(sponsors).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
     await expect(page).toHaveURL(/\/pilotage$/);
     await spaces.getByRole('button', { name: /^Publications/ }).click();
@@ -3195,7 +3412,9 @@ async function programmeFixtures(page: Page) {
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   const open = async () => {
-    await page.locator('[data-og7="open-programme"]').click();
+    if (!page.url().includes('/publications/programme'))
+      await page.locator('[data-og7="open-programme"]').click();
+    await expect(page).toHaveURL(/\/publications\/programme$/);
     await expect(
       page.locator('[data-og7="editorial-programme"]')
     ).toBeVisible();
@@ -3213,6 +3432,26 @@ test('weekly briefing starts and resumes a five-minute session without mutating 
   ).toBeVisible();
   await page.getByRole('button', { name: 'J’ai cinq minutes' }).click();
   await expect(page.getByText(/Session de cinq minutes/)).toBeVisible();
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(sessionStorage).find((key) =>
+      key.startsWith('og7-pilot-session:')
+    )!;
+    const session = { start: Date.now() - 120000, decisions: 3 };
+    sessionStorage.setItem(key, JSON.stringify(session));
+    return { key, session };
+  });
+  await f.open();
+  await page.getByRole('button', { name: 'J’ai cinq minutes' }).click();
+  await expect(page.getByText(/Session de cinq minutes/)).toBeVisible();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(sessionStorage.getItem(key)!),
+      saved.key
+    )
+  ).toEqual(saved.session);
+  await expect(page.getByText(/Session de cinq minutes/)).toContainText(
+    '3 décisions terminées'
+  );
   await page.reload();
   await expect(page.getByText(/Session de cinq minutes/)).toBeVisible();
   expect(f.commands).toHaveLength(0);
@@ -3278,7 +3517,7 @@ test('a failed programme replacement clears the old plan and failed refresh clea
   expect(f.commands).toHaveLength(0);
 });
 
-test('weekly calendar and rehearsal show proposed changes before a controller confirmation', async ({
+test('weekly calendar and rehearsal show proposed changes before an explicit confirmation', async ({
   page
 }) => {
   await controllerClock(page);
@@ -3288,20 +3527,9 @@ test('weekly calendar and rehearsal show proposed changes before a controller co
     .getByRole('button', { name: 'Composer la semaine', exact: true })
     .click();
   await buttons(page);
-  await page.evaluate(() => {
-    document.querySelector('dialog[open]')!.scrollTop = 0;
-    (
-      window as unknown as { fixturePad: { axes: number[] } }
-    ).fixturePad.axes[3] = 0.9;
-  });
-  await expect
-    .poll(() => page.locator('dialog[open]').evaluate((d) => d.scrollTop))
-    .toBeGreaterThan(0);
-  await page.evaluate(() => {
-    (
-      window as unknown as { fixturePad: { axes: number[] } }
-    ).fixturePad.axes[3] = 0;
-  });
+  await expect(
+    page.locator('[data-og7="publications-programme"]')
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Proposer une répartition' }).click();
   await expect(page.locator('[data-og7="programme-moves"] li')).toHaveCount(2);
   await page.getByRole('button', { name: 'Voir le déroulement' }).click();
@@ -3319,9 +3547,12 @@ test('weekly calendar and rehearsal show proposed changes before a controller co
   await expect(
     page.locator('[data-og7="programme-confirmation"]')
   ).toContainText('nouvelle approbation');
-  await page
-    .getByRole('button', { name: 'Confirmer l’enregistrement' })
-    .focus();
+  const confirmation = page.getByRole('button', {
+    name: 'Confirmer l’enregistrement'
+  });
+  await confirmation.scrollIntoViewIfNeeded();
+  await confirmation.focus();
+  await expectControllerControlUncovered(confirmation);
   await buttons(page);
   await buttons(page, [0]);
   await page.clock.runFor(500);
@@ -3603,4 +3834,41 @@ test('weekly views expose errors, readonly coverage and accessible responsive ca
     page.getByRole('button', { name: 'Proposer une répartition' })
   ).toBeDisabled();
   expect(f.commands).toHaveLength(0);
+});
+
+test('weekly workspace supports direct entry and recovers a failed queue read without a command', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  let unavailable = true;
+  await page.route(/\/api\/admin\/pilotage(?:\?.*)?$/, (route) =>
+    unavailable
+      ? route.fulfill({ status: 503, json: { code: 'PILOTAGE_UNAVAILABLE' } })
+      : route.fallback()
+  );
+  const response = await page.goto('/admin/fundraiser/publications/programme');
+  expect(response?.status()).toBe(200);
+  const workspace = page.locator('[data-og7="publications-programme"]');
+  await expect(workspace.getByRole('heading', { level: 1 })).toHaveText(
+    'Ma semaine'
+  );
+  await expect(workspace.getByRole('alert')).toContainText('pilotage');
+  await workspace
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  const propose = workspace.getByRole('button', {
+    name: 'Proposer une répartition'
+  });
+  await expect(propose).toBeDisabled();
+  unavailable = false;
+  await workspace.locator('[data-og7="programme-retry-queue"]').click();
+  await expect(propose).toBeEnabled();
+  await expect(workspace.getByRole('alert')).toHaveCount(0);
+  await page.reload();
+  await expect(workspace.getByRole('heading', { level: 1 })).toHaveText(
+    'Ma semaine'
+  );
+  await page.locator('[data-og7="admin-shell-guide"]').click();
+  await expect(page.locator('[data-og7="admin-guidance"]')).toBeVisible();
+  expect(f.commands).toEqual([]);
 });

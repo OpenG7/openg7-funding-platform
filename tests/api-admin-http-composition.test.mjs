@@ -209,6 +209,65 @@ test('admin composition preserves authorization refusals before body or resource
   }
 });
 
+test('admin composition retains disabled Preflight connector and inbox reads with their own access boundaries', async (t) => {
+  const network = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('Disabled Preflight routes must not contact a service.');
+  });
+  const routes = [
+    [
+      `preflight/preparations?sponsorshipId=${id}`,
+      { enabled: false, connectionState: 'disabled', items: [] }
+    ],
+    ['preflight/status', { enabled: false, connectionState: 'disabled' }],
+    [
+      'preflight/inbox',
+      {
+        state: 'disabled',
+        consoleUrl: null,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        authority: 'source_application',
+        businessDecisionExecuted: false
+      }
+    ]
+  ];
+  for (const [options, anonymous, connectorStatus, inboxStatus] of [
+    [{}, false, 200, 200],
+    [{}, true, 401, 401],
+    [{ role: 'owner', permitted: false }, false, 403, 403],
+    [{ database: false }, false, 503, 200]
+  ]) {
+    for (const prefix of ['/api/admin/', '/admin/']) {
+      for (const [path, disabledPayload] of routes) {
+        const f = fixture(options);
+        const result = await f.request(
+          'handleAdminSponsorshipRecordsRequest',
+          prefix + path,
+          { method: 'GET', anonymous }
+        );
+        const status = path.endsWith('/inbox') ? inboxStatus : connectorStatus;
+        assert.equal(result.handled, true, prefix + path);
+        assert.equal(result.status, status, prefix + path);
+        assert.equal(
+          result.headers['Cache-Control'],
+          'private, no-store',
+          prefix + path
+        );
+        if (status === 200)
+          assert.deepEqual(result.payload, disabledPayload, prefix + path);
+        assert.deepEqual(
+          f.effects,
+          [],
+          `No private effect for ${prefix + path}`
+        );
+      }
+    }
+  }
+  assert.equal(network.mock.callCount(), 0);
+});
+
 test('admin composition keeps authenticated setup available without a database', async () => {
   const f = fixture({ database: false });
   const result = await f.request(

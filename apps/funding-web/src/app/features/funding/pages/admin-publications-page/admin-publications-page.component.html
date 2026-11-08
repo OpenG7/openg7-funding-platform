@@ -33,6 +33,14 @@
         </p>
       </div>
       <div class="header-actions" data-og7="publication-header-actions">
+        <a
+          [routerLink]="publicationPath + '/programme'"
+          class="admin-button"
+          data-og7="open-programme"
+        >
+          <openg7-admin-icon name="clock" />
+          {{ 'admin.pilotage.programme' | translate }}
+        </a>
         @if (activeView() === 'drafts') {
           <button
             type="button"

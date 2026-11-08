@@ -315,11 +315,9 @@ ne justifient aucun changement des couleurs sources ou des budgets Angular.
 
 Les quatre fondations `admin-theme.css`, `admin-appearance.css`,
 `admin-typography.css` et `styles/tailwind.css` gardent leurs responsabilités de
-tokens, thèmes et typographie. Deux sources restent volontairement sans
-utilitaires : `admin-icon.component.ts` conserve les six déclarations
-intrinsèques de son SVG; `admin-celebrations.component.css` conserve son rendu
-d'animation et son mélange de couleurs natif. Leur maintien est une décision de
-revue, distincte d'une surface encore à migrer.
+tokens, thèmes et typographie. `admin-icon.component.ts` reste volontairement
+sans utilitaires pour les six déclarations intrinsèques de son SVG. Ce maintien
+est une décision de revue, distincte d'une surface encore à migrer.
 
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,

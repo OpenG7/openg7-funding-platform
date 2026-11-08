@@ -12,11 +12,13 @@
     "/admin/fundraiser/expenses",
     "/admin/fundraiser/invoices",
     "/admin/fundraiser/pilotage",
+    "/admin/fundraiser/preflight",
     "/admin/fundraiser/publications",
     "/admin/fundraiser/publications/automation",
     "/admin/fundraiser/publications/batches",
     "/admin/fundraiser/publications/calendar",
     "/admin/fundraiser/publications/drafts",
+    "/admin/fundraiser/publications/programme",
     "/admin/fundraiser/setup",
     "/admin/fundraiser/sponsors",
     "/admin/fundraiser/sponsors/quality",
@@ -185,17 +187,27 @@
         "/admin/fundraiser/publications",
         "/admin/fundraiser/publications/drafts",
         "/admin/fundraiser/publications/batches",
-        "/admin/fundraiser/publications/calendar"
+        "/admin/fundraiser/publications/calendar",
+        "/admin/fundraiser/publications/programme"
       ],
-      "roles": ["owner"],
+      "roles": ["owner", "operator", "reader", "anonymous"],
       "states": [
         "shared slot",
         "Toronto DST overlap",
         "persisted replanning",
         "final publication authorization required",
-        "confirmed cancellation"
+        "confirmed cancellation",
+        "read-only editorial programme",
+        "stale weekly plan",
+        "lost command response reconciled without replay",
+        "renewed approval and expired programme session"
       ],
       "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/editorial-programme-journey.spec.ts",
+          "title": "weekly programme: preview, discard, stale plan, lost response, renewed approval and expired session"
+        },
         {
           "level": "e2e",
           "file": "tests/identity/manual-publication-calendar-journey.spec.ts",
@@ -390,11 +402,13 @@
         "/admin/fundraiser/expenses",
         "/admin/fundraiser/invoices",
         "/admin/fundraiser/pilotage",
+        "/admin/fundraiser/preflight",
         "/admin/fundraiser/publications",
         "/admin/fundraiser/publications/automation",
         "/admin/fundraiser/publications/batches",
         "/admin/fundraiser/publications/calendar",
         "/admin/fundraiser/publications/drafts",
+        "/admin/fundraiser/publications/programme",
         "/admin/fundraiser/setup",
         "/admin/fundraiser/sponsors",
         "/admin/fundraiser/sponsors/quality",

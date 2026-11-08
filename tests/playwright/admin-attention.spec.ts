@@ -232,7 +232,10 @@ for (const language of ['fr-CA', 'en'] as const)
       const type = panel.locator('[data-og7="attention-type"]');
       const priority = panel.locator('[data-og7="attention-priority"]');
       const summary = panel.locator('[data-og7="attention-summary"]');
-      await expect(summary.locator(':scope > div')).toHaveCount(4);
+      await expect(summary.locator(':scope > div')).toHaveCount(3);
+      await expect(
+        panel.locator('[data-og7="attention-information-count"]')
+      ).toContainText('0');
       await expect(summary.locator('[data-priority="urgent"] dd')).toHaveText(
         '25'
       );
@@ -471,17 +474,31 @@ test('queue pages past 100 results and keeps filters in the URL after reload', a
   await expect(page.locator('[data-og7-id="task-125"]')).toBeVisible();
 });
 
-test('an exact email opens beyond the old list cap and return reloads the preserved queue', async ({
+test('an exact email decision beyond the old list cap preserves its dossier and filtered return', async ({
   page
 }) => {
   await fixtures(page);
   await page.goto(
     '/admin/fundraiser/attention?type=email_delivery_failed&page=2'
   );
+  const link = page.locator('[data-og7-id="task-125"] a');
+  await expect(link).toHaveText('Examiner la décision');
+  const decision = new URL((await link.getAttribute('href'))!, page.url());
+  expect(decision.pathname).toBe('/admin/fundraiser/pilotage');
+  expect(decision.searchParams.get('decisionId')).toBe('task-125');
+  expect(decision.searchParams.get('returnTo')).toBe(
+    '/admin/fundraiser/attention?type=email_delivery_failed&page=2'
+  );
+  expect(decision.searchParams.get('dossier')).toBe(
+    `/admin/fundraiser/email-queue?messageId=${emailId}`
+  );
+  // The owning dossier remains available when a decision has already resolved.
+  const dossier = new URL(decision.searchParams.get('dossier')!, page.url());
+  dossier.searchParams.set('returnTo', decision.searchParams.get('returnTo')!);
   const request = page.waitForRequest((r) =>
     r.url().includes('/api/admin/email-queue?messageId=')
   );
-  await page.locator('[data-og7-id="task-125"] a').click();
+  await page.goto(dossier.pathname + dossier.search);
   expect(new URL((await request).url()).searchParams.get('messageId')).toBe(
     emailId
   );
@@ -502,6 +519,65 @@ test('an exact email opens beyond the old list cap and return reloads the preser
     '25 résultat(s) sur 125 intervention(s).'
   );
   await expect(page.locator('[data-og7-id="task-125"]')).toHaveCount(0);
+});
+
+test('only supported reviews link to an exact decision and global counts remain distinct from filtered results', async ({
+  page
+}) => {
+  await fixtures(page);
+  const writes: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/admin/') && request.method() !== 'GET')
+      writes.push(request.url());
+  });
+  await page.goto('/admin/fundraiser/attention');
+  await expect(
+    page.getByRole('heading', { name: 'À traiter', exact: true })
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Interventions actives' })
+  ).toBeVisible();
+  for (const index of [0, 4]) {
+    const link = page.locator(`[data-og7-id="task-${index}"] a`);
+    const target = new URL((await link.getAttribute('href'))!, page.url());
+    expect(target.pathname).toBe('/admin/fundraiser/pilotage');
+    expect(target.searchParams.get('decisionId')).toBe(`task-${index}`);
+    expect(target.searchParams.has('version')).toBe(false);
+    expect(target.searchParams.has('confirmation')).toBe(false);
+  }
+  for (const [index, pathname] of [
+    [1, '/admin/fundraiser/invoices'],
+    [2, '/admin/fundraiser/attention'],
+    [3, '/admin/fundraiser/publications']
+  ] as const) {
+    const target = new URL(
+      (await page
+        .locator(`[data-og7-id="task-${index}"] a`)
+        .getAttribute('href'))!,
+      page.url()
+    );
+    expect(target.pathname).toBe(pathname);
+    expect(target.searchParams.has('decisionId')).toBe(false);
+  }
+  await page
+    .locator('[data-og7="attention-type"]')
+    .selectOption('invoice_missing');
+  await expect(page.locator('[data-og7="attention-count"]')).toContainText(
+    '25 résultat(s) sur 126'
+  );
+  await expect(
+    page.locator('[data-og7="attention-global-counts-help"]')
+  ).toContainText('avant filtres');
+  await expect(
+    page.locator('[data-og7="attention-summary"] [data-priority="today"] dd')
+  ).toHaveText('101');
+  await expect(
+    page.locator('[data-og7="attention-summary"] > div')
+  ).toHaveCount(3);
+  await expect(
+    page.locator('[data-og7="attention-information-count"]')
+  ).toContainText('Information : 0');
+  expect(writes).toEqual([]);
 });
 
 test('invoice action is scoped and requires confirmation, opening is read-only', async ({

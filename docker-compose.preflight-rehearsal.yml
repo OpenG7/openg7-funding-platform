@@ -1,0 +1,14 @@
+# Optional local synthetic Funding -> Preflight -> Funding rehearsal dashboard.
+# Layer after docker-compose.preflight-inbox.yml and the existing identity stack.
+# The backend also rejects activation outside development/test HTTPS localhost.
+services:
+  api:
+    environment:
+      PREFLIGHT_REHEARSAL_ENABLED: ${PREFLIGHT_REHEARSAL_ENABLED:-false}
+      PREFLIGHT_REHEARSAL_STORAGE_DIR: /app/var/preflight-rehearsals
+    volumes:
+      - preflight-rehearsals:/app/var/preflight-rehearsals
+
+volumes:
+  # Retained across API recreations; no source-application database is mounted.
+  preflight-rehearsals:

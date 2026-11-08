@@ -81,6 +81,6 @@ export class AdminPreflightPreparationsComponent {
     return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'token'}`;
   }
   t(key: string): string {
-    return this.i18n.t('admin.preflight.' + key);
+    return this.i18n.t('admin.preflight.preparations.' + key);
   }
 }

@@ -1,9 +1,5 @@
 # Administration API
 
-Preflight preparations: GET /api/admin/preflight/preparations?sponsorshipId=UUID
-and GET /api/admin/preflight/status. Authenticated read-only routes, no-store,
-with no approval or publication. See [connector](preflight-connector.md).
-
 `GET /api/admin/contribution-activity` and per-actor
 `POST /api/admin/contribution-activity/present`:
 [activity contract](../operations/contribution-activity.md).
@@ -188,6 +184,12 @@ The [document resend contract](document-resend-receipts.md) covers confirmed,
 idempotent POSTs and the actor-bound receipt GET, including delivery uncertainty
 and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
+### Preflight
+
+Private APIs: [connector](preflight-connector.md), [workspace](preflight-workspace.md),
+[review](preflight-examination.md), [sessions](preflight-work-sessions.md),
+[inbox](preflight-inbox.md), [rehearsal](preflight-rehearsals.md).
+
 ## Sponsorship review admin
 
 Review at `/admin/fundraiser/sponsors`. Private endpoints:
@@ -203,6 +205,8 @@ POST /api/admin/sponsorships/review
 POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
+
+See [documented consent](sponsorship-public-consent.md).
 
 Local/test `token`: `Authorization: Bearer <sessionToken>` after login.
 Anonymous/root-secret requests are refused. OIDC requires cookies,

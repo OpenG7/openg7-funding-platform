@@ -10,7 +10,8 @@ import {
   inject,
   input,
   output,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -21,6 +22,7 @@ import {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import {
   FundingModerationService,
   type ModerationRequest
@@ -47,8 +49,11 @@ export class FundingModerationActionsComponent {
   readonly subject = input.required<ModerationSubject>();
   readonly automaticFor = input<string | null>(null);
   readonly headingLevel = input<2 | 3>(3);
+  readonly initialLevel = input<ModerationLevel>('N1');
   readonly disabled = input(false);
   readonly changed = output<void>();
+  readonly busyChanged = output<boolean>();
+  readonly accessLost = output<401 | 403>();
   private readonly admin = inject(FundingAdminService);
   private readonly moderation = inject(FundingModerationService);
   private readonly confirmation = inject(AdminConfirmationService);
@@ -97,24 +102,18 @@ export class FundingModerationActionsComponent {
       this.contextKey();
       this.canReview();
       this.canAssign();
+      const initialLevel = this.initialLevel();
       onCleanup(() => {
         const request = this.pendingReview;
         this.pendingReview = null;
         if (request && this.moderation.pending() === request)
           this.moderation.answer(null);
       });
-      this.generation++;
-      this.busy.set(false);
-      this.decisions.set([]);
-      this.reconsiderations.set([]);
-      this.members.set([]);
-      this.assignedTo.set(null);
-      this.assignmentDraft.set('');
-      this.assignmentState.set('idle');
-      this.caseState.set('');
-      this.currentDecisionId.set(null);
-      this.notice.set('');
-      this.level.set('N1');
+      this.clearPrivateState();
+      const supportedLevels = untracked(this.levels);
+      this.level.set(
+        supportedLevels.includes(initialLevel) ? initialLevel : 'N1'
+      );
       this.independentAttempt = null;
     });
     inject(DestroyRef).onDestroy(() => this.generation++);
@@ -163,13 +162,15 @@ export class FundingModerationActionsComponent {
             )
           );
           this.assignmentState.set('ready');
-        } catch {
+        } catch (error) {
           if (generation === this.contextVersion())
-            this.assignmentState.set('error');
+            if (!this.handleAccessLoss(error))
+              this.assignmentState.set('error');
         }
       }
-    } catch {
+    } catch (error) {
       if (generation === this.contextVersion()) {
+        if (this.handleAccessLoss(error)) return;
         this.decisions.set([]);
         this.reconsiderations.set([]);
         this.notice.set('admin.moderation.failed');
@@ -181,7 +182,7 @@ export class FundingModerationActionsComponent {
     const subject = this.subject();
     const generation = this.contextVersion();
     const restoreCancelledFocus = this.captureDecisionFocus();
-    this.busy.set(true);
+    this.setBusy(true);
     try {
       const decision = await this.requestDecision(subject, this.level());
       if (!decision && generation === this.contextVersion())
@@ -203,10 +204,10 @@ export class FundingModerationActionsComponent {
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.contextVersion())
+      if (generation === this.contextVersion() && !this.handleAccessLoss(error))
         this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.contextVersion()) this.busy.set(false);
+      if (generation === this.contextVersion()) this.setBusy(false);
     }
   }
   async independent(id: string): Promise<void> {
@@ -223,7 +224,7 @@ export class FundingModerationActionsComponent {
       generation !== this.contextVersion()
     )
       return;
-    this.busy.set(true);
+    this.setBusy(true);
     if (this.independentAttempt?.id !== id)
       this.independentAttempt = {
         id,
@@ -239,10 +240,10 @@ export class FundingModerationActionsComponent {
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.contextVersion())
+      if (generation === this.contextVersion() && !this.handleAccessLoss(error))
         this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.contextVersion()) this.busy.set(false);
+      if (generation === this.contextVersion()) this.setBusy(false);
     }
   }
 
@@ -259,7 +260,7 @@ export class FundingModerationActionsComponent {
     const subject = this.subject();
     const generation = this.contextVersion();
     const restoreCancelledFocus = this.captureDecisionFocus();
-    this.busy.set(true);
+    this.setBusy(true);
     try {
       const decision = await this.requestDecision(subject, this.level(), {
         requireExplanation: true
@@ -287,15 +288,48 @@ export class FundingModerationActionsComponent {
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.contextVersion())
+      if (generation === this.contextVersion() && !this.handleAccessLoss(error))
         this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.contextVersion()) this.busy.set(false);
+      if (generation === this.contextVersion()) this.setBusy(false);
     }
   }
   private contextVersion(): string {
     // Identity changes invalidate async work before the reset effect runs.
     return `${this.generation}:${this.contextKey()}`;
+  }
+  private setBusy(value: boolean): void {
+    this.busy.set(value);
+    this.busyChanged.emit(value);
+  }
+  private clearPrivateState(): void {
+    this.generation++;
+    this.setBusy(false);
+    this.decisions.set([]);
+    this.reconsiderations.set([]);
+    this.members.set([]);
+    this.assignedTo.set(null);
+    this.assignmentDraft.set('');
+    this.assignmentState.set('idle');
+    this.caseState.set('');
+    this.currentDecisionId.set(null);
+    this.notice.set('');
+    this.independentAttempt = null;
+  }
+  private handleAccessLoss(error: unknown): boolean {
+    if (
+      !(error instanceof AdminDashboardRequestError) ||
+      (error.status !== 401 && error.status !== 403)
+    )
+      return false;
+    const request = this.pendingReview;
+    this.pendingReview = null;
+    if (request && this.moderation.pending() === request)
+      this.moderation.answer(null);
+    this.clearPrivateState();
+    this.level.set('N1');
+    this.accessLost.emit(error.status);
+    return true;
   }
   private async requestDecision(
     subject: ModerationSubject,
@@ -386,7 +420,7 @@ export class FundingModerationActionsComponent {
       this.disabled()
     )
       return;
-    this.busy.set(true);
+    this.setBusy(true);
     try {
       await this.admin.assignModeration(
         subject,
@@ -396,11 +430,11 @@ export class FundingModerationActionsComponent {
       if (generation !== this.contextVersion()) return;
       this.notice.set('admin.moderation.assignmentSaved');
       await this.loadHistory();
-    } catch {
-      if (generation === this.contextVersion())
+    } catch (error) {
+      if (generation === this.contextVersion() && !this.handleAccessLoss(error))
         this.notice.set('admin.moderation.failed');
     } finally {
-      if (generation === this.contextVersion()) this.busy.set(false);
+      if (generation === this.contextVersion()) this.setBusy(false);
     }
   }
 }

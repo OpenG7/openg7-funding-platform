@@ -15,6 +15,17 @@ Observer**, **À traiter — Prioriser**, **Poste de pilotage — Décider** et
 l'Assistant conserve Préparer lorsqu'un dossier est sélectionné. Les liens
 rejoignent les écrans propriétaires existants, avec leurs droits et confirmations.
 
+L’entrée **Preflight**, accessible aussi en lecture seule, ouvre
+`/admin/fundraiser/preflight` : **Mon comptoir**, **Recette locale**,
+**Propositions (toutes)** et **Parcours et preuves**. L’onglet et les filtres du
+comptoir sont conservés dans l’URL. Le comptoir réutilise les prestations promises
+Funding et leurs preuves qualifiées; Examiner ouvre la fiche de préparation
+existante du dossier. L’état du rattachement Preflight reste explicite, sans
+approbation ni publication implicite. Voir le [workspace](../technical/preflight-workspace.md).
+La consultation reste ouverte aux lecteurs; la recette locale permet aux
+opérateurs et propriétaires de lancer un dossier synthétique et de suivre ses
+six étapes, jusqu’à une préparation à examiner par une personne autorisée.
+
 Un rappel de créneau, lot ou brouillon sans livraison renvoie à son dossier ;
 il ne propose pas une décision de modération pour `publication_delivery`.
 Une livraison réelle conserve son panneau lié à son identifiant exact.
@@ -26,16 +37,30 @@ Le propriétaire peut activer ou arrêter le moteur sur cette page avec le bouto
 On / Off; les réglages des destinations restent distincts. Voir le
 [runbook de publication](publication-automation.md) pour les conditions d'activation.
 
-La vue d’ensemble affiche les décisions à examiner dans l’espace sélectionné,
-les décisions traitées et les ouvertures de dossiers pendant la visite. Ces deux
-derniers compteurs sont locaux et repartent à zéro au rechargement; ils ne sont
-pas un historique d’activité. Les espaces disposent de repères colorés et nommés.
+La vue d’ensemble affiche les décisions à examiner dans l’espace sélectionné et
+les décisions traitées pendant la visite. Ce dernier compteur est local et repart
+à zéro au rechargement; il ne constitue pas un historique d’activité.
+Les ouvertures de dossiers restent consultables dans le menu secondaire.
+Les espaces disposent de repères colorés et nommés.
 Les transitions et animations respectent la préférence de mouvement réduit.
 
-**Ma semaine** ajoute briefing, session de cinq minutes, calendrier proposé,
+**Ma semaine**, dans **Publications** à `/admin/fundraiser/publications/programme`,
+regroupe briefing, session de cinq minutes, calendrier proposé,
 répétition générale, variantes de texte, préférences éditoriales et solutions
 aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
 le [runbook éditorial](editorial-programme.md).
+
+Le Cockpit conserve indicateurs, aperçu de quatre tâches du jour, activité récente
+et santé globale. Les diagnostics systèmes et Stripe se déplient à la demande;
+le dossier individuel et sa préparation restent dans leurs écrans propriétaires.
+**À traiter** conserve l'ensemble des interventions. Ses liens de revue de
+commandite et de reprise de courriel ouvrent la décision exacte dans le pilotage,
+avec retour à la file filtrée. Les autres liens rejoignent leur écran métier.
+Une décision résolue, inaccessible ou indisponible n'est jamais remplacée par la
+première carte : un état explicite propose le dossier et le retour à la file.
+La file centrale du pilotage conserve les décisions dotées d'actions, y compris
+leurs blocages. Les alertes d'investigation restent dans À traiter et les dossiers;
+une incertitude de livraison y conserve son lien exact, sans relance proposée.
 
 ## Apparence et concentration
 
@@ -152,15 +177,26 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 
 ### Guide administratif
 
-Le bouton **Guide administratif**, sous la barre commune, accompagne les 20 rubriques
-administratives authentifiées. Son menu présente **Découvrir**, puis **Prestations**,
+Le bouton **Guide**, dans la barre commune, ouvre toujours **Découvrir**, même
+depuis une autre rubrique du guide ou après sa réduction. Il ne lance aucune
+vérification de lot et n'affiche ni cloche ni compteur de dossiers. Le focus rejoint
+**Découvrir** après ouverture. Le bouton **Guide administratif**, sous la barre
+commune, est retiré de toutes les pages administratives. L'ouverture passe par
+**Guide** dans la barre commune ; réduire le panneau y rétablit le focus lorsque
+celui-ci était dans le guide, ou vers le contenu si la barre est masquée en
+concentration. Les commandes
+de réduction restent disponibles dans le panneau ouvert, qui accompagne les
+20 rubriques administratives authentifiées. Son menu présente **Découvrir**, puis **Prestations**,
 avec leurs libellés visibles. Les sélecteurs **Suivi d’un paiement**,
 **Préparation des dossiers** et **Explorer les parcours** sont retirés du rail.
 Leurs rendus contextuels et repères historiques restent compatibles :
-**Suivre ce paiement**, depuis Contributions, et **Vérifier un nouveau lot**, dans la barre
-commune, conservent leur accès métier. La rubrique courante reste affichée dans
+**Suivre ce paiement**, depuis Contributions, conserve son accès métier. La
+préparation par lot reste accessible depuis ses repères historiques et ses
+commandes explicites. La rubrique courante reste affichée dans
 ces rendus contextuels. Le rail devient une grille sur petit écran ; il défile avec le contenu
-lorsque la hauteur est limitée.
+lorsque la hauteur est limitée. Sur mobile, le panneau réserve l'espace de la
+barre commune pour laisser le bouton **Guide** accessible ; sa hauteur respecte
+aussi l'espace réservé au controller ou au simulateur.
 
 **Découvrir** charge à la demande le module d’actualités et d’inspirations dans
 la zone à droite du menu. Il présente le journal synthétique, les repères, les
@@ -323,8 +359,9 @@ publication ou paiement de production.
 
 ### Préparation des dossiers par lot
 
-La commande **Vérifier un nouveau lot**, dans la barre commune, ouvre la préparation
-contextuelle et lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
+La commande **Vérifier un nouveau lot**, dans **Suivi du lot** de la préparation
+contextuelle, lance une vérification du lot de paiements confirmés. Le bouton
+**Guide** de la barre commune ouvre uniquement **Découvrir**. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les publications promises doivent toutes être présentes. Les devises
@@ -637,14 +674,16 @@ accessibilité et redimensionnement. La qualification physique reste distincte.
 
 ## Parcours disponibles
 
-| Espace                    | Dans le pilotage                                                                                                                        | Dossier complet                                                                             |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Publications              | Aperçu privé, texte exact, destination, date, acceptation groupée des commanditaires, refus, édition du texte et de la date, calendrier | Composition avancée, remplacement de média, réconciliation d’un envoi incertain, historique |
-| Commanditaires            | Photo, revue privée, acceptation ou refus motivé                                                                                        | Correction de fiche et revue détaillée des médias                                           |
-| Courriels                 | Aperçu du destinataire et du texte au moment de la décision, nouvelle tentative ciblée                                                  | Correction d’adresse et investigation de livraison                                          |
-| Factures et contributions | Anomalies, inspection protégée des factures disponibles et événements Stripe                                                            | Émission manquante, remboursement, backfill et corrections financières                      |
-| Projets                   | Contenu public d’une réalisation en brouillon, publication par le propriétaire                                                          | Modification du budget, des preuves et du contenu détaillé                                  |
-| Opérations                | État des destinations, pause/reprise explicite d’un feed                                                                                | Configuration et diagnostics avancés                                                        |
+| Espace         | Dans le pilotage                                                                                                                        | Dossier complet                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Publications   | Aperçu privé, texte exact, destination, date, acceptation groupée des commanditaires, refus, édition du texte et de la date, calendrier | Composition avancée, remplacement de média, réconciliation d’un envoi incertain, historique |
+| Commanditaires | Photo, revue privée, acceptation ou refus motivé                                                                                        | Correction de fiche et revue détaillée des médias                                           |
+| Courriels      | Aperçu du destinataire et du texte au moment de la décision, nouvelle tentative ciblée                                                  | Correction d’adresse et investigation de livraison                                          |
+| Projets        | Contenu public d’une réalisation en brouillon, publication par le propriétaire                                                          | Modification du budget, des preuves et du contenu détaillé                                  |
+| Opérations     | État des destinations, pause/reprise explicite d’un feed                                                                                | Configuration et diagnostics avancés                                                        |
+
+Les anomalies financières, factures et événements Stripe restent dans **À traiter**
+et leurs écrans propriétaires, avec les inspections et confirmations adaptées.
 
 Le compteur porte sur les décisions de la projection, pas sur l’ensemble des
 objets du portail. La lecture se fait par pages de 30 décisions. Les publications

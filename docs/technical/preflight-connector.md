@@ -29,7 +29,7 @@ Aucun backfill historique automatique n’est effectué.
 
 ## Préconditions et configuration
 
-Appliquer la migration additive [064](../../apps/funding-api/migrations/064_create_preflight_connector.sql)
+Appliquer la migration additive [068](../../apps/funding-api/migrations/068_create_preflight_connector.sql)
 avec le runner habituel et rafraîchir les grants du rôle applicatif; lire la
 [procédure](../operations/database-migrations.md) avant toute exécution. La garde
 de démarrage refuse un connecteur activé sans base ou schéma/grants attendus.
@@ -91,7 +91,7 @@ qualifie ni l’identité distante, ni la facturation IA, ni une décision méti
 
 Le client expose aussi annulation versionnée et notification de décision source;
 leur branchement aux actions métier et aux lots approuvés reste à définir.
-La migration064 empêche de réécrire les payloads d’envoi et de préparation.
+La migration 068 empêche de réécrire les payloads d’envoi et de préparation.
 Les imports obsolètes restent inspectables et ne sont jamais approuvés automatiquement.
 
 Les tests spécifiques sont tests/preflight-consumer.test.mjs,

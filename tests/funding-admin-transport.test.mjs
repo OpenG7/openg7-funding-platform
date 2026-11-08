@@ -1,11 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
+import { registerHooks } from 'node:module';
 
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin.service.js';
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { AdminDashboardRequestError, FundingAdminService } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/funding-admin.service.js');
+workspaceHook.deregister();
 
 const sessionKey = 'openg7-admin-session-token';
 const expiryKey = 'openg7-admin-session-expires-at';

@@ -43,7 +43,7 @@ après commit. L’outbox ajoute du stockage opérationnel et une supervision, a
 des messages conservés et des échecs en quarantaine plutôt qu’un exactly-once
 externe supposé.
 
-La migration064 est additive et n’active aucun traitement ni backfill historique.
+La migration 068 est additive et n’active aucun traitement ni backfill historique.
 Le relais est désactivé par défaut. Son activation réelle, les identités,
 certificats, secrets et contrôles côté VPS restent séparément qualifiés.
 Le retour vers les décisions métier et les lots approuvés reste à raccorder

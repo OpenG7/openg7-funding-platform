@@ -14,6 +14,7 @@ export async function assertSponsorMediaReadiness(
         ('sponsor_media_workspace_commands',false),
         ('sponsor_media_batch_plans',false),
         ('sponsor_media_cleanup_jobs',true)
+        ,('sponsor_media_preparation_assignments',true)
       )
       SELECT bool_and(COALESCE(c.oid IS NOT NULL
         AND has_schema_privilege(current_user,n.oid,'USAGE')

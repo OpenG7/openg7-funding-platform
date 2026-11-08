@@ -581,6 +581,96 @@ for (const language of ['fr-CA', 'en']) {
   });
 }
 
+for (const language of ['fr-CA', 'en']) {
+  test(`Preflight dossier and inbox keep distinct translated states in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    f.role = 'reader';
+    await page.setViewportSize({ width: 1536, height: 1000 });
+    let enabled = false;
+    await page.route('**/api/admin/preflight/preparations?**', (route) => {
+      expect(route.request().method()).toBe('GET');
+      return route.fulfill({
+        json: {
+          enabled,
+          connectionState: enabled ? 'not_verified' : 'disabled',
+          items: []
+        }
+      });
+    });
+    await page.route('**/api/admin/preflight/inbox?**', (route) => {
+      expect(route.request().method()).toBe('GET');
+      return route.fulfill({
+        json: {
+          state: 'disabled',
+          consoleUrl: null,
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 20,
+          authority: 'source_application',
+          businessDecisionExecuted: false
+        }
+      });
+    });
+
+    await page.goto(path());
+    const preparations = page.locator('[data-og7="preflight-preparations"]');
+    await expect(preparations.getByRole('heading', { level: 3 })).toHaveText(
+      language === 'en'
+        ? 'OpenG7 Preflight preparations'
+        : 'Préparations OpenG7 Preflight'
+    );
+    await expect(
+      preparations.locator('[data-og7="preflight-disabled"]')
+    ).toHaveText(
+      language === 'en'
+        ? 'The Preflight connector is disabled. This Funding instance does not send work to Preflight.'
+        : 'Le connecteur Preflight est désactivé. Aucun travail n’est transmis depuis cette instance Funding.'
+    );
+    enabled = true;
+    await preparations
+      .getByRole('button', {
+        name:
+          language === 'en'
+            ? 'Refresh preparations'
+            : 'Actualiser les préparations',
+        exact: true
+      })
+      .click();
+    await expect(
+      preparations.locator('[data-og7="preflight-empty"]')
+    ).toHaveText(
+      language === 'en'
+        ? 'No Preflight preparation is stored for this dossier. Results will appear after worker processing.'
+        : 'Aucune préparation Preflight conservée pour ce dossier. Les résultats apparaîtront après traitement par le worker.'
+    );
+
+    const preflightLink = page
+      .locator('openg7-admin-nav')
+      .getByRole('link', { name: 'Preflight', exact: true });
+    await preflightLink.focus();
+    await page.keyboard.press('Enter');
+    await page
+      .locator('[data-og7="preflight-workspace-tab"][data-og7-id="proposals"]')
+      .click();
+    await expect(
+      page
+        .locator('[data-og7="admin-preflight"]')
+        .getByRole('heading', { level: 1 })
+    ).toHaveText('Preflight');
+    const inbox = page.locator('[data-og7="preflight-inbox"]');
+    await expect(inbox).toHaveAttribute('data-state', 'disabled');
+    await expect(inbox).toContainText(
+      language === 'en'
+        ? 'Preflight reception is not configured for this environment yet.'
+        : 'La réception Preflight n’est pas encore configurée pour cet environnement.'
+    );
+    expect(f.writes).toEqual([]);
+  });
+}
+
 test('the current sponsorship preparation stays in Publication with its offer and private content while agreement traceability belongs to Campaigns', async ({
   page
 }) => {

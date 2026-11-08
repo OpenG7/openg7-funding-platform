@@ -81,6 +81,28 @@ export interface RemoteProposalPage {
   page: number;
   pageSize: number;
 }
+/** Inbox inspection accepts public Preflight source references without assuming a Funding dossier. */
+export interface RemoteInboxProposal extends Record<string, unknown> {
+  id: string;
+  missionId: string;
+  tenantId: string;
+  source: {
+    application: 'funding-platform';
+    subjectType: string;
+    subjectId: string;
+    version: number;
+  };
+  status: 'prepared';
+  version: number;
+  type: string;
+  risk: string;
+}
+export interface RemoteInboxProposalPage {
+  items: RemoteInboxProposal[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 export class PreflightContractError extends Error {
   constructor(readonly code = 'preflight_response_invalid') {
     super(code);
@@ -168,6 +190,34 @@ export function parseRemoteProposal(
     tenantId,
     source: parseSource(value.source),
     status: value.status as 'prepared' | 'obsolete',
+    version: integer(value.version),
+    type: text(value.type),
+    risk: text(value.risk)
+  };
+}
+export function parseRemoteInboxProposal(
+  raw: unknown,
+  tenantId: string
+): RemoteInboxProposal {
+  const value = record(raw);
+  const source = record(value.source);
+  if (value.tenantId !== tenantId)
+    throw new PreflightContractError('preflight_tenant_mismatch');
+  if (source.application !== 'funding-platform')
+    throw new PreflightContractError('preflight_source_mismatch');
+  if (value.status !== 'prepared') throw new PreflightContractError();
+  return {
+    ...value,
+    id: uuid(value.id),
+    missionId: uuid(value.missionId),
+    tenantId,
+    source: {
+      application: 'funding-platform',
+      subjectType: text(source.subjectType),
+      subjectId: text(source.subjectId),
+      version: integer(source.version)
+    },
+    status: 'prepared',
     version: integer(value.version),
     type: text(value.type),
     risk: text(value.risk)

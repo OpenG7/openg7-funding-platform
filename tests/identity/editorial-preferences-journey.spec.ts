@@ -784,7 +784,7 @@ test('editorial variants: exact review, distinct observations and explicit prefe
       ).toEqual([]);
       expect(
         await owner
-          .locator('dialog[open]')
+          .locator('[data-og7="publications-programme"]')
           .evaluate((element) => element.scrollWidth <= element.clientWidth)
       ).toBe(true);
       await info.attach('editorial-preferences-mobile', {

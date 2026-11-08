@@ -17,12 +17,7 @@ const adminPages: {
 }[] = [
   {
     path: '/admin/fundraiser',
-    title: { 'fr-CA': 'Cockpit', en: 'Cockpit' },
-    compactSectionHeadings: {
-      selector:
-        '[data-og7="dashboard-workflow"] [data-og7="sponsorship-progress"] > header > h2',
-      count: 1
-    }
+    title: { 'fr-CA': 'Cockpit', en: 'Cockpit' }
   },
   {
     path: '/admin/fundraiser/attention',
@@ -31,6 +26,10 @@ const adminPages: {
   {
     path: '/admin/fundraiser/assistant',
     title: { 'fr-CA': 'Assistant', en: 'Assistant' }
+  },
+  {
+    path: '/admin/fundraiser/preflight',
+    title: { 'fr-CA': 'Preflight', en: 'Preflight' }
   },
   {
     path: '/admin/fundraiser/contributions',

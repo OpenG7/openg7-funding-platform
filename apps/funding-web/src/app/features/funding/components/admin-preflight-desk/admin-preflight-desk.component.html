@@ -1,0 +1,519 @@
+<section
+  data-og7="preflight-desk"
+  [attr.data-state]="state()"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <header class="desk-tools">
+    <div>
+      <h2 #summaryTitle tabindex="-1">
+        {{ 'admin.preflightDesk.title' | translate }}
+      </h2>
+      <p class="muted">{{ 'admin.preflightDesk.intro' | translate }}</p>
+    </div>
+    <button
+      class="admin-button"
+      type="button"
+      data-og7="preflight-desk-refresh"
+      [disabled]="state() === 'loading' || state() === 'forbidden'"
+      (click)="load()"
+    >
+      <openg7-admin-icon name="refresh" />{{
+        'admin.preflightDesk.refresh' | translate
+      }}
+    </button>
+  </header>
+
+  <form class="desk-search" role="search" (submit)="submitSearch($event)">
+    <label
+      ><span class="sr-only">{{
+        'admin.preflightDesk.search' | translate
+      }}</span
+      ><openg7-admin-icon name="search" /><input
+        type="search"
+        maxlength="120"
+        [placeholder]="'admin.preflightDesk.search' | translate"
+        [value]="search()"
+        (input)="setSearch($event)"
+    /></label>
+    <button
+      class="admin-button"
+      type="submit"
+      [disabled]="state() === 'loading'"
+    >
+      {{ 'admin.preflightDesk.searchAction' | translate }}
+    </button>
+    <button
+      class="admin-button all-filter"
+      type="button"
+      [attr.aria-pressed]="query().stage === 'all'"
+      (click)="chooseStage('all')"
+    >
+      {{ 'admin.preflightDesk.all' | translate }}
+    </button>
+  </form>
+
+  @if (state() === 'loading') {
+    <p class="status-message" role="status">
+      {{ 'admin.preflightDesk.loading' | translate }}
+    </p>
+  }
+  @if (state() === 'unavailable' || state() === 'forbidden') {
+    <div class="status-message error" role="alert">
+      <p>
+        {{
+          (state() === 'forbidden'
+            ? 'admin.preflightDesk.forbidden'
+            : 'admin.preflightDesk.unavailable'
+          ) | translate
+        }}
+      </p>
+      @if (stale()) {
+        <p>{{ 'admin.preflightDesk.stale' | translate }}</p>
+      }
+    </div>
+  }
+
+  @if (response(); as data) {
+    <div class="desk-grid">
+      <div class="desk-main">
+        <div class="metrics" data-og7="preflight-desk-summary">
+          @for (stage of stages; track stage) {
+            <button
+              class="metric"
+              type="button"
+              data-og7="preflight-desk-filter"
+              [attr.data-og7-id]="stage"
+              [attr.data-stage]="stage"
+              [attr.aria-pressed]="query().stage === stage"
+              (click)="chooseStage(stage)"
+            >
+              <span class="metric-icon"
+                ><openg7-admin-icon [name]="icon(stage)"
+              /></span>
+              <span class="metric-label">{{
+                'admin.preflightDesk.stages.' + stage | translate
+              }}</span>
+              <strong class="metric-count">{{ count(stage) }}</strong
+              ><openg7-admin-icon class="metric-arrow" name="arrow" />
+              <span class="metric-help">{{
+                'admin.preflightDesk.stageHelp.' + stage | translate
+              }}</span>
+            </button>
+          }
+        </div>
+
+        @if (!data.orders.length && state() !== 'loading') {
+          <div class="empty-state">
+            <openg7-admin-icon name="publications" />
+            <h3>{{ 'admin.preflightDesk.empty' | translate }}</h3>
+            <p>{{ 'admin.preflightDesk.emptyHelp' | translate }}</p>
+          </div>
+        }
+        @if (query().stage !== 'all' && data.orders.length) {
+          <p class="scope-note">
+            {{ 'admin.preflightDesk.groupScope' | translate }}
+          </p>
+        }
+        <div class="orders">
+          @for (order of data.orders; track order.contributionId) {
+            <article
+              class="order-card"
+              data-og7="preflight-desk-order"
+              [attr.data-og7-id]="order.contributionId"
+            >
+              <header class="order-header">
+                <div class="order-heading">
+                  <h3>
+                    <button
+                      class="order-toggle"
+                      type="button"
+                      [attr.aria-expanded]="
+                        expanded().has(order.contributionId)
+                      "
+                      [attr.aria-controls]="
+                        'preflight-desk-services-' + order.contributionId
+                      "
+                      (click)="toggleOrder(order.contributionId)"
+                    >
+                      <span class="chevron" aria-hidden="true">⌄</span
+                      ><openg7-admin-icon name="sponsors" />{{
+                        order.companyName || order.reference
+                      }}
+                    </button>
+                  </h3>
+                  @if (
+                    order.companyName && order.companyName !== order.reference
+                  ) {
+                    <p>{{ order.reference }}</p>
+                  }
+                </div>
+                <div class="order-meta">
+                  <span class="amount">{{
+                    money(order.amountMinor, order.currency)
+                  }}</span
+                  ><span class="quantity">{{
+                    'admin.preflightDesk.serviceCount'
+                      | translate: { count: order.total }
+                  }}</span>
+                </div>
+              </header>
+              <div
+                [id]="'preflight-desk-services-' + order.contributionId"
+                [hidden]="!expanded().has(order.contributionId)"
+              >
+                <div class="order-workspace">
+                  <aside class="preparation-summary">
+                    <h4>
+                      <openg7-admin-icon name="assistant" />{{
+                        'admin.preflightDesk.fundingPreparation' | translate
+                      }}
+                    </h4>
+                    <p class="confirmed-fact">
+                      <openg7-admin-icon name="check" />{{
+                        'admin.preflightDesk.agreement'
+                          | translate: { version: order.commitmentVersion }
+                      }}
+                    </p>
+                    <p class="provenance-warning">
+                      <openg7-admin-icon name="cloud" />{{
+                        'admin.preflightDesk.preflightUnverified' | translate
+                      }}
+                    </p>
+                    <p class="muted">
+                      {{ 'admin.preflightDesk.preparationHelp' | translate }}
+                    </p>
+                    <a
+                      class="admin-link"
+                      [routerLink]="ownerRoute(order.adminUrl)"
+                      >{{ 'admin.preflightDesk.openDossier' | translate }}</a
+                    >
+                  </aside>
+                  <div class="services">
+                    @for (service of order.services; track service.id) {
+                      <article
+                        class="service-card"
+                        data-og7="preflight-desk-service"
+                        [attr.data-og7-id]="service.id"
+                        [attr.data-stage]="service.stage"
+                      >
+                        <header>
+                          <span
+                            class="channel-icon"
+                            [attr.data-channel]="service.channel"
+                            aria-hidden="true"
+                          >
+                            @switch (service.channel) {
+                              @case ('facebook') {
+                                f
+                              }
+                              @case ('linkedin') {
+                                in
+                              }
+                              @default {
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="1.8"
+                                >
+                                  <path d="M3 3h18v14H3V3Zm5 18h8M12 17v4" />
+                                </svg>
+                              }
+                            }
+                          </span>
+                          <div>
+                            <h4>
+                              {{ channelKey(service.channel) | translate }}
+                            </h4>
+                            <span
+                              class="stage-badge"
+                              [attr.data-stage]="service.stage"
+                              >{{
+                                'admin.preflightDesk.stages.' + service.stage
+                                  | translate
+                              }}</span
+                            >
+                          </div>
+                        </header>
+                        <p class="service-destination">
+                          {{ 'admin.preflightDesk.target' | translate }}
+                          {{ service.target }} ·
+                          {{
+                            'admin.preflightDesk.passage'
+                              | translate
+                                : {
+                                    ordinal: service.ordinal,
+                                    quantity: service.quantity
+                                  }
+                          }}
+                        </p>
+                        @if (service.content; as content) {
+                          <h5>{{ content.title }}</h5>
+                          <p class="content-excerpt">{{ content.body }}</p>
+                        } @else {
+                          <p class="muted">
+                            {{
+                              'admin.preflightDesk.contentMissing' | translate
+                            }}
+                          </p>
+                        }
+                        @if (
+                          service.preparation.serviceDecision?.decision ===
+                          'approved'
+                        ) {
+                          <p class="muted">
+                            {{
+                              'admin.preflightDesk.privateApproval' | translate
+                            }}
+                          </p>
+                        }
+                        @if (service.blocked || service.blockers.length) {
+                          <div class="blockers">
+                            <strong
+                              ><openg7-admin-icon name="warning" />{{
+                                'admin.preflightDesk.blocked' | translate
+                              }}</strong
+                            >
+                            <ul>
+                              @for (blocker of service.blockers; track $index) {
+                                <li>{{ blockerLabel(blocker) | translate }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                        @if (service.proof; as proof) {
+                          <div class="proof">
+                            <strong
+                              ><openg7-admin-icon name="check" />{{
+                                'admin.preflightDesk.proof' | translate
+                              }}</strong
+                            >
+                            <p>
+                              {{ 'admin.preflightDesk.proofDate' | translate }}
+                              {{ formatDate(proof.deliveredAt) }}
+                            </p>
+                          </div>
+                        }
+                        <button
+                          class="admin-button examine-button"
+                          type="button"
+                          data-og7="preflight-desk-examine"
+                          [attr.data-og7-id]="service.id"
+                          (click)="examine(order, service)"
+                        >
+                          {{
+                            (service.proof
+                              ? 'admin.preflightDesk.readProof'
+                              : 'admin.preflightDesk.examine'
+                            ) | translate
+                          }}<openg7-admin-icon name="arrow" />
+                        </button>
+                        <details>
+                          <summary>
+                            {{ 'admin.preflightDesk.details' | translate }}
+                          </summary>
+                          @if (service.blockers.length) {
+                            <ul>
+                              @for (blocker of service.blockers; track $index) {
+                                <li>
+                                  <code>{{ blocker }}</code>
+                                </li>
+                              }
+                            </ul>
+                          }
+                          <dl>
+                            <dt>
+                              {{ 'admin.preflightDesk.obligation' | translate }}
+                            </dt>
+                            <dd>
+                              {{ service.id }}
+                            </dd>
+                            <dt>
+                              {{ 'admin.preflightDesk.reason' | translate }}
+                            </dt>
+                            <dd>{{ service.workflow.reason }}</dd>
+                            <dt>
+                              {{
+                                'admin.preflightDesk.preparationStatus'
+                                  | translate
+                              }}
+                            </dt>
+                            <dd>{{ service.preparation.status }}</dd>
+                            @if (service.proof; as proof) {
+                              <dt>
+                                {{
+                                  'admin.preflightDesk.proofDetails' | translate
+                                }}
+                              </dt>
+                              <dd>{{ proof.id }}</dd>
+                            }
+                          </dl>
+                          <a
+                            class="admin-link"
+                            [routerLink]="ownerRoute(service.reviewUrl)"
+                            >{{
+                              'admin.preflightDesk.ownerWorkflow' | translate
+                            }}</a
+                          >
+                        </details>
+                      </article>
+                    }
+                  </div>
+                </div>
+                <section
+                  class="delivery-progress"
+                  [attr.aria-label]="
+                    'admin.preflightDesk.deliveryProgress' | translate
+                  "
+                >
+                  <h4>
+                    <openg7-admin-icon name="check" />{{
+                      'admin.preflightDesk.deliveryProgress' | translate
+                    }}
+                  </h4>
+                  <div>
+                    <strong>{{
+                      'admin.preflightDesk.deliveredCount'
+                        | translate
+                          : { done: order.delivered, total: order.total }
+                    }}</strong
+                    ><progress
+                      [value]="order.delivered"
+                      [max]="order.total || 1"
+                      [attr.aria-label]="
+                        'admin.preflightDesk.deliveredCount'
+                          | translate
+                            : { done: order.delivered, total: order.total }
+                      "
+                    ></progress
+                    ><span>{{ deliveredPercentage(order) }} %</span>
+                  </div>
+                  <p class="muted">
+                    {{ 'admin.preflightDesk.deliveryHelp' | translate }}
+                  </p>
+                </section>
+              </div>
+            </article>
+          }
+        </div>
+        @if (data.pagination.totalPages > 1) {
+          <nav
+            class="pagination"
+            [attr.aria-label]="'admin.preflightDesk.pagination' | translate"
+          >
+            <button
+              class="admin-button"
+              data-og7="preflight-desk-previous"
+              type="button"
+              [disabled]="
+                !data.pagination.hasPreviousPage || state() === 'loading'
+              "
+              (click)="changePage(query().page - 1)"
+            >
+              {{ 'admin.preflightDesk.previous' | translate }}</button
+            ><span>{{
+              'admin.preflightDesk.page'
+                | translate
+                  : {
+                      page: data.pagination.page,
+                      pages: data.pagination.totalPages
+                    }
+            }}</span
+            ><button
+              class="admin-button"
+              data-og7="preflight-desk-next"
+              type="button"
+              [disabled]="!data.pagination.hasNextPage || state() === 'loading'"
+              (click)="changePage(query().page + 1)"
+            >
+              {{ 'admin.preflightDesk.next' | translate }}
+            </button>
+          </nav>
+        }
+        <p class="read-at muted">
+          {{ 'admin.preflightDesk.generated' | translate }}
+          {{ formatDate(data.generatedAt) }}
+        </p>
+      </div>
+
+      <aside class="desk-sidebar">
+        <section class="overview" aria-labelledby="preflight-desk-overview">
+          <h3 id="preflight-desk-overview">
+            <openg7-admin-icon name="expenses" />{{
+              'admin.preflightDesk.overview' | translate
+            }}
+          </h3>
+          <p>
+            {{
+              'admin.preflightDesk.total'
+                | translate: { count: data.summary.total }
+            }}
+          </p>
+          <div class="distribution" aria-hidden="true">
+            @for (stage of stages; track stage) {
+              <span
+                [attr.data-stage]="stage"
+                [style.width.%]="proportion(stage)"
+              ></span>
+            }
+          </div>
+          <ul class="distribution-labels">
+            @for (stage of stages; track stage) {
+              <li>
+                <span
+                  class="dot"
+                  [attr.data-stage]="stage"
+                  aria-hidden="true"
+                ></span
+                ><span>{{
+                  'admin.preflightDesk.stages.' + stage | translate
+                }}</span
+                ><strong>{{ count(stage) }}</strong
+                ><span>{{ percentage(stage) }} %</span>
+              </li>
+            }
+          </ul>
+          <p class="muted scope-note">
+            {{ 'admin.preflightDesk.scope' | translate }}
+          </p>
+          @if (data.summary.excludedAdjusted) {
+            <p class="muted scope-note">
+              {{
+                'admin.preflightDesk.excluded'
+                  | translate: { count: data.summary.excludedAdjusted }
+              }}
+            </p>
+          }
+        </section>
+        <section
+          class="service-health"
+          data-og7="preflight-service-health"
+          aria-labelledby="preflight-service-health-title"
+        >
+          <h3 id="preflight-service-health-title">
+            {{ 'admin.preflightDesk.serviceHealth' | translate }}
+          </h3>
+          <dl>
+            <dt>{{ 'admin.preflightDesk.inbox' | translate }}</dt>
+            <dd [attr.data-state]="inboxState()">
+              {{ 'admin.preflightDesk.health.' + inboxState() | translate }}
+            </dd>
+            <dt>{{ 'admin.preflightDesk.bridge' | translate }}</dt>
+            <dd>{{ 'admin.preflightDesk.health.unknown' | translate }}</dd>
+            <dt>{{ 'admin.preflightDesk.worker' | translate }}</dt>
+            <dd>{{ 'admin.preflightDesk.health.unknown' | translate }}</dd>
+          </dl>
+          <p class="muted scope-note">
+            {{ 'admin.preflightDesk.healthHelp' | translate }}
+          </p>
+          @if (inboxCheckedAt(); as at) {
+            <p class="muted scope-note">
+              {{ 'admin.preflightDesk.healthChecked' | translate }}
+              {{ formatDate(at) }}
+            </p>
+          }
+        </section>
+      </aside>
+    </div>
+  }
+</section>

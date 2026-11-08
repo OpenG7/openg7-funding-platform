@@ -267,8 +267,6 @@
               | translate
           }}</a
         >
-      } @else if (isList()) {
-        <span class="muted">{{ 'serviceDemo.fixtureLabel' | translate }}</span>
       }
       <ng-container [ngTemplateOutlet]="state.actions()" />
       <span class="local-status" role="status">

@@ -108,6 +108,9 @@ et contrôles d'implémentation.
 ## Commandites et publication
 
 Paiement, consentement, revue, visibilité et publication restent distincts.
+L’[accord public documenté](technical/sponsorship-public-consent.md) exige une
+preuve et une confirmation auditée. Il maintient la visibilité en attente et
+invalide les autorisations obsolètes sans approuver de contenu.
 Les avantages sont une configuration typée/testée, affichée avant paiement,
 sans modification rétroactive implicite. Les seuils actifs appartiennent à
 `DEFAULT_SPONSORSHIP_PRICING_CONFIG` et au [guide produit](public-sponsors.md).
@@ -141,6 +144,9 @@ Le mode token conserve ses garanties distinctes sans contourner OIDC. Les action
 sensibles exigent confirmation proportionnée et audit; secrets et données retournées
 sont minimisés. Voir la [décision identité](decisions/2026-09-19-admin-identity-and-operations.md).
 Les routes admin se chargent à la navigation; les URL inconnues gardent HTTP 404.
+
+Les [sessions d’examen](technical/preflight-work-sessions.md) conservent une
+progression privée par acteur et révision, distincte des décisions et livraisons.
 
 Le pilotage normalise clavier, contrôles visibles et Gamepad en intentions.
 Il réutilise les services et un catalogue fermé de commandes, sans second calendrier
@@ -183,16 +189,13 @@ conserver la même sémantique et éviter le double comptage lors d'un changemen
 
 ## Exploitation et évolution
 
-Le [connecteur Preflight](technical/preflight-connector.md), désactivé par défaut,
-conserve une intention dans la transaction puis livre par un relais autonome.
-Les imports restent des propositions privées; Funding garde son autorité métier.
-Voir [l’ADR](decisions/2026-11-02-preflight-connector.md).
+Le [connecteur Preflight](technical/preflight-connector.md) est opt-in :
+outbox, relais séparé, propositions privées; Funding décide.
 
-En production, Compose est exploité depuis `/opt/openg7-funding-platform`.
-Traefik termine TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans
-port public. Secrets et sauvegardes restent hors Git. Santé, logs corrélés, état
-des webhooks, reprises et audits font partie de la capacité livrée.
-Les alertes indépendantes et leurs limites sont décrites dans le
+Production : Compose sous `/opt/openg7-funding-platform`; Traefik termine
+TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans port public.
+Secrets et sauvegardes restent hors Git. Santé, logs corrélés, webhooks, reprise
+et audit sont requis. Alertes et limites :
 [runbook identité/alertes](operations/admin-identity-and-alerts.md).
 
 Sauvegarder avant opération destructive; restaurer DB et médias de façon cohérente.

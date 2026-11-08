@@ -18,6 +18,8 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 
 export type MediaReviewFilter =
   'all' | 'ready' | 'needs_review' | 'blocked' | 'approved' | 'rejected';
+export type MediaLibraryView =
+  'media' | 'presentation' | 'documents' | 'corrections';
 interface MediaReviewDraft {
   version: string;
   altText: string;
@@ -51,8 +53,16 @@ export class MediaReviewWorkspaceController {
   readonly filter = signal<MediaReviewFilter>('all');
   readonly search = signal('');
   readonly batchFilter = signal('');
+  readonly libraryView = signal<MediaLibraryView>('media');
+  readonly kindFilter = signal('all');
+  readonly destinationFilter = signal('all');
+  readonly assignmentFilter = signal('all');
+  readonly sort = signal('recent');
+  readonly classifications = signal<
+    Readonly<Record<string, SponsorMediaClassification>>
+  >({});
   readonly page = signal(1);
-  readonly pageSize = 25;
+  readonly pageSize = signal(8);
   readonly selectedIds = signal<readonly string[]>([]);
   readonly inspectedId = signal<string | null>(null);
   readonly plan = signal<SponsorMediaBatchPlan | null>(null);
@@ -90,9 +100,42 @@ export class MediaReviewWorkspaceController {
   readonly filtered = computed(() => {
     const filter = this.filter(),
       search = this.search().trim().toLocaleLowerCase(),
-      batch = this.batchFilter();
-    return this.assets().filter(
+      batch = this.batchFilter(),
+      view = this.libraryView(),
+      kind = this.kindFilter(),
+      destination = this.destinationFilter(),
+      assignmentFilter = this.assignmentFilter();
+    const result = this.assets().filter(
       (asset) =>
+        (kind === 'all' || asset.kind === kind) &&
+        (view !== 'documents' ||
+          this.classifications()[asset.id] === 'document') &&
+        (view !== 'corrections' ||
+          asset.moderation?.state === 'correction_requested') &&
+        (view !== 'presentation' ||
+          asset.kind === 'logo' ||
+          asset.websiteSelected ||
+          this.assignmentsFor(asset.id).length > 0) &&
+        (destination === 'all' ||
+          this.assignmentsFor(asset.id).some(
+            (assignment) =>
+              !assignment.stale &&
+              this.data()?.preparationObligations?.some(
+                (obligation) =>
+                  obligation.id === assignment.obligationId &&
+                  obligation.channel === destination
+              )
+          )) &&
+        (assignmentFilter === 'all' ||
+          (assignmentFilter === 'assigned'
+            ? this.assignmentsFor(asset.id).some(
+                (assignment) => !assignment.stale
+              )
+            : assignmentFilter === 'stale'
+              ? this.assignmentsFor(asset.id).some(
+                  (assignment) => assignment.stale
+                )
+              : !this.assignmentsFor(asset.id).length)) &&
         (!batch || asset.batchId === batch) &&
         (filter === 'all' ||
           (filter === 'approved' || filter === 'rejected'
@@ -106,17 +149,25 @@ export class MediaReviewWorkspaceController {
             .toLocaleLowerCase()
             .includes(search))
     );
+    const sort = this.sort();
+    return result.sort((left, right) =>
+      sort === 'name'
+        ? left.originalFilename.localeCompare(right.originalFilename)
+        : ((Date.parse(left.createdAt) || 0) -
+            (Date.parse(right.createdAt) || 0)) *
+          (sort === 'oldest' ? 1 : -1)
+    );
   });
   readonly pageCount = computed(() =>
-    Math.max(1, Math.ceil(this.filtered().length / this.pageSize))
+    Math.max(1, Math.ceil(this.filtered().length / this.pageSize()))
   );
   readonly currentPage = computed(() =>
     Math.min(this.page(), this.pageCount())
   );
   readonly visible = computed(() =>
     this.filtered().slice(
-      (this.currentPage() - 1) * this.pageSize,
-      this.currentPage() * this.pageSize
+      (this.currentPage() - 1) * this.pageSize(),
+      this.currentPage() * this.pageSize()
     )
   );
   readonly inspected = computed(
@@ -124,6 +175,12 @@ export class MediaReviewWorkspaceController {
   );
   readonly selected = computed(() =>
     this.assets().filter((asset) => this.selectedIds().includes(asset.id))
+  );
+  readonly hiddenSelectionCount = computed(
+    () =>
+      this.selected().filter(
+        (asset) => !this.visible().some((visible) => visible.id === asset.id)
+      ).length
   );
   readonly canWrite = computed(
     () =>
@@ -160,7 +217,19 @@ export class MediaReviewWorkspaceController {
     this.filter.set('all');
     this.search.set('');
     this.batchFilter.set('');
+    this.kindFilter.set('all');
+    this.destinationFilter.set('all');
+    this.assignmentFilter.set('all');
+    this.classifications.set({});
     this.page.set(1);
+  }
+
+  assignmentsFor(assetId: string) {
+    return (
+      this.data()?.preparationAssignments?.filter(
+        (assignment) => assignment.assetId === assetId
+      ) ?? []
+    );
   }
 
   async load(): Promise<void> {
@@ -172,6 +241,16 @@ export class MediaReviewWorkspaceController {
     try {
       const data = await this.ports.admin.mediaWorkspace(this.contributionId);
       if (!this.current(generation) || read !== this.readGeneration) return;
+      if (
+        data.contributionId !== this.contributionId ||
+        data.assets.some(
+          (asset) => asset.contributionId !== this.contributionId
+        )
+      ) {
+        this.data.set(null);
+        this.selectedIds.set([]);
+        throw new Error('Media workspace scope mismatch.');
+      }
       this.data.set(data);
       this.selectedIds.update((ids) =>
         ids.filter((id) => data.assets.some((asset) => asset.id === id))
@@ -188,7 +267,12 @@ export class MediaReviewWorkspaceController {
   }
 
   toggle(id: string): void {
-    if (this.busy() || this.uncertain()) return;
+    if (
+      this.busy() ||
+      this.uncertain() ||
+      !this.assets().some((asset) => asset.id === id)
+    )
+      return;
     this.selectedIds.update((ids) =>
       ids.includes(id)
         ? ids.filter((item) => item !== id)
@@ -292,6 +376,9 @@ export class MediaReviewWorkspaceController {
       | 'reason'
       | 'internalReason'
       | 'sponsorExplanation'
+      | 'targetObligationId'
+      | 'targetObligationVersion'
+      | 'editorialProvision'
     > = {},
     only?: SponsorMediaWorkspaceAsset
   ): Promise<void> {

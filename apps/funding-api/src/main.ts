@@ -6,6 +6,8 @@ import Stripe from 'stripe';
 import { createAdminAuthorization } from './admin-authorization.js';
 import { loadPreflightConfig } from './preflight/config.js';
 import { assertPreflightSchema } from './preflight/repository.js';
+import { loadPreflightInboxConfig } from './preflight/inbox-config.js';
+import { loadPreflightRehearsalConfig } from './preflight/rehearsal-config.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
 import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
@@ -89,6 +91,8 @@ const preflightConfig = loadPreflightConfig();
 if (preflightConfig.enabled && !hasDatabase) {
   throw new Error('PREFLIGHT_DATABASE_REQUIRED');
 }
+const preflightInboxConfig = loadPreflightInboxConfig();
+const preflightRehearsalConfig = loadPreflightRehearsalConfig();
 const {
   port,
   stripeSecretKey,
@@ -408,6 +412,8 @@ const publicHandlers = createPublicHttpHandlers({
 const adminHandlers = createAdminHttpHandlers({
   preflightConfig,
   dbPool,
+  preflightInboxConfig,
+  preflightRehearsalConfig,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,

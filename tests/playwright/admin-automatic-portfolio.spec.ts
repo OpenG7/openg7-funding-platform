@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page, Request } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminAutomaticRunEntry,
@@ -228,6 +228,7 @@ async function fixture(page: Page, language = 'fr-CA') {
     entries: [] as AdminAutomaticRunEntry[],
     writes: [] as { pathname: string; body: Record<string, unknown> }[],
     readGate: null as Promise<void> | null,
+    startGate: null as Promise<void> | null,
     advanceGate: null as Promise<void> | null,
     loseAdvanceResponse: false,
     invalidPaymentFacts: false,
@@ -260,6 +261,7 @@ async function fixture(page: Page, language = 'fr-CA') {
       const body = request.postDataJSON() as Record<string, unknown>;
       f.writes.push({ pathname, body });
       if (pathname === '/api/admin/automatic-runs') {
+        if (f.startGate) await f.startGate;
         if (f.invalidPaymentFacts)
           return route.fulfill({
             status: 503,
@@ -625,41 +627,18 @@ for (const [language, width] of [
   ['fr-CA', 1440],
   ['en', 390]
 ] as const) {
-  test(`the header starts a responsibility passage from the closed guide in ${language}`, async ({
+  test(`an explicit batch action starts a responsibility passage in ${language}`, async ({
     page
   }) => {
     await page.setViewportSize({ width, height: 900 });
     const f = await fixture(page, language);
-    f.queueActionCounts = undefined;
-    await page.goto(path);
-    const shortcut = page.locator(
-      '[data-og7="admin-automatic-portfolio-start"]'
-    );
-    await expect(shortcut).toBeVisible();
-    await expect(shortcut).toHaveAccessibleName(
+    await open(page);
+    const start = hook(page, 'start');
+    await expect(start).toHaveAccessibleName(
       language === 'en' ? 'Check a new batch' : 'Vérifier un nouveau lot'
     );
-    await expect(shortcut).toHaveAccessibleDescription(
-      language === 'en' ? 'Dossiers to process: 0' : 'Dossiers à traiter : 0'
-    );
-    await expect(
-      page.locator('[data-og7="admin-automatic-portfolio-count"]')
-    ).toHaveText('0');
-    await expect(
-      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
-    ).toHaveAttribute('data-og7-id', 'inactive');
-    await expect(page.locator('[data-og7="admin-guidance-panel"]')).toHaveCount(
-      0
-    );
-    await page
-      .locator('header')
-      .filter({ has: shortcut })
-      .screenshot({
-        path: test.info().outputPath(`header-${language}.png`),
-        animations: 'disabled'
-      });
     expect(f.writes).toEqual([]);
-    await shortcut.click();
+    await start.click();
     await completePassage(page, f);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
@@ -674,12 +653,6 @@ for (const [language, width] of [
     await expect(
       page.locator('[data-og7="admin-guidance-automatic-mode"]')
     ).toHaveCount(0);
-    const shortcutBounds = await shortcut.boundingBox();
-    expect(shortcutBounds).not.toBeNull();
-    expect(shortcutBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(shortcutBounds!.x + shortcutBounds!.width).toBeLessThanOrEqual(
-      width
-    );
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth
@@ -710,8 +683,8 @@ for (const [language, width] of [
     f.advanceGate = new Promise<void>((resolve) => {
       releaseAdvance = resolve;
     });
-    await page.goto(path);
-    await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
+    await open(page);
+    await hook(page, 'start').click();
     await expectReading(page, 'scope');
     const approval = hook(page, 'approve');
     await expect(approval).toHaveAccessibleName(
@@ -844,150 +817,87 @@ for (const language of ['fr-CA', 'en']) {
   });
 }
 
-for (const language of ['fr-CA', 'en']) {
-  test(`the header counts unique pending dossiers and activates its bell in ${language}`, async ({
-    page
-  }) => {
-    await page.setViewportSize({
-      width: language === 'en' ? 390 : 1440,
-      height: 900
-    });
-    const f = await fixture(page, language);
-    f.queueActionCounts = {
-      sponsorship_needs_review: 2,
-      publication_needs_preparation: 3
-    };
-    f.queuePendingDossierCount = 2;
-    f.queueTotal = 14;
-    f.queueInformational = 9;
-    await page.goto(path);
-    const shortcut = page.locator(
-      '[data-og7="admin-automatic-portfolio-start"]'
-    );
-    await expect(
-      page.locator('[data-og7="admin-automatic-portfolio-count"]')
-    ).toHaveText('2');
-    await expect(
-      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
-    ).toHaveAttribute('data-og7-id', 'active');
-    await expect(shortcut).toHaveAccessibleName(
-      language === 'en' ? 'Check a new batch' : 'Vérifier un nouveau lot'
-    );
-    await expect(shortcut).toHaveAttribute(
-      'aria-describedby',
-      'admin-new-passage-count-description'
-    );
-    await expect(shortcut).toHaveAccessibleDescription(
-      language === 'en' ? 'Dossiers to process: 2' : 'Dossiers à traiter : 2'
-    );
-    await page
-      .locator('header')
-      .filter({ has: shortcut })
-      .screenshot({
-        path: test.info().outputPath(`header-active-${language}.png`),
-        animations: 'disabled'
-      });
-    const accessibility = await new AxeBuilder({ page })
-      .include('header')
-      .analyze();
-    expect(accessibility.violations).toEqual([]);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(
-      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
-    ).toHaveCSS('animation-name', 'none');
-    expect(f.writes).toEqual([]);
-  });
-}
-
 for (const queueState of [
   'unavailable',
   'partial',
   'forbidden',
   'missing_dossier_count'
 ] as const) {
-  test(`the header shows an unknown count with an inactive bell for a ${queueState} queue`, async ({
+  test(`the header Guide opens discovery without a batch for a ${queueState} queue`, async ({
     page
   }) => {
     const language = queueState === 'forbidden' ? 'en' : 'fr-CA';
     const f = await fixture(page, language);
     f.queueActionCounts = { sponsorship_needs_review: 5 };
     f.queuePendingDossierCount = 5;
-    await page.goto(path);
-    const shortcut = page.locator(
-      '[data-og7="admin-automatic-portfolio-start"]'
-    );
-    const count = page.locator('[data-og7="admin-automatic-portfolio-count"]');
-    await expect(count).toHaveText('5');
     if (queueState === 'unavailable') {
       f.queueAvailable = false;
       f.queueCoverage = 'unavailable';
     } else if (queueState === 'partial') f.queueCoverage = 'partial';
     else if (queueState === 'forbidden') f.queueStatus = 403;
     else f.queuePendingDossierCount = undefined;
-    await page
-      .locator('[data-og7="attention-panel"]')
-      .getByRole('button', {
-        name: language === 'en' ? 'Refresh tasks' : 'Actualiser les tâches',
-        exact: true
-      })
-      .click();
-    await expect(shortcut).toBeVisible();
-    await expect(count).toHaveText('—');
+    await page.goto(path);
+    const guide = page.locator('[data-og7="admin-shell-guide"]');
+    await expect(guide).toHaveAccessibleName('Guide');
+    await expect(guide).toBeEnabled();
+    await guide.click();
+    await expect(
+      page.locator('[data-og7="activity-hub-embedded"]')
+    ).toBeVisible();
+    await expect(page.locator('[data-og7="automatic-view"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-count"]')
+    ).toHaveCount(0);
     await expect(
       page.locator('[data-og7="admin-automatic-portfolio-bell"]')
-    ).toHaveAttribute('data-og7-id', 'inactive');
-    await expect(shortcut).toHaveAccessibleDescription(
-      language === 'en'
-        ? 'Dossier count unavailable.'
-        : 'Compteur des dossiers indisponible.'
-    );
+    ).toHaveCount(0);
     expect(f.writes).toEqual([]);
   });
 }
 
-test('finishing a passage refreshes the server count and deactivates the header bell when no dossiers remain', async ({
+test('finishing an explicit passage refreshes the task queue when no dossiers remain', async ({
   page
 }) => {
   const f = await fixture(page);
   f.queueActionCounts = { sponsorship_needs_review: 5 };
   f.queuePendingDossierCount = 5;
-  await page.goto(path);
-  const count = page.locator('[data-og7="admin-automatic-portfolio-count"]');
-  await expect(count).toHaveText('5');
+  await open(page);
   const readsBeforePassage = f.queueReads;
-  await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
+  await hook(page, 'start').click();
   await approveReading(page, 'scope');
   await readDossiers(page, f);
-  await expect(count).toHaveText('5');
   f.queueActionCounts = {};
   f.queuePendingDossierCount = 0;
   await approveReading(page, 'summary');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
   await expect.poll(() => f.queueReads).toBeGreaterThan(readsBeforePassage);
-  await expect(count).toHaveText('0');
-  await expect(
-    page.locator('[data-og7="admin-automatic-portfolio-bell"]')
-  ).toHaveAttribute('data-og7-id', 'inactive');
 });
 
-test('the header shortcut supports the keyboard and suppresses another start while loading', async ({
+test('the explicit batch action supports the keyboard and suppresses another pending start', async ({
   page
 }) => {
   const f = await fixture(page);
-  let releaseRead!: () => void;
-  f.readGate = new Promise<void>((resolve) => {
-    releaseRead = resolve;
+  let releaseStart!: () => void;
+  f.startGate = new Promise<void>((resolve) => {
+    releaseStart = resolve;
   });
-  await page.goto(path);
-  const shortcut = page.locator('[data-og7="admin-automatic-portfolio-start"]');
-  await expect(shortcut).toBeEnabled();
-  await shortcut.focus();
-  await expect(shortcut).toBeFocused();
-  await shortcut.press('Enter');
-  await expect(shortcut).toBeDisabled();
-  await shortcut.press('Enter');
-  expect(f.writes).toEqual([]);
-  releaseRead();
+  await open(page);
+  const start = hook(page, 'start');
+  await expect(start).toBeEnabled();
+  await start.focus();
+  await expect(start).toBeFocused();
+  await start.press('Enter');
+  await expect(start).toBeDisabled();
+  await start.press('Enter');
+  await expect
+    .poll(
+      () =>
+        f.writes.filter(
+          (write) => write.pathname === '/api/admin/automatic-runs'
+        ).length
+    )
+    .toBe(1);
+  releaseStart();
   await completePassage(page, f);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
   expect(
@@ -995,7 +905,7 @@ test('the header shortcut supports the keyboard and suppresses another start whi
   ).toHaveLength(1);
 });
 
-test('closing the guide cancels a header start while its current passage is loading', async ({
+test('closing the legacy guide while its current passage loads never starts a batch', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -1003,10 +913,7 @@ test('closing the guide cancels a header start while its current passage is load
   f.readGate = new Promise<void>((resolve) => {
     releaseRead = resolve;
   });
-  await page.goto(path);
-  const shortcut = page.locator('[data-og7="admin-automatic-portfolio-start"]');
-  await expect(shortcut).toBeEnabled();
-  await shortcut.click();
+  await open(page, 'loading');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'loading');
   const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
   await toggle.click();
@@ -1020,9 +927,9 @@ test('closing the guide cancels a header start while its current passage is load
   );
   releaseRead();
   await (await readResponse).finished();
-  await expect(shortcut).toBeEnabled();
   expect(f.writes).toEqual([]);
-  await toggle.click();
+  await expect(toggle).toBeHidden();
+  await restoreLegacyGuideMode(page, 'automatic');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'review');
   await expect(hook(page, 'start')).toBeEnabled();
   expect(f.writes).toEqual([]);
@@ -1049,6 +956,7 @@ test('a new session reads its own passage before a suspended previous session re
     }
   };
   let owner: 'A' | 'B' = 'A';
+  let suspendedRequest: Request | undefined;
   let releaseA!: () => void;
   const gateA = new Promise<void>((resolve) => {
     releaseA = resolve;
@@ -1072,7 +980,10 @@ test('a new session reads its own passage before a suspended previous session re
     if (route.request().method() !== 'GET') return route.fallback();
     const session = owner;
     reads.push(session);
-    if (session === 'A') await gateA;
+    if (session === 'A') {
+      suspendedRequest = route.request();
+      await gateA;
+    }
     return route.fulfill({ json: session === 'A' ? stateA : stateB });
   });
   await open(page, 'loading');
@@ -1102,6 +1013,12 @@ test('a new session reads its own passage before a suspended previous session re
   f.queueStatus = 200;
   f.state = stateB;
   f.entries = [newEntry];
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'og7-admin-guidance:v1:portfolio-owner-B',
+      JSON.stringify({ enabled: true, mode: 'automatic', bookmark: null })
+    );
+  });
   await page
     .locator('[data-og7="identity-setup-page"] footer a[href="/admin/login"]')
     .click();
@@ -1113,17 +1030,16 @@ test('a new session reads its own passage before a suspended previous session re
   expect(await pageDocument.evaluate((element) => element.isConnected)).toBe(
     true
   );
-  await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
   await expect.poll(() => reads).toEqual(['A', 'B']);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
   await expandProcessing(page);
+  // Selecting Batch tracking explicitly rereads B's durable report.
+  await expect.poll(() => reads).toEqual(['A', 'B', 'B']);
   await expect(hook(page, 'latest')).toContainText(newEntry.reference);
   await expect(hook(page, 'report')).toContainText(stateB.run!.id);
 
   const oldResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === '/api/admin/automatic-runs' &&
-      response.request().method() === 'GET'
+    (response) => response.request() === suspendedRequest
   );
   releaseA();
   await (await oldResponse).finished();
@@ -1132,8 +1048,9 @@ test('a new session reads its own passage before a suspended previous session re
   await expect(
     page.locator('[data-og7="automatic-portfolio"]')
   ).not.toContainText(oldEntry.reference);
+  expect(reads).toEqual(['A', 'B', 'B']);
   await hook(page, 'refresh').click();
-  await expect.poll(() => reads).toEqual(['A', 'B', 'B']);
+  await expect.poll(() => reads).toEqual(['A', 'B', 'B', 'B']);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
   expect(f.writes).toEqual([]);
 });
@@ -1247,24 +1164,18 @@ test('an unavailable dossier preview stops reading without an uncertain financia
 });
 
 for (const status of ['running', 'paused', 'uncertain'] as const) {
-  test(`the header reveals a ${status} passage without starting or resuming it`, async ({
+  test(`batch tracking reveals a ${status} passage without starting or resuming it`, async ({
     page
   }) => {
     const f = await fixture(page);
     f.state = runState(1, status);
     f.entries = [entry(0)];
-    await page.goto(path);
-    const shortcut = page.locator(
-      '[data-og7="admin-automatic-portfolio-start"]'
-    );
-    await expect(shortcut).toBeEnabled();
-    await shortcut.click();
+    await open(page, status === 'running' ? 'review' : status);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
       status === 'running' ? 'review' : status
     );
     await expandProcessing(page);
-    await expect(shortcut).toBeDisabled();
     await expect(hook(page, 'start')).toBeDisabled();
     if (status === 'uncertain') {
       await expect(hook(page, 'reconcile')).toBeVisible();
@@ -1442,7 +1353,8 @@ for (const uncertain of [false, true]) {
     await expect
       .poll(() => f.state.run?.status)
       .toBe(uncertain ? 'uncertain' : 'paused');
-    await toggle.click();
+    await expect(toggle).toBeHidden();
+    await restoreLegacyGuideMode(page, 'automatic');
     await expandProcessing(page);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',

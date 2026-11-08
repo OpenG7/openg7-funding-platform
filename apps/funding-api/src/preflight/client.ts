@@ -1,16 +1,22 @@
 import type { EnabledPreflightConfig } from './config.js';
 import {
+  parseRehearsalMissionDetail,
+  type RehearsalMissionDetail
+} from './rehearsal-contracts.js';
+import {
   integer,
   parseRemoteMission,
   parseRemoteMissionDetail,
   parseRemoteProposal,
+  parseRemoteInboxProposal,
   record,
   text,
   uuid,
   type PreflightMission,
   type PreflightSourceUpdate,
   type RemoteMissionDetail,
-  type RemoteProposalPage
+  type RemoteProposalPage,
+  type RemoteInboxProposalPage
 } from './contracts.js';
 
 export class PreflightClientError extends Error {
@@ -239,6 +245,15 @@ export class PreflightClient {
       throw new PreflightClientError('preflight_mission_mismatch');
     return detail;
   }
+  async getRehearsalMission(id: string): Promise<RehearsalMissionDetail> {
+    const detail = parseRehearsalMissionDetail(
+      await this.api('GET', `/missions/${uuid(id)}`),
+      this.config.tenantId
+    );
+    if (detail.mission.id !== id)
+      throw new PreflightClientError('preflight_mission_mismatch');
+    return detail;
+  }
   async listProposals(page = 1, pageSize = 50): Promise<RemoteProposalPage> {
     integer(page);
     integer(pageSize);
@@ -259,6 +274,40 @@ export class PreflightClient {
       total: integer(body.total, 0),
       page: integer(body.page),
       pageSize: integer(body.pageSize)
+    };
+  }
+  /** Remote inbox inspection only; no import or source validation is implied. */
+  async listInboxProposals(
+    page = 1,
+    pageSize = 20
+  ): Promise<RemoteInboxProposalPage> {
+    integer(page);
+    integer(pageSize);
+    if (page > 100000 || pageSize > 100)
+      throw new PreflightClientError('preflight_page_size_invalid');
+    const body = record(
+      await this.api(
+        'GET',
+        `/proposals?application=funding-platform&status=prepared&page=${page}&pageSize=${pageSize}`
+      )
+    );
+    if (
+      !Array.isArray(body.items) ||
+      body.items.length > pageSize ||
+      body.page !== page ||
+      body.pageSize !== pageSize
+    )
+      throw new PreflightClientError('preflight_response_invalid');
+    const total = integer(body.total, 0);
+    if (total < body.items.length)
+      throw new PreflightClientError('preflight_response_invalid');
+    return {
+      items: body.items.map((item) =>
+        parseRemoteInboxProposal(item, this.config.tenantId)
+      ),
+      total,
+      page,
+      pageSize
     };
   }
   async notifySourceUpdate(

@@ -178,6 +178,61 @@ test(
 );
 
 test(
+  'Preflight connector follows the existing workshop migration history without replay or backfill',
+  { timeout: 60_000 },
+  async (t) => {
+    const db = await fixture(t);
+    await db.run(migrations.filter((migration) => migration.version < 68));
+    const history = (
+      await db.pool.query(
+        'SELECT * FROM openg7_schema_migrations ORDER BY version'
+      )
+    ).rows;
+    assert.equal(history.at(-1).version, 67);
+    const applied = await db.run();
+    assert.deepEqual(
+      applied.filter((line) => line.startsWith('OG7_MIGRATION applied ')),
+      ['OG7_MIGRATION applied 068_create_preflight_connector.sql']
+    );
+    const ledger = (
+      await db.pool.query(
+        'SELECT * FROM openg7_schema_migrations ORDER BY version'
+      )
+    ).rows;
+    assert.deepEqual(ledger.slice(0, history.length), history);
+    assert.equal(ledger.at(-1).version, 68);
+    for (const table of [
+      'preflight_sources',
+      'preflight_missions',
+      'preflight_outbox',
+      'preflight_preparations',
+      'preflight_worker_heartbeats'
+    ]) {
+      assert.equal(
+        (await db.pool.query(`SELECT count(*)::int AS count FROM ${table}`))
+          .rows[0].count,
+        0,
+        table
+      );
+    }
+    assert.equal(
+      (await db.run()).filter((line) =>
+        line.startsWith('OG7_MIGRATION applied ')
+      ).length,
+      0
+    );
+    assert.deepEqual(
+      (
+        await db.pool.query(
+          'SELECT * FROM openg7_schema_migrations ORDER BY version'
+        )
+      ).rows,
+      ledger
+    );
+  }
+);
+
+test(
   'failed pending batch rolls back its DDL, data and receipts, then can resume',
   { timeout: 60_000 },
   async (t) => {

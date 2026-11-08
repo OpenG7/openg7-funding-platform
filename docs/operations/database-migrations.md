@@ -54,12 +54,35 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
-La migration [064](../../apps/funding-api/migrations/064_create_preflight_connector.sql)
+La migration [068](../../apps/funding-api/migrations/068_create_preflight_connector.sql)
 ajoute les sources versionnées, l’outbox, les missions suivies, les préparations
 privées et le heartbeat du relais Preflight. Elle ne crée aucune mission pour
 les anciens dossiers et n’active aucun traitement. Appliquer avant d’activer
 le connecteur puis rafraîchir les grants du rôle applicatif avec le runner.
 Les payloads restent immuables. Voir [le contrat et les limites](../technical/preflight-connector.md).
+Le numéro 068 conserve les migrations 064 à 067 déjà intégrées. Une base d’essai
+jetable créée avec l’ancien numéro 064 du connecteur doit être recréée; ne pas
+renommer une entrée de registre ni rejouer le SQL sur une base existante.
+
+La migration [067](../../apps/funding-api/migrations/067_documented_sponsorship_consent.sql)
+ajoute le registre immuable des [accords publics documentés](../technical/sponsorship-public-consent.md)
+et leur identité dans les empreintes de modération. Appliquer après 066, puis
+rafraîchir les grants avec le runner à jour avant de démarrer l’API : lecture et
+insertion seulement pour le rôle applicatif. Aucun consentement ancien n’est
+inféré; aucune contribution, décision ou livraison n’est modifiée par la migration.
+Les empreintes sans accord documenté restent identiques. Sauvegarder et vérifier
+la restauration avant l’application sur une base existante; une migration de
+production demande une autorisation distincte.
+
+La migration [066](../../apps/funding-api/migrations/066_sponsor_media_preparation_assignments.sql)
+ajoute uniquement les associations privées versionnées entre médias et
+prestations. Les clés étrangères imposent le même dossier; le retrait conserve
+une trace et les mises à jour font avancer la révision du workspace. Appliquer
+après les migrations précédentes, puis rafraîchir les grants du rôle applicatif
+avant de démarrer l’API correspondante. La migration ne déplace aucun fichier,
+ne sélectionne aucune image publique et ne change aucune décision ou livraison.
+Une table ou un droit absent produit un état d’indisponibilité explicite. Voir
+les [contrats de préparation média](../technical/sponsor-media-usage.md#affectations-privées-et-corrections).
 
 La migration [058](../../apps/funding-api/migrations/058_preparation_assistance.sql)
 ajoute les sources textuelles privées versionnées, jobs locaux durables,
@@ -80,6 +103,25 @@ jobs utilisent v2. Un index unique empêche deux jobs actifs sur les mêmes entr
 y compris entre adaptateurs. Le modèle commercial et les grants existants sont conservés.
 Arrêter les anciennes instances de l’API et leurs workers avant le démarrage de
 cette version, pour qu’aucun ancien worker ne réserve un job v2.
+
+La migration [064](../../apps/funding-api/migrations/064_service_preparation_decisions.sql)
+ajoute le registre immuable des décisions privées de préparation par prestation.
+L’appliquer avant l’API de l’[atelier d’examen](../technical/preflight-examination.md),
+puis rafraîchir les grants avec le runner à jour : le rôle applicatif lit et
+insère les décisions, sans droit de modification ni suppression. L’unicité de
+requête et de version examinée protège la reprise et les décisions concurrentes.
+La migration ne modifie aucun engagement, brouillon, paiement ou consentement;
+elle ne crée ni publication, ni livraison, ni courriel. Sans ce schéma, le parcours
+d’examen signale son indisponibilité. Une migration de production exige toujours
+une instruction séparée.
+
+La migration [065](../../apps/funding-api/migrations/065_admin_preflight_work_sessions.sql)
+ajoute les [sessions de travail de l’atelier](../technical/preflight-work-sessions.md).
+Le rôle API peut modifier la progression et les checkpoints, mais pas leurs
+identités et références. Le journal des commandes est immuable, avec lecture et
+insertion seulement. Rafraîchir les grants avec le runner à jour après migration.
+Ces tables ne conservent pas de copie des contenus métier et ne déclenchent
+aucune décision, préparation ou livraison lors de leur création.
 
 La migration [031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
 ajoute les opérations Checkout privées et leur clé unique, sans modifier les

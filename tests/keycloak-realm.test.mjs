@@ -32,46 +32,70 @@ test('Keycloak imports no accounts or secrets and restricts the confidential cli
   assert.equal(client.attributes['pkce.code.challenge.method'], 'S256');
 });
 
-test('Keycloak can attest MFA only through a successful required OTP execution after password verification', () => {
+test('Keycloak reuses the realm session and otherwise enters the required password and OTP subflow', () => {
   const flow = realm.authenticationFlows.find(
     (candidate) => candidate.alias === realm.browserFlow
   );
   assert.ok(flow);
   assert.equal(flow.providerId, 'basic-flow');
   assert.equal(flow.topLevel, true);
-  const executions = [...flow.authenticationExecutions].sort(
+  const browserExecutions = [...flow.authenticationExecutions].sort(
     (a, b) => a.priority - b.priority
   );
-  assert.deepEqual(
-    executions.map((execution) => execution.authenticator),
-    ['auth-username-password-form', 'auth-otp-form']
-  );
+  assert.equal(browserExecutions.length, 2);
+  assert.equal(browserExecutions[0].authenticator, 'auth-cookie');
+  assert.equal(browserExecutions[0].authenticatorConfig, undefined);
+  assert.equal(browserExecutions[0].authenticatorFlow, false);
+  assert.equal(browserExecutions[1].flowAlias, 'openg7-sso-password-otp');
+  assert.equal(browserExecutions[1].authenticatorFlow, true);
   assert.ok(
-    executions.every(
-      (execution) =>
-        execution.requirement === 'REQUIRED' && !execution.authenticatorFlow
-    )
+    browserExecutions.every((step) => step.requirement === 'ALTERNATIVE')
   );
-  const references = executions.map(
-    (execution) =>
-      realm.authenticatorConfig.find(
-        (config) => config.alias === execution.authenticatorConfig
-      )?.config
-  );
-  assert.deepEqual(
-    references.map((config) => config['default.reference.value']),
-    ['pwd', 'mfa']
-  );
-  assert.ok(
-    references.every((config) => Number(config['default.reference.maxAge']) > 0)
-  );
-  assert.deepEqual(
-    realm.clients[0].protocolMappers.map((mapper) => mapper.protocolMapper),
-    ['oidc-amr-mapper']
-  );
-  assert.equal(
-    realm.clients[0].protocolMappers[0].config['id.token.claim'],
-    'true'
-  );
-  assert.equal(realm.clients[0].attributes['acr.loa.map'], undefined);
 });
+
+for (const alias of ['openg7-password-otp', 'openg7-sso-password-otp'])
+  test(`Keycloak flow ${alias} can attest MFA only through a successful required OTP execution after password verification`, () => {
+    const flow = realm.authenticationFlows.find(
+      (candidate) => candidate.alias === alias
+    );
+    assert.ok(flow);
+    const executions = [...flow.authenticationExecutions].sort(
+      (a, b) => a.priority - b.priority
+    );
+    assert.deepEqual(
+      executions.map((execution) => execution.authenticator),
+      ['auth-username-password-form', 'auth-otp-form']
+    );
+    assert.ok(
+      executions.every(
+        (execution) =>
+          execution.requirement === 'REQUIRED' && !execution.authenticatorFlow
+      )
+    );
+    const references = executions.map(
+      (execution) =>
+        realm.authenticatorConfig.find(
+          (config) => config.alias === execution.authenticatorConfig
+        )?.config
+    );
+    assert.deepEqual(
+      references.map((config) => config['default.reference.value']),
+      ['pwd', 'mfa']
+    );
+    assert.ok(
+      references.every(
+        (config) =>
+          Number(config['default.reference.maxAge']) >=
+          realm.ssoSessionMaxLifespan
+      )
+    );
+    assert.deepEqual(
+      realm.clients[0].protocolMappers.map((mapper) => mapper.protocolMapper),
+      ['oidc-amr-mapper']
+    );
+    assert.equal(
+      realm.clients[0].protocolMappers[0].config['id.token.claim'],
+      'true'
+    );
+    assert.equal(realm.clients[0].attributes['acr.loa.map'], undefined);
+  });

@@ -112,6 +112,12 @@ import type {
 
 import { FundingAdminMediaReviewClient } from './funding-admin-media-review.client.js';
 import { FundingAdminSession } from './funding-admin-session.js';
+import { FundingAdminPreflightDeskClient } from './funding-admin-preflight-desk.client.js';
+import { FundingAdminPreflightExaminationClient } from './funding-admin-preflight-examination.client.js';
+import { FundingAdminSponsorshipConsentClient } from './funding-admin-sponsorship-consent.client.js';
+import { FundingAdminPreflightWorkSessionsClient } from './funding-admin-preflight-work-sessions.client.js';
+import { FundingAdminPreflightInboxClient } from './funding-admin-preflight-inbox.client.js';
+import { FundingAdminPreflightRehearsalClient } from './funding-admin-preflight-rehearsal.client.js';
 import type {
   AdminAccessAccount,
   AdminAccessResponse
@@ -190,6 +196,30 @@ export class FundingAdminService {
     this.session
   );
   readonly sessionGeneration = this.session.sessionGeneration;
+  readonly preflightInbox = new FundingAdminPreflightInboxClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly preflightDesk = new FundingAdminPreflightDeskClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly preflightExamination = new FundingAdminPreflightExaminationClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly sponsorshipConsent = new FundingAdminSponsorshipConsentClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly preflightWorkSessions = new FundingAdminPreflightWorkSessionsClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  readonly preflightRehearsal = new FundingAdminPreflightRehearsalClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
   readonly dataRevision = this.session.dataRevision.asReadonly();
   readonly identity = this.session.identity;
   private readonly commitmentsClient = new FundingAdminCommitmentsClient(
@@ -1017,6 +1047,11 @@ export class FundingAdminService {
   }
   mediaThumbnail(assetId: string) {
     return this.mediaReviewClient.thumbnail(assetId);
+  }
+  mediaExport(
+    input: import('@openg7/funding-core').SponsorMediaExportRequest
+  ): Promise<Blob> {
+    return this.mediaMutation(() => this.mediaReviewClient.export(input));
   }
   mediaReceipt(contributionId: string, requestId: string) {
     return this.mediaReviewClient.receipt(contributionId, requestId);

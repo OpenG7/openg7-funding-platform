@@ -9,6 +9,7 @@ import {
   afterRenderEffect,
   computed,
   inject,
+  output,
   signal,
   untracked,
   viewChild
@@ -44,7 +45,10 @@ import {
   selector: 'openg7-admin-guidance',
   standalone: true,
   imports: [AdminIconComponent, AdminPaymentJourneyComponent],
-  host: { '[class.active]': 'guidance.available() && guidance.enabled()' },
+  host: {
+    '[class.active]': 'guidance.available() && guidance.enabled()',
+    '[hidden]': '!guidance.enabled() && !guidance.forgetFailed()'
+  },
   templateUrl: './admin-guidance.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -53,6 +57,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminGuidanceComponent {
+  readonly collapsed = output<{ restoreFocus: boolean }>();
   readonly guidance = inject(AdminGuidanceService);
   readonly journey = inject(AdminPaymentJourneyService);
   readonly i18n = inject(FundingI18nService);
@@ -156,6 +161,7 @@ export class AdminGuidanceComponent {
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
   private readonly discovery =
     viewChild<ElementRef<HTMLButtonElement>>('discovery');
+  private readonly discoveryFocusRequested = signal(false);
   private readonly automaticHost = viewChild('automaticHost', {
     read: ViewContainerRef
   });
@@ -173,6 +179,14 @@ export class AdminGuidanceComponent {
   private frame = 0;
 
   constructor() {
+    afterRenderEffect(() => {
+      if (!this.discoveryFocusRequested()) return;
+      const button = this.discovery()?.nativeElement;
+      if (!button) return;
+      this.discoveryFocusRequested.set(false);
+      if (this.guidance.available() && this.activityHubSelected())
+        button.focus();
+    });
     afterRenderEffect(() => {
       if (this.activityHubSelected()) this.activityHubRequested.set(true);
     });
@@ -510,6 +524,21 @@ export class AdminGuidanceComponent {
     this.focusServiceDelivery = false;
     this.serviceTour()?.stopTour();
   }
+  openDiscovery(): void {
+    if (!this.guidance.available()) return;
+    if (!this.guidance.enabled()) this.guidance.toggle();
+    this.selectDiscovery();
+    this.discoveryFocusRequested.set(true);
+  }
+  toggleGuidance(): void {
+    const wasOpen = this.guidance.enabled();
+    const restoreFocus = this.element.nativeElement.contains(
+      this.document.activeElement
+    );
+    this.guidance.toggle();
+    if (wasOpen && !this.guidance.enabled())
+      this.collapsed.emit({ restoreFocus });
+  }
   selectDiscovery(): void {
     this.serviceDeliverySelected.set(false);
     this.focusServiceDelivery = false;
@@ -559,8 +588,12 @@ export class AdminGuidanceComponent {
     this.guidance.setMode('automatic');
   }
   forget(): void {
+    const restoreFocus = this.element.nativeElement.contains(
+      this.document.activeElement
+    );
     this.guidance.forget();
     this.toggle()?.nativeElement.focus();
+    if (!this.guidance.enabled()) this.collapsed.emit({ restoreFocus });
   }
   moveCard(): void {
     this.clearHighlight();

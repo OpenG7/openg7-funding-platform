@@ -12,6 +12,7 @@ import { FundingAdminService } from './features/funding/services/funding-admin.s
 import { FundingI18nService } from './features/funding/services/funding-i18n.service.js';
 import { adminPublicationNavigationGuard } from './features/funding/services/admin-publication-navigation.service.js';
 import { adminWorkspaceNavigationGuard } from './features/funding/services/admin-guide-navigation.service.js';
+import { adminPreflightNavigationGuard } from './features/funding/services/admin-preflight-navigation.guard.js';
 
 /** Register once per application, before an administrative page or auth guard. */
 @Injectable({ providedIn: 'root' })
@@ -133,6 +134,16 @@ export const adminRoutes: Routes = protectWorkspaceNavigation([
       )
   },
   {
+    path: 'fundraiser/preflight',
+    canMatch: [adminSessionRequired],
+    canDeactivate: [adminPreflightNavigationGuard],
+    runGuardsAndResolvers: 'paramsOrQueryParamsChange',
+    loadComponent: () =>
+      import('./features/funding/pages/admin-preflight-page/admin-preflight-page.component.js').then(
+        (m) => m.AdminPreflightPageComponent
+      )
+  },
+  {
     path: 'fundraiser/contributions',
     canMatch: [adminSessionRequired],
     loadComponent: () =>
@@ -184,6 +195,13 @@ export const adminRoutes: Routes = protectWorkspaceNavigation([
     path: 'fundraiser/publications',
     canMatch: [adminSessionRequired],
     children: [
+      {
+        path: 'programme',
+        loadComponent: () =>
+          import('./features/funding/pages/admin-editorial-programme-page/admin-editorial-programme-page.component.js').then(
+            (m) => m.AdminEditorialProgrammePageComponent
+          )
+      },
       {
         path: 'automation',
         canDeactivate: [adminPublicationNavigationGuard],

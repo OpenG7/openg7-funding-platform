@@ -22,10 +22,18 @@ export interface AdminDossierPreparationHttpDependencies {
     maxBytes?: number
   ) => Promise<string>;
   readonly writeJson: ReturnType<typeof createHttpTransport>['writeJson'];
-  readonly preparations: Pick<
-    AdminPreparationService,
-    'dossierPreparation' | 'approveDossierPreparation'
-  > | null;
+  readonly preparations:
+    | (Pick<
+        AdminPreparationService,
+        'dossierPreparation' | 'approveDossierPreparation'
+      > &
+        Partial<
+          Pick<
+            AdminPreparationService,
+            'servicePreparation' | 'decideServicePreparation'
+          >
+        >)
+    | null;
   readonly reportPreparationFailure?: (
     diagnostic: PreparationFailureDiagnostic
   ) => void;
@@ -47,12 +55,24 @@ export function createAdminDossierPreparationHttpHandler(
     }
     const base = '/admin/sponsorships/preparation';
     const path = url.pathname.replace(/^\/api(?=\/)/, '');
-    if (path !== base && path !== base + '/approve') return false;
+    if (
+      ![
+        base,
+        base + '/approve',
+        base + '/service',
+        base + '/service/decision'
+      ].includes(path)
+    )
+      return false;
     response.setHeader('Cache-Control', 'private, no-store');
     if (!deps.ensureAdminAccess(request, response)) return true;
     try {
       const allowed =
-        request.method === 'GET' && path === base ? ['sponsorshipId'] : [];
+        request.method === 'GET' && path === base
+          ? ['sponsorshipId']
+          : request.method === 'GET' && path === base + '/service'
+            ? ['sponsorshipId', 'obligationId']
+            : [];
       if (
         [...url.searchParams.keys()].some(
           (key) =>
@@ -62,7 +82,47 @@ export function createAdminDossierPreparationHttpHandler(
         throw new AdminAutomaticRunError('RUN_INVALID_REQUEST', 400);
       if (!deps.preparations)
         throw new AdminAutomaticRunError('RUN_UNAVAILABLE', 503);
-      if (request.method === 'GET' && path === base) {
+      if (request.method === 'GET' && path === base + '/service') {
+        const id = url.searchParams.get('sponsorshipId');
+        const obligationId = url.searchParams.get('obligationId');
+        if (!isValidUuid(id) || !isValidUuid(obligationId))
+          throw new AdminAutomaticRunError('RUN_INVALID_REQUEST', 400);
+        if (!deps.preparations.servicePreparation)
+          throw new AdminAutomaticRunError('RUN_UNAVAILABLE', 503);
+        deps.writeJson(
+          request,
+          response,
+          200,
+          await deps.preparations.servicePreparation(id!, obligationId!)
+        );
+      } else if (
+        request.method === 'POST' &&
+        path === base + '/service/decision'
+      ) {
+        if (
+          !isJsonContentType(
+            firstHeaderValue(request.headers['content-type']) ?? undefined
+          )
+        )
+          throw new AdminAutomaticRunError('RUN_JSON_REQUIRED', 415);
+        let input: unknown;
+        try {
+          input = JSON.parse(await deps.readBody(request, 16384));
+        } catch {
+          throw new AdminAutomaticRunError('RUN_INVALID_REQUEST', 400);
+        }
+        if (!deps.preparations.decideServicePreparation)
+          throw new AdminAutomaticRunError('RUN_UNAVAILABLE', 503);
+        deps.writeJson(
+          request,
+          response,
+          200,
+          await deps.preparations.decideServicePreparation(
+            input,
+            deps.getAdminAuditActor(request)
+          )
+        );
+      } else if (request.method === 'GET' && path === base) {
         const id = url.searchParams.get('sponsorshipId');
         if (!isValidUuid(id))
           throw new AdminAutomaticRunError('RUN_INVALID_REQUEST', 400);

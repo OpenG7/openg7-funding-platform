@@ -343,6 +343,68 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   return { calls, options };
 }
 
+for (const [language, width, contextual] of [
+  ['fr-CA', 1440, false],
+  ['en', 390, false],
+  ['fr-CA', 390, true],
+  ['en', 1440, true]
+] as const) {
+  test(`Assistant opens its guide only from the shell in ${language} at ${width}px with ${contextual ? 'dossier' : 'global'} context`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'reader');
+    const writes = await blockAdminReviewWrites(page);
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.setViewportSize({ width, height: 900 });
+    const url = contextual ? path() : '/admin/fundraiser/assistant';
+    await page.goto(url);
+    const guide = page.locator('[data-og7="admin-shell-guide"]');
+    const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
+    const panel = page.locator('[data-og7="admin-guidance-panel"]');
+    const discovery = page.locator(
+      '[data-og7="admin-guidance-discovery-mode"]'
+    );
+    const hub = page.locator('[data-og7="activity-hub-embedded"]');
+    const expectCollapsed = async () => {
+      await expect(guide).toHaveAttribute('aria-expanded', 'false');
+      await expect(toggle).toHaveCount(1);
+      await expect(toggle).toBeHidden();
+      await expect(panel).toBeHidden();
+      await expect(
+        page.getByRole('button', {
+          name:
+            language === 'en' ? 'Administrative guide' : 'Guide administratif',
+          exact: true
+        })
+      ).toHaveCount(0);
+      // The language switch immediately precedes the hidden guide in DOM order.
+      await page.getByRole('banner').getByRole('button').last().focus();
+      await page.keyboard.press('Tab');
+      await expect(toggle).not.toBeFocused();
+    };
+    await expect(guide).toBeVisible();
+    await expectCollapsed();
+    await guide.focus();
+    await page.keyboard.press('Enter');
+    await expect(hub).toBeVisible();
+    await expect(discovery).toHaveAttribute('aria-pressed', 'true');
+    await expect(discovery).toBeFocused();
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(guide).toBeFocused();
+    await expectCollapsed();
+    await guide.click();
+    await expect(hub).toBeVisible();
+    await expect(discovery).toBeFocused();
+    await expect(page).toHaveURL(url);
+    expect(writes).toEqual([]);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
 for (const language of ['fr-CA', 'en'] as const)
   for (const width of [390, 1536]) {
     test(`context composition keeps confirmed facts and its next step readable in ${language} at ${width}px`, async ({
@@ -1135,18 +1197,22 @@ test('expired session redirects to login without retaining dossier content', asy
   ).toBeNull();
 });
 
-test('cockpit contextual recommendation loads independently from dashboard metrics', async ({
+test('cockpit observes the fund without fetching an individual dossier or preparation context', async ({
   page
 }) => {
-  await fixtures(page);
+  const { calls } = await fixtures(page);
   await page.goto('/admin/fundraiser');
-  await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
-    'DEMO-301'
-  );
-  await expect(page.locator('[data-og7="assistant-next-step"]')).toBeVisible();
-  await expect(page.locator('[data-og7="assistant-facts"]')).not.toBeVisible();
-  await page.locator('[data-og7="assistant-context"] summary').click();
-  await expect(page.locator('[data-og7="assistant-facts"]')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Cockpit', exact: true })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="dashboard-refresh"]')).toBeEnabled();
+  expect(
+    calls.filter(
+      (call) =>
+        call.path === '/api/admin/assistant/context' ||
+        call.path === '/api/admin/sponsorships/progress'
+    )
+  ).toEqual([]);
 });
 
 async function sponsorshipFixture(page: Page) {
@@ -1273,13 +1339,15 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toHaveAccessibleName(
         source === 'dossier'
           ? language === 'en'
-            ? 'Profile & media'
-            : 'Fiche et médias'
+            ? 'Identity'
+            : 'Identité'
           : language === 'en'
             ? 'History'
             : 'Historique'
       );
-      await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
+      if (source === 'dossier')
+        await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
+      else await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
       await expect(trigger).toBeFocused();
       await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(
         0
@@ -1410,7 +1478,11 @@ test('Assistant reconstructs its dossier origin without private or nested query 
   await back.focus();
   await back.press('Enter');
   await expect(page).toHaveURL(origin);
-  await expect(page.locator('#dossier-identity')).toBeFocused();
+  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-main"]')).toBeVisible();
+  await expect(
+    page.locator('[data-og7="dossier-tabs"] [aria-current="page"]')
+  ).toHaveAccessibleName('Identité');
   await expect(
     page.locator('[data-og7="dossier-assistant"]')
   ).not.toBeFocused();
@@ -1467,7 +1539,7 @@ test('Assistant return does not take focus back after a tab change during a pend
     return route.fulfill({ json: projection });
   });
   try {
-    const origin = dossierPath('identity', 'dossier-identity');
+    const origin = dossierPath('publication', 'dossier-publication');
     await page.goto(origin);
     const progress = page.locator('[data-og7="sponsorship-progress"]');
     await expect(progress).toHaveAttribute('aria-busy', 'false');
