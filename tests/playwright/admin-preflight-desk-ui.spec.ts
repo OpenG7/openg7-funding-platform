@@ -2,6 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import type {
   AdminDossierPreparationReceipt,
+  AdminServicePreparationReceipt,
   PreflightDeskOrder,
   PreflightDeskResponse,
   PreflightDeskService,
@@ -14,6 +15,7 @@ import {
   expectAdminPageFits,
   prepareAdminDesignReview
 } from './support/admin-design-review.js';
+import { expectAdminFontsReady } from './support/admin-fonts.js';
 import {
   contributionId,
   receipt
@@ -257,8 +259,24 @@ function dossierReceipt(
   };
 }
 
-async function fixtures(page: Page, language: 'fr-CA' | 'en' = 'fr-CA') {
-  await prepareAdminDesignReview(page);
+async function fixtures(
+  page: Page,
+  language: 'fr-CA' | 'en' = 'fr-CA',
+  theme?: 'mineral' | 'night' | 'graphite'
+) {
+  if (theme) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript(
+      (theme) =>
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme, system: false })
+        ),
+      theme
+    );
+  } else {
+    await prepareAdminDesignReview(page);
+  }
   await page.addInitScript(
     (locale) => localStorage.setItem('openg7.language', locale),
     language
@@ -380,7 +398,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toBeVisible();
       const second = orderCard(page, 1);
       await second
-        .getByRole('button', { name: 'SYNTHETIC-CMD-002', exact: true })
+        .getByRole('button', { name: 'Synthetic BETA 1', exact: true })
         .click();
       const delivered = second.locator(
         '[data-og7="preflight-desk-service"][data-stage="delivered"]'
@@ -412,6 +430,141 @@ for (const language of ['fr-CA', 'en'] as const) {
   }
 }
 
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const width of [390, 1080, 1536]) {
+    test(`Preflight desk retains contrast and search layout in ${theme} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const state = await fixtures(page, 'fr-CA', theme);
+      await page.goto(base);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      await expect(desk(page)).toHaveAttribute('data-state', 'ready');
+      await orderCard(page, 1)
+        .getByRole('button', { name: 'Synthetic BETA 1', exact: true })
+        .click();
+      await expectAdminFontsReady(page);
+      await expectAdminPageFits(page);
+      for (const stage of stageOrder) {
+        const metric = filter(page, stage);
+        await expect(metric).toBeVisible();
+        expect(
+          await metric.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth + 1
+          )
+        ).toBe(true);
+      }
+      const contrast = () =>
+        new AxeBuilder({ page })
+          .include('[data-og7="preflight-desk"]')
+          .withRules(['color-contrast'])
+          .analyze();
+      expect((await contrast()).violations).toEqual([]);
+
+      const search = desk(page).getByRole('searchbox');
+      await search.fill('Synthetic ALPHA');
+      await search.press('Enter');
+      await expect(
+        page.locator('[data-og7="preflight-desk-order"]')
+      ).toHaveCount(1);
+      await expect(
+        orderCard(page, 0).getByRole('button', {
+          name: 'Synthetic ALPHA',
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(search).toHaveValue('Synthetic ALPHA');
+      expect(new URL(page.url()).searchParams.get('deskSearch')).toBe(
+        'Synthetic ALPHA'
+      );
+      const searchForm = desk(page).getByRole('search');
+      expect(
+        await searchForm.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1
+        )
+      ).toBe(true);
+      const filtered = page.waitForResponse((entry) => {
+        const url = new URL(entry.url());
+        return (
+          url.pathname === endpoint &&
+          url.searchParams.get('stage') === 'to_review' &&
+          url.searchParams.get('search') === 'Synthetic ALPHA' &&
+          entry.status() === 200
+        );
+      });
+      await filter(page, 'to_review').click();
+      await (await filtered).finished();
+      await expect(filter(page, 'to_review')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await expect(desk(page)).toHaveAttribute('data-state', 'ready');
+      await expectAdminPageFits(page);
+      expect((await contrast()).violations).toEqual([]);
+      expect(state.writes).toEqual([]);
+      if (width === 390 || width === 1536)
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `preflight-desk-${theme}-${width}px.fr`,
+          true
+        );
+    });
+  }
+}
+
+test('Preflight desk uses the company title and one reference when the company is absent or equals the reference', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  state.orders[1] = {
+    ...state.orders[1],
+    companyName: null,
+    services: state.orders[1].services.map((service) => ({
+      ...service,
+      companyName: null
+    }))
+  };
+  const referenceOnly = order(2);
+  state.orders.push({
+    ...referenceOnly,
+    companyName: referenceOnly.reference,
+    services: referenceOnly.services.map((service) => ({
+      ...service,
+      companyName: referenceOnly.reference
+    }))
+  });
+  await page.goto(base);
+  await expect(desk(page)).toHaveAttribute('data-state', 'ready');
+  const namedHeader = orderCard(page, 0).locator('header').first();
+  await expect(
+    namedHeader.getByRole('button', { name: 'Synthetic ALPHA', exact: true })
+  ).toBeVisible();
+  await expect(
+    namedHeader.getByText('SYNTHETIC-CMD-001', { exact: true })
+  ).toHaveCount(1);
+  for (const [position, reference] of [
+    [1, 'SYNTHETIC-CMD-002'],
+    [2, 'SYNTHETIC-CMD-003']
+  ] as const) {
+    const unnamedHeader = orderCard(page, position).locator('header').first();
+    const toggle = unnamedHeader.getByRole('button', {
+      name: reference,
+      exact: true
+    });
+    await expect(toggle).toBeVisible();
+    await expect(unnamedHeader.locator('p')).toHaveCount(0);
+    expect((await unnamedHeader.innerText()).split(reference)).toHaveLength(2);
+    await expect(unnamedHeader).not.toContainText('Synthetic BETA');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+  expect(state.writes).toEqual([]);
+});
+
 test('Preflight desk filters groups while retaining the same mutually exclusive summary', async ({
   page
 }) => {
@@ -420,7 +573,7 @@ test('Preflight desk filters groups while retaining the same mutually exclusive 
   await expect(desk(page)).toHaveAttribute('data-state', 'ready');
   const readsBeforeToggle = state.reads.length;
   const toggle = orderCard(page, 0).getByRole('button', {
-    name: 'SYNTHETIC-CMD-001',
+    name: 'Synthetic ALPHA',
     exact: true
   });
   await toggle.click();
@@ -489,34 +642,79 @@ test('Preflight desk restores search, status and server pagination in the URL wi
   expect(state.writes).toEqual([]);
 });
 
-test('Preflight desk reuses the existing dossier preparation reader and exact owner links', async ({
+test('Preflight desk opens the exact service examination and restores its navigation context', async ({
   page
 }) => {
   const state = await fixtures(page);
+  const item = state.orders[0];
+  const service = item.services[0];
+  const dossier = dossierReceipt(item);
+  const receipt: AdminServicePreparationReceipt = {
+    context: 'service',
+    generatedAt: at,
+    contributionId: item.contributionId,
+    reference: item.reference,
+    companyName: item.companyName,
+    version: 'a'.repeat(64),
+    contentVersion: 'synthetic-exact-content-v1',
+    status: 'ready',
+    service,
+    siblings: item.services,
+    draft: dossier.drafts[0],
+    dossier,
+    checks: dossier.checks,
+    blockers: [],
+    canApprove: false,
+    canDecide: true,
+    decision: null,
+    history: [],
+    provenance: {
+      origin: 'funding',
+      preflightLink: 'unverified',
+      preparedAt: at
+    },
+    links: {
+      dossier: item.adminUrl,
+      media: item.adminUrl,
+      edit: item.adminUrl,
+      delivery: service.reviewUrl,
+      evidence: service.reviewUrl
+    }
+  };
+  await page.route(
+    '**/api/admin/sponsorships/preparation/service?**',
+    (route) => route.fulfill({ json: receipt })
+  );
+  await page.route('**/api/admin/sponsorships/media/workspace?**', (route) =>
+    route.fulfill({
+      json: {
+        contributionId: item.contributionId,
+        revision: 'synthetic-media-v1',
+        assets: [],
+        rules: [],
+        batches: [],
+        writable: false
+      }
+    })
+  );
   await page.goto(base);
   const examine = page.locator('[data-og7="preflight-desk-examine"]').first();
   await examine.focus();
   await page.keyboard.press('Enter');
-  const review = page.locator('[data-og7="preflight-desk-review"]');
+  const review = page.locator('[data-og7="examination"]');
   await expect(review).toBeVisible();
-  await expect(
-    review.locator('[data-og7="dossier-preparation"]')
-  ).toBeVisible();
-  await expect.poll(() => state.preparationReads).toEqual([contributionId(1)]);
-  await expect(review).toContainText('SYNTHETIC-WEBSITE-TITLE');
-  const service = state.orders[0].services[0];
-  await expect(
-    review.getByRole('link', {
-      name: 'Ouvrir le parcours de cette prestation',
-      exact: true
-    })
-  ).toHaveAttribute('href', service.reviewUrl);
-  await expect(
-    review.getByRole('link', { name: 'Ouvrir le dossier Funding', exact: true })
-  ).toHaveAttribute('href', state.orders[0].adminUrl);
-  await page.locator('[data-og7="preflight-desk-close"]').click();
+  expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
+    item.contributionId
+  );
+  expect(new URL(page.url()).searchParams.get('obligationId')).toBe(service.id);
+  await expect(review).toContainText(
+    'Synthetic prepared content for SYNTHETIC-CMD-001'
+  );
+  await page.locator('[data-og7="examination-back"]').click();
   await expect(review).toHaveCount(0);
-  await expect(examine).toBeFocused();
+  await expect(
+    page.locator('[data-og7="preflight-desk-examine"]').first()
+  ).toBeFocused();
   expect(state.writes).toEqual([]);
 });
 

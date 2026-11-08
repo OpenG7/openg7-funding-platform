@@ -491,8 +491,14 @@ test('dossier navigation preserves the filtered list position and restores keybo
   f.renders.shift()();
   assert.equal(c.selectedSponsorshipId(), 'synthetic-second');
   assert.equal(c.adjacentDossier(1), null);
+  const readsBeforeTabChange = f.media.length;
   c.setActiveTab('media');
   c.setActiveTab('media');
+  assert.equal(
+    f.media.length,
+    readsBeforeTabChange,
+    'the library owns its read; changing tabs does not invalidate unrelated dossier tools'
+  );
   assert.deepEqual(f.navigation.at(-1), {
     id: 'synthetic-second',
     tab: 'media'

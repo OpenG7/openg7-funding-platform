@@ -108,6 +108,9 @@ et contrôles d'implémentation.
 ## Commandites et publication
 
 Paiement, consentement, revue, visibilité et publication restent distincts.
+L’[accord public documenté](technical/sponsorship-public-consent.md) exige une
+preuve et une confirmation auditée. Il maintient la visibilité en attente et
+invalide les autorisations obsolètes sans approuver de contenu.
 Les avantages sont une configuration typée/testée, affichée avant paiement,
 sans modification rétroactive implicite. Les seuils actifs appartiennent à
 `DEFAULT_SPONSORSHIP_PRICING_CONFIG` et au [guide produit](public-sponsors.md).
@@ -141,6 +144,9 @@ Le mode token conserve ses garanties distinctes sans contourner OIDC. Les action
 sensibles exigent confirmation proportionnée et audit; secrets et données retournées
 sont minimisés. Voir la [décision identité](decisions/2026-09-19-admin-identity-and-operations.md).
 Les routes admin se chargent à la navigation; les URL inconnues gardent HTTP 404.
+
+Les [sessions d’examen](technical/preflight-work-sessions.md) conservent une
+progression privée par acteur et révision, distincte des décisions et livraisons.
 
 Le pilotage normalise clavier, contrôles visibles et Gamepad en intentions.
 Il réutilise les services et un catalogue fermé de commandes, sans second calendrier

@@ -12,12 +12,14 @@ import {
 } from './support/controller-journeys.fixtures.js';
 
 type Language = 'fr-CA' | 'en';
-type DossierTab = 'overview' | 'identity' | 'publication' | 'billing' | 'audit';
+type DossierTab =
+  'overview' | 'identity' | 'media' | 'publication' | 'billing' | 'audit';
 
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 const tabNames = (language: Language): Record<DossierTab, string> => ({
   overview: language === 'en' ? 'Overview' : 'Aperçu',
-  identity: language === 'en' ? 'Profile & media' : 'Fiche et médias',
+  identity: language === 'en' ? 'Identity' : 'Identité',
+  media: language === 'en' ? 'Profile & media' : 'Fiche et médias',
   publication: 'Publication',
   billing: 'Finances',
   audit: language === 'en' ? 'History' : 'Historique'
@@ -83,13 +85,13 @@ async function dossierFixtures(
   return state;
 }
 
-async function expectFiveTabs(
+async function expectSixTabs(
   page: Page,
   language: Language,
   active: DossierTab
 ): Promise<void> {
   const tabs = hook(page, 'dossier-tabs');
-  await expect(tabs.getByRole('button')).toHaveCount(5);
+  await expect(tabs.getByRole('button')).toHaveCount(6);
   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
   for (const [id, name] of Object.entries(tabNames(language))) {
     const button = tabs.getByRole('button', { name, exact: true });
@@ -155,7 +157,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.setViewportSize(viewport);
       await page.goto(controllerPath('publication'));
       await expectDossierHeader(page);
-      await expectFiveTabs(page, language, 'publication');
+      await expectSixTabs(page, language, 'publication');
       const originalUrl = page.url();
       const trigger = hook(page, 'dossier-header').getByRole('button', {
         name:
@@ -217,7 +219,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expectFocusVisible(trigger);
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
       expect(page.url()).toBe(originalUrl);
-      await expectFiveTabs(page, language, 'publication');
+      await expectSixTabs(page, language, 'publication');
       expect(state.sponsor.sponsor_review_status).toBe('pending_review');
       expect(state.commands).toEqual([]);
       await expectNoHorizontalOverflow(page);
@@ -226,7 +228,7 @@ for (const language of ['fr-CA', 'en'] as const) {
         (language === 'en' && viewport.width === 390)
       ) {
         await page.goto(controllerPath('overview'));
-        await expectFiveTabs(page, language, 'overview');
+        await expectSixTabs(page, language, 'overview');
         await expect(hook(page, 'dossier-recommendation')).not.toContainText(
           'admin.dossier.'
         );
@@ -250,14 +252,14 @@ for (const language of ['fr-CA', 'en'] as const) {
       }
     });
 
-    test(`a ${language} reader can inspect the five-tab dossier without a moderation entry at ${viewport.width}px`, async ({
+    test(`a ${language} reader can inspect separate identity and media without a moderation entry at ${viewport.width}px`, async ({
       page
-    }) => {
+    }, testInfo) => {
       const state = await dossierFixtures(page, 'reader', language);
       await page.setViewportSize(viewport);
       await page.goto(controllerPath('identity'));
       await expectDossierHeader(page);
-      await expectFiveTabs(page, language, 'identity');
+      await expectSixTabs(page, language, 'identity');
       await expect(
         page.locator(
           '[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]'
@@ -265,12 +267,16 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toHaveCount(0);
       await expect(hook(page, 'moderation-open')).toHaveCount(0);
       await expect(hook(page, 'identity-edit')).toHaveCount(0);
-      const gallery = hook(page, 'dossier-media-gallery');
-      const openGallery = hook(page, 'dossier-media-open-gallery');
-      await openGallery.focus();
-      await page.keyboard.press('Enter');
-      await expect(gallery).toBeFocused();
-      await expect(hook(page, 'media-gallery')).toBeVisible();
+      await expect(hook(page, 'dossier-main')).toBeVisible();
+      await expect(hook(page, 'dossier-worklist')).toBeVisible();
+      await expect(hook(page, 'dossier-identity')).toBeVisible();
+      await expect(hook(page, 'dossier-media-gallery')).toHaveCount(0);
+      await expect(hook(page, 'dossier-actions')).toHaveCount(0);
+      await page.screenshot({
+        path: testInfo.outputPath(`identity-${language}-${viewport.width}.png`),
+        animations: 'disabled',
+        fullPage: true
+      });
       expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
         controllerId
       );
@@ -301,7 +307,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(originalUrl);
       await expectFocusVisible(assistance);
-      await expectFiveTabs(page, language, 'identity');
+      await expectSixTabs(page, language, 'identity');
       expect(state.commands).toEqual([]);
       await expectNoHorizontalOverflow(page);
     });
@@ -312,20 +318,22 @@ for (const { language, viewport } of [
   { language: 'fr-CA', viewport: { width: 1536, height: 864 } },
   { language: 'en', viewport: { width: 390, height: 844 } }
 ] as const) {
-  test(`an ${language} operator follows the media alias and returns to profile without a sixth tab at ${viewport.width}px`, async ({
+  test(`an ${language} operator opens the media library and returns to separate identity at ${viewport.width}px`, async ({
     page
   }, testInfo) => {
     const state = await dossierFixtures(page, 'operator', language);
     await page.setViewportSize(viewport);
     await page.goto(controllerPath('media'));
-    await expectFiveTabs(page, language, 'identity');
-    const gallery = hook(page, 'dossier-media-gallery');
-    await expect(gallery).toBeFocused();
+    await expectSixTabs(page, language, 'media');
+    await expect(hook(page, 'dossier-main')).toBeVisible();
+    await expect(hook(page, 'dossier-worklist')).toHaveCount(0);
     await expect(hook(page, 'dossier-media-summary')).toBeVisible();
-    await expect(hook(page, 'dossier-media-file-count')).toContainText('1');
+    await expect(hook(page, 'dossier-media-gallery')).toBeVisible();
+    await expect(hook(page, 'dossier-identity')).toHaveCount(0);
+    await expect(hook(page, 'dossier-actions')).toHaveCount(0);
     await page.screenshot({
       path: testInfo.outputPath(
-        `dossier-media-alias-${language}-${viewport.width}.png`
+        `dossier-media-library-${language}-${viewport.width}.png`
       ),
       animations: 'disabled'
     });
@@ -340,10 +348,17 @@ for (const { language, viewport } of [
       .toBe('identity');
     await expect(identityTab).toBeFocused();
     await expect(hook(page, 'dossier-identity')).toBeVisible();
-    await expectFiveTabs(page, language, 'identity');
-    await hook(page, 'dossier-media-open-gallery').focus();
+    await expectSixTabs(page, language, 'identity');
+    await expect(hook(page, 'dossier-media-open-gallery')).toHaveCount(0);
+    const publication = hook(page, 'dossier-tabs').getByRole('button', {
+      name: 'Publication',
+      exact: true
+    });
+    await publication.focus();
     await page.keyboard.press('Enter');
-    await expect(gallery).toBeFocused();
+    await expectSixTabs(page, language, 'publication');
+    await expect(publication).toBeFocused();
+    await expect(hook(page, 'dossier-main')).toBeVisible();
     expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
       controllerId
     );
@@ -362,7 +377,7 @@ for (const { language, viewport } of [
     const state = await dossierFixtures(page, 'owner', language);
     await page.setViewportSize(viewport);
     await page.goto(controllerPath('refund'));
-    await expectFiveTabs(page, language, 'billing');
+    await expectSixTabs(page, language, 'billing');
     await page.evaluate(() => {
       document.documentElement.style.zoom = '2';
     });
@@ -378,7 +393,7 @@ for (const { language, viewport } of [
     ).toBeVisible();
     await page.keyboard.press('Escape');
     await expectFocusVisible(headerModeration);
-    await expectFiveTabs(page, language, 'billing');
+    await expectSixTabs(page, language, 'billing');
     expect(new URL(page.url()).searchParams.get('tab')).toBe('refund');
     expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
       controllerId

@@ -28,6 +28,7 @@ test('tab indicators stay absent without server facts and for resolved milestone
   for (const tab of [
     'overview',
     'identity',
+    'media',
     'publication',
     'billing',
     'audit'
@@ -46,7 +47,7 @@ test('tab indicators stay absent without server facts and for resolved milestone
   }
 });
 
-test('profile and finance aliases share the most severe unresolved server state', () => {
+test('identity and media retain their own state while finance aliases share theirs', () => {
   const snapshot = dossier({
     milestones: [
       { tab: 'identity', state: 'pending' },
@@ -55,9 +56,9 @@ test('profile and finance aliases share the most severe unresolved server state'
     ]
   });
   const before = structuredClone(snapshot);
-  assert.equal(workspaceTab('media'), 'identity');
+  assert.equal(workspaceTab('media'), 'media');
   assert.equal(workspaceTab('refund'), 'billing');
-  assert.equal(dossierTabState(snapshot, 'identity'), 'blocked');
+  assert.equal(dossierTabState(snapshot, 'identity'), 'pending');
   assert.equal(dossierTabState(snapshot, 'media'), 'blocked');
   assert.equal(dossierTabState(snapshot, 'billing'), 'partial');
   assert.equal(dossierTabState(snapshot, 'refund'), 'partial');

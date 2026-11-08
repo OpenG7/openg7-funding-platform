@@ -25,6 +25,7 @@ export interface AdminSponsorsNavigationPorts {
   currentUrl(): string;
   currentNavigation(): Pick<Navigation, 'trigger'> | null;
   parseUrl(url: string): UrlTree;
+  preserveTabLayout?(tab: string | null): void;
 }
 
 /** Angular route decoding; selection and deferred scrolling stay with the controller. */
@@ -41,22 +42,24 @@ export class AdminSponsorsNavigationAdapter {
           ? event.navigationTrigger === 'imperative'
           : event.code === NavigationSkippedCode.IgnoredSameUrlNavigation &&
             this.ports.currentNavigation()?.trigger === 'imperative';
-      this.ports.controller.navigationStarted(
-        event.id,
-        imperative && this.isDossierTabNavigation(event.url)
+      const preserve = imperative && this.isDossierTabNavigation(event.url);
+      this.ports.preserveTabLayout?.(
+        preserve
+          ? (this.ports.parseUrl(event.url).queryParams['tab'] ?? 'overview')
+          : null
       );
+      this.ports.controller.navigationStarted(event.id, preserve);
       return;
     }
     if (event instanceof NavigationCancel || event instanceof NavigationError) {
+      this.ports.preserveTabLayout?.(null);
       this.ports.controller.navigationCancelled(event.id);
       return;
     }
     if (!(event instanceof Scroll)) return;
     if (this.ports.currentNavigation()) return;
     const url = this.ports.parseUrl(event.routerEvent.url);
-    const fragment =
-      event.anchor ??
-      (url.queryParams['tab'] === 'media' ? 'dossier-media-gallery' : null);
+    const fragment = event.anchor;
     const targetTab = dossierSectionTab(fragment);
     if (!event.position && fragment && targetTab) {
       const sponsorshipId = url.queryParams['sponsorshipId'];

@@ -27,6 +27,7 @@ import type {
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminPreflightRehearsalComponent } from '../../components/admin-preflight-rehearsal/admin-preflight-rehearsal.component.js';
 import { AdminPreflightDeskComponent } from '../../components/admin-preflight-desk/admin-preflight-desk.component.js';
+import { AdminPreflightExaminationComponent } from '../../components/admin-preflight-examination/admin-preflight-examination.component.js';
 import {
   AdminIconComponent,
   type AdminIconName
@@ -35,15 +36,18 @@ import { registerAdminPreflightTranslations } from '../../services/admin-preflig
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { PreflightInboxRequestError } from '../../services/funding-admin-preflight-inbox.client.js';
+import { AdminPreflightWorkSessionCoordinator } from '../../services/admin-preflight-work-session-coordinator.js';
 
 @Component({
   selector: 'openg7-admin-preflight-page',
   standalone: true,
+  providers: [AdminPreflightWorkSessionCoordinator],
   imports: [
     TranslatePipe,
     AdminLayoutComponent,
     AdminPreflightRehearsalComponent,
     AdminPreflightDeskComponent,
+    AdminPreflightExaminationComponent,
     AdminIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,10 +59,22 @@ import { PreflightInboxRequestError } from '../../services/funding-admin-preflig
   ]
 })
 export class AdminPreflightPageComponent implements OnInit {
+  readonly work = inject(AdminPreflightWorkSessionCoordinator);
+  private readonly examination = viewChild(AdminPreflightExaminationComponent);
+  private workRouteKey = '';
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly routeParams = toSignal(this.route.queryParamMap);
+  readonly examinationSelection = computed(() => {
+    const params = this.routeParams();
+    return params?.has('sponsorshipId') || params?.has('obligationId')
+      ? {
+          contributionId: params?.get('sponsorshipId') ?? '',
+          obligationId: params?.get('obligationId') ?? ''
+        }
+      : null;
+  });
   readonly workspaceViews = [
     'desk',
     'rehearsal',
@@ -100,6 +116,18 @@ export class AdminPreflightPageComponent implements OnInit {
   constructor() {
     registerAdminPreflightTranslations();
     effect(() => {
+      const id = this.routeParams()?.get('workSession') ?? '';
+      const identity = this.work.identityKey();
+      const key = `${identity}:${id}`;
+      untracked(() => {
+        if (!this.browser || this.workRouteKey === key) return;
+        this.workRouteKey = key;
+        if (id && !/^[0-9a-f-]{36}$/i.test(id)) return;
+        if (!id || this.work.current()?.id !== id)
+          void this.work.load(id || undefined);
+      });
+    });
+    effect(() => {
       const generation = this.admin.sessionGeneration();
       untracked(() => {
         if (generation === this.sessionGeneration) return;
@@ -121,6 +149,38 @@ export class AdminPreflightPageComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.browser) void this.load(1);
+  }
+  canLeave(): boolean | Promise<boolean> {
+    return this.examination()?.canLeave() ?? true;
+  }
+  async resumeWorkSession(id: string): Promise<void> {
+    const identity = this.work.identityKey();
+    if (this.work.busy() || !(await this.work.load(id))) return;
+    const initial = this.work.current();
+    if (!initial || !(await this.work.command('resume'))) return;
+    const session = this.work.current()!;
+    if (identity !== this.work.identityKey() || !session) return;
+    const item =
+      session.items.find((item) => item.position === session.lastPosition) ??
+      session.items[0];
+    if (!item) return;
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        view: 'desk',
+        workSession: session.id,
+        sponsorshipId: item.contributionId,
+        obligationId: item.obligationId,
+        preparationVersion: null,
+        deskStatus:
+          session.filters.deskStatus === 'all'
+            ? null
+            : (session.filters.deskStatus ?? null),
+        deskSearch: session.filters.deskSearch ?? null,
+        deskPage: session.filters.deskPage ?? null
+      },
+      queryParamsHandling: 'merge'
+    });
   }
 
   async load(page = this.page()): Promise<void> {

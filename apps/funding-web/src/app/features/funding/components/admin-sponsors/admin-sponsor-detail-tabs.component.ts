@@ -66,7 +66,8 @@ export class AdminSponsorDetailTabsComponent {
 
   readonly tabs: readonly AdminSponsorDetailTabItem[] = [
     { id: 'overview', label: 'overview' },
-    { id: 'identity', label: 'profile' },
+    { id: 'identity', label: 'identity' },
+    { id: 'media', label: 'profile' },
     { id: 'publication', label: 'publication' },
     { id: 'billing', label: 'finances' },
     { id: 'audit', label: 'history' }
@@ -74,11 +75,7 @@ export class AdminSponsorDetailTabsComponent {
 
   isActive(tab: SponsorDetailsTab): boolean {
     const active = this.activeTab();
-    return (
-      tab === active ||
-      (tab === 'identity' && active === 'media') ||
-      (tab === 'billing' && active === 'refund')
-    );
+    return tab === active || (tab === 'billing' && active === 'refund');
   }
 
   selectTab(tab: SponsorDetailsTab): void {

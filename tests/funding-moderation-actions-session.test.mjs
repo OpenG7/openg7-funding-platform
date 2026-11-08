@@ -31,6 +31,8 @@ const { FundingModerationService } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/funding-moderation.service.js');
 const { AdminConfirmationService } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/admin-confirmation.service.js');
+const { AdminDashboardRequestError } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js');
 const { FundingI18nService } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/funding-i18n.service.js');
 workspaceHook.deregister();
@@ -139,6 +141,73 @@ function assertPrivateStateCleared(actions) {
   assert.equal(actions.assignedTo(), null);
   assert.equal(actions.assignmentDraft(), '');
   assert.equal(actions.assignmentState(), 'idle');
+}
+
+for (const status of [401, 403]) {
+  test(`a refused native content request reports ${status} only to its own requester`, async (t) => {
+    const f = fixture(t);
+    const denials = [];
+    f.actions.accessLost.subscribe((value) => denials.push(value));
+    const deciding = f.actions.decide();
+    const request = f.moderation.pending();
+    assert.equal(f.moderation.rejectAccess({ ...request }, status), false);
+    assert.equal(f.moderation.pending(), request);
+    assert.equal(f.moderation.rejectAccess(request, status), true);
+    await deciding;
+    assert.equal(f.moderation.pending(), null);
+    assert.deepEqual(denials, [status]);
+    assertPrivateStateCleared(f.actions);
+    assert.deepEqual(f.writes, []);
+  });
+
+  for (const action of ['history', 'decision']) {
+    test(`native moderation purges private context and reports ${status} after ${action}`, async (t) => {
+      const f = fixture(t);
+      await f.actions.loadHistory();
+      f.actions.setLevel({ target: { value: 'N4' } });
+      const denials = [];
+      const busy = [];
+      f.actions.accessLost.subscribe((value) => denials.push(value));
+      f.actions.busyChanged.subscribe((value) => busy.push(value));
+      const refused = async () => {
+        throw new AdminDashboardRequestError(status);
+      };
+      if (action === 'history') {
+        f.admin.moderationCases = refused;
+        await f.actions.loadHistory();
+      } else {
+        f.admin.moderationDecision = refused;
+        const deciding = f.actions.decide();
+        assert.equal(f.actions.busy(), true);
+        f.moderation.answer({ level: 'N4' });
+        await deciding;
+        assert.deepEqual(busy, [true, false]);
+      }
+      assert.deepEqual(denials, [status]);
+      assertPrivateStateCleared(f.actions);
+      assert.deepEqual(f.writes, []);
+    });
+  }
+}
+
+for (const [initialLevel, expected] of [
+  ['N0', 'N0'],
+  ['N4', 'N1']
+]) {
+  test(`a guided publication draft starts at supported level ${expected} for requested ${initialLevel} without recording a decision`, async (t) => {
+    const f = fixture(t, 'operator');
+    const subject = { type: 'publication_draft', id: 'synthetic-guided-draft' };
+    f.actions.initialLevel = signal(initialLevel);
+    f.subject.set(subject);
+    TestBed.tick();
+    assert.equal(f.actions.level(), expected);
+    const deciding = f.actions.decide();
+    assert.deepEqual(f.moderation.pending()?.subject, subject);
+    assert.equal(f.moderation.pending()?.level, expected);
+    f.moderation.answer(null);
+    await deciding;
+    assert.deepEqual(f.writes, []);
+  });
 }
 
 for (const change of ['generation', 'OIDC session']) {

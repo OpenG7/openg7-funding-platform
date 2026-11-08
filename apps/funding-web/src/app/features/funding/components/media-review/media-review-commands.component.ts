@@ -4,7 +4,10 @@ import {
   inject,
   input
 } from '@angular/core';
-import type { SponsorMediaWorkspaceAsset } from '@openg7/funding-core';
+import type {
+  SponsorMediaWorkspaceAsset,
+  SponsorMediaPreparationObligation
+} from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
@@ -18,9 +21,11 @@ interface MediaReviewCommandView {
   t(key: string, params?: Record<string, unknown>): string;
   assetName(id: string): string;
   reasonLabel(reason: string): string;
+  effectLabel(effect: string): string;
   usageSummary(asset: Pick<SponsorMediaWorkspaceAsset, 'usage'>): string;
   value(event: Event): string;
   checked(event: Event): boolean;
+  obligationLabel(obligation: SponsorMediaPreparationObligation): string;
 }
 
 /** Funding command surface: scoped rights, batches, rejection and the exact execution manifest. */

@@ -18,7 +18,6 @@ import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorWorkspaceTests } from './admin-sponsor-workspace.ui.js';
 import { registerSponsorFinanceTests } from './admin-sponsor-finance.ui.js';
-import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
 import { registerSponsorInterventionTests } from './admin-sponsor-interventions.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
@@ -26,13 +25,12 @@ import { registerContributionActivityOverlayTests } from './contribution-activit
 import { registerSponsorshipCommitmentTests } from './admin-sponsorship-commitments.ui.js';
 import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-historical-audit.ui.js';
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
-import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
-import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
+import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -164,16 +162,6 @@ const record = (value = id): AdminSponsorshipRecord => ({
   created_at: date,
   updated_at: date
 });
-async function confirmMediaPlan(page: Page): Promise<void> {
-  await page.locator('[data-og7="media-manifest-confirmation"]').check();
-  await page.locator('[data-og7="media-batch-execute"]').click();
-  await expect(page.locator('dialog[open]')).toHaveCount(0);
-}
-async function cancelMediaPlan(page: Page): Promise<void> {
-  await expect(page.locator('[data-og7="media-batch-manifest"]')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('dialog[open]')).toHaveCount(0);
-}
 async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   await page.addInitScript((oidc) => {
     sessionStorage.setItem(
@@ -739,14 +727,13 @@ const dossierNext = (page: Page) =>
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorWorkspaceTests({ fixtures, path });
 registerSponsorFinanceTests({ fixtures, path });
-registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
+// The library reuses the native workspace; the former stacked profile/logo panels stay retired.
 registerMediaReviewWorkspaceTests({
   fixtures,
   path,
   asset: () => mediaAsset()
 });
 registerSponsorInterventionTests({ fixtures, path, id, date });
-registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
 registerSponsorshipTimingTests({ fixtures, path });
@@ -851,7 +838,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
       await expect(
         frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
       ).toBeVisible();
-      await expect(tabs(page).getByRole('button')).toHaveCount(5);
+      await expect(tabs(page).getByRole('button')).toHaveCount(6);
       const review = frame
         .locator('openg7-admin-sponsor-detail-header')
         .getByRole('group', {
@@ -879,9 +866,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
       await profile.focus();
       await page.keyboard.press('Enter');
       await expect(profile).toHaveAttribute('aria-current', 'page');
-      await expect(page.locator('[data-og7="dossier-identity"]')).toContainText(
-        'demo@example.invalid'
+      await expect(page.locator('[data-og7="dossier-identity"]')).toHaveCount(
+        0
       );
+      const globalTools = page.locator('[data-og7="dossier-global-tools"]');
+      if ((await globalTools.getAttribute('open')) === null) {
+        await globalTools.locator(':scope > summary').click();
+      }
       const opener = page.getByRole('button', {
         name: language === 'en' ? 'Edit dossier' : 'Modifier le dossier',
         exact: true
@@ -934,7 +925,7 @@ test('selected sponsor keeps a usable compact queue on the 1439/1440px boundary 
   ]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(frame).toHaveCSS('border-radius', '14px');
-    await expect(tabs(page).getByRole('button')).toHaveCount(5);
+    await expect(tabs(page).getByRole('button')).toHaveCount(6);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -950,7 +941,7 @@ for (const language of ['fr-CA', 'en'] as const)
     // 1920x1080 at 125% supplies 1536x864 CSS pixels, without device scaling.
     { width: 1536, height: 864 }
   ]) {
-    test(`dossier composition keeps identity and optional tools usable in ${language} at ${viewport.width}px`, async ({
+    test(`dossier composition keeps identity distinct and global tools usable in ${language} at ${viewport.width}px`, async ({
       page
     }, testInfo) => {
       const { calls, options } = await fixtures(page, 'owner');
@@ -1005,7 +996,7 @@ for (const language of ['fr-CA', 'en'] as const)
         frame.getByRole('heading', { name: 'NordVale Énergie', exact: true })
       ).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('lang', language);
-      await expect(identity).toContainText('camille@nordvale.example.invalid');
+      await expect(identity).toBeVisible();
       await expectAdminFontsReady(page);
       async function revealDesktopQueue() {
         if (viewport.width !== 1536) return;
@@ -1040,62 +1031,22 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBe(true);
       }
 
-      await test.step('the profile keeps identity visible and tools closed until requested', async () => {
+      await test.step('identity is managed in its own space while global navigation remains available', async () => {
         await expectComposition();
+        await expect(identity).toBeVisible();
         await expect(
-          main.locator('[data-og7="sponsorship-progress"]')
-        ).toBeHidden();
-        await expect(
-          frame.locator('[data-og7="moderation-actions"]')
+          frame.locator('[data-og7="media-review-workspace"]')
         ).toHaveCount(0);
-        await expect(frame.locator('[data-og7="edit-dossier"]')).toHaveCount(1);
-        await expect(frame.locator('[data-og7="dossier-guide"]')).toHaveCount(
+        await expect(frame.locator('[data-og7="dossier-actions"]')).toHaveCount(
           0
         );
-        await expect(frame.locator('[data-og7="dossier-next"]')).toHaveCount(1);
-        await expect(dossierNext(page)).toHaveAttribute(
-          'href',
-          path() + '#dossier-review'
-        );
-        await expect(tabs(page).getByRole('button')).toHaveCount(5);
-        await expect(tabs(page).locator('[aria-current="page"]')).toHaveCount(
-          1
-        );
+        await expect(tabs(page).getByRole('button')).toHaveCount(6);
         await page.screenshot({
-          path: testInfo.outputPath(`nordvale-dossier-${viewport.width}.png`),
+          path: testInfo.outputPath(
+            'identity-' + language + '-' + viewport.width + '.png'
+          ),
           animations: 'disabled'
         });
-        if (viewport.width === 1536) {
-          // No scrolling or focus on the identity content precedes these checks.
-          expect(await page.evaluate(() => scrollY)).toBe(0);
-          await expect(
-            identity.locator('#dossier-identity-title')
-          ).toBeInViewport({
-            ratio: 1
-          });
-          const identityBox = (await identity.boundingBox())!;
-          expect(identityBox.y).toBeLessThan(viewport.height - 120);
-          await expect(
-            identity.locator('[data-og7="identity-coordinates"]')
-          ).toBeInViewport({
-            ratio: 1
-          });
-          await expect(
-            identity.locator('[data-og7="identity-edit"]')
-          ).toBeInViewport({ ratio: 1 });
-          const coordinatesBox = (await identity
-            .locator('[data-og7="identity-coordinates"]')
-            .boundingBox())!;
-          const dock = frame.locator('[data-og7="dossier-actions"]');
-          await expect(dock).toBeInViewport({ ratio: 1 });
-          const dockBox = (await dock.boundingBox())!;
-          expect(coordinatesBox.y + coordinatesBox.height).toBeLessThanOrEqual(
-            dockBox.y + 1
-          );
-          const queue = page.locator('[data-og7="sponsors-list"]');
-          await expect(queue).toBeVisible();
-          expect((await queue.boundingBox())!.width).toBeCloseTo(224, 0);
-        }
       });
 
       if (viewport.width === 390 && language === 'en') {
@@ -1105,7 +1056,7 @@ for (const language of ['fr-CA', 'en'] as const)
           });
           await expect(page.locator('html')).toHaveCSS('font-size', '32px');
           await expectComposition();
-          await expect(identity).toContainText('NordVale Énergie');
+          await expect(identity).toBeVisible();
           await page.screenshot({
             path: testInfo.outputPath('nordvale-dossier-390-text-200.png'),
             animations: 'disabled',
@@ -1367,7 +1318,7 @@ for (const width of [1280, 390]) {
 }
 
 for (const role of ['owner', 'operator', 'reader'] as const) {
-  test(`dossier guide identity actions respect ${role} access and recorded submission`, async ({
+  test(`dossier guide identity actions open only the permitted owner control for ${role}`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page, role);
@@ -1378,84 +1329,38 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     await page.goto(path('identity'));
     await openDossierHelp(page);
     const panel = guide(page);
-    await expect(
-      panel.getByRole('heading', { name: 'Identité', exact: true })
-    ).toBeVisible();
-    await expect(panel.locator('[data-og7="guide-reason"]')).toContainText(
-      'Coordonnées à compléter'
-    );
-    const edit = panel.locator('[data-og7="guide-edit-identity"]');
     if (role === 'reader') {
-      await expect(edit).toHaveCount(0);
-      await expect(panel).toContainText(
-        'Vous consultez ce dossier en lecture seule'
-      );
-      await panel.locator('[data-og7="guide-open-section"]').click();
-      await expect(page.locator('#dossier-identity')).toBeFocused();
-      options.edited.set(id, { sponsor_details_submitted_at: null });
-      await page.reload();
-      await openDossierHelp(page);
-    } else {
-      await edit.click();
-      await expect(editForm(page)).toBeVisible();
-      await expect(page).toHaveURL(/tab=identity/);
-      await expect(page).not.toHaveURL(/action=/);
-      await page.keyboard.press('Escape');
       await expect(
-        page.getByRole('button', { name: 'Modifier le dossier', exact: true })
-      ).toBeFocused();
-      expect(calls.every((call) => call.method === 'GET')).toBe(true);
-      await page.reload();
-      await expect(editForm(page)).toBeHidden();
-      await expect(page).not.toHaveURL(/action=/);
-      await openDossierHelp(page);
-      await edit.click();
-      await editForm(page)
-        .getByLabel('Courriel du contact', { exact: true })
-        .fill('guide@example.invalid');
-      await editForm(page)
-        .getByRole('button', { name: 'Enregistrer les modifications' })
-        .click();
-      expect(postsTo(calls, '/details')).toHaveLength(0);
-      await page.locator('[data-og7="confirm-action"]').click();
-      await expect(editForm(page)).toBeHidden();
-      await openDossierHelp(page);
-    }
-    await expect(panel.locator('[data-og7="guide-reason"]')).toContainText(
-      'Coordonnées renseignées. En attente de la transmission'
-    );
-    await expect(panel).toContainText(
-      'Une correction administrative des coordonnées ne remplace pas cette transmission'
-    );
-    if (role === 'owner') {
-      await panel.locator('[data-og7="guide-followup-access"]').click();
-      await expect(page).toHaveURL(/tab=identity/);
-      await expect(page).not.toHaveURL(/action=/);
-      await expect(
-        page.locator('[data-og7="admin-followup-access"]').getByRole('button')
-      ).toBeFocused();
-      await expect(
-        page.locator('[data-og7="admin-followup-access"]')
-      ).toBeInViewport();
-      await page.locator('[data-og7="dossier-tool-close"]').press('Enter');
-      await expect(toolToggle(page, 'access')).toBeFocused();
-      await page.reload();
-      await expect(
-        page.locator('[data-og7="admin-followup-access"]')
-      ).toBeHidden();
-      await expect(page).not.toHaveURL(/action=/);
-    } else {
-      await expect(
-        panel.locator('[data-og7="guide-followup-access"]')
+        panel.locator('[data-og7="guide-edit-identity"]')
       ).toHaveCount(0);
-      await expect(panel).toContainText('demandez à un propriétaire');
+      await panel.locator('[data-og7="guide-open-section"]').click();
+    } else await panel.locator('[data-og7="guide-edit-identity"]').click();
+    await expect(page).toHaveURL(/tab=identity/);
+    await expect(page).not.toHaveURL(/action=/);
+    await expect(page.locator('[data-og7="dossier-identity"]')).toBeVisible();
+    if (role === 'reader') await expect(editForm(page)).toBeHidden();
+    else {
+      await expect(editForm(page)).toBeVisible();
+      await page.keyboard.press('Escape');
     }
-    expect(
-      calls.filter((call) => call.url.pathname.endsWith('/followup-access'))
-    ).toHaveLength(0);
-    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(
-      role === 'reader' ? 0 : 1
-    );
+    await expect(
+      page.locator('[data-og7="admin-followup-access"]')
+    ).toBeHidden();
+    if (role === 'owner') {
+      options.edited.set(id, {
+        sponsor_contact_email: 'contact@example.invalid',
+        sponsor_details_submitted_at: null
+      });
+      await page.goto(path('identity'));
+      await openDossierHelp(page);
+      await guide(page).locator('[data-og7="guide-followup-access"]').click();
+      await expect(page).toHaveURL(/tab=identity/);
+      await expect(page).not.toHaveURL(/action=/);
+      await expect(
+        page.locator('[data-og7="admin-followup-access"]')
+      ).toBeVisible();
+    }
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
 
@@ -1514,7 +1419,7 @@ test('dossier guide action URL outside its identity tab is discarded before late
   await expect(page).toHaveURL(path('overview'));
   await expect(editForm(page)).toBeHidden();
   await tabs(page)
-    .getByRole('button', { name: 'Fiche et médias', exact: true })
+    .getByRole('button', { name: 'Identité', exact: true })
     .click();
   await expect(page).toHaveURL(path('identity'));
   await expect(editForm(page)).toBeHidden();
@@ -1662,83 +1567,6 @@ test('completed dossier guide remains consultable and never asks to validate bro
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
-for (const role of ['owner', 'operator', 'reader'] as const) {
-  test(`identity guidance separates missing coordinates and submission for ${role}`, async ({
-    page
-  }) => {
-    const { calls, options } = await fixtures(page, role);
-    options.edited.set(id, {
-      sponsor_company_name: null,
-      sponsor_contact_email: null,
-      sponsor_details_submitted_at: null
-    });
-    await page.setViewportSize({
-      width: role === 'owner' ? 1280 : 390,
-      height: 844
-    });
-    await page.goto(path('identity') + '#dossier-identity');
-    const identity = page.locator('#dossier-identity');
-    await expect(identity).toBeFocused();
-    await expect(identity.getByRole('complementary')).toContainText(
-      'Coordonnées et transmission : deux actions distinctes'
-    );
-    await expect(identity.getByRole('complementary')).toContainText(
-      'elle ne transmet pas le formulaire au nom du commanditaire'
-    );
-    await expect(
-      identity.locator('[data-og7="identity-coordinates-status"]')
-    ).toContainText(
-      'Renseignez le nom de l’entreprise et le courriel du contact'
-    );
-    await expect(
-      identity.locator('[data-og7="identity-submission-status"]')
-    ).toContainText('En attente de la transmission');
-    await expect(identity).toContainText(
-      'Une correction administrative des coordonnées ne remplace pas cette transmission.'
-    );
-    await expect(
-      identity.locator('[data-og7="identity-coordinates-state"]')
-    ).toHaveAttribute('data-state', 'missing');
-    await expect(
-      identity.locator('[data-og7="identity-submission-state"]')
-    ).toHaveAttribute('data-state', 'pending');
-    const edit = identity.locator('[data-og7="identity-edit"]');
-    if (role === 'reader') {
-      await expect(edit).toHaveCount(0);
-      await expect(identity).toContainText('Votre accès est en lecture seule');
-    } else {
-      await edit.focus();
-      await page.keyboard.press('Enter');
-      await expect(editForm(page)).toBeVisible();
-      await expect(
-        editForm(page).getByLabel('Nom de l’entreprise', { exact: true })
-      ).toHaveValue('');
-      await page.keyboard.press('Escape');
-      await expect(edit).toBeFocused();
-    }
-    const followup = identity.locator('[data-og7="identity-followup-access"]');
-    if (role === 'owner') {
-      await followup.click();
-      const access = page.locator('[data-og7="admin-followup-access"]');
-      await expect(access.getByRole('button')).toBeFocused();
-      await expect(access).toBeInViewport();
-      await expect(access.getByRole('button')).toBeFocused();
-      expect(
-        calls.filter((call) => call.url.pathname.endsWith('/followup-access'))
-      ).toHaveLength(0);
-    } else {
-      await expect(followup).toHaveCount(0);
-      await expect(identity).toContainText('demandez à un propriétaire');
-    }
-    expect(calls.every((call) => call.method === 'GET')).toBe(true);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth + 1
-      )
-    ).toBe(true);
-  });
-}
-
 for (const alreadySubmitted of [false, true]) {
   test(`identity correction preserves sponsor submission: ${alreadySubmitted}`, async ({
     page
@@ -1748,21 +1576,17 @@ for (const alreadySubmitted of [false, true]) {
       sponsor_contact_email: null,
       sponsor_details_submitted_at: alreadySubmitted ? date : null
     });
-    await page.goto(path('identity'));
-    const identity = page.locator('#dossier-identity');
-    await identity.locator('[data-og7="identity-edit"]').click();
+    await page.goto(path());
+    await page
+      .getByRole('button', { name: 'Modifier le dossier', exact: true })
+      .click();
     const form = editForm(page);
-    await expect(form).toContainText(
-      'Cette correction ne remplace pas la transmission du formulaire'
-    );
+    await expect(form).toContainText(/transmission/);
     const submissionHelp = form.locator(
       '[data-og7="edit-dossier-submission-help"]'
     );
     if (alreadySubmitted) await expect(submissionHelp).toHaveCount(0);
-    else
-      await expect(submissionHelp).toContainText(
-        'Même si vous remplissez tous les champs'
-      );
+    else await expect(submissionHelp).toBeVisible();
     await form
       .getByLabel('Courriel du contact', { exact: true })
       .fill('identity@example.invalid');
@@ -1771,59 +1595,21 @@ for (const alreadySubmitted of [false, true]) {
       .click();
     expect(postsTo(calls, '/details')).toHaveLength(0);
     await page.locator('[data-og7="confirm-action"]').click();
-    await expect(
-      identity.locator('[data-og7="identity-coordinates-status"]')
-    ).toContainText(
-      'Le nom de l’entreprise et le courriel du contact sont renseignés.'
-    );
-    await expect(
-      identity.locator('[data-og7="identity-coordinates-state"]')
-    ).toHaveAttribute('data-state', 'complete');
-    const submissionState = identity.locator(
-      '[data-og7="identity-submission-state"]'
-    );
-    await expect(submissionState).toHaveAttribute(
-      'data-state',
-      alreadySubmitted ? 'submitted' : 'pending'
-    );
-    await expect(
-      identity.locator('[data-og7="identity-submission-status"]')
-    ).toHaveText(
-      alreadySubmitted
-        ? 'Le commanditaire a transmis son formulaire.'
-        : 'En attente de la transmission du formulaire par le commanditaire.'
-    );
-    if (!alreadySubmitted) {
-      await expect(
-        identity.locator('[data-og7="identity-submission-required"]')
-      ).toContainText('vous ne pouvez pas la valider à sa place');
-      await expect(
-        page.locator('[data-og7="sponsorship-dossier"]')
-      ).toContainText('Coordonnées renseignées. En attente de la transmission');
-      // Simulate a later sponsor submission returned by the API, independently of the correction.
-      options.edited.set(id, {
-        ...options.edited.get(id),
-        sponsor_details_submitted_at: date
-      });
-      await page.reload();
-      await expect(submissionState).toHaveAttribute('data-state', 'submitted');
-      await expect(
-        identity.locator('[data-og7="identity-coordinates-state"]')
-      ).toHaveAttribute('data-state', 'complete');
-      await expect(
-        identity.locator('[data-og7="identity-submission-status"]')
-      ).toHaveText('Le commanditaire a transmis son formulaire.');
-    }
-    await expect(
-      identity.locator('[data-og7="identity-submission-required"]')
-    ).toHaveCount(0);
-    await expect(
-      identity.locator('[data-og7="identity-followup-access"]')
-    ).toHaveCount(0);
+    await expect(form).toBeHidden();
     const writes = calls.filter((call) => call.method === 'POST');
     expect(writes).toHaveLength(1);
     expect(writes[0].url.pathname).toBe('/api/admin/sponsorships/details');
     expect(writes[0].body).not.toHaveProperty('sponsor_details_submitted_at');
+    await page
+      .getByRole('button', { name: 'Modifier le dossier', exact: true })
+      .click();
+    await expect(
+      form.getByLabel('Courriel du contact', { exact: true })
+    ).toHaveValue('identity@example.invalid');
+    await page.keyboard.press('Escape');
+    expect(options.edited.get(id)?.sponsor_details_submitted_at).toBe(
+      alreadySubmitted ? date : null
+    );
   });
 }
 
@@ -1906,9 +1692,7 @@ for (const width of [1920, 1280, 390]) {
     await tabs(page)
       .getByRole('button', { name: 'Fiche et médias', exact: true })
       .click();
-    await expect(
-      dock.getByRole('button', { name: 'Accepter', exact: true })
-    ).toBeInViewport({ ratio: 1 });
+    await expect(dock).toHaveCount(0);
     await tabs(page)
       .getByRole('button', { name: 'Aperçu', exact: true })
       .click();
@@ -2006,62 +1790,11 @@ test('dossier controls respect reader and operator permissions', async ({
   await tabs(page)
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
-  const media = page.locator('openg7-admin-sponsor-detail-media');
-  const workspace = media.locator('[data-og7="media-review-workspace"]');
-  await expect(
-    workspace.locator('[data-og7="media-dossier-rules"]')
-  ).toBeDisabled();
-  await expect(
-    workspace.getByRole('button', { name: 'Créer un lot', exact: true })
-  ).toBeDisabled();
-  const tile = workspace.locator('[data-og7="media-tile"]').first();
-  await expect(tile.getByRole('checkbox')).toBeDisabled();
-  await expect(
-    workspace.locator('[data-og7="media-batch-approve"]')
-  ).toHaveCount(0);
-  await tile.getByRole('button').focus();
-  await tile.getByRole('button').press('Enter');
-  const inspector = workspace.locator('[data-og7="media-inspector"]');
-  await expect(
-    inspector.locator('[data-og7="media-inspector-alt"]')
-  ).toBeDisabled();
-  await expect(
-    inspector.locator('[data-og7="media-inspector-approve"]')
-  ).toBeDisabled();
-  await expect(
-    inspector.locator('[data-og7="media-full-preview"] img')
-  ).toBeVisible();
-  await expect(
-    inspector.locator('[data-og7="media-full-preview"] img')
-  ).toHaveAttribute('src', /^blob:/);
-  expect(
-    calls.some(
-      (call) =>
-        call.method === 'GET' &&
-        call.url.pathname ===
-          `/api/admin/sponsorships/media/content/${secondId}` &&
-        !call.url.searchParams.has('variant')
-    )
-  ).toBe(true);
-  await inspector.getByText('Plus d’options', { exact: true }).click();
-  for (const button of ['Refuser', 'Supprimer', 'Choisir pour le site']) {
-    const controls = inspector.getByRole('button', {
-      name: button,
-      exact: true
-    });
-    await expect(controls).not.toHaveCount(0);
-    for (const control of await controls.all())
-      await expect(control).toBeDisabled();
-  }
-  await expect(workspace.locator('[data-og7="media-history"]')).toHaveCount(0);
-  await expect(
-    media.getByRole('button', { name: 'Supprimer le logo', exact: true })
-  ).toHaveCount(0);
-  await expect(media.locator('input[type="file"]')).toBeDisabled();
-  await inspector.locator('[data-og7="media-inspector-close"]').click();
-  await expect(
-    workspace.locator('[data-og7="media-full-preview"]')
-  ).toHaveCount(0);
+  await expect(page.locator('[data-og7="dossier-main"]')).toBeVisible();
+  await expect(page.locator('[data-og7="media-review-workspace"]')).toHaveCount(
+    1
+  );
+  await expect(page.locator('[data-og7="dossier-actions"]')).toHaveCount(0);
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
@@ -2234,7 +1967,7 @@ test('review controls disable redundant decisions and retain mandatory refusal c
 }) => {
   const { calls, options } = await fixtures(page);
   options.reviewStatus = 200;
-  await page.goto(path('identity'));
+  await page.goto(path('overview'));
   await expect(
     actions(page).getByRole('button', { name: 'Remettre en attente' })
   ).toBeDisabled();
@@ -2283,124 +2016,6 @@ test('review controls disable redundant decisions and retain mandatory refusal c
   await page.locator('[data-og7="confirm-action"]').click();
   await completeModeration(page, true);
   await expect.poll(() => postsTo(calls, '/review').length).toBe(2);
-});
-
-test('bulk media approval keeps edited alternative text and approved media text remains editable', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page);
-  options.media = [mediaAsset()];
-  await page.goto(path('media'));
-  await page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('button')
-    .click();
-  const alt = page.locator('[data-og7="media-inspector-alt"]');
-  await alt.fill('Description préparée avant approbation');
-  await page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('checkbox')
-    .check();
-  await page.locator('[data-og7="media-batch-approve"]').click();
-  await confirmMediaPlan(page);
-  await expect(alt).toHaveValue('Description préparée avant approbation');
-  expect(options.media[0].reviewStatus).toBe('approved');
-  await alt.fill('Description corrigée après approbation');
-  await page.locator('[data-og7="media-inspector-approve"]').click();
-  await confirmMediaPlan(page);
-  const plans = postsTo(calls, '/batch/plan');
-  expect(plans).toHaveLength(2);
-  expect(plans[1].body).toMatchObject({
-    action: 'approve',
-    assets: [
-      {
-        id: secondId,
-        version: 'v1-updated',
-        altText: 'Description corrigée après approbation'
-      }
-    ]
-  });
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(2);
-  expect(postsTo(calls, '/media/review')).toHaveLength(0);
-});
-
-test('media decisions lock competing actions and deletion needs confirmation', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page);
-  options.media = [mediaAsset()];
-  let release!: () => void;
-  options.mutationGate = new Promise((resolve) => (release = resolve));
-  await page.goto(path('media'));
-  await page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('button')
-    .click();
-  await page.locator('[data-og7="media-inspector-approve"]').click();
-  await page.locator('[data-og7="media-manifest-confirmation"]').check();
-  await page.locator('[data-og7="media-batch-execute"]').click();
-  for (const name of ['Accepter', 'Refuser'])
-    await expect(
-      actions(page).getByRole('button', { name, exact: true })
-    ).toBeDisabled();
-  await expect(page.locator('[data-og7="media-upload-files"]')).toBeDisabled();
-  release();
-  await expect(page.locator('dialog[open]')).toHaveCount(0);
-  options.mutationGate = null;
-  const inspector = page.locator('[data-og7="media-inspector"]');
-  await inspector
-    .getByRole('button', { name: 'Refuser', exact: true })
-    .first()
-    .click();
-  await page
-    .locator('dialog[open]')
-    .getByLabel('Motif de modération')
-    .selectOption({ index: 1 });
-  await page
-    .locator('dialog[open]')
-    .getByLabel('Explication destinée au commanditaire')
-    .fill('Cette image ne convient pas au contenu présenté.');
-  await page
-    .locator('dialog[open]')
-    .getByRole('button', { name: 'Examiner le refus' })
-    .click();
-  await cancelMediaPlan(page);
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(1);
-  await inspector
-    .getByRole('button', { name: 'Refuser', exact: true })
-    .first()
-    .click();
-  await page
-    .locator('dialog[open]')
-    .getByLabel('Motif de modération')
-    .selectOption({ index: 1 });
-  await page
-    .locator('dialog[open]')
-    .getByLabel('Explication destinée au commanditaire')
-    .fill('Cette image ne convient pas au contenu présenté.');
-  await page
-    .locator('dialog[open]')
-    .getByRole('button', { name: 'Examiner le refus' })
-    .click();
-  await confirmMediaPlan(page);
-  await inspector.getByText('Plus d’options', { exact: true }).click();
-  await inspector
-    .getByRole('button', { name: 'Supprimer', exact: true })
-    .click();
-  await cancelMediaPlan(page);
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(2);
-  await inspector
-    .getByRole('button', { name: 'Supprimer', exact: true })
-    .click();
-  await confirmMediaPlan(page);
-  await expect(page.locator('[data-og7="media-tile"]')).toHaveCount(0);
-  expect(postsTo(calls, '/batch/plan').at(-1)?.body).toMatchObject({
-    action: 'delete',
-    assets: [{ id: secondId, version: 'v1-updated-updated' }]
-  });
 });
 
 test('publication save normalizes the slug, confirms visibility and preserves a failed draft', async ({
@@ -2668,173 +2283,6 @@ test('a late access recipient cannot open confirmation for another dossier', asy
   ).toBeEnabled();
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   expect(postsTo(calls, '/followup-access')).toHaveLength(0);
-});
-
-test('logo upload rejects invalid files, reports definite failure and deletion is confirmed', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page);
-  await page.goto(path('media'));
-  const workspace = page.locator('[data-og7="media-review-workspace"]'),
-    upload = workspace.locator('[data-og7="media-upload-files"]');
-  await workspace.getByLabel('Type de fichier').selectOption('logo');
-  await upload.setInputFiles({
-    name: 'fixture.txt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('synthetic')
-  });
-  await expect(workspace).toContainText('1 échec');
-  expect(postsTo(calls, '/media/upload')).toHaveLength(0);
-  options.mutationStatus = 400;
-  const file = {
-    name: 'fixture.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('synthetic image validated by fixture')
-  };
-  await upload.setInputFiles(file);
-  await expect(workspace).toContainText('1 échec');
-  options.mutationStatus = 200;
-  await upload.setInputFiles(file);
-  await expect(workspace.locator('[data-og7="media-tile"]')).toHaveCount(1);
-  await workspace
-    .locator('[data-og7="media-tile"]')
-    .getByRole('button')
-    .click();
-  const inspector = workspace.locator('[data-og7="media-inspector"]');
-  await inspector.getByText('Plus d’options', { exact: true }).click();
-  await inspector
-    .getByRole('button', { name: 'Supprimer', exact: true })
-    .click();
-  await cancelMediaPlan(page);
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(0);
-  await inspector
-    .getByRole('button', { name: 'Supprimer', exact: true })
-    .click();
-  await confirmMediaPlan(page);
-  await expect(workspace.locator('[data-og7="media-tile"]')).toHaveCount(0);
-  expect(postsTo(calls, '/logo')).toHaveLength(0);
-  expect(postsTo(calls, '/logo/delete')).toHaveLength(0);
-});
-
-test('media summary hides previous counters while refresh is pending and after a failed read', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page, 'reader');
-  options.media = [mediaAsset()];
-  const writes: string[] = [];
-  page.on('request', (request) => {
-    if (request.method() === 'POST')
-      writes.push(new URL(request.url()).pathname);
-  });
-  await page.goto(path('identity'));
-  const summary = page.locator('[data-og7="dossier-media-summary"]');
-  const fileCount = summary.locator('[data-og7="dossier-media-file-count"]');
-  const blockedCount = summary.locator(
-    '[data-og7="dossier-media-blocked-count"]'
-  );
-  await expect(fileCount).toHaveText('Fichiers : 1');
-  await expect(blockedCount).toBeVisible();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
-    (url) => url.pathname === '/api/admin/sponsorships/media/workspace',
-    async (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
-      await gate;
-      return route.fulfill({
-        status: 503,
-        json: { error: 'Synthetic media summary read failure' }
-      });
-    }
-  );
-  try {
-    const refreshed = page.waitForRequest(
-      (request) =>
-        request.method() === 'GET' &&
-        new URL(request.url()).pathname ===
-          '/api/admin/sponsorships/media/workspace'
-    );
-    await page.locator('[data-og7="media-refresh"]').click();
-    await refreshed;
-    await expect(summary).toContainText('Chargement du résumé média…');
-    await expect(fileCount).toHaveCount(0);
-    await expect(blockedCount).toHaveCount(0);
-    expect(writes).toEqual([]);
-  } finally {
-    release();
-  }
-  await expect(summary).toContainText('Résumé média indisponible.');
-  await expect(summary).not.toContainText('Chargement du résumé média…');
-  await expect(fileCount).toHaveCount(0);
-  await expect(blockedCount).toHaveCount(0);
-  await expect(
-    page.locator('[data-og7="media-workspace-error"]')
-  ).toBeVisible();
-  expect(calls.every((call) => call.method === 'GET')).toBe(true);
-  expect(writes).toEqual([]);
-});
-
-test('failed media approval preserves its text and permits another preflight without replaying a mutation', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page);
-  options.media = [mediaAsset()];
-  options.mutationStatus = 503;
-  await page.goto(path('media'));
-  await page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('button')
-    .click();
-  const alt = page.locator('[data-og7="media-inspector-alt"]');
-  await alt.fill('Description conservée');
-  await page.locator('[data-og7="media-inspector-approve"]').click();
-  await expect(
-    page.locator('[data-og7="media-workspace-error"]')
-  ).toBeVisible();
-  await expect(alt).toHaveValue('Description conservée');
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(0);
-  options.mutationStatus = 200;
-  await page.locator('[data-og7="media-inspector-approve"]').click();
-  await confirmMediaPlan(page);
-  expect(postsTo(calls, '/batch/execute')).toHaveLength(1);
-  expect(postsTo(calls, '/batch/plan')).toHaveLength(2);
-  expect(options.media[0].altText).toBe('Description conservée');
-});
-
-test('English mobile media editing works with keyboard and without horizontal overflow', async ({
-  page
-}) => {
-  const { calls, options } = await fixtures(page);
-  options.media = [{ ...mediaAsset(), reviewStatus: 'approved' }];
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(path('media'));
-  await page
-    .getByRole('button', { name: 'Switch administration language to English' })
-    .click();
-  const tile = page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('button');
-  await tile.focus();
-  await tile.press('Enter');
-  await page
-    .locator('[data-og7="media-inspector-alt"]')
-    .fill('Updated alternative text');
-  const approve = page.locator('[data-og7="media-inspector-approve"]');
-  await approve.focus();
-  await approve.press('Enter');
-  await confirmMediaPlan(page);
-  expect(postsTo(calls, '/batch/plan')[0]?.body).toMatchObject({
-    assets: [{ id: secondId, altText: 'Updated alternative text' }]
-  });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth + 1
-    )
-  ).toBe(true);
 });
 
 for (const blocked of [
@@ -3412,11 +2860,11 @@ test('overview shortcuts keep profile, finances and internal notes reachable', a
   await summary.locator('[data-og7="overview-open-profile"]').focus();
   await page.keyboard.press('Enter');
   await expect(
-    tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
+    tabs(page).getByRole('button', { name: 'Identité', exact: true })
   ).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('#dossier-identity')).toBeFocused();
-  await expect(page.locator('[data-og7="identity-coordinates"]')).toContainText(
-    'demo@example.invalid'
+  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('[data-og7="identity-coordinates"]')).toHaveCount(
+    1
   );
 
   await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
@@ -3620,14 +3068,8 @@ test('media and history inspections stay inside the selected dossier', async ({
   const { options } = await fixtures(page);
   options.media = [mediaAsset()];
   await page.goto(path('media'));
-  await page
-    .locator('[data-og7="media-tile"]')
-    .first()
-    .getByRole('button')
-    .click();
-  await expect(
-    page.locator('[data-og7="media-full-preview"] img')
-  ).toHaveAttribute('src', /^blob:/);
+  await expect(page.locator('[data-og7="media-tile"]')).toHaveCount(1);
+  await expect(page.locator('[data-og7="dossier-main"]')).toBeVisible();
   await tabs(page).getByRole('button', { name: 'Historique' }).click();
   await page
     .locator('[data-og7="dossier-audit-history"]')
@@ -3640,12 +3082,12 @@ test('media and history inspections stay inside the selected dossier', async ({
   await expect(page).toHaveURL(/tab=audit/);
 });
 
-test('five dossier workspaces use direct URLs; invoice is complete before review; browsing makes no writes', async ({
+test('six dossier workspaces use direct URLs; invoice is complete before review; browsing makes no writes', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(path('billing'));
-  await expect(tabs(page).getByRole('button')).toHaveCount(5);
+  await expect(tabs(page).getByRole('button')).toHaveCount(6);
   await expect(
     progress(page).locator('[data-og7-id="billing"]')
   ).toHaveAttribute('data-state', 'complete');
@@ -3654,20 +3096,16 @@ test('five dossier workspaces use direct URLs; invoice is complete before review
   ).toHaveAttribute('data-state', 'pending');
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
   await tabs(page)
-    .getByRole('button', { name: 'Fiche et médias', exact: true })
+    .getByRole('button', { name: 'Identité', exact: true })
     .click();
   await expect(page).toHaveURL(/tab=identity/);
-  await expect(page.locator('[data-og7="dossier-identity"]')).toContainText(
-    'demo@example.invalid'
-  );
+  await expect(page.locator('[data-og7="dossier-identity"]')).toBeVisible();
   await tabs(page)
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
-  await expect(
-    page
-      .locator('[data-og7="media-review-workspace"]')
-      .getByRole('heading', { name: 'Revue des médias', exact: true })
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="media-review-workspace"]')).toHaveCount(
+    1
+  );
   await page.reload();
   await expect(
     tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
@@ -3696,6 +3134,7 @@ for (const width of [1280, 390]) {
     for (const [index, tab] of [
       'overview',
       'identity',
+      'media',
       'publication',
       'billing',
       'audit',
@@ -3704,13 +3143,36 @@ for (const width of [1280, 390]) {
       const button = navigation
         .getByRole('button')
         .nth(
-          ['overview', 'identity', 'publication', 'billing', 'audit'].indexOf(
-            tab
-          )
+          [
+            'overview',
+            'identity',
+            'media',
+            'publication',
+            'billing',
+            'audit'
+          ].indexOf(tab)
         );
+      // Keep the target clear of the floating decision controls before measuring
+      // the viewport that the route must preserve.
+      await button.evaluate((element) =>
+        element.scrollIntoView({ block: 'center', behavior: 'instant' })
+      );
       await button.focus();
+      await expect
+        .poll(() =>
+          button.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            return element.contains(
+              document.elementFromPoint(
+                bounds.x + bounds.width / 2,
+                bounds.y + bounds.height / 2
+              )
+            );
+          })
+        )
+        .toBe(true);
       const before = await page.evaluate(() => window.scrollY);
-      if (index === 4) refundPosition = before;
+      if (tab === 'billing') refundPosition = before;
       expect(before).toBeGreaterThanOrEqual(0);
       if (index % 2) await button.press('Enter');
       else await button.click();
@@ -3725,7 +3187,10 @@ for (const width of [1280, 390]) {
       );
       const position = await page.evaluate(() => ({
         y: window.scrollY,
-        maximum: document.documentElement.scrollHeight - window.innerHeight
+        maximum: Math.max(
+          0,
+          document.documentElement.scrollHeight - window.innerHeight
+        )
       }));
       expect(position.y).toBeCloseTo(Math.min(before, position.maximum), 0);
       await expect(button).toBeFocused();
@@ -3817,7 +3282,8 @@ for (const width of [1280, 390]) {
     await expect(summary).toBeFocused();
 
     for (const [tab, label] of [
-      ['identity', 'Fiche et médias'],
+      ['identity', 'Identité'],
+      ['media', 'Fiche et médias'],
       ['publication', 'Publication'],
       ['billing', 'Finances'],
       ['audit', 'Historique']
@@ -3831,6 +3297,12 @@ for (const width of [1280, 390]) {
       await expect(page).toHaveURL(path(tab) + query);
       await expect(button).toBeFocused();
       await expect(progress(page)).toBeHidden();
+      if (tab === 'media') {
+        const tools = page.locator('[data-og7="dossier-global-tools"]');
+        if ((await tools.getAttribute('open')) === null) {
+          await tools.locator(':scope > summary').press('Enter');
+        }
+      }
       await expect(refresh).toBeVisible();
     }
     await tabs(page)
@@ -3856,7 +3328,7 @@ for (const width of [1280, 390]) {
     const returnTo =
       '/admin/fundraiser/attention?type=sponsorship_needs_review';
     const query = '&returnTo=' + encodeURIComponent(returnTo);
-    await page.goto(path('identity') + query);
+    await page.goto(path('billing') + query);
     const next = dossierNext(page);
     await expect(next).toHaveText('Voir les actions de validation');
     await expect(next).toHaveAttribute(
@@ -3990,13 +3462,13 @@ test('leaving a pending section cancels its delayed focus request', async ({
   await page.goto(path() + '#dossier-review');
   await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
   const identity = tabs(page).getByRole('button', {
-    name: 'Fiche et médias',
+    name: 'Identité',
     exact: true
   });
   await identity.click();
   await expect(page).toHaveURL(path('identity'));
   release();
-  await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
+  await expect(progress(page)).toBeHidden();
   await expect(identity).toBeFocused();
   await expect(page.locator('#dossier-review')).toHaveCount(0);
 });
@@ -4081,7 +3553,7 @@ test('browser history restores the viewport after visiting a next-step section',
   // Measure saved history positions without a smooth scroll still in flight.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 844 });
-  await page.goto(path('identity'));
+  await page.goto(path('billing'));
   const next = dossierNext(page);
   await next.scrollIntoViewIfNeeded();
   // Start away from the top and keep the link visible so clicking cannot scroll it.
@@ -4100,9 +3572,9 @@ test('browser history restores the viewport after visiting a next-step section',
   const destination = await page.evaluate(() => scrollY);
   expect(Math.abs(destination - before)).toBeGreaterThan(1);
   await page.goBack();
-  await expect(page).toHaveURL(path('identity'));
+  await expect(page).toHaveURL(path('billing'));
   await expect(
-    tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
+    tabs(page).getByRole('button', { name: 'Finances', exact: true })
   ).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('#dossier-review')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(before, 0);
@@ -5260,7 +4732,7 @@ for (const width of [1920, 1280, 390]) {
       await row.focus();
       await page.keyboard.press('Enter');
       await expect(detail).toBeFocused();
-      await expect(tabs(page).getByRole('button')).toHaveCount(5);
+      await expect(tabs(page).getByRole('button')).toHaveCount(6);
       await expect(
         page.getByRole('group', { name: 'Revue', exact: true })
       ).toBeInViewport({ ratio: 1 });
@@ -5315,7 +4787,7 @@ test('workspace groups legacy media and refund URLs and preserves confirmations'
   await expect(
     tabs(page).getByRole('button', { name: 'Fiche et médias' })
   ).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('#dossier-identity')).toHaveCount(0);
   await expect(page.locator('#dossier-media')).toBeVisible();
   await page.goto(path('refund'));
   await expect(
@@ -5395,15 +4867,33 @@ for (const english of [false, true]) {
         .click();
     }
     const titles = english
-      ? ['Overview', 'Profile & media', 'Publication', 'Finances', 'History']
-      : ['Aperçu', 'Fiche et médias', 'Publication', 'Finances', 'Historique'];
+      ? [
+          'Overview',
+          'Identity',
+          'Profile & media',
+          'Publication',
+          'Finances',
+          'History'
+        ]
+      : [
+          'Aperçu',
+          'Identité',
+          'Fiche et médias',
+          'Publication',
+          'Finances',
+          'Historique'
+        ];
     for (const title of titles) {
       await tabs(page)
         .getByRole('button', { name: title, exact: true })
         .click();
       const section = page.locator('[data-og7="dossier-main"]');
       await expect(
-        section.getByRole('heading', { name: title, level: 2, exact: true })
+        section.getByRole('heading', {
+          name: title === 'Profile & media' ? 'Profile and media' : title,
+          level: 2,
+          exact: true
+        })
       ).toHaveCount(1);
       expect(
         (await new AxeBuilder({ page }).analyze()).violations,

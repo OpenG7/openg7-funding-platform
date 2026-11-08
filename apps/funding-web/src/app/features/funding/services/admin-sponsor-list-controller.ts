@@ -372,8 +372,6 @@ export class AdminSponsorListController {
     if (this.disposed || tab === this.activeTab()) return;
     this.activeTab.set(tab);
     this.ports.navigation.navigateDossier(this.selectedSponsorshipId(), tab);
-    if (tab === 'media')
-      void this.ports.loadSponsorMedia(this.selectedSponsorshipId());
   }
 
   navigationStarted(id: number, preservePosition: boolean): void {

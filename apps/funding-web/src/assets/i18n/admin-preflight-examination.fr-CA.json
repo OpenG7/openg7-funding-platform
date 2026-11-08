@@ -1,0 +1,310 @@
+{
+  "back": "Preflight",
+  "title": "Examiner la prestation {{channel}}",
+  "organizationUnavailable": "Organisation non renseignée",
+  "notAvailable": "Non disponible",
+  "siblingNavigation": "Prestations de cette commande",
+  "position": "Prestation {{position}} sur {{total}}",
+  "previous": "Prestation précédente",
+  "next": "Prestation suivante",
+  "refresh": "Actualiser",
+  "signIn": "Se reconnecter",
+  "cancel": "Annuler",
+  "close": "Fermer",
+  "enlarge": "Agrandir l’aperçu",
+  "otherActions": "Autres actions",
+  "readOnly": "Consultation seule : votre rôle ne permet pas de prendre une décision.",
+  "channels": {
+    "website": "Web",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
+  "statuses": {
+    "not_ready": "À préparer",
+    "ready": "À examiner",
+    "blocked": "Bloquée",
+    "approved": "Préparation approuvée",
+    "correction_requested": "Correction demandée",
+    "rejected": "Proposition refusée",
+    "review_required": "Nouvel examen requis"
+  },
+  "states": {
+    "loading": "Chargement de la prestation et de sa version…",
+    "unavailable": "La préparation est momentanément indisponible.",
+    "forbidden": "Vous n’avez pas accès à cette prestation.",
+    "not_found": "Cette prestation est introuvable dans ce dossier.",
+    "expired": "Votre session a expiré.",
+    "recovery": "Aucune décision n’a été déduite de cette erreur. Revenez au comptoir ou réessayez la lecture."
+  },
+  "stale": {
+    "title": "La version examinée doit être vérifiée",
+    "description": "Une autre version a été obtenue ou le résultat de la dernière action est incertain. Relisez l’état enregistré avant toute nouvelle décision.",
+    "refresh": "Relire la version actuelle"
+  },
+  "summary": {
+    "title": "Synthèse de la préparation",
+    "prepared": "Un contenu préparé est disponible. Examinez son rendu et ses contrôles avant de décider. La publication reste une étape distincte.",
+    "notReady": "Aucune proposition ne correspond encore à cette prestation. Les données disponibles restent consultables.",
+    "confirmed": "Contrôles confirmés : {{count}}",
+    "attention": "Interventions attendues : {{count}}"
+  },
+  "contentTitle": "Contenu de la prestation",
+  "contentNavigation": "Contenu à examiner",
+  "sections": {
+    "preview": "Aperçu du rendu",
+    "text": "Texte proposé",
+    "media": "Médias du dossier",
+    "checks": "Vérifications",
+    "details": "Détails et références",
+    "history": "Historique"
+  },
+  "informationTitle": "Informations sur la prestation",
+  "information": {
+    "order": "Commande",
+    "organization": "Organisation",
+    "service": "Prestation",
+    "preparedAt": "Préparée le",
+    "provenance": "Provenance"
+  },
+  "provenance": {
+    "funding": "Préparation privée Funding",
+    "unlinked": "Le lien avec une proposition Preflight externe n’est pas encore vérifié. Aucun contenu n’est attribué à une IA sans provenance confirmée."
+  },
+  "viewportLabel": "Format de l’aperçu",
+  "viewports": {
+    "desktop": "Bureau",
+    "tablet": "Tablette",
+    "mobile": "Mobile"
+  },
+  "preview": {
+    "caption": "Aperçu privé, sans publication. Le Web utilise le composant public de Funding ; l’habillage des plateformes sociales peut différer."
+  },
+  "text": {
+    "savedVersion": "Version enregistrée :",
+    "noTitle": "Sans titre",
+    "provenance": "Le contenu provient de la préparation enregistrée dans Funding. La version de ce texte reste identifiable dans l’historique.",
+    "edit": "Modifier dans l’éditeur Funding",
+    "regenerationUnavailable": "La réécriture automatique par Preflight n’est pas raccordée à ce parcours.",
+    "notReady": "Le texte de cette prestation n’est pas encore disponible. Consultez le dossier pour poursuivre sa préparation."
+  },
+  "media": {
+    "shared": "Une seule médiathèque pour ce dossier. Les sélections et les droits restent propres à chaque destination ; une validation Web n’autorise pas une publication sociale."
+  },
+  "checks": {
+    "title": "Contrôles et vérifications",
+    "explanation": "Ces contrôles décrivent les faits enregistrés dans Funding. La présence d’un texte ou d’une image ne prouve pas sa conformité éditoriale.",
+    "sourceLabel": "Source :",
+    "version": "Version du contenu :",
+    "human": "Examen humain",
+    "humanRecorded": "Décision enregistrée pour cette version.",
+    "humanRequired": "Décision attendue sur la préparation.",
+    "humanScope": "La décision porte sur cette proposition privée. Elle n’annule aucune obligation et n’autorise aucune publication.",
+    "payment_confirmed": "Paiement confirmé",
+    "accepted_offer": "Accord identifié",
+    "company": "Identité du commanditaire",
+    "consent": "Consentement",
+    "consent_public": "Consentement public",
+    "website": "Préparation Web",
+    "website_content": "Contenu Web",
+    "publication_draft": "Brouillon de publication",
+    "media": "Médias",
+    "publication_content": "Contenu de publication",
+    "source": "Source identifiée",
+    "draft": "Proposition préparée",
+    "agreement": "Accord identifié",
+    "content": "Contenu disponible",
+    "media_rights": "Droits d’utilisation",
+    "editorial_review": "Revue éditoriale",
+    "other": "Contrôle de préparation",
+    "public_consent": "Consentement public",
+    "sponsor_review": "Revue du commanditaire",
+    "moderation_review": "Revue éditoriale du dossier",
+    "draft_moderation_review": "Revue éditoriale du texte",
+    "service_draft_identified": "Proposition identifiée"
+  },
+  "checkStates": {
+    "complete": "Confirmé par Funding",
+    "missing": "Intervention attendue",
+    "not_required": "Non applicable à cette préparation"
+  },
+  "attention": {
+    "title": "Points d’attention",
+    "blocking": "Blocage :",
+    "reference": "Voir la référence",
+    "human": "La préparation attend votre jugement. Une approbation privée permettra de poursuivre le parcours de livraison ; l’autorisation de publication reste distincte.",
+    "recorded": "La décision de cette version est conservée. Une modification du contenu exigera un nouvel examen."
+  },
+  "blockers": {
+    "payment": "Vérifier l’admissibilité du paiement dans le dossier.",
+    "consent": "Le consentement requis doit être vérifié.",
+    "media": "Un média ou ses droits d’utilisation requièrent une intervention.",
+    "content": "La proposition doit être complétée ou correspondre à cette prestation exacte.",
+    "agreement": "L’accord ou la prestation promise doit être confirmé.",
+    "review": "Une validation métier ou éditoriale reste nécessaire.",
+    "other": "Une condition de préparation n’est pas satisfaite. Consultez le dossier et la référence du contrôle."
+  },
+  "details": {
+    "obligation": "Prestation promise",
+    "proposal": "Brouillon examiné",
+    "version": "Version de l’examen",
+    "contentVersion": "Empreinte du contenu",
+    "checkedAt": "Lecture des données",
+    "authority": "Funding conserve l’accord, les droits, les décisions, la livraison et ses preuves. Les détails techniques identifient exactement la version examinée.",
+    "dossier": "Ouvrir le dossier",
+    "evidence": "Voir la prestation et ses preuves"
+  },
+  "history": {
+    "empty": "Aucune décision n’a encore été enregistrée pour cette prestation.",
+    "references": "Références de la décision",
+    "audit": "Référence d’audit"
+  },
+  "approvalGuidance": {
+    "readonly": "Votre rôle permet la consultation, mais pas l’approbation d’une préparation.",
+    "busy": "Une opération est en cours. Attendez son résultat avant d’approuver.",
+    "unavailable": "La préparation n’a pas pu être relue. Actualisez son état avant d’approuver.",
+    "uncertain": "Le résultat de votre dernière action doit être vérifié avant une nouvelle approbation.",
+    "session-inactive": "Votre session de travail est en pause ou terminée. Reprenez-la pour prendre une décision ; une session terminée peut aussi être remplacée par une nouvelle session.",
+    "stale": "La version examinée doit être vérifiée. Relisez l’état enregistré avant d’approuver ; vos saisies non enregistrées sont conservées.",
+    "dirty": "Vos modifications du brouillon privé ne sont pas enregistrées. Enregistrez-les avant d’approuver cette préparation.",
+    "buffer-readonly": "Cette prestation n’est plus modifiable dans l’atelier. Vos saisies restent consultables et copiables ; elles ne peuvent pas remplacer le contenu enregistré.",
+    "recorded": "Une décision est déjà enregistrée pour cette version. Consultez son historique pour poursuivre.",
+    "missing-draft": "Cette prestation n’a pas encore de brouillon privé à approuver. Complétez sa préparation dans Funding.",
+    "incomplete": "Funding n’autorise pas encore l’approbation de cette version. Les prérequis de préparation doivent être complétés.",
+    "closed": "Cette prestation n’est plus ouverte à une nouvelle approbation. Consultez son parcours et ses preuves dans Funding."
+  },
+  "approvalActions": {
+    "prerequisites": "Voir les prérequis manquants ({{count}})",
+    "checks": "Consulter les vérifications",
+    "completeDossier": "Compléter le dossier",
+    "profileSubmissionHelp": "Pour retrouver le formulaire privé du commanditaire, ouvrez « Accès au suivi » dans la barre du dossier. Enregistrer le formulaire pour plus tard ou corriger les coordonnées dans l’administration ne remplace pas « Soumettre mes informations à l’équipe ».",
+    "preparePublication": "Préparer le brouillon social",
+    "startNew": "Démarrer une nouvelle session",
+    "localCopy": "Consulter mes saisies non enregistrées"
+  },
+  "blockerReasons": {
+    "public_consent_missing": "Le consentement public requis n’est pas enregistré.",
+    "sponsor_review_required": "La commandite doit être approuvée dans le dossier Funding.",
+    "moderation_review_required": "La validation éditoriale requise n’est pas approuvée pour cette version.",
+    "company_missing": "Le nom de l’organisation manque dans le dossier.",
+    "presentation_missing": "La présentation de l’organisation manque dans le dossier.",
+    "required_media_missing": "Les médias requis ne sont pas encore validés pour cette destination, y compris leur sélection et leurs droits d’utilisation.",
+    "prepared_media_stale": "Une affectation utilise une ancienne version du média ou de la prestation. Réexaminez-la dans la bibliothèque du dossier.",
+    "prepared_media_unavailable": "Un média affecté n’a pas encore tous les droits, la revue ou la version nécessaires pour cette destination.",
+    "service_draft_missing": "Aucun brouillon privé ne correspond à cette prestation précise.",
+    "obligation_blocked": "La prestation promise est actuellement bloquée dans Funding.",
+    "service_closed": "La prestation ou son brouillon n’est plus ouvert à une nouvelle décision de préparation."
+  },
+  "guided": {
+    "open": "Préparation guidée",
+    "complete": "Compléter les prérequis",
+    "intro": "Examinez chaque contrôle enregistré et ouvrez son outil Funding pour compléter les éléments manquants. Chaque contrôle conserve son état ; en compléter un n’approuve pas la préparation.",
+    "notRequired": "Funding n’exige pas ce contrôle pour cette prestation précise.",
+    "textReviewTitle": "Examiner le texte préparé",
+    "textReviewScope": "Cet examen concerne uniquement le brouillon de publication enregistré ci-dessous. Il n’autorise aucune publication et n’approuve pas la préparation de la prestation.",
+    "causes": {
+      "payment": "Le paiement et l’admissibilité après remboursement doivent être confirmés dans le dossier financier.",
+      "agreement": "L’accord accepté doit identifier cette prestation promise précise.",
+      "consent": "L’utilisation publique du nom et de la présentation de l’organisation exige un consentement enregistré. Consignez uniquement un accord réellement reçu.",
+      "dossierReview": "Le dossier exige une revue métier et une revue éditoriale. L’action native du dossier examine les deux ensemble.",
+      "media": "La sélection, l’affectation, la version actuelle et les droits des médias doivent correspondre à cette destination.",
+      "textReview": "Le texte de publication enregistré nécessite son propre examen éditorial, distinct de celui du dossier.",
+      "draft": "Un brouillon privé doit correspondre à cette prestation, à ce canal et à cette destination.",
+      "identity": "Le nom de l’organisation doit être complété dans l’identité du commanditaire.",
+      "content": "La présentation publique ou le contenu préparé doit être complété dans l’éditeur de publication Funding.",
+      "other": "Consultez le dossier source pour vérifier ce prérequis. Funding détermine son état."
+    },
+    "actions": {
+      "payment": "Consulter le paiement",
+      "agreement": "Consulter l’accord accepté",
+      "consent": "Consigner un accord reçu",
+      "viewConsent": "Consulter le consentement public",
+      "dossierReview": "Examiner la commandite et le dossier",
+      "media": "Examiner les médias du dossier",
+      "textReview": "Examiner le texte enregistré",
+      "draft": "Préparer le brouillon privé",
+      "identity": "Compléter l’identité du commanditaire",
+      "content": "Examiner la présentation et le contenu",
+      "other": "Ouvrir le dossier source"
+    }
+  },
+  "consent": {
+    "title": "Consentement public · Consigner un accord reçu",
+    "intro": "Utilisez ce formulaire uniquement lorsqu’une personne a déjà donné un accord explicite et que vous pouvez en identifier la preuve. Cette action consigne l’accord reçu ; elle ne sollicite ni n’invente un consentement.",
+    "scopeTitle": "Finalité fixe",
+    "scope": "Fiche publique du commanditaire : nom de l’organisation et présentation.",
+    "separate": "Les droits d’utilisation des images, l’autorisation de publication sociale et le paiement restent des contrôles distincts.",
+    "loading": "Lecture du consentement enregistré dans Funding…",
+    "existing": "Le consentement public requis est déjà enregistré.",
+    "recordingActor": "Enregistrement par l’acteur Funding authentifié :",
+    "actor": "Consigné par",
+    "recordedAt": "Consigné le",
+    "audit": "Trace d’audit",
+    "saved": "Accord documenté enregistré",
+    "invalidation": "Funding a invalidé {{count}} approbation(s) de livraison touchée(s). Examinez les versions actuelles avant d’autoriser à nouveau la livraison.",
+    "noPublication": "Aucun courriel envoyé. La visibilité publique reste suspendue ; cette action ne publie aucun contenu.",
+    "agreement": "Je confirme qu’un accord explicite pour la finalité ci-dessus a déjà été reçu.",
+    "date": "Date de l’accord",
+    "dateHelp": "Indiquez la date civile réelle de l’accord. Les dates futures sont refusées selon America/Toronto.",
+    "evidence": "Preuve ou référence privée",
+    "evidenceHelp": "Identifiez l’accord reçu, par exemple un message daté ou la référence d’un document interne. Obligatoire, de 1 à 1 000 caractères. Cette référence reste privée ; aucun document n’est téléchargé ni envoyé.",
+    "submit": "Enregistrer l’accord documenté",
+    "saving": "Enregistrement et vérification…",
+    "readonly": "Votre rôle permet de consulter l’état du consentement. L’enregistrement d’un accord et de sa preuve privée exige un opérateur autorisé.",
+    "history": "Historique des accords consignés",
+    "checkReceipt": "Vérifier le reçu enregistré",
+    "retry": "Réessayer la même demande vérifiée",
+    "refresh": "Lire l’état actuel du consentement",
+    "confirm": "Consigner l’accord explicite reçu le {{date}} pour le nom et la présentation publics du commanditaire ? Sa référence privée sera auditée. Aucun courriel ni publication ne sera déclenché ; les approbations de livraison touchées devront être réexaminées.",
+    "blockers": {
+      "already_granted": "Le consentement public a déjà été accordé.",
+      "permission_required": "Votre rôle ne permet pas de consigner un accord documenté.",
+      "operation_processing": "Une opération de consentement est en cours. Attendez puis relisez l’état enregistré avant de continuer.",
+      "operation_uncertain": "Le résultat d’une précédente opération de consentement est incertain. Vérifiez son reçu enregistré avant de continuer."
+    },
+    "messages": {
+      "loadFailed": "Le consentement n’a pas pu être lu. Réessayez la lecture de son état actuel.",
+      "conflict": "Le consentement a changé dans une autre session. Vos saisies sont conservées. Relisez explicitement l’état actuel avant de confirmer une nouvelle demande.",
+      "uncertain": "Le résultat est incertain. Vérifiez le reçu exact avant de continuer. Aucune commande ne sera rejouée automatiquement.",
+      "notFound": "Le reçu exact est introuvable. Vous pouvez confirmer explicitement un nouvel essai de la même demande ; son identité et son contenu sont conservés.",
+      "receiptMismatch": "Le reçu n’a pas pu être vérifié par rapport à la demande reconnue. Gardez ce dossier ouvert et vérifiez à nouveau son reçu.",
+      "recorded": "Le reçu exact a été vérifié et la préparation actuelle de la prestation a été relue. Aucune approbation de préparation n’a été déduite.",
+      "refreshRequired": "Relisez l’état actuel du consentement et de la préparation avant de continuer. Aucune ancienne commande ne sera reconstituée.",
+      "invalid": "Funding a refusé la demande. Vérifiez l’accord réel, sa date et sa preuve avant de confirmer une nouvelle demande.",
+      "retainedRequest": "Une référence de demande précédente a été conservée pour cet acteur et ce dossier. Seul son reçu enregistré peut être vérifié après réouverture ; le formulaire privé n’a pas été stocké."
+    }
+  },
+  "decision": {
+    "title": "Décision sur la proposition",
+    "scope": "Cette prestation, cette version. La publication et la preuve de livraison restent distinctes.",
+    "approve": "Approuver",
+    "approveHelp": "Valider la préparation privée.",
+    "correction": "Demander une correction",
+    "correctionHelp": "Préciser les ajustements attendus.",
+    "reject": "Refuser",
+    "rejectHelp": "Refuser le contenu avec justification.",
+    "deliveryWorkflow": "Poursuivre dans le parcours de livraison"
+  },
+  "reason": {
+    "correction_requested": "Quels ajustements sont nécessaires ?",
+    "rejected": "Pourquoi refusez-vous cette proposition ?",
+    "help": "Justification obligatoire : de 10 à 2 000 caractères. N’incluez aucune donnée sensible inutile.",
+    "noAutomaticReturn": "La demande est enregistrée dans Funding. Aucun renvoi automatique à Preflight ni annulation de la prestation n’est déclenché.",
+    "submit": "Enregistrer la décision"
+  },
+  "confirm": {
+    "approved": "Approuver la préparation {{channel}} de {{reference}}, version {{version}} ? Cette décision ne publie aucun contenu.",
+    "correction_requested": "Enregistrer la demande de correction de {{reference}}, version {{version}} ? La proposition précédente sera conservée.",
+    "rejected": "Refuser la proposition de {{reference}}, version {{version}} ? L’obligation de livraison est conservée."
+  },
+  "decided": {
+    "approved": "Préparation approuvée pour cette prestation. L’autorisation de publication reste à effectuer dans Funding.",
+    "correction_requested": "Demande de correction enregistrée. La proposition et la justification restent dans l’historique.",
+    "rejected": "Proposition refusée avec justification. La prestation promise reste due."
+  },
+  "errors": {
+    "conflict": "La version ou la décision a changé dans une autre session. Relisez l’état actuel ; votre justification est conservée.",
+    "expired": "Votre session a expiré. Reconnectez-vous avant de continuer.",
+    "forbidden": "Votre rôle ne permet plus cette décision.",
+    "uncertain": "Le résultat de la décision n’est pas confirmé. Relisez l’état enregistré avant de poursuivre ; aucune action n’est rejouée automatiquement."
+  }
+}

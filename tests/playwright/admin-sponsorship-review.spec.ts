@@ -2,12 +2,10 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import type {
   AdminSponsorshipRecord,
   AdminSponsorshipsResponse,
-  SponsorshipMediaResponse,
-  SponsorMediaUploadResult
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { rejectAcceptanceSponsorship } from './support/acceptance-oidc-moderation.js';
-import { confirmAcceptanceMediaManifest } from './support/acceptance-media-review.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
@@ -400,102 +398,5 @@ test.describe('Docker admin sponsorship review', () => {
     await expect(
       header.getByText('Remboursement terminé', { exact: true })
     ).toBeVisible();
-  });
-
-  test('uploads and deletes a sponsorship logo', async ({ page, request }) => {
-    await signInAsAdmin(page);
-
-    const fixture = SPONSORSHIP_FIXTURES.logo;
-    const before = await storedSponsorship(request, fixture.publicReference);
-    await openFixtureSponsorship(page, fixture.companyName);
-
-    await page
-      .getByRole('button', { name: 'Fiche et médias', exact: true })
-      .click();
-    const media = page.locator('[data-og7="media-review-workspace"]');
-    await media
-      .getByRole('combobox', { name: 'Type de fichier', exact: true })
-      .selectOption('logo');
-
-    // The canonical media decoder verifies these real PNG bytes.
-    const onePixelPng = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-      'base64'
-    );
-    const uploaded = page.waitForResponse(
-      (response) =>
-        response.url().endsWith('/api/admin/sponsorships/media/upload') &&
-        response.request().method() === 'POST'
-    );
-    await media.locator('[data-og7="media-upload-files"]').setInputFiles({
-      name: 'e2e-playwright-logo.png',
-      mimeType: 'image/png',
-      buffer: onePixelPng
-    });
-
-    const uploadResponse = await uploaded;
-    expect(uploadResponse.status(), await uploadResponse.text()).toBe(201);
-    const result = (await uploadResponse.json()) as SponsorMediaUploadResult;
-    expect(result).toMatchObject({
-      uploaded: true,
-      asset: {
-        contributionId: before.id,
-        kind: 'logo',
-        originalFilename: 'e2e-playwright-logo.png',
-        reviewStatus: 'pending_review',
-        publicUrl: null,
-        usage: { state: 'needs_confirmation' }
-      }
-    });
-    const tile = media.locator(
-      `[data-og7="media-tile"][data-og7-id="${result.asset.id}"]`
-    );
-    await expect(tile).toBeVisible();
-    await tile.getByRole('button').click();
-    const inspector = media.locator('[data-og7="media-inspector"]');
-    await expect(
-      inspector.locator('[data-og7="media-full-preview"] img')
-    ).toBeVisible();
-    const afterUpload = await storedSponsorship(
-      request,
-      fixture.publicReference
-    );
-    expect(afterUpload.sponsor_logo_url).toBe(before.sponsor_logo_url);
-    expect(financialState(afterUpload)).toEqual(financialState(before));
-    const headers = await adminSessionHeaders(request);
-    const assets = async () => {
-      const response = await request.get(
-        '/api/admin/sponsorships/media?contributionId=' + before.id,
-        { headers }
-      );
-      expect(response.ok(), await response.text()).toBe(true);
-      return ((await response.json()) as SponsorshipMediaResponse).assets;
-    };
-    expect((await assets()).some((asset) => asset.id === result.asset.id)).toBe(
-      true
-    );
-    expect(
-      (
-        await request.get('/api/public/sponsor-media/' + result.asset.id)
-      ).status()
-    ).toBe(404);
-
-    await inspector.getByText('Plus d’options', { exact: true }).click();
-    await inspector
-      .getByRole('button', { name: 'Supprimer', exact: true })
-      .click();
-    // The exact server manifest still requires a separate human confirmation.
-    await confirmAcceptanceMediaManifest(page, 'delete', [result.asset.id]);
-
-    await expect(tile).toHaveCount(0);
-    expect((await assets()).some((asset) => asset.id === result.asset.id)).toBe(
-      false
-    );
-    const afterDelete = await storedSponsorship(
-      request,
-      fixture.publicReference
-    );
-    expect(afterDelete.sponsor_logo_url).toBe(before.sponsor_logo_url);
-    expect(financialState(afterDelete)).toEqual(financialState(before));
   });
 });

@@ -9,7 +9,7 @@ import type { DossierSection } from './admin-sponsorship-navigation.js';
 export function workspaceTab(
   tab: SponsorshipDossierTab
 ): SponsorshipDossierTab {
-  return tab === 'media' ? 'identity' : tab === 'refund' ? 'billing' : tab;
+  return tab === 'refund' ? 'billing' : tab;
 }
 
 /** Presentation of server facts only; these indicators grant no authority. */

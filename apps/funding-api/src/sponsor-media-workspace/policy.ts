@@ -120,7 +120,10 @@ export function validatePlan(input: SponsorMediaBatchPlanRequest): void {
       'move',
       'rules',
       'website_select',
-      'website_deselect'
+      'website_deselect',
+      'preparation_assign',
+      'preparation_unassign',
+      'request_correction'
     ].includes(input.action) &&
       Array.isArray(input.assets) &&
       input.assets.length > 0 &&
@@ -155,6 +158,26 @@ export function validatePlan(input: SponsorMediaBatchPlanRequest): void {
     ensure(
       input.ruleId === null || validId(input.ruleId),
       'INVALID_MEDIA_RULES',
+      400
+    );
+  if (['preparation_assign', 'preparation_unassign'].includes(input.action))
+    ensure(
+      validId(input.targetObligationId) &&
+        Number.isSafeInteger(input.targetObligationVersion) &&
+        Number(input.targetObligationVersion) > 0 &&
+        input.assets.every(
+          (asset) =>
+            asset.altText === undefined &&
+            asset.usageRestrictionsConfirmed === undefined
+        ),
+      'INVALID_MEDIA_PREPARATION_TARGET',
+      400
+    );
+  else
+    ensure(
+      input.targetObligationId === undefined &&
+        input.targetObligationVersion === undefined,
+      'INVALID_MEDIA_PREPARATION_TARGET',
       400
     );
 }
@@ -220,6 +243,7 @@ export async function record(
 ): Promise<void> {
   const outcome = result as {
     planId?: string;
+    assetId?: string;
     items?: readonly { id: string; result: string }[];
   };
   await db.query(
@@ -235,6 +259,7 @@ export async function record(
       summary: 'Confirmed versioned media workspace command.',
       metadata: {
         requestId,
+        ...(outcome.assetId ? { assetId: outcome.assetId } : {}),
         ...(outcome.planId
           ? {
               planId: outcome.planId,
