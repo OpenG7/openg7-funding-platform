@@ -8,6 +8,8 @@
   display: grid;
   gap: var(--admin-card-gap);
   padding: 0 var(--admin-card-padding);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 h2,
 h3,
@@ -73,6 +75,9 @@ h3 {
   color: var(--admin-gold);
   font-size: 1.5rem;
 }
+.identity-role-help > div {
+  min-inline-size: 0;
+}
 .identity-role-help h3 {
   margin-block-end: 0.35rem;
   font-size: var(--admin-section-size);
@@ -90,6 +95,7 @@ h3 {
   gap: var(--admin-card-gap);
   padding: 0;
   list-style: none;
+  min-inline-size: 0;
 }
 .identity-steps::before {
   content: '';
@@ -180,6 +186,7 @@ h3 {
   color: var(--admin-warning);
   font-size: var(--admin-caption-size);
   font-weight: var(--admin-label-weight);
+  max-inline-size: 100%;
 }
 .identity-state[data-state='complete'],
 .identity-state[data-state='submitted'] {
@@ -213,6 +220,9 @@ h3 {
 .identity-field dt > openg7-admin-icon {
   margin-block-start: 0.1rem;
   color: var(--admin-muted);
+}
+.identity-field dt > span {
+  min-inline-size: 0;
 }
 .field-requirement {
   display: block;
@@ -250,6 +260,26 @@ h3 {
 .submission-date time {
   color: var(--admin-text);
   font-weight: var(--admin-label-weight);
+}
+@container admin-sponsor-identity (max-width: 16rem) {
+  .identity-layout {
+    padding-inline: 0;
+  }
+  .identity-step,
+  .identity-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .identity-steps::before,
+  .step-icon {
+    display: none;
+  }
+  .identity-role-help {
+    flex-direction: column;
+  }
+  .identity-action,
+  .identity-field dt {
+    flex-wrap: wrap;
+  }
 }
 @container admin-sponsor-identity (min-width: 42rem) {
   .identity-coordinates {
