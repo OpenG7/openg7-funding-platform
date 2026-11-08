@@ -263,6 +263,9 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
         statusBefore[field] + 1
       );
       await admin.goto('/admin/fundraiser');
+      const supervision = admin.locator('[data-og7="dashboard-supervision"]');
+      await supervision.locator('summary').click();
+      await expect(supervision).toHaveAttribute('open', '');
       const stripePanel = admin.locator(
         'section[aria-labelledby="admin-stripe-title"]'
       );
@@ -396,6 +399,8 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
         statusBefore.processing
       );
       await admin.reload();
+      await supervision.locator('summary').click();
+      await expect(supervision).toHaveAttribute('open', '');
       await expect(stripePanel).toBeVisible();
       await expect(failedCount).toHaveText(String(statusBefore.failed));
       await expect(processingCount).toHaveText(String(statusBefore.processing));

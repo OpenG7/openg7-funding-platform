@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import type {
   AdminContributionRecord,
+  AdminContributionsResponse,
   AdminDashboardResponse
 } from '@openg7/funding-core';
 
@@ -47,6 +48,31 @@ async function expectPalette(
 ) {
   await expect(element).toHaveCSS('color', rgb(foreground));
   await expect(element).toHaveCSS('background-color', rgb(background));
+}
+
+async function switchTheme(page: Page, theme: Theme) {
+  await page.evaluate((nextTheme) => {
+    const key = 'openg7.pilotage.appearance.v1';
+    const oldValue = localStorage.getItem(key);
+    const newValue = JSON.stringify({
+      theme: nextTheme,
+      system: false,
+      density: 'comfortable'
+    });
+    localStorage.setItem(key, newValue);
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key,
+        oldValue,
+        newValue,
+        storageArea: localStorage
+      })
+    );
+  }, theme);
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    theme
+  );
 }
 
 async function fixtures(page: Page, theme: Theme, language: Language) {
@@ -104,6 +130,29 @@ async function fixtures(page: Page, theme: Theme, language: Language) {
     ],
     last_updated_at: date
   };
+  // The dashboard no longer embeds contribution rows. Exercise every badge
+  // tone on the contribution list that actually owns those payment states.
+  const contributions: AdminContributionsResponse = {
+    data_source: 'database',
+    contributions: ['paid', 'pending', 'failed', 'refunded'].map((status) => ({
+      ...contribution,
+      id: `style-${status}-fixture`,
+      public_reference: `STYLE-${status.toUpperCase()}`,
+      payment_status: status
+    })),
+    summary: {
+      total_count: 4,
+      paid_count: 1,
+      pending_count: 1,
+      sponsorship_count: 0,
+      public_display_count: 0,
+      total_received: 2500,
+      total_refunded: 2500,
+      total_disputed: 0,
+      currency: 'CAD'
+    },
+    last_updated_at: date
+  };
   const mutations: string[] = [];
   await page.addInitScript(
     ({ theme, language }) => {
@@ -136,6 +185,8 @@ async function fixtures(page: Page, theme: Theme, language: Language) {
       });
     if (path === '/api/admin/dashboard')
       return route.fulfill({ json: dashboard });
+    if (path === '/api/admin/contributions')
+      return route.fulfill({ json: contributions });
     if (path.startsWith('/api/admin/cockpit/')) {
       const block = path.split('/').pop() as keyof typeof data;
       if (Object.hasOwn(data, block))
@@ -156,16 +207,16 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
     }) => {
       const mutations = await fixtures(page, theme, language);
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/admin/fundraiser');
+      await page.goto('/admin/fundraiser/contributions');
       await expect(page.locator('html')).toHaveAttribute('lang', language);
       await expect(page.locator('html')).toHaveAttribute(
         'data-og7-pilot-theme',
         theme
       );
 
-      const dashboard = page.locator('[data-og7="admin-dashboard"]');
+      const contributionList = page.locator('[data-og7="contributions-page"]');
       for (const tone of ['neutral', 'success', 'warning', 'danger'] as const) {
-        const badge = dashboard
+        const badge = contributionList
           .locator(`[data-og7="admin-badge"][data-tone="${tone}"]`)
           .first();
         await expect(badge).toBeVisible();
@@ -182,6 +233,8 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       }
 
       // Dashboard metrics use the compact embedded presentation on real components.
+      await page.goto('/admin/fundraiser');
+      const dashboard = page.locator('[data-og7="admin-dashboard"]');
       const metrics = dashboard.locator('[data-og7="admin-metric"]');
       await expect(metrics).toHaveCount(4);
       const sponsorships = dashboard.getByRole('article', {
@@ -221,40 +274,21 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         night: 'graphite',
         graphite: 'mineral'
       }[theme] as Theme;
-      await page.evaluate((nextTheme) => {
-        const key = 'openg7.pilotage.appearance.v1';
-        const oldValue = localStorage.getItem(key);
-        const newValue = JSON.stringify({
-          theme: nextTheme,
-          system: false,
-          density: 'comfortable'
-        });
-        localStorage.setItem(key, newValue);
-        window.dispatchEvent(
-          new StorageEvent('storage', {
-            key,
-            oldValue,
-            newValue,
-            storageArea: localStorage
-          })
-        );
-      }, nextTheme);
-      await expect(page.locator('html')).toHaveAttribute(
-        'data-og7-pilot-theme',
-        nextTheme
-      );
-      for (const tone of ['neutral', 'success', 'warning', 'danger'] as const)
-        await expectPalette(
-          dashboard
-            .locator(`[data-og7="admin-badge"][data-tone="${tone}"]`)
-            .first(),
-          palettes[nextTheme][tone]
-        );
+      await switchTheme(page, nextTheme);
       await expectPalette(
         metrics.locator('[data-tone="green"]').first(),
         palettes[nextTheme].success
       );
       await expect(sponsorships).toContainText('48');
+      await page.goto('/admin/fundraiser/contributions');
+      await switchTheme(page, nextTheme);
+      for (const tone of ['neutral', 'success', 'warning', 'danger'] as const)
+        await expectPalette(
+          contributionList
+            .locator(`[data-og7="admin-badge"][data-tone="${tone}"]`)
+            .first(),
+          palettes[nextTheme][tone]
+        );
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1

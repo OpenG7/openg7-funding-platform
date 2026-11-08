@@ -37,6 +37,8 @@ import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { AdminPreparationService } from '../admin-preparation.service.js';
+import { createPreflightHttpHandler } from '../preflight/routes.js';
+import { listPreparations, connectorStatus } from '../preflight/repository.js';
 import { createAdminCampaignsHttpHandler } from '../admin-campaigns.http.js';
 import { AdminCampaignsService } from '../admin-campaigns.service.js';
 import { createAdminPreparationAssistanceHttpHandler } from '../admin-preparation-assistance.http.js';
@@ -223,6 +225,7 @@ import type {
 /** Bind existing admin ports without constructing services or starting work at import. */
 export const createAdminHttpHandlers = ({
   dbPool,
+  preflightConfig,
   preflightInboxConfig,
   preflightRehearsalConfig,
   publicationWorkshop,
@@ -485,6 +488,22 @@ export const createAdminHttpHandlers = ({
       reportFailure: (message, error) => console.error(message, error)
     });
 
+  const handlePreflightRequest = createPreflightHttpHandler({
+    publicBaseOrigin,
+    enabled: preflightConfig?.enabled === true,
+    ensureAdminAccess,
+    writeJson,
+    listPreparations: (id) => {
+      if (!dbPool || !preflightConfig?.enabled)
+        throw new Error('preflight_unavailable');
+      return listPreparations(dbPool, id, preflightConfig.tenantId);
+    },
+    connectorStatus: () => {
+      if (!dbPool || !preflightConfig?.enabled)
+        throw new Error('preflight_unavailable');
+      return connectorStatus(dbPool, preflightConfig.tenantId);
+    }
+  });
   const handlePreflightInboxRequest = createPreflightInboxHttpHandler({
     publicBaseOrigin,
     config: preflightInboxConfig ?? {
@@ -563,6 +582,7 @@ export const createAdminHttpHandlers = ({
       (await handlePreflightDeskRequest(request, response)) ||
       (await handlePreflightRehearsalRequest(request, response)) ||
       (await handlePreflightInboxRequest(request, response)) ||
+      (await handlePreflightRequest(request, response)) ||
       (await handlePreparationAssistanceRequest(request, response)) ||
       (await handleSponsorshipTimingRequest(request, response)) ||
       (await handleSponsorshipCommitmentsRequest(request, response)) ||

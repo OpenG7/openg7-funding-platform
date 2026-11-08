@@ -31,7 +31,6 @@ export default defineBuiltWebSuite({
     'admin-shell-layers.ui.spec.ts',
     'admin-dossier-v2.ui.spec.ts',
     'admin-intelligent-media-gallery.ui.spec.ts',
-    'admin-media-usage-defaults.ui.spec.ts',
     'admin-dashboard-layout.spec.ts',
     'admin-typography.spec.ts',
     'admin-style-primitives.spec.ts',

@@ -480,37 +480,56 @@ export function registerDossierServiceSummaryTests(context: Context): void {
       await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
       await page.reload();
       await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-      let release!: () => void;
-      options.progressGate = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      try {
-        await hook(page, 'dossier-refresh').click();
-        await expect(hook(page, 'sponsorship-progress')).toHaveAttribute(
-          'aria-busy',
-          'true'
+      const progress = hook(page, 'sponsorship-progress');
+      const refreshProgress = async (status: 200 | 401 | 403 | 503) => {
+        options.status = status;
+        let release!: () => void;
+        options.progressGate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const response = page.waitForResponse((entry) => {
+          const url = new URL(entry.url());
+          return (
+            entry.request().method() === 'GET' &&
+            url.pathname === '/api/admin/sponsorships/progress' &&
+            url.searchParams.get('sponsorshipId') === dossierId &&
+            entry.status() === status
+          );
+        });
+        try {
+          await hook(page, 'dossier-refresh').click();
+          // Observe this refresh clearing the old UI before releasing any response.
+          await expect(progress).toHaveAttribute('aria-busy', 'true');
+          await expect(progress.getByRole('alert')).toHaveCount(0);
+          await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
+          await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
+        } finally {
+          options.progressGate = null;
+          release();
+        }
+        await (await response).finished();
+        if (status !== 401)
+          await expect(progress).toHaveAttribute('aria-busy', 'false');
+      };
+      await refreshProgress(200);
+      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
+      for (const status of [503, 403] as const) {
+        await refreshProgress(status);
+        await expect(progress.getByRole('alert')).toHaveText(
+          status === 503
+            ? language === 'en'
+              ? 'Progress is unavailable. Please retry.'
+              : 'La progression est indisponible. Réessayez.'
+            : language === 'en'
+              ? 'You do not have access to this dossier.'
+              : 'Vous n’avez pas accès à ce dossier.'
         );
         await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
         await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      } finally {
-        options.progressGate = null;
-        release();
       }
+      await refreshProgress(200);
       await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-      for (const status of [503, 403]) {
-        options.status = status;
-        await hook(page, 'dossier-refresh').click();
-        await expect(
-          hook(page, 'sponsorship-progress').getByRole('alert')
-        ).toBeVisible();
-        await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
-        await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      }
-      options.status = 200;
-      await hook(page, 'dossier-refresh').click();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-      options.status = 401;
-      await hook(page, 'dossier-refresh').click();
+      await refreshProgress(401);
       await expect(page).toHaveURL(/\/admin\/login/);
       await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
       expect(calls.every((call) => call.method === 'GET')).toBe(true);

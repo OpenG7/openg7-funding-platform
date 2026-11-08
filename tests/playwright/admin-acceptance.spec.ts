@@ -49,16 +49,26 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
     '/admin/fundraiser/attention?type=sponsorship_needs_review';
   await page.goto(destination);
   await page.locator(`[data-og7-id="${task!.id}"]`).getByRole('link').click();
-  await expect(page).toHaveURL(/sponsorshipId=/);
-  await expect(
-    page.locator('[data-og7="return-to-attention"]')
-  ).toHaveAttribute('href', destination);
-  await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/pilotage' &&
+      url.searchParams.get('decisionId') === task!.id &&
+      url.searchParams.get('returnTo') === destination
+  );
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    task!.id
+  );
+  const returnToQueue = page.locator(
+    '[data-og7="pilot-intro"] [data-og7="pilot-target-return"]'
+  );
+  await expect(returnToQueue).toHaveAttribute('href', destination);
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await page.locator('[data-og7="pilot-confirm"]').click();
   await completeModeration(page);
-  await expect(
-    page.getByText('Action confirmee: commandite acceptee.')
-  ).toBeVisible();
-  await page.locator('[data-og7="return-to-attention"]').click();
+  await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
+  await returnToQueue.click();
   await expect(page).toHaveURL(destination);
   await expect(page.locator(`[data-og7-id="${task!.id}"]`)).toHaveCount(0);
   const after = (await (

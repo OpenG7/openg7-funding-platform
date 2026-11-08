@@ -1138,12 +1138,14 @@ test('Xbox navigation changes preparation views and explicitly rejoins a paused 
 test('a historical website offer names its promised presentation and its private preparation visibly', async ({
   page
 }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 960 });
+  // Browser zoom reduces the CSS viewport; CSS zoom on the document would
+  // also scale the guide's measured fixed-position offsets a second time.
+  await page.setViewportSize({
+    width: Math.floor(390 / 1.25),
+    height: Math.floor(960 / 1.25)
+  });
   const f = await fixture(page);
   await open(page);
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = '1.25';
-  });
   await hook(page, 'previous').click();
   await expectPosition(page, 2);
   await hook(page, 'previous').click();
@@ -1184,12 +1186,12 @@ for (const width of [1440, 390]) {
   test(`receipt commands remain keyboard accessible and readable at 125% in a ${width}px viewport`, async ({
     page
   }, testInfo) => {
-    await page.setViewportSize({ width, height: 960 });
+    await page.setViewportSize({
+      width: Math.floor(width / 1.25),
+      height: Math.floor(960 / 1.25)
+    });
     const f = await fixture(page);
     await open(page);
-    await page.evaluate(() => {
-      document.documentElement.style.zoom = '1.25';
-    });
     await expectPosition(page, 3);
     const guide = page.locator('[data-og7="admin-guidance-panel"]');
     await page
@@ -1474,6 +1476,44 @@ async function expectAttentionLayout(page: Page, layout: 'left' | 'above') {
       attentionVisible: true,
       ...(layout === 'left' ? { listVisible: true } : {}),
       overflow: false
+    })
+    .catch(async (error: unknown) => {
+      const geometry = await pilot(page).evaluate((element) => {
+        const doc = element.ownerDocument;
+        return [
+          element,
+          ...[
+            'preparation-issue-attention',
+            'preparation-issue-list',
+            'admin-guidance-content',
+            'admin-guidance-panel'
+          ].map((hook) =>
+            doc.querySelector<HTMLElement>(`[data-og7="${hook}"]`)
+          ),
+          doc.activeElement
+        ]
+          .filter(
+            (target): target is HTMLElement => target instanceof HTMLElement
+          )
+          .map((target) => {
+            const bounds = target.getBoundingClientRect();
+            return {
+              hook: target.getAttribute('data-og7'),
+              top: bounds.top,
+              bottom: bounds.bottom,
+              left: bounds.left,
+              right: bounds.right,
+              clientHeight: target.clientHeight,
+              scrollHeight: target.scrollHeight,
+              scrollTop: target.scrollTop,
+              overflow: getComputedStyle(target).overflowY
+            };
+          });
+      });
+      throw new Error(
+        `Preparation attention layout: ${JSON.stringify(geometry)}`,
+        { cause: error }
+      );
     });
 }
 

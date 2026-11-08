@@ -6,11 +6,11 @@ Funding conserve les décisions et les moteurs de diffusion existants.
 
 ## Cartographie préalable
 
-L’inspection des deux checkouts distingue le client HTTP déjà présent de son
-raccordement métier. Avant ce changement, Funding possède une boîte distante et
-une recette synthétique, mais pas de relais durable de préparation des dossiers.
-L’ancien bilan Preflight décrivant un connecteur livré ne prouve donc pas sa
-présence dans ce checkout.
+Funding possède un [connecteur durable](preflight-connector.md), une boîte distante
+et une recette synthétique. L’Atelier ajoute la préparation éditoriale par dossier
+et son adoption privée. Le connecteur et l’Atelier conservent des registres de
+versions distincts pour la même source; leur activation simultanée est refusée
+avant le démarrage des traitements.
 
 | Responsabilité                   | Propriétaire et composants réutilisés                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ faits disponibles. Il ne prend aucune décision à la place de l’administratio
 
 ## Déclenchement et API privée
 
-Les triggers de la migration 068 enregistrent durablement les changements de
+Les triggers de la migration 069 enregistrent durablement les changements de
 dossier, d’engagement, d’obligation, de média, d’affectation, de consentement et
 de brouillon. Le relais backend les réconcilie toutes les deux secondes lorsque
 son activation est explicite. Une même empreinte automatique réutilise sa mission.
@@ -115,14 +115,18 @@ L’approbation et la publication ne font pas partie de ces routes.
 ## Qualification
 
 Le raccordement exige la migration additive
-[068](../../apps/funding-api/migrations/068_publication_workshop.sql) et les grants
-API correspondants. `PREFLIGHT_ENABLED=false` reste la valeur initiale. La boîte
+[069](../../apps/funding-api/migrations/069_publication_workshop.sql), après la
+migration 068 du connecteur, et les grants API correspondants.
+`PREFLIGHT_WORKSHOP_ENABLED=false` reste la valeur initiale. Le connecteur conserve
+son flag `PREFLIGHT_ENABLED`; l’API et son worker refusent les deux flags à `true`
+avant tout traitement. La boîte
 distante et la recette synthétique possèdent leurs propres flags et n’activent
 pas ce relais.
 
 L’overlay [workshop](../../docker-compose.preflight-workshop.yml) se place après
 l’overlay [inbox](../../docker-compose.preflight-inbox.yml) et les overlays TLS et
-identité déjà utilisés. Il réutilise le secret serveur monté en lecture seule et
+identité déjà utilisés. Il configure le flag Atelier et désactive le producteur
+du connecteur. Il réutilise le secret serveur monté en lecture seule et
 sa copie privée en mémoire; aucun secret ne passe au navigateur. Les endpoints
 HTTPS, le tenant et le client limités à `funding-platform` restent configurés
 côté serveur. `PREFLIGHT_MAX_COST_USD` borne le budget demandé par mission sans

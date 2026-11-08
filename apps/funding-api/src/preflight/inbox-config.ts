@@ -8,6 +8,7 @@ import {
 } from 'node:fs';
 
 import {
+  assertPreflightProducerActivation,
   loadPreflightConfig,
   PreflightConfigurationError,
   type PreflightConfig
@@ -90,13 +91,15 @@ export function loadPreflightInboxConfig(
   };
 }
 
-/** The durable producer is separately enabled and shares the strict private secret-file reader. */
-export function loadPreflightConnectorConfig(
+/** Workshop activation is separate from the connector and reuses the private secret reader. */
+export function loadPreflightWorkshopConfig(
   env: NodeJS.ProcessEnv = process.env
 ): PreflightConfig {
+  assertPreflightProducerActivation(env);
   return loadPreflightConfig({
     ...env,
-    ...(env.PREFLIGHT_ENABLED === 'true'
+    PREFLIGHT_ENABLED: env.PREFLIGHT_WORKSHOP_ENABLED,
+    ...(env.PREFLIGHT_WORKSHOP_ENABLED === 'true'
       ? { PREFLIGHT_CLIENT_SECRET: clientSecret(env) }
       : {})
   });

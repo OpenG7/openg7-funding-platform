@@ -2,9 +2,8 @@
 
 <a id="francais"></a>
 
-Référence française · [English](ARCHITECTURE.en.md). Lire une seule version.
-Les deux versions doivent évoluer ensemble; les ajouts ne sont pas placés après
-une traduction sans être reportés dans l'autre.
+Référence française · [English](ARCHITECTURE.en.md). Lire une seule version;
+maintenir les deux traductions synchronisées.
 
 Ce document décrit les frontières durables et leurs raisons. Les consignes
 d'exécution sont dans [AGENTS.md](../AGENTS.md); les contrats actuels et preuves
@@ -191,11 +190,13 @@ conserver la même sémantique et éviter le double comptage lors d'un changemen
 
 ## Exploitation et évolution
 
-En production, Compose est exploité depuis `/opt/openg7-funding-platform`.
-Traefik termine TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans
-port public. Secrets et sauvegardes restent hors Git. Santé, logs corrélés, état
-des webhooks, reprises et audits font partie de la capacité livrée.
-Les alertes indépendantes et leurs limites sont décrites dans le
+Le [connecteur Preflight](technical/preflight-connector.md) est opt-in :
+outbox, relais séparé, propositions privées; Funding décide.
+
+Production : Compose sous `/opt/openg7-funding-platform`; Traefik termine
+TLS et expose Web/API; PostgreSQL reste privé sur `data`, sans port public.
+Secrets et sauvegardes restent hors Git. Santé, logs corrélés, webhooks, reprise
+et audit sont requis. Alertes et limites :
 [runbook identité/alertes](operations/admin-identity-and-alerts.md).
 
 Sauvegarder avant opération destructive; restaurer DB et médias de façon cohérente.

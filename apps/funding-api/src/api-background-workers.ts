@@ -205,7 +205,7 @@ export const createApiBackgroundWorkers = (
       await dependencies.publicationWorkshop?.tick();
     } catch {
       logger.error(
-        'Preflight preparation interrupted; inspect connector availability and migration 068.'
+        'Preflight preparation interrupted; inspect connector availability and migration 069.'
       );
     }
   };

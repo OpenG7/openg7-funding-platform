@@ -118,7 +118,7 @@ test('Preflight connector runs without a browser and retries with safe failure l
   assert.deepEqual(app.logs, [
     [
       'error',
-      'Preflight preparation interrupted; inspect connector availability and migration 068.'
+      'Preflight preparation interrupted; inspect connector availability and migration 069.'
     ]
   ]);
   const timer = app.timers[0];

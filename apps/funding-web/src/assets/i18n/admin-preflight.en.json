@@ -132,5 +132,28 @@
     "high": "High risk",
     "critical": "Critical risk",
     "unknown": "Risk unspecified"
+  },
+  "preparations": {
+    "title": "OpenG7 Preflight preparations",
+    "authority": "Proposed work for review. Decisions and publication remain under Funding Platform’s authority.",
+    "refresh": "Refresh preparations",
+    "loading": "Loading preparations…",
+    "disabled": "The Preflight connector is disabled. This Funding instance does not send work to Preflight.",
+    "configured": "Connector configured. This does not confirm the remote service’s current availability.",
+    "empty": "No Preflight preparation is stored for this dossier. Results will appear after worker processing.",
+    "proposed": "Proposal for review",
+    "obsolete": "Obsolete — source data has changed",
+    "simulated": "Explicit simulation",
+    "version": "Source revision",
+    "provider": "Provider and model",
+    "generated": "Prepared on",
+    "draft": "Read the proposed draft",
+    "warnings": "Limitations and warnings",
+    "conditions": "Confirmation conditions",
+    "mission": "Mission",
+    "errors": {
+      "forbidden": "Your session cannot access these preparations. Sign in again with authorized access.",
+      "unavailable": "Preparations are temporarily unavailable. You can retry without modifying the dossier."
+    }
   }
 }

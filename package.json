@@ -29,6 +29,8 @@
     "dev:web:docker:stop": "node scripts/dev-web-docker.mjs --stop",
     "dev:web:docker:restore": "node scripts/dev-web-docker.mjs --restore",
     "dev:api": "yarn workspace @openg7/funding-api start",
+    "preflight:worker": "node --env-file=.env dist/apps/funding-api/src/preflight-worker.js",
+    "preflight:health": "node --env-file=.env dist/apps/funding-api/src/preflight-health.js",
     "docker:up": "node scripts/docker-up.mjs",
     "docker:up:dev": "node scripts/docker-up.mjs --environment local",
     "docker:up:dev:token": "node scripts/docker-up.mjs --environment local --auth token",

@@ -180,15 +180,16 @@ no migration. Owner access and the UI confirmation remain required.
 
 ### Document resend receipts
 
-The [document resend contract](document-resend-receipts.md) covers confirmed,
-idempotent POSTs and the actor-bound receipt GET, including delivery uncertainty
-and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
+[Document resend](document-resend-receipts.md): confirmed, idempotent POSTs,
+actor-bound receipt GET, delivery uncertainty and
+[UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
 ### Preflight
 
-[Workspace](preflight-workspace.md), [examination](preflight-examination.md),
-[work sessions](preflight-work-sessions.md), [inbox](preflight-inbox.md) and
-[rehearsals](preflight-rehearsals.md) define private APIs and authority.
+Private APIs: [connector](preflight-connector.md), [workshop](publication-workshop.md),
+[workspace](preflight-workspace.md),
+[review](preflight-examination.md), [sessions](preflight-work-sessions.md),
+[inbox](preflight-inbox.md), [rehearsal](preflight-rehearsals.md).
 
 ## Sponsorship review admin
 

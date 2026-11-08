@@ -367,8 +367,34 @@ test('moderation content refusals stay distinct, retries use real content and ob
       await actions.locator('[data-og7="moderation-open"]').click();
     };
     const subject = '**/api/admin/moderation/content?**';
+    await page.route(subject, (route) =>
+      route.fulfill({ status: 403, json: {} })
+    );
+    const forbidden = page.waitForResponse((response) =>
+      response.url().includes('/api/admin/moderation/content?')
+    );
+    await open();
+    expect((await forbidden).status()).toBe(403);
+    await expect(page.locator('[data-og7="moderation-decision"]')).toHaveCount(
+      0
+    );
+    await expect(page.locator('[data-og7="moderation-snapshot"]')).toHaveCount(
+      0
+    );
+    await expect(
+      page.locator('[data-og7="moderation-confirmation"]')
+    ).toHaveCount(0);
+    const actions = await openSponsorModeration(page);
+    await expect(actions).toHaveAttribute('aria-busy', 'false');
+    await expect(actions.getByRole('combobox').first()).toHaveValue('N1');
+    await expect(page).toHaveURL(
+      '/admin/fundraiser/sponsors?sponsorshipId=' + f.id
+    );
+    expect((await page.request.get('/api/admin/auth/current')).status()).toBe(
+      200
+    );
+    await page.unroute(subject);
     const errors = new Map([
-      [403, 'Vous n’avez pas les droits nécessaires'],
       [404, 'Ce contenu n’existe plus'],
       [503, 'Le contenu ne peut pas être chargé']
     ]);

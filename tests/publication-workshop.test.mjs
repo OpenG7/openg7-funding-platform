@@ -4,9 +4,62 @@ import test from 'node:test';
 
 import { buildWorkshopMission } from '../dist/apps/funding-api/src/preflight/workshop-source.js';
 import { projectWorkshopProposals } from '../dist/apps/funding-api/src/preflight/workshop-proposal.js';
+import {
+  assertPreflightProducerActivation,
+  loadPreflightConfig
+} from '../dist/apps/funding-api/src/preflight/config.js';
+import {
+  loadPreflightInboxConfig,
+  loadPreflightWorkshopConfig
+} from '../dist/apps/funding-api/src/preflight/inbox-config.js';
+import { runPreflightWorker } from '../dist/apps/funding-api/src/preflight-worker.js';
 import { workshopRemoteDetail } from './support/publication-workshop-fixture.mjs';
 
 const config = { enabled: true, tenantId: 'synthetic-workshop', maxCostUsd: 0 };
+
+test('connector and workshop activate independently while inbox remains separate', () => {
+  const env = {
+    FUNDING_PLATFORM_ENV: 'test',
+    PREFLIGHT_URL: 'https://preflight.invalid',
+    PREFLIGHT_TOKEN_URL: 'https://identity.invalid/token',
+    PREFLIGHT_TENANT_ID: 'synthetic-tenant',
+    PREFLIGHT_CLIENT_ID: 'synthetic-client',
+    PREFLIGHT_CLIENT_SECRET: 'synthetic-secret'
+  };
+  assert.deepEqual(loadPreflightWorkshopConfig(env), { enabled: false });
+  for (const workshopEnabled of [false, true]) {
+    const selected = {
+      ...env,
+      PREFLIGHT_ENABLED: String(!workshopEnabled),
+      PREFLIGHT_WORKSHOP_ENABLED: String(workshopEnabled)
+    };
+    assert.doesNotThrow(() => assertPreflightProducerActivation(selected));
+    assert.equal(loadPreflightConfig(selected).enabled, !workshopEnabled);
+    assert.equal(
+      loadPreflightWorkshopConfig(selected).enabled,
+      workshopEnabled
+    );
+    assert.equal(loadPreflightInboxConfig(selected).connection.enabled, false);
+  }
+  assert.throws(
+    () => loadPreflightWorkshopConfig({ PREFLIGHT_WORKSHOP_ENABLED: 'yes' }),
+    { code: 'preflight_workshop_enabled_invalid' }
+  );
+});
+
+test('dual producers are rejected before secret access, database or worker startup', async () => {
+  const env = {
+    PREFLIGHT_ENABLED: 'true',
+    PREFLIGHT_WORKSHOP_ENABLED: 'true',
+    PREFLIGHT_CLIENT_SECRET_FILE: 'synthetic-missing-secret-file'
+  };
+  assert.throws(() => loadPreflightWorkshopConfig(env), {
+    code: 'preflight_producers_mutually_exclusive'
+  });
+  await assert.rejects(runPreflightWorker(env), {
+    code: 'preflight_producers_mutually_exclusive'
+  });
+});
 const source = (consent = true) => ({
   contributionId: randomUUID(),
   commitmentId: randomUUID(),

@@ -108,7 +108,8 @@ L’[Atelier du dossier](publication-workshop.md) ajoute le raccordement durable
 l’adoption privée contrôlée. La provenance vérifiée y reste distincte du contrat
 historique `funding/unverified` de l’examen natif. La préparation en lot, les médias
 et la production exigent leur qualification propre; les contrats de recette
-synthétique ne sont pas modifiés.
+synthétique ne sont pas modifiés. Le [connecteur](preflight-connector.md) conserve
+son contrat distinct; son relais et celui de l’Atelier ne s’activent pas simultanément.
 
 ## Validation
 

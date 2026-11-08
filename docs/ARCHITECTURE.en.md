@@ -183,12 +183,14 @@ without double counting during a mode change.
 
 ## Operations and evolution
 
-Operate production Compose from `/opt/openg7-funding-platform`. Traefik terminates
-TLS and exposes Web/API; PostgreSQL remains private on `data`, without a public
-port. Keep secrets and backups outside Git. Health, correlated logs, webhook
-processing status, recovery and audit are product capabilities.
-The [identity/alerts runbook](operations/admin-identity-and-alerts.md) describes
-independent monitoring and its limits.
+The [Preflight connector](technical/preflight-connector.md) is opt-in:
+outbox, separate relay, private proposals; Funding decides.
+
+Production: Compose under `/opt/openg7-funding-platform`; Traefik terminates
+TLS and exposes Web/API; PostgreSQL stays private on `data`, without a public port.
+Keep secrets and backups outside Git. Health, correlated logs, webhooks, recovery
+and audit are required. Monitoring and limits:
+[identity/alerts runbook](operations/admin-identity-and-alerts.md).
 
 Back up before destructive operations; restore DB and media consistently.
 Verify health, transparency, connectivity and reconciliation after recovery.

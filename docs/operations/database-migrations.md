@@ -54,14 +54,25 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
-La migration [068](../../apps/funding-api/migrations/068_publication_workshop.sql)
+La migration [069](../../apps/funding-api/migrations/069_publication_workshop.sql)
 ajoute le registre des changements source, les missions immuables, les propositions
 privées et les reçus d’adoption de l’[Atelier de publication](../technical/publication-workshop.md).
-Appliquer après 067, puis rafraîchir les grants du rôle API avant le démarrage.
+Appliquer après 068, puis rafraîchir les grants du rôle API avant le démarrage.
 Les triggers conservent les changements dans la transaction métier; le réseau
 reste hors transaction. La migration ne prépare, n’approuve et ne publie aucun
-contenu. Le relais exige son activation explicite séparée. Les données et audits
+contenu. Le relais exige `PREFLIGHT_WORKSHOP_ENABLED=true`, séparément du
+connecteur `PREFLIGHT_ENABLED`; leur activation simultanée est refusée. Les données et audits
 existants restent conservés; aucune migration de production n’a été exécutée.
+
+La migration [068](../../apps/funding-api/migrations/068_create_preflight_connector.sql)
+ajoute les sources versionnées, l’outbox, les missions suivies, les préparations
+privées et le heartbeat du relais Preflight. Elle ne crée aucune mission pour
+les anciens dossiers et n’active aucun traitement. Appliquer avant d’activer
+le connecteur puis rafraîchir les grants du rôle applicatif avec le runner.
+Les payloads restent immuables. Voir [le contrat et les limites](../technical/preflight-connector.md).
+Le numéro 068 conserve les migrations 064 à 067 déjà intégrées. Une base d’essai
+jetable créée avec l’ancien numéro 064 du connecteur doit être recréée; ne pas
+renommer une entrée de registre ni rejouer le SQL sur une base existante.
 
 La migration [067](../../apps/funding-api/migrations/067_documented_sponsorship_consent.sql)
 ajoute le registre immuable des [accords publics documentés](../technical/sponsorship-public-consent.md)

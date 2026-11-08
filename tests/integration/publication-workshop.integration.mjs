@@ -42,7 +42,7 @@ test(
     const migrations = readMigrations('apps/funding-api/migrations');
     await pool.query(
       buildMigrationSql(
-        migrations.filter((m) => m.version <= 67),
+        migrations.filter((m) => m.version < 69),
         { database }
       )
     );
@@ -121,7 +121,7 @@ test(
     assert.deepEqual(
       await pristine(),
       before,
-      '068 preserves the existing agreements and decisions and is runner-idempotent'
+      '069 preserves the existing agreements and decisions and is runner-idempotent'
     );
     assert.equal((await service.read(id)).sourceVersion, null);
     assert.equal(

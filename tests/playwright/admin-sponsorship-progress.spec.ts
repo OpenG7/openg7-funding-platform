@@ -30,6 +30,7 @@ import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publica
 import { registerPublicationWorkshopTests } from './publication-workshop.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
+import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
@@ -766,6 +767,7 @@ registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerPublicationWorkshopTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
+registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorsQualityTests({ fixtures, path });
 registerDossierServiceSummaryTests({ fixtures, path, recordedCommitment });
 registerContributionActivityOverlayTests({
@@ -1631,6 +1633,67 @@ for (const alreadySubmitted of [false, true]) {
     );
   });
 }
+
+test('pending sponsor submission is explained from the dossier through identity in English on mobile', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'owner');
+  options.edited.set(id, { sponsor_details_submitted_at: null });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path('billing'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await expect(
+    page.locator('[data-og7="dossier-recommendation"]')
+  ).toContainText('Contact details are present. Waiting for the sponsor');
+  await dossierNext(page).click();
+  const identity = page.locator('#dossier-identity');
+  await expect(identity).toBeFocused();
+  await expect(identity).toBeInViewport();
+  await expect(
+    identity.locator('[data-og7="identity-coordinates-status"]')
+  ).toHaveText('The organization name and contact email are present.');
+  await expect(
+    identity.locator('[data-og7="identity-submission-status"]')
+  ).toHaveText(
+    'The sponsor must submit their form through their private follow-up access.'
+  );
+  const roleHelp = identity.locator('[data-og7="identity-role-help"]');
+  await expect(roleHelp).toHaveCount(1);
+  await expect(roleHelp).toContainText(
+    'Administration’s role: complete contact details without submitting the form.'
+  );
+  await expect(roleHelp).toContainText(
+    'Only the sponsor can submit their form through their follow-up access.'
+  );
+  await expect(identity.locator('[data-og7="identity-step"]')).toHaveCount(2);
+  await expect(
+    identity.locator('[data-og7="identity-coordinates-state"]')
+  ).toHaveAttribute('data-state', 'complete');
+  await expect(
+    identity.locator('[data-og7="identity-submission-state"]')
+  ).toHaveAttribute('data-state', 'pending');
+  await expect(page.locator('[data-og7="dossier-worklist"]')).toHaveCount(0);
+  await expect(identity.locator('details')).toHaveCount(0);
+  await expect(identity.locator('time')).toHaveCount(0);
+  await expect(
+    identity.locator('[data-og7="identity-submission-required"]')
+  ).toHaveCount(0);
+  await expect(identity).not.toContainText('Even if you fill in every field');
+  await expect(
+    identity.getByRole('button', { name: 'Edit identity and contact details' })
+  ).toBeEnabled();
+  await expect(
+    identity.getByRole('button', { name: 'View sponsor follow-up access' })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
 
 const actions = (page: Page) => page.locator('[data-og7="dossier-actions"]');
 

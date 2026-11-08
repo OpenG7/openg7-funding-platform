@@ -5,8 +5,13 @@ import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
 import {
+  assertPreflightProducerActivation,
+  loadPreflightConfig
+} from './preflight/config.js';
+import { assertPreflightSchema } from './preflight/repository.js';
+import {
   loadPreflightInboxConfig,
-  loadPreflightConnectorConfig
+  loadPreflightWorkshopConfig
 } from './preflight/inbox-config.js';
 import { loadPreflightRehearsalConfig } from './preflight/rehearsal-config.js';
 import { PublicationWorkshopService } from './preflight/workshop.js';
@@ -88,10 +93,15 @@ import { createAdminHttpHandlers } from './http-composition/admin-handlers.js';
 import { createHttpDispatcher } from './http-composition/dispatcher.js';
 import { createApiRequestListener } from './http-composition/request-listener.js';
 
+assertPreflightProducerActivation();
 const startupConfig = loadApiRuntimeConfig();
+const preflightConfig = loadPreflightConfig();
+if (preflightConfig.enabled && !hasDatabase) {
+  throw new Error('PREFLIGHT_DATABASE_REQUIRED');
+}
 const preflightInboxConfig = loadPreflightInboxConfig();
 const preflightRehearsalConfig = loadPreflightRehearsalConfig();
-const preflightConnectorConfig = loadPreflightConnectorConfig();
+const preflightWorkshopConfig = loadPreflightWorkshopConfig();
 const {
   port,
   stripeSecretKey,
@@ -333,12 +343,12 @@ const { getDatabaseConnectionStatus, buildAdminSetupStatus } =
 const publicationAutomation = dbPool
   ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
   : null;
-if (preflightConnectorConfig.enabled && !dbPool)
+if (preflightWorkshopConfig.enabled && !dbPool)
   throw new Error(
     'Preflight preparation requires a configured Funding database.'
   );
 const publicationWorkshop = dbPool
-  ? new PublicationWorkshopService(dbPool, preflightConnectorConfig)
+  ? new PublicationWorkshopService(dbPool, preflightWorkshopConfig)
   : null;
 const contributionNotifications = loadApiRuntimeContributionNotificationConfig(
   process.env
@@ -363,7 +373,7 @@ const backgroundWorkers = createApiBackgroundWorkers({
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
   publicationAutomation,
-  publicationWorkshop: preflightConnectorConfig.enabled
+  publicationWorkshop: preflightWorkshopConfig.enabled
     ? publicationWorkshop
     : null,
   mediaAnalysis: dbPool
@@ -419,6 +429,7 @@ const publicHandlers = createPublicHttpHandlers({
 });
 
 const adminHandlers = createAdminHttpHandlers({
+  preflightConfig,
   dbPool,
   preflightInboxConfig,
   preflightRehearsalConfig,
@@ -498,6 +509,9 @@ try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
   if (dbPool) {
     await publicationWorkshop?.ready();
+    if (preflightConfig.enabled) {
+      await assertPreflightSchema(dbPool);
+    }
     await assertPreparationReadiness(dbPool, 'approve');
     await assertPreparationAssistanceReadiness(dbPool);
     await assertSponsorMediaReadiness(dbPool);

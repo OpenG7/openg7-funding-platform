@@ -27,6 +27,21 @@ function flag(value: string | undefined, name: string): boolean {
   if (value === 'true') return true;
   throw new PreflightConfigurationError(`${name}_invalid`);
 }
+
+/** Both producers version the same source; only one may own preparation. */
+export function assertPreflightProducerActivation(
+  env: NodeJS.ProcessEnv = process.env
+): void {
+  const connector = flag(env.PREFLIGHT_ENABLED, 'preflight_enabled');
+  const workshop = flag(
+    env.PREFLIGHT_WORKSHOP_ENABLED,
+    'preflight_workshop_enabled'
+  );
+  if (connector && workshop)
+    throw new PreflightConfigurationError(
+      'preflight_producers_mutually_exclusive'
+    );
+}
 function required(value: string | undefined, name: string, max = 4096): string {
   if (!value || !value.trim() || value.length > max)
     throw new PreflightConfigurationError(`${name}_required`);
