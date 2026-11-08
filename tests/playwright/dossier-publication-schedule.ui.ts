@@ -964,6 +964,7 @@ export function registerDossierPublicationScheduleTests(
           context.path('publication') +
             `&draftId=${otherId}&deliveryId=${deliveryId}&obligationId=${obligationId}`
         );
+        await openPublicationSection(page, 'navigation');
         const authorization = page.locator(
           '[data-og7="publication-chain-link"][data-og7-id="authorization"]'
         );
