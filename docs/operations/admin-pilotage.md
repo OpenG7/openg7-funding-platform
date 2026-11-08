@@ -15,6 +15,17 @@ Observer**, **À traiter — Prioriser**, **Poste de pilotage — Décider** et
 l'Assistant conserve Préparer lorsqu'un dossier est sélectionné. Les liens
 rejoignent les écrans propriétaires existants, avec leurs droits et confirmations.
 
+L’entrée **Preflight**, accessible aussi en lecture seule, ouvre
+`/admin/fundraiser/preflight` : **Mon comptoir**, **Recette locale**,
+**Propositions (toutes)** et **Parcours et preuves**. L’onglet et les filtres du
+comptoir sont conservés dans l’URL. Le comptoir réutilise les prestations promises
+Funding et leurs preuves qualifiées; Examiner ouvre la fiche de préparation
+existante du dossier. L’état du rattachement Preflight reste explicite, sans
+approbation ni publication implicite. Voir le [workspace](../technical/preflight-workspace.md).
+La consultation reste ouverte aux lecteurs; la recette locale permet aux
+opérateurs et propriétaires de lancer un dossier synthétique et de suivre ses
+six étapes, jusqu’à une préparation à examiner par une personne autorisée.
+
 Un rappel de créneau, lot ou brouillon sans livraison renvoie à son dossier ;
 il ne propose pas une décision de modération pour `publication_delivery`.
 Une livraison réelle conserve son panneau lié à son identifiant exact.

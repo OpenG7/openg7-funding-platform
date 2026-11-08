@@ -1,0 +1,302 @@
+<section
+  class="rehearsal-panel"
+  data-og7="preflight-rehearsal"
+  [attr.data-state]="state()"
+  [attr.data-following]="following()"
+  [attr.data-mode]="mode()"
+  [attr.aria-busy]="busy() && !run()"
+  aria-labelledby="preflight-rehearsal-title"
+>
+  <header class="panel-header">
+    <div>
+      <p class="eyebrow">
+        {{
+          (mode() === 'evidence'
+            ? 'admin.preflight.rehearsal.evidenceEyebrow'
+            : 'admin.preflight.rehearsal.local'
+          ) | translate
+        }}
+      </p>
+      <h2 id="preflight-rehearsal-title">
+        {{
+          (mode() === 'evidence'
+            ? 'admin.preflight.rehearsal.evidenceTitle'
+            : 'admin.preflight.rehearsal.title'
+          ) | translate
+        }}
+      </h2>
+    </div>
+    @if (data()?.enabled) {
+      <span class="scope-badge">{{
+        'admin.preflight.rehearsal.synthetic' | translate
+      }}</span>
+    }
+  </header>
+
+  @if (state() === 'disabled') {
+    <p class="muted" role="status">
+      {{ 'admin.preflight.rehearsal.disabled' | translate }}
+    </p>
+  } @else if (state() === 'loading') {
+    <p role="status">{{ 'admin.preflight.rehearsal.loading' | translate }}</p>
+  } @else {
+    @if (data()?.enabled) {
+      <p class="intro">
+        {{
+          (mode() === 'evidence'
+            ? 'admin.preflight.rehearsal.evidenceIntro'
+            : 'admin.preflight.rehearsal.intro'
+          ) | translate
+        }}
+      </p>
+      <div class="controls">
+        @if (mode() === 'rehearsal') {
+          <label class="field">
+            <span>{{ 'admin.preflight.rehearsal.scenario' | translate }}</span>
+            <select
+              data-og7="preflight-rehearsal-scenario"
+              [value]="scenario()"
+              [disabled]="busy() || !canLaunch()"
+              (change)="setScenario($event)"
+            >
+              <option value="standard">
+                {{ 'admin.preflight.rehearsal.scenarios.standard' | translate }}
+              </option>
+              <option value="missing_input">
+                {{
+                  'admin.preflight.rehearsal.scenarios.missing_input'
+                    | translate
+                }}
+              </option>
+            </select>
+          </label>
+          <button
+            class="admin-button admin-button--primary"
+            type="button"
+            data-og7="preflight-rehearsal-start"
+            [disabled]="
+              busy() ||
+              !canLaunch() ||
+              !!pendingStart() ||
+              run()?.delivery === 'uncertain'
+            "
+            (click)="start()"
+          >
+            {{ 'admin.preflight.rehearsal.launch' | translate }}
+          </button>
+        }
+        <button
+          class="admin-button"
+          type="button"
+          data-og7="preflight-rehearsal-refresh"
+          [disabled]="busy() || state() === 'forbidden'"
+          (click)="refresh()"
+        >
+          {{ 'admin.preflight.rehearsal.refresh' | translate }}
+        </button>
+        @if (canResume()) {
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="preflight-rehearsal-resume"
+            [disabled]="busy()"
+            (click)="resume()"
+          >
+            {{
+              (pendingStart()
+                ? 'admin.preflight.rehearsal.retryLaunch'
+                : 'admin.preflight.rehearsal.retryDelivery'
+              ) | translate
+            }}
+          </button>
+        }
+      </div>
+      @if (mode() === 'rehearsal' && !data()?.canLaunch) {
+        <p class="muted">
+          {{ 'admin.preflight.rehearsal.readOnly' | translate }}
+        </p>
+      }
+    }
+
+    @if (error()) {
+      <div
+        class="notice error"
+        role="alert"
+        data-og7="preflight-rehearsal-error"
+      >
+        <p>{{ 'admin.preflight.rehearsal.errors.' + error() | translate }}</p>
+        @if (run()) {
+          <p>{{ 'admin.preflight.rehearsal.lastConfirmed' | translate }}</p>
+        }
+        @if (!data()?.enabled && state() !== 'forbidden') {
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="preflight-rehearsal-refresh"
+            [disabled]="busy()"
+            (click)="refresh()"
+          >
+            {{ 'admin.preflight.rehearsal.refresh' | translate }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (data()?.runs?.length) {
+      <label class="field run-selector">
+        <span>{{ 'admin.preflight.rehearsal.previousRuns' | translate }}</span>
+        <select
+          data-og7="preflight-rehearsal-run"
+          [value]="run()?.id ?? ''"
+          [disabled]="busy()"
+          (change)="selectRun($event)"
+        >
+          @for (item of data()?.runs; track item.id) {
+            <option [value]="item.id">
+              {{ formatDate(item.createdAt) }} ·
+              {{
+                'admin.preflight.rehearsal.scenarios.' + item.scenario
+                  | translate
+              }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+
+    @if (data()?.enabled || run()) {
+      <ol
+        class="journey"
+        [attr.aria-label]="'admin.preflight.rehearsal.journey' | translate"
+      >
+        @for (step of steps(); track step.key) {
+          <li
+            class="journey-step"
+            data-og7="preflight-rehearsal-step"
+            [attr.data-og7-id]="step.key"
+            [attr.data-state]="step.state"
+          >
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>{{ stepTitle(step.key) | translate }}</h3>
+            <p class="step-status">{{ stepStatus(step.state) | translate }}</p>
+            @if (step.at) {
+              <time [attr.datetime]="step.at">{{ formatDate(step.at) }}</time>
+            }
+          </li>
+        }
+      </ol>
+    }
+
+    @if (run(); as current) {
+      <div
+        class="run-state"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <strong>{{ missionStatus(current.missionStatus) | translate }}</strong>
+        @if (current.observedSimulated === true) {
+          <span class="scope-badge simulation">{{
+            'admin.preflight.rehearsal.simulated' | translate
+          }}</span>
+        }
+        @if (following()) {
+          <span class="muted">{{
+            'admin.preflight.rehearsal.following' | translate
+          }}</span>
+        }
+      </div>
+      @if (paused()) {
+        <p class="notice attention" role="status">
+          {{ 'admin.preflight.rehearsal.paused' | translate }}
+        </p>
+      }
+      @if (current.delivery === 'uncertain') {
+        <p class="notice attention">
+          {{ 'admin.preflight.rehearsal.uncertain' | translate }}
+        </p>
+      }
+      @if (current.missionStatus === 'waiting_input') {
+        <p class="notice attention">
+          {{ 'admin.preflight.rehearsal.waitingInput' | translate }}
+        </p>
+      }
+      @if (current.error; as failure) {
+        <p class="notice error" role="alert">
+          {{ 'admin.preflight.rehearsal.runError' | translate }}
+          <code>{{ failure.code }}</code>
+        </p>
+      }
+      @if (current.receivedAt) {
+        <p class="notice review">
+          {{ 'admin.preflight.rehearsal.reviewRequired' | translate }}
+        </p>
+      }
+
+      @if (current.output; as prepared) {
+        <details class="result" data-og7="preflight-rehearsal-output">
+          <summary>
+            {{ 'admin.preflight.rehearsal.preparedOutput' | translate }}
+          </summary>
+          <div class="result-body">
+            <h3>{{ prepared.title }}</h3>
+            <p>{{ prepared.summary }}</p>
+            <p class="draft-body">{{ prepared.body }}</p>
+            @if (prepared.warnings.length) {
+              <h4>{{ 'admin.preflight.rehearsal.warnings' | translate }}</h4>
+              <ul>
+                @for (warning of prepared.warnings; track $index) {
+                  <li>{{ warning }}</li>
+                }
+              </ul>
+            }
+            <p class="muted">
+              {{ 'admin.preflight.rehearsal.provider' | translate }}
+              {{ prepared.provenance.provider }} /
+              {{ prepared.provenance.model }}
+            </p>
+          </div>
+        </details>
+      }
+
+      <details class="references">
+        <summary>{{ 'admin.preflight.rehearsal.details' | translate }}</summary>
+        <dl>
+          <dt>{{ 'admin.preflight.rehearsal.runId' | translate }}</dt>
+          <dd>{{ current.id }}</dd>
+          <dt>{{ 'admin.preflight.rehearsal.missionId' | translate }}</dt>
+          <dd>{{ current.missionId }}</dd>
+          <dt>{{ 'admin.preflight.rehearsal.source' | translate }}</dt>
+          <dd>
+            {{ current.source.subjectId }} · v{{ current.source.version }}
+          </dd>
+          <dt>{{ 'admin.preflight.rehearsal.createdAt' | translate }}</dt>
+          <dd>{{ formatDate(current.createdAt) }}</dd>
+          @if (current.lastCheckedAt) {
+            <dt>{{ 'admin.preflight.rehearsal.checkedAt' | translate }}</dt>
+            <dd>{{ formatDate(current.lastCheckedAt) }}</dd>
+          }
+          <dt>{{ 'admin.preflight.rehearsal.duration' | translate }}</dt>
+          <dd>
+            {{
+              'admin.preflight.rehearsal.seconds'
+                | translate: { count: durationSeconds() }
+            }}
+          </dd>
+        </dl>
+        @if (current.tasks.length) {
+          <ul class="task-list">
+            @for (task of current.tasks; track task.id) {
+              <li>
+                <code>{{ task.kind }}</code> · {{ task.status }}
+                @if (task.errorCode) {
+                  · <code>{{ task.errorCode }}</code>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </details>
+    }
+  }
+</section>

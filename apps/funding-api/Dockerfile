@@ -37,11 +37,13 @@ COPY scripts/operations-health.mjs ./scripts/operations-health.mjs
 
 EXPOSE 3333
 
-# The sponsor-logos named volume mounts here; Docker gives a freshly created
+# These named volumes mount here; Docker gives a freshly created
 # volume the ownership of whatever already exists at that path in the image,
 # so this must be created and chowned before USER node switches away from
-# root, or the local sponsor logo storage driver gets EACCES on every write.
-RUN mkdir -p /app/var/sponsor-logos && chown -R node:node /app/var/sponsor-logos
+# root. Rehearsal records are private synthetic test data, separate from media.
+RUN mkdir -p /app/var/sponsor-logos /app/var/preflight-rehearsals \
+    && chown -R node:node /app/var/sponsor-logos /app/var/preflight-rehearsals \
+    && chmod 0700 /app/var/preflight-rehearsals
 
 USER node
 
