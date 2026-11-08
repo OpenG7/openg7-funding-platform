@@ -298,7 +298,7 @@ export const updateSponsorshipReview = async (
 };
 
 export const updateSponsorshipPublication = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: SponsorshipPublicationInput
 ): Promise<SponsorshipPublicationMutationResult> => {
   if (!pool) {

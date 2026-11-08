@@ -187,6 +187,8 @@ export interface AdminHttpCompositionContext
   readonly preflightConfig?: import('../preflight/config.js').PreflightConfig;
   readonly preflightInboxConfig?: import('../preflight/inbox-config.js').PreflightInboxConfig;
   readonly preflightRehearsalConfig?: import('../preflight/rehearsal-config.js').PreflightRehearsalConfig;
+  readonly publicationWorkshop?:
+    import('../preflight/workshop.js').PublicationWorkshopService | null;
   readonly readBody: typeof readBody;
   readonly sponsorshipFollowupTokenTtlDays: ApiRuntimeConfig['sponsorshipFollowupTokenTtlDays'];
   readonly adminAssistantConfig: ApiRuntimeConfig['adminAssistantConfig'];

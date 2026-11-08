@@ -1,0 +1,258 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  display: block;
+  min-width: 0;
+}
+.workshop {
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-top: 3px solid var(--admin-gold, #e6b65a);
+  border-radius: var(--admin-radius-card, 1rem);
+  background: var(--admin-panel);
+}
+h3,
+h4,
+h5,
+p {
+  margin: 0;
+}
+h3 {
+  font-size: 1.15rem;
+}
+h4 {
+  font-size: 1rem;
+}
+h5 {
+  font-size: 0.95rem;
+}
+p {
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+.workshop-heading,
+.proposal-heading,
+.variant header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.workshop-heading > div:first-child {
+  display: grid;
+  gap: 0.4rem;
+}
+.eyebrow {
+  color: var(--admin-gold, #e6b65a);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.workshop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.admin-button {
+  min-height: 2.75rem;
+  white-space: normal;
+}
+.admin-button openg7-admin-icon {
+  width: 1rem;
+  height: 1rem;
+}
+.metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 1.25rem 0;
+  padding-block: 0.8rem;
+  border-block: 1px solid var(--admin-border);
+}
+.metadata dt,
+.source-facts dt {
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+.workshop-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.32fr);
+  gap: 1.25rem;
+}
+.editorial-content {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+}
+.proposal-heading p,
+.provenance,
+.authorization,
+.format,
+.variant header span {
+  font-size: 0.8rem;
+}
+.state {
+  display: inline-flex;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--admin-border);
+  color: var(--admin-gold, #e6b65a);
+  font-size: 0.8rem;
+}
+.is-obsolete {
+  color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+}
+.provenance strong {
+  color: var(--admin-text);
+}
+.authorization {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--admin-muted);
+}
+.authorization openg7-admin-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+.missing {
+  padding: 0.85rem 1rem;
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
+  border-radius: 0.6rem;
+}
+.missing ul {
+  margin-bottom: 0;
+  padding-inline-start: 1.25rem;
+}
+.missing li + li {
+  margin-top: 0.35rem;
+}
+.preview {
+  display: grid;
+  gap: 0.8rem;
+  padding-top: 0.5rem;
+}
+.preview > p,
+.variant > p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.variants {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+.variant {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  background: var(--admin-bg);
+}
+.variant .admin-button {
+  justify-self: start;
+}
+.assistant {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  border-inline-start: 1px solid var(--admin-border);
+  padding-inline-start: 1.2rem;
+}
+.assistant > openg7-admin-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--admin-gold, #e6b65a);
+}
+.assistant p {
+  font-size: 0.85rem;
+}
+summary {
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding-block: 0.6rem;
+  color: var(--admin-text);
+}
+.versions,
+.source-facts {
+  border-top: 1px solid var(--admin-border);
+}
+.versions ol {
+  margin: 0.4rem 0 0;
+  padding-inline-start: 1.3rem;
+}
+.version-button {
+  min-height: 2.75rem;
+  text-align: start;
+  color: var(--admin-text);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.digest {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+.summary-comparison {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+}
+.summary-comparison dt {
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+.summary-comparison dd {
+  white-space: pre-wrap;
+}
+.workshop-error,
+.workshop-notice {
+  margin-block: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--admin-warning-bg);
+  color: var(--admin-text);
+}
+.workshop-error {
+  background: var(--admin-danger-bg);
+}
+:is(a, button, summary):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .workshop-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .assistant {
+    border-inline-start: 0;
+    border-top: 1px solid var(--admin-border);
+    padding-inline-start: 0;
+    padding-top: 1rem;
+  }
+}
+@media (max-width: 480px) {
+  .workshop {
+    padding: 1rem;
+  }
+  .workshop-actions {
+    width: 100%;
+  }
+  .workshop-actions .admin-button {
+    flex: 1 1 10rem;
+  }
+}

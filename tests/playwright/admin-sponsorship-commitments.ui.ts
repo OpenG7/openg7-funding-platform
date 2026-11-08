@@ -7,6 +7,7 @@ import type {
   SponsorshipCommitmentQualificationRequest
 } from '@openg7/funding-core';
 
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 import { expect, test } from './support/test.js';
 const id = '10000000-0000-4000-8000-000000000401',
   obId = '10000000-0000-4000-8000-000000000451';
@@ -161,6 +162,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       const { state, base } = await commercialFixtures(page, context);
       await page.setViewportSize({ width, height: 900 });
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'contract');
       if (locale === 'en')
         await page
           .getByRole('button', {
@@ -248,6 +250,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     const { state } = await commercialFixtures(page, context);
     state.failure = true;
     await page.goto(context.path('publication'));
+    await openPublicationSection(page, 'contract');
     const panel = await fill(page);
     await panel.locator('[data-og7="commitments-qualify"]').click();
     await expect(panel.locator('[data-og7="commitments-error"]')).toBeVisible();
@@ -268,6 +271,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
   }) => {
     const { state } = await commercialFixtures(page, context);
     await page.goto(context.path('publication'));
+    await openPublicationSection(page, 'contract');
     const panel = await fill(page);
     await panel.locator('[data-og7="commitments-qualify"]').click();
     await expect(
@@ -323,6 +327,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     }) => {
       const { state } = await commercialFixtures(page, context, role);
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'contract');
       const panel = page.locator('[data-og7="admin-commitments"]');
       await expect(panel).toBeVisible();
       await expect(
@@ -340,6 +345,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
   }) => {
     const { state } = await commercialFixtures(page, context);
     await page.goto(context.path('publication'));
+    await openPublicationSection(page, 'contract');
     await expect(page.locator('[data-og7="commitments-adoption"]')).toHaveCount(
       0
     );

@@ -18,10 +18,16 @@
     "shell-quote": "1.9.0"
   },
   "scripts": {
+    "1": "yarn dev:preflight && yarn dev:web:docker",
+    "2": "yarn dev:web:docker:stop",
+    "3": "yarn dev:web:docker:restore",
     "menu": "node scripts/menu.mjs",
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
+    "dev:preflight": "node scripts/docker-ready.mjs -- docker compose --project-directory ../openg7-preflight --project-name openg7-preflight --env-file ../openg7-preflight/.local/identity-local.env -f ../openg7-preflight/docker-compose.yml -f ../openg7-preflight/compose.identity.local.yml --profile identity-local up -d --wait preflight-web preflight-worker",
     "dev:web": "yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json",
     "dev:web:docker": "node scripts/dev-web-docker.mjs",
+    "dev:web:docker:stop": "node scripts/dev-web-docker.mjs --stop",
+    "dev:web:docker:restore": "node scripts/dev-web-docker.mjs --restore",
     "dev:api": "yarn workspace @openg7/funding-api start",
     "preflight:worker": "node --env-file=.env dist/apps/funding-api/src/preflight-worker.js",
     "preflight:health": "node --env-file=.env dist/apps/funding-api/src/preflight-health.js",

@@ -4,10 +4,17 @@ import type { SponsorFeedChannel } from '@openg7/funding-core';
 import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
-import { loadPreflightConfig } from './preflight/config.js';
+import {
+  assertPreflightProducerActivation,
+  loadPreflightConfig
+} from './preflight/config.js';
 import { assertPreflightSchema } from './preflight/repository.js';
-import { loadPreflightInboxConfig } from './preflight/inbox-config.js';
+import {
+  loadPreflightInboxConfig,
+  loadPreflightWorkshopConfig
+} from './preflight/inbox-config.js';
 import { loadPreflightRehearsalConfig } from './preflight/rehearsal-config.js';
+import { PublicationWorkshopService } from './preflight/workshop.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
 import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
@@ -86,6 +93,7 @@ import { createAdminHttpHandlers } from './http-composition/admin-handlers.js';
 import { createHttpDispatcher } from './http-composition/dispatcher.js';
 import { createApiRequestListener } from './http-composition/request-listener.js';
 
+assertPreflightProducerActivation();
 const startupConfig = loadApiRuntimeConfig();
 const preflightConfig = loadPreflightConfig();
 if (preflightConfig.enabled && !hasDatabase) {
@@ -93,6 +101,7 @@ if (preflightConfig.enabled && !hasDatabase) {
 }
 const preflightInboxConfig = loadPreflightInboxConfig();
 const preflightRehearsalConfig = loadPreflightRehearsalConfig();
+const preflightWorkshopConfig = loadPreflightWorkshopConfig();
 const {
   port,
   stripeSecretKey,
@@ -334,6 +343,13 @@ const { getDatabaseConnectionStatus, buildAdminSetupStatus } =
 const publicationAutomation = dbPool
   ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
   : null;
+if (preflightWorkshopConfig.enabled && !dbPool)
+  throw new Error(
+    'Preflight preparation requires a configured Funding database.'
+  );
+const publicationWorkshop = dbPool
+  ? new PublicationWorkshopService(dbPool, preflightWorkshopConfig)
+  : null;
 const contributionNotifications = loadApiRuntimeContributionNotificationConfig(
   process.env
 );
@@ -357,6 +373,9 @@ const backgroundWorkers = createApiBackgroundWorkers({
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
   publicationAutomation,
+  publicationWorkshop: preflightWorkshopConfig.enabled
+    ? publicationWorkshop
+    : null,
   mediaAnalysis: dbPool
     ? new SponsorMediaAnalysisService(dbPool, sponsorMediaStorage)
     : null,
@@ -414,6 +433,7 @@ const adminHandlers = createAdminHttpHandlers({
   dbPool,
   preflightInboxConfig,
   preflightRehearsalConfig,
+  publicationWorkshop,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,
@@ -488,6 +508,7 @@ const handleRequest = createHttpDispatcher({
 try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
   if (dbPool) {
+    await publicationWorkshop?.ready();
     if (preflightConfig.enabled) {
       await assertPreflightSchema(dbPool);
     }

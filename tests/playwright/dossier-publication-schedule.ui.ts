@@ -10,6 +10,7 @@ import type {
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
 
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
@@ -252,6 +253,9 @@ export function registerDossierPublicationScheduleTests(
           destination === 'media' ? 'MEDIA_CHANGED' : 'SOURCE_CONTENT_MISSING';
       }
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await channel(page).locator('[data-og7="publication-review"]').click();
       return controls.commands;
     }
@@ -285,6 +289,9 @@ export function registerDossierPublicationScheduleTests(
           mutations.push(request.url());
       });
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await channel(page).locator('[data-og7="publication-review"]').click();
       const english = language === 'en';
       const dialog = page.getByRole('dialog', {
@@ -375,6 +382,9 @@ export function registerDossierPublicationScheduleTests(
         });
         try {
           await page.goto(context.path('publication'));
+          await openPublicationSection(page, 'navigation');
+          await openPublicationSection(page, 'offer');
+          await openPublicationSection(page, 'obligations');
           await channel(page)
             .locator('[data-og7="publication-review"]')
             .click();
@@ -491,6 +501,9 @@ export function registerDossierPublicationScheduleTests(
         );
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(context.path('publication'));
+        await openPublicationSection(page, 'navigation');
+        await openPublicationSection(page, 'offer');
+        await openPublicationSection(page, 'obligations');
         const journey = page.locator(
           '[data-og7="dossier-publication-journey"]'
         );
@@ -744,6 +757,9 @@ export function registerDossierPublicationScheduleTests(
           );
           await page.setViewportSize({ width, height: 1000 });
           await page.goto(context.path('publication'));
+          await openPublicationSection(page, 'navigation');
+          await openPublicationSection(page, 'offer');
+          await openPublicationSection(page, 'obligations');
           const guide = page.locator('[data-og7="publication-chain"]');
           const selector = guide.locator(
             '[data-og7="publication-journey-target"]'
@@ -948,6 +964,7 @@ export function registerDossierPublicationScheduleTests(
           context.path('publication') +
             `&draftId=${otherId}&deliveryId=${deliveryId}&obligationId=${obligationId}`
         );
+        await openPublicationSection(page, 'navigation');
         const authorization = page.locator(
           '[data-og7="publication-chain-link"][data-og7-id="authorization"]'
         );
@@ -1025,6 +1042,9 @@ export function registerDossierPublicationScheduleTests(
           height: 1000
         });
         await page.goto(context.path('publication'));
+        await openPublicationSection(page, 'navigation');
+        await openPublicationSection(page, 'offer');
+        await openPublicationSection(page, 'obligations');
         const console = page.locator('[data-og7="publication-obligations"]');
         await expect(console).toBeVisible();
         await expect(console).toHaveAttribute(
@@ -1133,6 +1153,9 @@ export function registerDossierPublicationScheduleTests(
         }
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       const card = channel(page);
       await expect(card).toHaveAttribute('data-state', 'uncertain');
       await expect(card).toContainText('Résultat à vérifier');
@@ -1198,6 +1221,9 @@ export function registerDossierPublicationScheduleTests(
         }))
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await expect(page.locator('#publication-delivery-count')).toContainText(
         '0 / 3'
       );
@@ -1316,6 +1342,9 @@ export function registerDossierPublicationScheduleTests(
         }
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       const console = page.locator('[data-og7="publication-obligations"]');
       await expect(console).toHaveAttribute('data-state', 'error');
       await expect(console.locator('[data-og7-id]')).toHaveCount(0);
@@ -1408,6 +1437,9 @@ export function registerDossierPublicationScheduleTests(
         }, language);
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(context.path('publication'));
+        await openPublicationSection(page, 'navigation');
+        await openPublicationSection(page, 'offer');
+        await openPublicationSection(page, 'obligations');
         const card = channel(page);
         const slot = card.locator('[data-og7="publication-next-slot"]');
         await expect(slot).toContainText('10');
@@ -1482,6 +1514,9 @@ export function registerDossierPublicationScheduleTests(
     }) => {
       const { controls, job } = await fixtures(page, context);
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await channel(page).locator('[data-og7="publication-review"]').click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       const approve = dialog.getByRole('button', {
@@ -1520,6 +1555,9 @@ export function registerDossierPublicationScheduleTests(
       job.status = 'approved';
       job.approvedAt = evaluatedAt;
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await channel(page).locator('[data-og7="publication-slot-edit"]').click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       await expect(dialog.getByLabel(/Asia\/Tokyo/)).toBeVisible();
@@ -1581,6 +1619,9 @@ export function registerDossierPublicationScheduleTests(
         publications: []
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       const card = channel(page);
       await expect(
         card.locator('[data-og7="publication-next-slot"]')
@@ -1636,6 +1677,9 @@ export function registerDossierPublicationScheduleTests(
         publications: []
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       const card = channel(page);
       await expect(
         card.locator('[data-og7="publication-next-slot"] time')
@@ -1691,6 +1735,9 @@ export function registerDossierPublicationScheduleTests(
       }) => {
         const { controls, job } = await fixtures(page, context);
         await page.goto(context.path('publication'));
+        await openPublicationSection(page, 'navigation');
+        await openPublicationSection(page, 'offer');
+        await openPublicationSection(page, 'obligations');
         await channel(page)
           .locator('[data-og7="publication-slot-edit"]')
           .click();
@@ -1745,6 +1792,9 @@ export function registerDossierPublicationScheduleTests(
           mutations.push(request.url());
       });
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await channel(page).locator('[data-og7="publication-slot-edit"]').click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       controls.commandStatus = 503;
@@ -1833,6 +1883,9 @@ export function registerDossierPublicationScheduleTests(
         ]
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       const historicalCard = page.locator(
         `[data-og7="publication-channel"][data-og7-id="${historicalDraftId}"]`
       );
@@ -1869,6 +1922,9 @@ export function registerDossierPublicationScheduleTests(
         publications: []
       };
       await page.goto(context.path('publication'));
+      await openPublicationSection(page, 'navigation');
+      await openPublicationSection(page, 'offer');
+      await openPublicationSection(page, 'obligations');
       await expect(
         page.locator('[data-og7="publication-schedule-error"]')
       ).toBeVisible();

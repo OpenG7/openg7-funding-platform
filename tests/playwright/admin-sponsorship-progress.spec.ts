@@ -27,6 +27,7 @@ import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-his
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
+import { registerPublicationWorkshopTests } from './publication-workshop.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
 import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
@@ -372,6 +373,21 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
                         })
                 }
               : null
+        }
+      });
+    }
+    if (url.pathname === '/api/admin/sponsorships/publication-workshop') {
+      return route.fulfill({
+        json: {
+          contributionId: url.searchParams.get('contributionId'),
+          enabled: false,
+          sourceVersion: null,
+          sourceSnapshotDigest: null,
+          mission: null,
+          proposal: null,
+          history: [],
+          canPrepare: false,
+          canAdopt: false
         }
       });
     }
@@ -748,6 +764,7 @@ registerDossierPublicationScheduleTests({
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
+registerPublicationWorkshopTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });

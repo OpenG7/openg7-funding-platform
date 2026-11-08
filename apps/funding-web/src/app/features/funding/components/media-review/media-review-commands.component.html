@@ -75,6 +75,7 @@
     }
     <openg7-sponsor-media-usage-editor
       [value]="commands().rulesValue()"
+      [suggestedScope]="commands().rulesSuggestedScope()"
       [requireEvidence]="true"
       [disabled]="
         !commands().c.canWrite() ||

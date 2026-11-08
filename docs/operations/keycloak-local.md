@@ -15,12 +15,23 @@ avec un fournisseur OIDC simulé ne remplacent pas ce démarrage Keycloak.
 
 ## Recompilation Web avec API Docker
 
-Quand la pile HTTPS locale est déjà démarrée, arrêter le serveur Angular existant
-sur `4200`, puis lancer depuis la racine :
+Quand l'API Funding et Keycloak de la pile HTTPS locale sont déjà démarrés,
+arrêter le serveur Angular existant sur `4200`, puis lancer depuis la racine :
 
 ```powershell
-yarn dev:web:docker
+yarn 1
 ```
+
+Ce raccourci exécute `yarn dev:preflight`, tente d'ouvrir Docker Desktop si
+nécessaire et attend que Docker, puis la pile Preflight, soient prêts avant de
+lancer `yarn dev:web:docker`. Le dépôt voisin `../openg7-preflight`
+doit déjà disposer de `.local/identity-local.env`, de ses certificats et de ses
+images locales préparées. Le lanceur réutilise sa configuration, sa base et ses
+images avec le profil Compose `identity-local`. Sa console est accessible sur
+**https://localhost:8444/**. La préparation initiale et les commandes d'arrêt de
+cette pile sont décrites dans `docs/shared-realm-sso.md` du dépôt Preflight.
+`yarn dev:preflight` démarre seulement cette pile en arrière-plan; si elle ne
+devient pas prête, `yarn 1` ne démarre pas Angular.
 
 Ouvrir **https://localhost** : Traefik transmet les pages et le WebSocket de
 recompilation à Angular sur `127.0.0.1:4200`; `/api` continue vers l'API Docker.
@@ -28,18 +39,23 @@ Les sauvegardes sont surveillées toutes les secondes. L'origine HTTPS, les
 cookies sécurisés, les contrôles d'origine et le callback Keycloak sont conservés.
 Le Web compilé reste accessible sur `http://localhost:8080`.
 
-Cette commande exige le profil local préparé, l'origine exacte `https://localhost`,
-les certificats existants valides et Docker Desktop capable de joindre
-`host.docker.internal`. Elle vérifie cette connexion avant de modifier uniquement
+Le gateway `yarn dev:web:docker` exige le profil local préparé, l'origine exacte
+`https://localhost`, les certificats existants valides et Docker Desktop capable
+de joindre `host.docker.internal`. Il vérifie cette connexion avant de modifier uniquement
 le fichier ignoré `traefik/local/dynamic.yml`. Un fichier vide temporaire dans le
 répertoire surveillé de Traefik déclenche sa relecture sous Docker Desktop.
-Elle démarre seulement Angular, sans redémarrer de conteneur ni modifier de
-schéma, paramètre d'identité ou fichier de production.
+Cette commande démarre seulement Angular, sans redémarrer de conteneur ni modifier
+de schéma, paramètre d'identité ou fichier de production.
 Ne pas relancer `docker:up` ou régénérer le profil HTTPS pendant la session.
 
-`Ctrl+C` arrête Angular et restaure le routage du Web Docker. Après un arrêt brutal,
-exécuter `yarn dev:web:docker --restore` avant de relancer. La sauvegarde locale
-est conservée pour revue si les routes ont été modifiées entre-temps.
+`Ctrl+C` dans le terminal du gateway, ou `yarn 2`
+(`yarn dev:web:docker:stop`) depuis un autre terminal, arrête Angular et restaure
+le routage du Web Docker. La demande cible uniquement la session du lanceur;
+Preflight reste actif en arrière-plan après cet arrêt.
+Après un arrêt brutal, exécuter `yarn 3` (`yarn dev:web:docker:restore`) avant de
+relancer. La sauvegarde locale est conservée pour revue si les routes ont été
+modifiées entre-temps. Un gateway démarré avant l’ajout de la commande d’arrêt
+doit encore être interrompu avec `Ctrl+C` dans son terminal d’origine.
 
 L'adresse directe `http://localhost:4200` dispose aussi d'un proxy `/api` vers
 `http://127.0.0.1:8080`, décrit par

@@ -102,6 +102,8 @@ send historical email without an explicit option. See
 
 ## Sponsorship and publication
 
+Workshop: [contract](technical/publication-workshop.md).
+
 Payment, consent, review, visibility and publication remain distinct. Benefits
 are typed/tested configuration shown before payment, without implicit retroactive
 changes. Active thresholds belong in `DEFAULT_SPONSORSHIP_PRICING_CONFIG` and

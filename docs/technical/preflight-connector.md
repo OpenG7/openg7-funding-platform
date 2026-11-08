@@ -35,6 +35,12 @@ avec le runner habituel et rafraîchir les grants du rôle applicatif; lire la
 de démarrage refuse un connecteur activé sans base ou schéma/grants attendus.
 La migration n’active aucun envoi et ne crée aucune mission historique.
 
+Ce relais et l’[Atelier de publication](publication-workshop.md) possèdent des
+versions source indépendantes et s’activent séparément. Choisir un seul relais :
+`PREFLIGHT_ENABLED=true` pour le connecteur ou `PREFLIGHT_WORKSHOP_ENABLED=true`
+pour l’Atelier. L’API et le worker séparé refusent leur activation simultanée
+avant tout traitement; les deux overlays de relais ne se combinent pas.
+
 Les variables sont définies dans [.env.example](../../.env.example) et validées
 dans [config.ts](../../apps/funding-api/src/preflight/config.ts). PREFLIGHT_ENABLED,
 URL, tenant, endpoints, clientId, scope, délais et budget sont des paramètres

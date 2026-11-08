@@ -2,9 +2,8 @@
 
 <a id="francais"></a>
 
-Référence française · [English](ARCHITECTURE.en.md). Lire une seule version.
-Les deux versions doivent évoluer ensemble; les ajouts ne sont pas placés après
-une traduction sans être reportés dans l'autre.
+Référence française · [English](ARCHITECTURE.en.md). Lire une seule version;
+maintenir les deux traductions synchronisées.
 
 Ce document décrit les frontières durables et leurs raisons. Les consignes
 d'exécution sont dans [AGENTS.md](../AGENTS.md); les contrats actuels et preuves
@@ -106,6 +105,8 @@ Les [règles financières](development/financial-rules.md) définissent les scé
 et contrôles d'implémentation.
 
 ## Commandites et publication
+
+Atelier : [contrat](technical/publication-workshop.md).
 
 Paiement, consentement, revue, visibilité et publication restent distincts.
 L’[accord public documenté](technical/sponsorship-public-consent.md) exige une

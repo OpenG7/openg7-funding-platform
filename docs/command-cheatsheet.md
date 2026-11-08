@@ -39,7 +39,8 @@ Interrompre le relais Stripe ne stoppe pas les conteneurs : utiliser l'arrêt Do
 | Installer | `corepack enable`, puis `yarn install` |
 | Web + API | `yarn dev` |
 | Web / API séparés | `yarn dev:web` / `yarn dev:api` |
-| Web avec API Docker | `yarn dev:web:docker` |
+| Preflight + Web / arrêt Web / reprise | `yarn 1` / `yarn 2` / `yarn 3` |
+| Preflight seul | `yarn dev:preflight` |
 | Compilation TypeScript | `yarn build` |
 | Build Angular | `yarn workspace @openg7/funding-web build --configuration production` |
 | Tests Node avec compilation | `yarn test` |
@@ -55,10 +56,9 @@ avec deux secrets aléatoires distincts d'au moins 32 caractères :
 `FUNDING_ADMIN_TOKEN` et `FUNDING_ADMIN_SESSION_SECRET`.
 Détail des réglages : [configuration](technical/configuration.md).
 
-La [matrice de validation](development/validation.md) précise contrôles,
-suites navigateur et prérequis. `yarn test` compile déjà. `services:check` lit
-la configuration locale, pas celle des conteneurs; valide le mode admin choisi,
-sans recette OIDC/MFA.
+Contrôles et prérequis : [matrice de validation](development/validation.md).
+`yarn test` compile déjà. `services:check` valide la configuration locale et le
+mode admin, sans recette OIDC/MFA ni lecture des conteneurs.
 
 ## Docker Compose
 

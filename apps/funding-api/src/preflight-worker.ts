@@ -4,7 +4,10 @@ import pg from 'pg';
 
 import { assertProductionDatabasePrivileges } from './database-runtime-security.js';
 import { PreflightClient } from './preflight/client.js';
-import { loadPreflightConfig } from './preflight/config.js';
+import {
+  assertPreflightProducerActivation,
+  loadPreflightConfig
+} from './preflight/config.js';
 import { producerSettingsFromEnv } from './preflight/source.js';
 import { createPreflightConnectorWorker } from './preflight/worker.js';
 import { assertPreflightSchema } from './preflight/repository.js';
@@ -12,6 +15,7 @@ import { assertPreflightSchema } from './preflight/repository.js';
 export async function runPreflightWorker(
   env: NodeJS.ProcessEnv = process.env
 ): Promise<void> {
+  assertPreflightProducerActivation(env);
   const config = loadPreflightConfig(env);
   if (!config.enabled) {
     console.info(JSON.stringify({ event: 'preflight.worker_disabled' }));

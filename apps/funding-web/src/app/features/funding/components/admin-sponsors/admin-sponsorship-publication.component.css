@@ -6,6 +6,52 @@
 .publication-journey {
   @apply tw:grid tw:gap-6;
 }
+.workshop-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.8rem 1.25rem;
+  padding: 1rem;
+  margin: 0.6rem 0 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+.workshop-facts dt {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+.workshop-facts dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+.workshop-facts progress {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  height: 0.4rem;
+  margin-top: 0.5rem;
+  accent-color: var(--admin-gold);
+}
+.workshop-details {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  padding-inline: 1rem;
+}
+.workshop-details > summary,
+.obligation-summary > summary {
+  min-height: 2.75rem;
+  padding-block: 0.7rem;
+  cursor: pointer;
+  font-weight: var(--admin-label-weight);
+}
+.workshop-details[open] {
+  padding-bottom: 1rem;
+}
+.workshop-details > summary:focus-visible,
+.obligation-summary > summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
 .publication-journey > header > h2 {
   font-family: var(--admin-heading-font-family);
   font-size: 1.375rem;

@@ -33,6 +33,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { PublicationWorkshopViewState } from '../../services/publication-workshop-view-state.js';
 import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-scheduling-controller.js';
 import { PublicationDeliveryDrawerComponent } from '../admin-publications/publication-delivery-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
@@ -52,6 +53,7 @@ import { revealControllerFocus } from '../admin-controller/admin-controller-navi
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
 import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
+import { AdminPublicationWorkshopComponent } from './admin-publication-workshop.component.js';
 import { registerSponsorPublicationTranslations } from './admin-sponsors-publication-translations.js';
 
 interface PublicationGuidanceLink {
@@ -78,7 +80,8 @@ interface PublicationGuidanceLink {
     AdminAutomaticPreparationDirective,
     AdminSponsorshipCommitmentsComponent,
     PublicationDeliveryDrawerComponent,
-    AdminSponsorshipPreparationComponent
+    AdminSponsorshipPreparationComponent,
+    AdminPublicationWorkshopComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',
@@ -88,6 +91,7 @@ interface PublicationGuidanceLink {
   ]
 })
 export class AdminSponsorshipPublicationComponent {
+  readonly view = inject(PublicationWorkshopViewState);
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly canManageWebsite = input(false);
   readonly websiteDisabled = input(false);
@@ -126,6 +130,14 @@ export class AdminSponsorshipPublicationComponent {
           ? 'hidden'
           : 'blocked';
   });
+  readonly contextBlockers = computed(() =>
+    [...new Set(this.dossier().website?.blockers ?? [])].filter(
+      (reason) =>
+        !this.dossier().website?.visible &&
+        reason !== 'visibility_held' &&
+        !(reason === 'identity' && this.dossier().next.tab === 'identity')
+    )
+  );
   private readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly moderation = inject(FundingModerationService);
@@ -153,6 +165,11 @@ export class AdminSponsorshipPublicationComponent {
 
   constructor() {
     registerSponsorPublicationTranslations();
+    effect(() => {
+      const identity = this.admin.identity();
+      const context = `${this.dossier().contributionId}:${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}`;
+      untracked(() => this.view.select(context));
+    });
     const browser = isPlatformBrowser(inject(PLATFORM_ID));
     effect(() => {
       const language = this.i18n.currentLanguage();
@@ -347,6 +364,20 @@ export class AdminSponsorshipPublicationComponent {
     isDossierPublicationComplete(this.dossier())
   );
   readonly automationPath = '/admin/fundraiser/publications/automation';
+
+  money(): string {
+    const dossier = this.dossier();
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
+      style: 'currency',
+      currency: dossier.currency,
+      currencyDisplay: 'code'
+    }).format(dossier.amountMinor / 100);
+  }
+
+  workshopChanged(): void {
+    this.commitmentChanged.emit();
+    void this.scheduling.refresh();
+  }
 
   evidence(obligationId: string) {
     return qualifiedPublicationEvidence(this.dossier(), obligationId);

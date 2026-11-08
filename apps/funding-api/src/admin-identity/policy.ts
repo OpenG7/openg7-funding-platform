@@ -16,6 +16,8 @@ const operatorActions = new Set([
   '/admin/sponsorships/preparation/approve',
   '/admin/sponsorships/preparation/service/decision',
   '/admin/sponsorships/preparation/service/save-draft',
+  '/admin/sponsorships/publication-workshop/prepare',
+  '/admin/sponsorships/publication-workshop/adopt',
   '/admin/sponsorships/details',
   '/admin/sponsorships/consent/record',
   '/admin/sponsorships/interventions',

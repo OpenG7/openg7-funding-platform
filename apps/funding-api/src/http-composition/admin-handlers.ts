@@ -71,6 +71,7 @@ import { AdminSponsorshipConsentService } from '../admin-sponsorship-consent.ser
 import { createAdminSponsorshipConsentHttpHandler } from '../admin-sponsorship-consent.http.js';
 import { createAdminPreflightWorkSessionsHttpHandler } from '../admin-preflight-work-sessions.http.js';
 import { createPreflightRehearsalHttpHandler } from '../preflight/rehearsal-routes.js';
+import { createPublicationWorkshopHttpHandler } from '../preflight/workshop-routes.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
 import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
 import { AdminStripeBackfillError } from '../admin-stripe-backfill.service.js';
@@ -227,6 +228,7 @@ export const createAdminHttpHandlers = ({
   preflightConfig,
   preflightInboxConfig,
   preflightRehearsalConfig,
+  publicationWorkshop,
   publicBaseOrigin,
   allowedOrigins,
   isProduction,
@@ -542,6 +544,22 @@ export const createAdminHttpHandlers = ({
     readBody,
     writeJson
   });
+  const handlePublicationWorkshopRequest = createPublicationWorkshopHttpHandler(
+    {
+      publicBaseOrigin,
+      service: publicationWorkshop ?? null,
+      ensureAdminAuthorization,
+      canManage: (request) =>
+        adminIdentity
+          ? ['operator', 'owner'].includes(
+              adminIdentity.identity(request)?.role ?? ''
+            )
+          : Boolean(resolveAdminAuthorization(request)),
+      getAdminAuditActor,
+      readBody,
+      writeJson
+    }
+  );
   const handleSponsorshipConsent = createAdminSponsorshipConsentHttpHandler({
     publicBaseOrigin,
     service: dbPool ? new AdminSponsorshipConsentService(dbPool) : null,
@@ -559,6 +577,7 @@ export const createAdminHttpHandlers = ({
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
       (await handleSponsorshipConsent(request, response)) ||
+      (await handlePublicationWorkshopRequest(request, response)) ||
       (await handlePreflightWorkSessionsRequest(request, response)) ||
       (await handlePreflightDeskRequest(request, response)) ||
       (await handlePreflightRehearsalRequest(request, response)) ||

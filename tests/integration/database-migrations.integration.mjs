@@ -182,6 +182,9 @@ test(
   { timeout: 60_000 },
   async (t) => {
     const db = await fixture(t);
+    const connectorMigrations = migrations.filter(
+      (migration) => migration.version <= 68
+    );
     await db.run(migrations.filter((migration) => migration.version < 68));
     const history = (
       await db.pool.query(
@@ -189,7 +192,7 @@ test(
       )
     ).rows;
     assert.equal(history.at(-1).version, 67);
-    const applied = await db.run();
+    const applied = await db.run(connectorMigrations);
     assert.deepEqual(
       applied.filter((line) => line.startsWith('OG7_MIGRATION applied ')),
       ['OG7_MIGRATION applied 068_create_preflight_connector.sql']
@@ -216,7 +219,7 @@ test(
       );
     }
     assert.equal(
-      (await db.run()).filter((line) =>
+      (await db.run(connectorMigrations)).filter((line) =>
         line.startsWith('OG7_MIGRATION applied ')
       ).length,
       0

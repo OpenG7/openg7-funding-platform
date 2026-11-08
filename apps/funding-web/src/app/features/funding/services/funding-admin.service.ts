@@ -140,6 +140,7 @@ import { FundingAdminCampaignsClient } from './funding-admin-campaigns.client.js
 import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 import { FundingAdminPreparationAssistanceClient } from './funding-admin-preparation-assistance.client.js';
 import { FundingAdminMediaAnalysisClient } from './funding-admin-media-analysis.client.js';
+import { FundingAdminPublicationWorkshopClient } from './funding-admin-publication-workshop.client.js';
 import { FundingAdminPreflightClient } from './funding-admin-preflight.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
@@ -196,6 +197,9 @@ export class FundingAdminService {
     this.session
   );
   readonly sessionGeneration = this.session.sessionGeneration;
+  readonly publicationWorkshop = new FundingAdminPublicationWorkshopClient(
+    this.session
+  );
   readonly preflightInbox = new FundingAdminPreflightInboxClient(
     this.session,
     () => this.clearAdminSession()
