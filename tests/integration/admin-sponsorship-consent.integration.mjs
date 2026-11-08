@@ -154,8 +154,20 @@ test(
         await assert.rejects(service.read(subject.id, actor, true), {
           code: 'CONSENT_SCHEMA_UNAVAILABLE'
         });
+        const installedVersions = async () =>
+          (
+            await pool.query(
+              'SELECT version FROM openg7_schema_migrations ORDER BY version'
+            )
+          ).rows.map((row) => row.version);
         await pool.query(buildMigrationSql(migrations, { database }));
+        const upgradedVersions = await installedVersions();
+        assert.deepEqual(
+          upgradedVersions,
+          migrations.map((migration) => migration.version)
+        );
         await pool.query(buildMigrationSql(migrations, { database }));
+        assert.deepEqual(await installedVersions(), upgradedVersions);
         assert.deepEqual(await snapshot(subject.id), subjectBefore);
         assert.deepEqual(await snapshot(other.id), otherBefore);
         assert.equal(
@@ -169,14 +181,6 @@ test(
             )
           ).rows[0].count,
           '0'
-        );
-        assert.equal(
-          (
-            await pool.query(
-              'SELECT max(version) AS v FROM openg7_schema_migrations'
-            )
-          ).rows[0].v,
-          67
         );
       }
     );
