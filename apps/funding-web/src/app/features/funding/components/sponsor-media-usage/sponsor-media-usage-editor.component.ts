@@ -22,11 +22,6 @@ export interface SponsorMediaUsageSubmission {
   readonly evidenceReference?: string;
 }
 
-export type SponsorMediaUsageScope = Pick<
-  SponsorMediaUsageRights,
-  'channels' | 'targets'
->;
-
 /** Funding molecule: explicit usage facts; the enclosing flow owns authorization and persistence. */
 @Component({
   selector: 'openg7-sponsor-media-usage-editor',
@@ -38,7 +33,6 @@ export type SponsorMediaUsageScope = Pick<
 })
 export class SponsorMediaUsageEditorComponent {
   readonly value = input<SponsorMediaUsageRights | null>(null);
-  readonly suggestedScope = input<SponsorMediaUsageScope | null>(null);
   readonly disabled = input(false);
   readonly requireEvidence = input(false);
   readonly saveButton = input(true);
@@ -54,15 +48,6 @@ export class SponsorMediaUsageEditorComponent {
   readonly restrictions = signal('');
   readonly evidence = signal('');
   readonly confirmed = signal(false);
-  readonly usesSuggestedScope = computed(() => {
-    const usage = this.value();
-    return (
-      !!this.suggestedScope() &&
-      (!usage || usage.state === 'needs_confirmation') &&
-      !usage?.channels.length &&
-      !usage?.targets.length
-    );
-  });
   readonly normalized = computed(() => {
     if (!this.confirmed()) return null;
     try {
@@ -87,10 +72,9 @@ export class SponsorMediaUsageEditorComponent {
   constructor() {
     effect(() => {
       const usage = this.value();
-      const scope = this.usesSuggestedScope() ? this.suggestedScope() : null;
       untracked(() => {
-        this.selectedChannels.set(scope?.channels ?? usage?.channels ?? []);
-        this.selectedTargets.set(scope?.targets ?? usage?.targets ?? []);
+        this.selectedChannels.set(usage?.channels ?? []);
+        this.selectedTargets.set(usage?.targets ?? []);
         this.selectedTransforms.set(usage?.transformations ?? []);
         this.credit.set(usage?.credit ?? '');
         this.restrictions.set(usage?.restrictions ?? '');

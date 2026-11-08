@@ -1777,7 +1777,6 @@
           "title": "Image usage permissions",
           "separate": "These permissions apply to the selected image. They do not confirm payment, editorial review or publication.",
           "historical": "Permissions for this historical file still need confirmation. No usage is presumed.",
-          "suggestedScope": "Channels and destinations were prefilled from this dossier’s services that accept images. Check that the permission evidence covers these choices.",
           "withdrawn": "This image’s permissions have been withdrawn. Future deliveries are blocked; existing publications need separate review.",
           "channels": "Permitted channels",
           "targets": "Permitted destinations",

@@ -81,16 +81,6 @@ une confirmation explicite ; les droits inconnus des médias historiques sont co
 Une nouvelle règle ne rattache pas silencieusement les fichiers historiques :
 l'action collective de rattachement confirme les médias et leurs versions.
 
-À l’ouverture des autorisations communes ou d’une exception, les canaux et
-destinations sont proposés à partir des prestations du dossier qui acceptent des
-images (`preparationObligations.acceptsMedia`). Les prestations textuelles,
-réalisées ou dispensées ne complètent pas cette proposition. Le préremplissage
-s’applique uniquement en l’absence de choix de canal et de destination, avec des
-droits absents ou à confirmer. Il conserve les choix existants, les retraits et
-les autres métadonnées. Les transformations, la référence de preuve et la
-confirmation restent explicites; la proposition n’accorde aucun droit et n’est
-pas enregistrée avant validation humaine.
-
 Modifier des droits hérités invalide les revues et livraisons dépendantes, y compris
 les sources de montages et collections. Le retrait reste bloquant ; une exception
 ne donne de nouveaux droits qu'après qualification explicite avec sa preuve.
