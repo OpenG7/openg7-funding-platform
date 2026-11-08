@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { get } from 'node:http';
 import { get as getSecure } from 'node:https';
@@ -8,6 +9,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { localDevWebConfiguration } from './lib/dev-web-docker.mjs';
+import {
+  requestGatewayStop,
+  watchGatewayStop
+} from './lib/dev-web-gateway-control.mjs';
 import { readDockerConfiguration } from './lib/docker-environment.mjs';
 import {
   localTraefikConfiguration,
@@ -18,8 +23,9 @@ import {
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const routePath = join(root, 'traefik/local/dynamic.yml');
 const backupPath = join(root, 'traefik/local/dev-web-backup.json');
+const stopRequestPath = join(root, 'traefik/local/dev-web-stop.json');
 const usage =
-  'Usage: yarn dev:web:docker [--restore]\nServe live Angular at https://localhost with the existing local Docker API/Keycloak. Requires the prepared local HTTPS stack and free port 4200. Ctrl+C restores Docker Web routing; --restore recovers an interrupted launcher. No container restart, database or identity changes.';
+  'Usage: yarn dev:web:docker [--stop | --restore]\nServe live Angular at https://localhost with the existing local Docker API/Keycloak. Requires the prepared local HTTPS stack and free port 4200. Ctrl+C or yarn dev:web:docker:stop restores Docker Web routing; yarn dev:web:docker:restore recovers an interrupted launcher. Shortcuts: yarn 1 starts, yarn 2 stops, yarn 3 restores. No container restart, database or identity changes.';
 
 function dockerOutput(args) {
   const result = spawnSync('docker', args, {
@@ -217,8 +223,24 @@ async function main() {
     console.log(usage);
     return;
   }
-  if (args.length > 1 || (args.length === 1 && args[0] !== '--restore'))
+  if (
+    args.length > 1 ||
+    (args.length === 1 && !['--stop', '--restore'].includes(args[0]))
+  )
     throw new Error(usage);
+
+  if (args[0] === '--stop') {
+    const stopped = await requestGatewayStop({
+      backupPath,
+      requestPath: stopRequestPath
+    });
+    console.log(
+      stopped
+        ? 'Web gateway stopped; Docker Web routing restored.'
+        : 'Web gateway is already stopped.'
+    );
+    return;
+  }
 
   let previous;
   try {
@@ -239,10 +261,12 @@ async function main() {
       if (error.code === 'ESRCH') running = false;
     }
     if (running)
-      throw new Error('A Web gateway is already running; stop it with Ctrl+C.');
+      throw new Error(
+        'A Web gateway is already running; stop it with yarn 2 or Ctrl+C in its terminal.'
+      );
     if (args[0] !== '--restore')
       throw new Error(
-        'A previous Web gateway stopped unexpectedly. Run this command before restarting:\nyarn dev:web:docker --restore'
+        'A previous Web gateway stopped unexpectedly. Run this command before restarting:\nyarn dev:web:docker:restore'
       );
   }
   if (args[0] === '--restore') {
@@ -281,19 +305,28 @@ async function main() {
     );
   }
 
+  const sessionId = randomUUID();
   writeFileSync(
     backupPath,
-    JSON.stringify({ pid: process.pid, target, original, development }),
+    JSON.stringify({
+      pid: process.pid,
+      sessionId,
+      target,
+      original,
+      development
+    }),
     { flag: 'wx' }
   );
   let finished = false;
   let child;
+  let stopWatching = () => {};
   const onInput = (chunk) => {
     if (chunk.includes(3)) finish(0);
   };
   function finish(code) {
     if (finished) return;
     finished = true;
+    stopWatching();
     process.stdin.removeListener('data', onInput);
     try {
       if (process.stdin.isTTY) process.stdin.setRawMode(false);
@@ -320,6 +353,11 @@ async function main() {
   process.once('SIGINT', () => finish(0));
   process.once('SIGTERM', () => finish(0));
   process.once('SIGHUP', () => finish(0));
+  stopWatching = watchGatewayStop({
+    requestPath: stopRequestPath,
+    sessionId,
+    onStop: () => finish(0)
+  });
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
     process.stdin.on('data', onInput);
@@ -423,7 +461,7 @@ async function main() {
         'The HTTPS Angular route did not become ready; restoring Docker Web.'
       );
     console.log(
-      'Web gateway active: open https://localhost (Angular watch + Docker API/Keycloak). Ctrl+C restores Docker Web.'
+      'Web gateway active: open https://localhost (Angular watch + Docker API/Keycloak). Ctrl+C or yarn 2 restores Docker Web.'
     );
   } catch (error) {
     console.error(error.message);
