@@ -52,8 +52,22 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
   const programme = (page: Page) =>
     page.locator('[data-og7="editorial-programme"]');
   const calendar = async (page: Page) => {
-    if (!(await programme(page).isVisible()))
+    if (
+      new URL(page.url()).pathname !==
+      '/admin/fundraiser/publications/programme'
+    ) {
       await page.locator('[data-og7="open-programme"]').click();
+    } else {
+      const refreshed = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(programmeUrl) &&
+          response.request().method() === 'GET'
+      );
+      await programme(page)
+        .getByRole('button', { name: 'Actualiser', exact: true })
+        .click();
+      expect((await refreshed).status()).toBe(200);
+    }
     await expect(programme(page)).toHaveAttribute('aria-busy', 'false');
     await programme(page)
       .getByRole('button', { name: 'Composer la semaine', exact: true })
@@ -410,17 +424,13 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
 
     await test.step('the changed publication needs a fresh confirmation; session expiry blocks a further plan', async () => {
       const a = (await state()).deliveries.find((row) => row.id === ids[0])!;
-      if (
-        (await operator
-          .locator('[data-og7="pilot-decision"]')
-          .getAttribute('data-og7-id')) !==
-        'publication:' + a.id
-      ) {
-        await operator
-          .locator('[data-og7="pilot-queue"]')
-          .getByRole('button', { name: /Actualité fictive A/ })
-          .click();
-      }
+      await operator.goto(
+        '/admin/fundraiser/pilotage?decisionId=' +
+          encodeURIComponent('publication:' + a.id)
+      );
+      await expect(
+        operator.locator('[data-og7="pilot-decision"]')
+      ).toHaveAttribute('data-og7-id', 'publication:' + a.id);
       await operator.locator('[data-og7="pilot-accept"]').click();
       await expect(
         operator.locator('[data-og7="pilot-panel-confirm"]')

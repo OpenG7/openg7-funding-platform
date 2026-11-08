@@ -67,6 +67,9 @@ test.describe('Docker admin setup', () => {
     await page.goto('/admin/fundraiser/setup');
 
     const dialog = page.getByRole('dialog');
+    const setupGuide = page
+      .locator('[data-og7="admin-setup"]')
+      .getByRole('button', { name: 'Guide', exact: true });
     const titles = [
       'Vue de controle',
       'Etat rapide',
@@ -78,7 +81,7 @@ test.describe('Docker admin setup', () => {
       'Checklist finale'
     ];
 
-    await page.getByRole('button', { name: 'Guide', exact: true }).click();
+    await setupGuide.click();
     await expect(dialog).toBeVisible();
 
     for (const [index, title] of titles.entries()) {
@@ -106,7 +109,7 @@ test.describe('Docker admin setup', () => {
 
     await expect(dialog).not.toBeVisible();
 
-    await page.getByRole('button', { name: 'Guide', exact: true }).click();
+    await setupGuide.click();
     await expect(dialog).toBeVisible();
     await page
       .getByRole('button', { name: 'Fermer le guide', exact: true })

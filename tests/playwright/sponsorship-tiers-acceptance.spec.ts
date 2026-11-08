@@ -553,6 +553,11 @@ for (const amount of [100, 250]) {
               ).status()
             ).toBe(404);
           await assertPrivate();
+          const overview = admin
+            .locator('[data-og7="dossier-tabs"]')
+            .getByRole('button', { name: 'Aperçu', exact: true });
+          if (xbox) await xbox.activate(overview);
+          else await overview.click();
           const accept = admin.getByRole('button', {
             name: 'Accepter',
             exact: true

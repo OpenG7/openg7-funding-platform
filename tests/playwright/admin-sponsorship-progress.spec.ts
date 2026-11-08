@@ -29,6 +29,7 @@ import { registerDossierPublicationScheduleTests } from './dossier-publication-s
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
+import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
@@ -749,6 +750,7 @@ registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
+registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorsQualityTests({ fixtures, path });
 registerDossierServiceSummaryTests({ fixtures, path, recordedCommitment });
 registerContributionActivityOverlayTests({

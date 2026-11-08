@@ -56,33 +56,37 @@ test('pilotage real subjects distinguish overdue slots from moderatable deliveri
       message: 'Publication synthétique avec sujet réel',
       scheduledAt: new Date(Date.now() + 86400000).toISOString()
     });
-    await page.reload();
-    const card = page.locator('[data-og7="pilot-decision"]');
-    await expect(card).toHaveAttribute(
-      'data-og7-id',
-      `publication_late:slot:${slot}`
+    await page.goto('/admin/fundraiser/attention?type=publication_late');
+    const overdue = page.locator(
+      `[data-og7="attention-items"] [data-og7-id="publication_late:slot:${slot}"]`
     );
+    await expect(overdue).toBeVisible();
     await expect(page.locator('[data-og7="moderation-open"]')).toHaveCount(0);
-    const details = page.locator('[data-og7="pilot-details"]');
-    await details.click();
-    const detailsDialog = page.getByRole('dialog', {
-      name: 'Détails',
-      exact: true
-    });
-    await expect(detailsDialog).toBeVisible();
+    const dossier = overdue.getByRole('link');
+    const destination = new URL(
+      (await dossier.getAttribute('href'))!,
+      page.url()
+    );
+    expect(destination.pathname).toBe('/admin/fundraiser/publications');
+    expect(destination.searchParams.get('slotId')).toBe(slot);
+    expect(destination.searchParams.has('decisionId')).toBe(false);
+    await dossier.focus();
+    await expect(dossier).toBeFocused();
+    await dossier.press('Enter');
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/admin/fundraiser/publications/calendar' &&
+        url.searchParams.get('slotId') === slot
+    );
     await expect(
-      detailsDialog.getByRole('button', { name: 'Fermer', exact: true }).first()
-    ).toBeFocused();
-    await expect(
-      detailsDialog.locator('[data-og7="pilot-details-footer"] a')
-    ).toHaveAttribute('href', `/admin/fundraiser/publications?slotId=${slot}`);
-    await page.keyboard.press('Escape');
-    await expect(detailsDialog).toBeHidden();
-    await expect(details).toBeFocused();
-    await page
-      .locator('[data-og7="pilot-queue"]')
-      .getByRole('button', { name: /Publication synthétique avec sujet réel/ })
-      .click();
+      page.locator('[data-og7="attention-object-target"]')
+    ).toContainText(slot);
+    await expect(page.locator('[data-og7="moderation-open"]')).toHaveCount(0);
+    await page.goto(
+      '/admin/fundraiser/pilotage?decisionId=' +
+        encodeURIComponent('publication:' + delivery.id)
+    );
+    const card = page.locator('[data-og7="pilot-decision"]');
     await expect(card).toHaveAttribute(
       'data-og7-id',
       'publication:' + delivery.id

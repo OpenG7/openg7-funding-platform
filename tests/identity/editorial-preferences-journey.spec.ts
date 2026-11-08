@@ -48,17 +48,27 @@ test('editorial variants: exact review, distinct observations and explicit prefe
     return page;
   };
   const show = async (page: Page, view: string) => {
-    if (!(await programme(page).isVisible()))
+    if (
+      new URL(page.url()).pathname !==
+      '/admin/fundraiser/publications/programme'
+    )
       await page.locator('[data-og7="open-programme"]').click();
+    else await refresh(page);
     await expect(programme(page)).toHaveAttribute('aria-busy', 'false');
     await programme(page)
       .getByRole('button', { name: view, exact: true })
       .click();
   };
   const refresh = async (page: Page) => {
+    const refreshed = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(programmeUrl) &&
+        response.request().method() === 'GET'
+    );
     await programme(page)
       .getByRole('button', { name: 'Actualiser', exact: true })
       .click();
+    expect((await refreshed).status()).toBe(200);
     await expect(programme(page)).toHaveAttribute('aria-busy', 'false');
   };
   const confirmation = (page: Page) =>
@@ -197,7 +207,8 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         .click();
       expect((await response).status()).toBe(200);
       const receipt = await (await response).json();
-      await expect(programme(operator)).not.toBeVisible();
+      await expect(confirmation(operator)).toHaveCount(0);
+      await expect(programme(operator)).toHaveAttribute('aria-busy', 'false');
       return receipt;
     };
     const saveVariant = async (id: string) => {

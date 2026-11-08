@@ -269,7 +269,9 @@ for (const language of ['fr-CA', 'en']) {
       })
     ).toBeEnabled();
     await expect(
-      page.getByRole('button', { name: 'Guide', exact: true })
+      page
+        .locator('#setup-overview')
+        .getByRole('button', { name: 'Guide', exact: true })
     ).toBeEnabled();
     expect(data.writes).toBe(0);
     expect(data.readIds).toEqual([]);
@@ -320,7 +322,9 @@ for (const language of ['fr-CA', 'en']) {
         0
       );
       await expect(
-        page.getByRole('button', { name: 'Guide', exact: true })
+        page
+          .locator('#setup-overview')
+          .getByRole('button', { name: 'Guide', exact: true })
       ).toBeDisabled();
       expect(data.writes).toBe(1);
       expect(data.readIds).toEqual([originalId]);
