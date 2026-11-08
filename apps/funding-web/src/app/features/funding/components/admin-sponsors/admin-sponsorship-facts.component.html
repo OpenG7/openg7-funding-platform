@@ -132,11 +132,6 @@
       @if (view() === 'publication') {
         <openg7-admin-sponsorship-publication
           [dossier]="d"
-          [canManageWebsite]="canManageWebsite()"
-          [websiteDisabled]="websiteDisabled()"
-          [websiteMessage]="websiteMessage()"
-          (changeWebsiteVisibility)="changeWebsiteVisibility.emit($event)"
-          (editWebsite)="editWebsite.emit()"
           (commitmentChanged)="commitmentChanged.emit()"
         />
       }

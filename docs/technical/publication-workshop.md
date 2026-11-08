@@ -1,8 +1,11 @@
-# Atelier de publication du dossier
+# Suivi individuel et atelier de publication
 
-L’onglet Publication du dossier de commandite regroupe la préparation commune,
-les déclinaisons et les livraisons. Preflight prépare des propositions privées;
-Funding conserve les décisions et les moteurs de diffusion existants.
+L’onglet Publication est un suivi individuel compact : état courant, exceptions,
+prestations promises, prochaine action et livraisons confirmées. Son ancien
+atelier administratif est remplacé intégralement. Preflight prépare les
+propositions privées; le Comptoir et Examiner accueillent leur traitement;
+Funding conserve les décisions et les moteurs de diffusion existants. Consulter
+un dossier n’est pas une étape obligatoire de préparation ou de livraison.
 
 ## Cartographie préalable
 
@@ -12,17 +15,32 @@ et son adoption privée. Le connecteur et l’Atelier conservent des registres d
 versions distincts pour la même source; leur activation simultanée est refusée
 avant le démarrage des traitements.
 
-| Responsabilité                   | Propriétaire et composants réutilisés                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Accord et prestations promises   | Funding : `sponsorship-commitments/*`, versions d’engagement et obligations                       |
-| Identité et consentement public  | Funding : dossier, consentement documenté et reçus audités                                        |
-| Préparation administrative       | Funding : `admin-preparation.service.ts` et préparation par prestation                            |
-| Missions et propositions privées | Preflight : contrats v1, `workflows.ts`, moteur, worker et persistance JSONB                      |
-| Transport authentifié            | Funding : `preflight/client.ts`, OAuth et validation du contrat distant                           |
-| Revue exacte et édition          | Funding : examen par prestation, sauvegarde de brouillon et contrôle de version                   |
-| Autorisation et exécution        | Funding : modération, publication Web et moteur social existants                                  |
-| Preuves de livraison             | Funding : preuves qualifiées par obligation; aucune réponse IA ne fait preuve                     |
-| Présentation du dossier          | Funding Web : `admin-sponsorship-publication`, contrôleur de programmation et tiroir de livraison |
+| Responsabilité                   | Propriétaire et composants réutilisés                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Accord et prestations promises   | Funding : `sponsorship-commitments/*`, versions d’engagement et obligations                                |
+| Identité et consentement public  | Funding : dossier, consentement documenté et reçus audités                                                 |
+| Préparation administrative       | Funding : `admin-preparation.service.ts` et préparation par prestation                                     |
+| Missions et propositions privées | Preflight : contrats v1, `workflows.ts`, moteur, worker et persistance JSONB                               |
+| Transport authentifié            | Funding : `preflight/client.ts`, OAuth et validation du contrat distant                                    |
+| Revue exacte et édition          | Funding : examen par prestation, sauvegarde de brouillon et contrôle de version                            |
+| Autorisation et exécution        | Funding : modération, publication Web et moteur social existants                                           |
+| Preuves de livraison             | Funding : preuves qualifiées par obligation; aucune réponse IA ne fait preuve                              |
+| Présentation du dossier          | Funding Web : projection `admin-sponsorship-publication-monitor`, contrôleur de suivi et tiroir de détails |
+
+Les anciens blocs visuels ont les destinations suivantes. Les composants métier
+et leurs contrats restent réutilisés; les formulaires ne sont pas conservés dans
+des accordéons de Publication.
+
+| Ancienne zone                                                 | Propriétaire dans le nouveau parcours                                  |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Atelier, propositions complètes et adoption                   | Espace de préparation du Comptoir, `AdminPublicationWorkshopComponent` |
+| Contrôles administratifs et approbation du dossier            | Même espace, `AdminSponsorshipPreparationComponent`                    |
+| Accord, qualification historique et ajustements               | Aperçu, `AdminSponsorshipCommitmentsComponent`                         |
+| Réglages du profil, visibilité Web et suivi social déclaré    | Fiche et Médias, formulaire et workflow natifs                         |
+| Édition et revue d’une prestation                             | Examiner sur l’obligation exacte                                       |
+| Programmation, autorisation et incident de livraison          | Contrôleur et tiroir de livraison existants                            |
+| Preuves et historique                                         | Détails de la prestation, Suivi des prestations et Historique          |
+| Grandes synthèses, guide en six étapes et panneaux redondants | Retirés du suivi; aucune seconde procédure de validation               |
 
 ## Contrats et versions
 
@@ -75,14 +93,44 @@ persistée. Le reçu d’examen natif conserve son contrat historique
 
 ## Réutilisation de l’interface
 
-L’Atelier réunit la préparation éditoriale commune, les prérequis nécessitant
-une intervention et les cartes de livraison. L’accord original et les obligations
-détaillées restent consultables. Les éditeurs, l’examen, les médias, la modération
-et le tiroir de publication conservent leur responsabilité.
+Le suivi compose les données du dossier, les propositions Atelier, les livraisons
+et la projection du Comptoir, sans mutation à la lecture. Chaque ligne représente
+une obligation enregistrée, avec canal, cible et passage. Les compteurs excluent
+les dispenses et comptent seulement les preuves qualifiées; préparation,
+adoption, approbation, programmation et simulation ne sont jamais des livraisons.
+Les exceptions passent avant la prochaine intervention; les références longues,
+versions, preuves et avertissements détaillés s’ouvrent au second niveau.
 
-Une action principale indique la prochaine étape d’une destination. L’assistant
-contextuel explique les blocages et les interventions attendues à partir des
-faits disponibles. Il ne prend aucune décision à la place de l’administration.
+Une action contextuelle par prestation rejoint son responsable. Les contenus
+complets et l’adoption restent dans l’atelier réutilisé, puis Examiner assure
+la revue exacte du brouillon. Le dernier suivi connu peut rester visible après
+une panne avec sa date; un accès refusé ou une nouvelle session purge le contexte.
+Une file indisponible ne prouve ni son absence ni une attente collective.
+
+Les parcours utilisent uniquement des identifiants de navigation :
+
+- Comptoir : `/admin/fundraiser/preflight?view=desk`, `deskSearch` porte la
+  référence du dossier et `reviewReturn` l’obligation à développer et mettre en
+  évidence. Ne pas ajouter `sponsorshipId` à cette vue : il ouvrirait Examiner.
+- Examiner : même route, avec `sponsorshipId` et `obligationId` exacts.
+- Propositions et préparation : même route avec `view=publication` et
+  `workshopSponsorshipId`. Cet espace réutilise les préparations et leur adoption;
+  il ne crée pas un moteur de validation collective.
+- `publicationReturn` conserve l’identifiant UUID du dossier pour le retour au
+  suivi. Le Comptoir et Examiner construisent un lien interne fixe; aucune URL
+  de retour arbitraire n’est exécutée.
+- Accord : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=overview#dossier-agreement`.
+  Réglages du profil : même route avec `tab=media#dossier-website-settings`.
+
+L’attente collective exige une prestation exacte observée dans le Comptoir en
+état `to_review`, avec contribution, obligation, destination et ordinal cohérents.
+La présence d’une proposition Preflight seule ne suffit pas. La boîte distante
+générique et les reçus natifs gardent leur rattachement `unverified`; seule
+l’adoption Atelier possède sa provenance vérifiée. Le moteur éditorial Atelier
+prépare Web/Facebook; LinkedIn conserve ses parcours Funding natifs. Aucun
+raccordement, destination configurée, droit média ou fournisseur réel n’est
+déduit d’un nom de canal ou d’une image disponible. La décision de revue reste
+individuelle et traçable, même lorsqu’elle est prise depuis le Comptoir.
 
 ## Déclenchement et API privée
 
@@ -116,7 +164,10 @@ L’approbation et la publication ne font pas partie de ces routes.
 
 Le raccordement exige la migration additive
 [069](../../apps/funding-api/migrations/069_publication_workshop.sql), après la
-migration 068 du connecteur, et les grants API correspondants.
+migration [068 du connecteur](../../apps/funding-api/migrations/068_create_preflight_connector.sql),
+et les grants API correspondants. Le fichier Atelier réel est
+`069_publication_workshop.sql`, et non `068_publication_workshop.sql`.
+La refonte du suivi ne modifie ces migrations ni n’en ajoute.
 `PREFLIGHT_WORKSHOP_ENABLED=false` reste la valeur initiale. Le connecteur conserve
 son flag `PREFLIGHT_ENABLED`; l’API et son worker refusent les deux flags à `true`
 avant tout traitement. La boîte
@@ -143,7 +194,8 @@ périmètres distincts. Une recette avec IA simulée ne qualifie ni un fournisse
 IA réel, ni les identités, les médias ou la diffusion de production. Les commandes
 applicables sont décrites dans la [matrice de validation](../development/validation.md).
 
-Validation locale du 8 novembre 2026 : builds TypeScript et Angular/SSR, contrôle
+Recette initiale de l’Atelier du 8 novembre 2026, antérieure à la refonte du suivi
+(ces résultats ne qualifient pas la nouvelle interface) : builds TypeScript et Angular/SSR, contrôle
 des types des tests UI, suite Funding de 7 699 réussites et 8 tests ignorés,
 3 intégrations Atelier et 33 régressions PostgreSQL réussies. Les 25 scénarios
 navigateur distincts couvrent notamment FR/EN, Nuit, clavier, Axe, mobile,

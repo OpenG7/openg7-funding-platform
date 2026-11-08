@@ -36,11 +36,6 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
 })
 export class AdminSponsorshipFactsComponent {
   readonly inspection = inject(AdminInspectionService);
-  readonly canManageWebsite = input(false);
-  readonly websiteDisabled = input(false);
-  readonly websiteMessage = input('');
-  readonly changeWebsiteVisibility = output<boolean>();
-  readonly editWebsite = output<void>();
   readonly commitmentChanged = output<void>();
   private readonly i18n = inject(FundingI18nService);
   readonly dossier = input<AdminSponsorshipProgress | null>(null);

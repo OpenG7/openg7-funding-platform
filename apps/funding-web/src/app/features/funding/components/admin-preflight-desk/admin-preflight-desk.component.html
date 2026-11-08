@@ -3,6 +3,19 @@
   [attr.data-state]="state()"
   [attr.aria-busy]="state() === 'loading'"
 >
+  @if (publicationReturn(); as contributionId) {
+    <a
+      class="admin-button publication-return"
+      data-og7="publication-return"
+      routerLink="/admin/fundraiser/sponsors"
+      [queryParams]="{ sponsorshipId: contributionId, tab: 'publication' }"
+      fragment="dossier-publication"
+    >
+      <openg7-admin-icon name="arrow" />{{
+        'admin.preflightDesk.returnPublication' | translate
+      }}
+    </a>
+  }
   <header class="desk-tools">
     <div>
       <h2 #summaryTitle tabindex="-1">
@@ -195,6 +208,9 @@
                         data-og7="preflight-desk-service"
                         [attr.data-og7-id]="service.id"
                         [attr.data-stage]="service.stage"
+                        [attr.data-context]="
+                          isContextService(order.contributionId, service.id)
+                        "
                       >
                         <header>
                           <span

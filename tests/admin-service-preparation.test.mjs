@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { registerHooks } from 'node:module';
 
 import { parseServicePreparationDecision } from '../dist/apps/funding-api/src/admin-service-preparation.js';
 import {
@@ -153,6 +154,21 @@ test('service controls identify exact prepared content without treating missing 
   const scope = reviewScope(dossier, service);
   assert.equal(scope.draft.id, 'draft');
   assert.deepEqual(scope.blockers, []);
+  const contributionId = '10000000-0000-4000-8000-000000000001';
+  const base = `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}`;
+  const withOwner = (adminUrl) =>
+    servicePreparationScope(
+      { ...dossier, drafts: [{ ...draft, adminUrl }] },
+      { ...service, contributionId },
+      reviewFacts
+    );
+  const previousOwner = withOwner(base + '&tab=publication');
+  const currentOwner = withOwner(base + '&tab=media#dossier-website-settings');
+  assert.equal(currentOwner.contentVersion, previousOwner.contentVersion);
+  assert.equal(
+    currentOwner.draft.adminUrl,
+    base + '&tab=media#dossier-website-settings'
+  );
   assert.deepEqual(
     scope.checks.map((x) => x.code),
     [
@@ -425,4 +441,158 @@ test('private service assignments participate in exact review, preserve public s
     ]
   });
   assert.equal(unrelated.contentVersion, assigned.contentVersion);
+});
+
+test('prepared drafts link to their current editor owner without changing the historical approval version', async () => {
+  const hook = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (
+        specifier === './admin-responsibility-balance.service.js' &&
+        context.parentURL?.includes(
+          'admin-preparation.projection.js?owner-links'
+        )
+      )
+        return {
+          url: 'data:text/javascript,export const loadResponsibilityBalanceOnClient = async (db) => db.preparationBalance;',
+          shortCircuit: true
+        };
+      return nextResolve(specifier, context);
+    }
+  });
+  let projectPreparation, preparationDigest;
+  try {
+    ({ projectPreparation, preparationDigest } =
+      await import('../dist/apps/funding-api/src/admin-preparation.projection.js?owner-links'));
+  } finally {
+    hook.deregister();
+  }
+  const contributionId = '10000000-0000-4000-8000-000000000001';
+  const base = `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}`;
+  const source = {
+    amount_minor: 25000,
+    currency: 'CAD',
+    status: 'paid',
+    paid_at: new Date('2026-11-08T12:00:00Z'),
+    contribution_type: 'sponsorship_interest',
+    sponsor_company_name: 'Synthetic company',
+    sponsor_public_summary: 'Synthetic public summary',
+    public_display_consent: true,
+    sponsor_review_status: 'approved',
+    sponsor_feed_status: 'not_planned',
+    sponsorship_refund_status: 'not_requested',
+    moderation_approved: true,
+    content_version: 'content-v1',
+    media_version: 'media-v1'
+  };
+  const offer = { benefits: [{ requiredElements: ['company_name'] }] };
+  const social = {
+    id: 'social-draft',
+    obligation_id: 'social-passage',
+    channel: 'facebook',
+    feed_target: 'openg7',
+    title: 'Synthetic social title',
+    body: 'Synthetic social body',
+    disclosure_text: 'Synthetic sponsorship disclosure',
+    status: 'draft'
+  };
+  const balance = {
+    unknown: 0,
+    reasons: [],
+    version: 'balance-v1',
+    obligations: [
+      {
+        id: 'web-passage',
+        channel: 'website',
+        target: 'openg7',
+        ordinal: 1,
+        state: 'pending'
+      },
+      {
+        id: 'social-passage',
+        channel: 'facebook',
+        target: 'openg7',
+        ordinal: 1,
+        state: 'pending'
+      }
+    ]
+  };
+  const db = {
+    preparationBalance: balance,
+    async query(sql) {
+      assert.match(sql.trim(), /^SELECT/);
+      if (sql.includes('SELECT c.amount_cents AS amount_minor'))
+        return { rows: [source] };
+      if (sql.includes('SELECT o.snapshot FROM sponsorship_commitments'))
+        return { rows: [{ snapshot: offer }] };
+      if (
+        sql.includes('FROM sponsor_media_assets') &&
+        sql.includes('SELECT a.id,a.kind')
+      )
+        return { rows: [] };
+      if (sql.includes('FROM sponsor_publication_drafts'))
+        return { rows: [social] };
+      if (sql.includes('FROM contribution_activity'))
+        return {
+          rows: [
+            {
+              id: 'website-draft',
+              revision: 2,
+              snapshot: {
+                state: 'prepared',
+                cartouche: {
+                  title: 'Synthetic company',
+                  body: 'Synthetic public summary'
+                }
+              },
+              source_version: 'content-v1|media-v1|prepared'
+            }
+          ]
+        };
+      if (
+        sql.includes('FROM moderation_cases') ||
+        sql.includes('FROM moderation_appeals')
+      )
+        return { rows: [] };
+      throw new Error('Unexpected synthetic query');
+    }
+  };
+  const receipt = await projectPreparation(db, {
+    contribution_id: contributionId,
+    reference: 'OG7-SYNTHETIC',
+    amount_minor: '25000',
+    currency: 'CAD'
+  });
+  assert.deepEqual(receipt.blockers, []);
+  assert.equal(
+    receipt.drafts[0].adminUrl,
+    base + '&tab=media#dossier-website-settings'
+  );
+  assert.equal(receipt.drafts[0].status, 'private');
+  assert.equal(
+    receipt.drafts[1].adminUrl,
+    `/admin/fundraiser/publications/drafts?sponsorshipId=${contributionId}&draftId=social-draft`
+  );
+  // Persisted approvals used this exact pre-refactor scope, including its old navigation URL.
+  const historicalVersion = preparationDigest({
+    contributionId,
+    payment: receipt.payment,
+    source,
+    acceptedOffer: offer,
+    balanceVersion: balance.version,
+    checks: [
+      { code: 'dossier_examined', state: 'complete' },
+      ...receipt.checks
+    ],
+    authorizations: receipt.authorizations,
+    drafts: receipt.drafts.map((draft) =>
+      draft.kind === 'website'
+        ? { ...draft, adminUrl: base + '&tab=publication' }
+        : draft
+    ),
+    blockers: [],
+    media: [],
+    moderationAuthority: [],
+    moderationAppeals: []
+  });
+  assert.equal(receipt.version, historicalVersion);
 });

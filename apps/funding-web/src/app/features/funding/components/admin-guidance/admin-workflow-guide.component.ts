@@ -56,14 +56,16 @@ export class AdminWorkflowGuideComponent {
   readonly context = computed(() => {
     if (this.guidance.page()?.id !== 'sponsors') return null;
     const id = this.guidance.paymentContext();
-    return id &&
-      /(?:[?&])tab=publication(?:[&#]|$)/.test(this.guidance.navigationUrl())
-      ? id
-      : null;
+    const tab =
+      new URL(
+        this.guidance.navigationUrl(),
+        'https://admin.invalid'
+      ).searchParams.get('tab') ?? 'overview';
+    return id && tab === this.journey().dossierTab ? id : null;
   });
   readonly dossierParams = computed(() => ({
     sponsorshipId: this.guidance.paymentContext() ?? undefined,
-    tab: 'publication'
+    tab: this.journey().dossierTab
   }));
   private readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);

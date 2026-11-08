@@ -1,5 +1,6 @@
 {
   "title": "Mon comptoir",
+  "returnPublication": "Retour au suivi Publication du dossier",
   "intro": "Les prestations promises, leur préparation et leurs preuves de livraison dans Funding.",
   "refresh": "Actualiser le comptoir",
   "search": "Rechercher un dossier ou un commanditaire",

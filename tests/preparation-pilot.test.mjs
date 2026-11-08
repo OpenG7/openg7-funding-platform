@@ -240,11 +240,11 @@ test('source, job and review revisions invalidate only the corresponding control
   );
   assert.equal(
     preparationAssistanceDestination(contributionId, 'review'),
-    adminUrl + '&tab=publication#dossier-assistance-review'
+    adminUrl + '&tab=overview#dossier-assistance-review'
   );
   assert.equal(
     preparationAssistanceDestination(contributionId, 'source'),
-    adminUrl + '&tab=publication#dossier-assistance-source'
+    adminUrl + '&tab=overview#dossier-assistance-source'
   );
 });
 
@@ -507,41 +507,34 @@ test('issue navigation opens the existing form matching the reported blocker', (
     (entry) => entry.checkCode === 'content_prepared'
   );
   for (const [actionKind, summaryCodes, tab, anchor] of [
-    ['agreement', [], 'publication', 'dossier-agreement'],
+    ['agreement', [], 'overview', 'dossier-agreement'],
     ['moderation', [], 'overview', 'dossier-review'],
-    ['presentation', ['presentation_missing'], 'identity', 'dossier-identity'],
+    [
+      'presentation',
+      ['presentation_missing'],
+      'media',
+      'dossier-website-settings'
+    ],
     ['presentation', ['company_missing'], 'identity', 'dossier-identity'],
     ['presentation', ['required_media_missing'], 'media', 'dossier-media'],
     [
       'presentation',
       ['website_draft_missing'],
-      'publication',
-      'dossier-publication'
+      'media',
+      'dossier-website-settings'
     ],
     [
       'presentation',
       ['website_draft_outdated'],
-      'publication',
-      'dossier-publication'
-    ],
-    [
-      'presentation',
-      ['publication_draft_missing'],
-      'publication',
-      'dossier-publication'
-    ],
-    [
-      'presentation',
-      ['publication_draft_incomplete'],
-      'publication',
-      'dossier-publication'
+      'media',
+      'dossier-website-settings'
     ],
     ['inspect', ['required_media_missing'], 'media', 'dossier-media'],
     ['inspect', ['sponsor_review_required'], 'overview', 'dossier-review'],
     [
       'inspect',
       ['commitment_needs_confirmation'],
-      'publication',
+      'overview',
       'dossier-agreement'
     ]
   ]) {
@@ -576,14 +569,21 @@ test('draft navigation wins for mixed content causes and never defaults all cont
       'publication_draft_missing'
     ]
   });
-  assert.equal(
-    new URL(mixed, 'https://admin.invalid').searchParams.get('tab'),
-    'publication'
-  );
-  assert.equal(
-    new URL(mixed, 'https://admin.invalid').hash,
-    '#dossier-publication'
-  );
+  const destination = new URL(mixed, 'https://admin.invalid');
+  assert.equal(destination.pathname, '/admin/fundraiser/preflight');
+  assert.deepEqual(Object.fromEntries(destination.searchParams), {
+    view: 'publication',
+    workshopSponsorshipId: contributionId,
+    publicationReturn: contributionId
+  });
+  for (const code of [
+    'publication_draft_missing',
+    'publication_draft_incomplete'
+  ])
+    assert.equal(
+      preparationIssueDestination({ ...issue, summaryCodes: [code] }),
+      mixed
+    );
   assert.equal(
     preparationIssueDestination({ ...issue, summaryCodes: [] }),
     adminUrl

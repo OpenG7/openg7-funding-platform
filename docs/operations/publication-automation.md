@@ -52,39 +52,49 @@ refreshing, after a failed or denied read, and when selecting another dossier.
 It replaces the static benefits recap in Overview once the dossier is loaded,
 without adding preparation or authorization actions.
 
-The sponsorship dossier’s Publication step reads its own server preparation queue,
-unprepared commitment candidates and deliveries to show the next proposed date for
-each destination, explicitly in `America/Toronto`. An unallocated forecast is an
-indication from the current snapshot, not a reservation: the server checks
-availability again during private preparation and final authorization. Viewing
-the step never prepares, approves or
-sends a publication. Leaving the proposed date unchanged keeps that date selected;
-it does not authorize sending. The benefit workflow shows confirmed completion,
-the current responsibility and reason, with a link to
-`/admin/fundraiser/campaigns?sponsorshipId=<uuid>` for detailed benefits and evidence.
-The full row-by-row obligation console is replaced by this summary. A benefit
-overview from the recorded offer remains above it. Six guideposts connect the
-offer, preparation, content, send authorization, delivery and evidence owners.
-The four latter views follow the selected social service. A unique recorded target
-can be recognized directly; multiple sources or deliveries require an explicit
-choice. The selection and return links retain the exact dossier, draft, delivery
-and obligation identifiers, without editorial or private contact data in URLs.
-Only a return matching the linked dossier and obligation can retain source IDs;
-the dossier owner validates them against its current catalogue again.
+The sponsorship dossier's **Publication** tab is an individual monitor. It replaces
+the former workshop panels, six-step guide and embedded administrative forms with
+current status, prioritized exceptions, compact promised-service rows, a contextual
+next action and confirmed delivery progress. Each row represents an exact recorded
+obligation and passage; waived obligations are counted separately. Prepared,
+adopted, approved, scheduled and simulated records never advance the delivered
+counter. Qualified evidence remains accessible from the corresponding row and
+`/admin/fundraiser/campaigns?sponsorshipId=<uuid>&obligationId=<uuid>`.
 
-Content, send authorization and result focus their real regions in the exact
-delivery drawer. Opening a region neither prepares nor authorizes a command.
-An unavailable region leaves focus on the normal drawer control and explains its
-state or permission limit inside the dialog. Evidence opens Service fulfilment on
-the exact obligation only when an explicit recorded relationship exists; sharing
-a channel is insufficient. A historical selection is not replaced by the current
-workflow delivery on return. Query-only selection changes keep the focus and
-scroll context inside the same dossier's Publication tab. After private preparation,
-several resulting deliveries no longer cause the first one to open arbitrarily.
-The website/social cards retain their dates and direct delivery
-actions. The recorded agreement, historical qualification, adjustments and timing
-remain in **Promised services** within the dossier; Service fulfilment does not replace
-those decisions. The review drawer labels dates with the browser's timezone.
+The monitor reads the dossier, Workshop proposals, the Funding desk projection,
+preparation queue, unprepared commitment candidates and deliveries. Reads and
+refreshes neither prepare nor approve or publish. Last known tracking may remain
+visible with its freshness warning after a temporary failure; denied access and
+session changes clear the context. A failed queue read does not establish queue
+membership. Collective review is shown only for an exact service observed in the
+desk's `to_review` stage, rather than inferred from an external proposal.
+
+The operational owners remain separate:
+
+- `/admin/fundraiser/preflight?view=desk&deskSearch=<reference>` opens the desk.
+  `reviewReturn=<obligationId>` expands and highlights the matching service;
+  `publicationReturn=<contributionId>` retains a fixed internal return to the dossier.
+- The same route with `sponsorshipId` and `obligationId` opens **Examiner** directly,
+  including its existing versioned draft, consent, moderation and review workflows.
+- `view=publication&workshopSponsorshipId=<contributionId>` opens the reused private
+  Workshop and dossier-preparation controls. Preparing or adopting there never
+  authorizes delivery. These capabilities and their real migration, 069, are
+  described in the [Workshop reference](../technical/publication-workshop.md).
+- Agreement qualification, adjustments and timing are in dossier **Overview** at
+  `tab=overview#dossier-agreement`. Website settings, visibility and declared social
+  tracking are in **Profile and media** at `tab=media#dossier-website-settings`.
+  Service fulfilment and the Publication monitor do not replace those decisions.
+
+Exact delivery actions reuse the existing scheduling controller and final-publication
+drawer. The server rechecks source versions, destination, consent, media and
+authorization; an observed forecast is not a reservation. Opening the drawer is
+not authorization, and multiple candidate deliveries never select the first one
+arbitrarily. Evidence navigation requires an explicit relationship to the obligation,
+not just a shared channel. The drawer labels dates with the browser's timezone.
+The collective desk does not add a second approval engine; decisions remain
+individual and audited. Generic external-inbox linkage stays unverified, Workshop
+editorial generation covers Web/Facebook, and LinkedIn keeps its native Funding
+path. Available UI alone does not qualify a live provider or a configured feed.
 
 The final-publication drawer uses the existing wide modal shell. Desktop review
 places one editing form beside its content preview; narrow screens stack those
@@ -129,7 +139,7 @@ The drawer's public-post link is shown only for a confirmed `published` delivery
 in `live` mode with an external URL. A mock result or an uncertain attempt may
 retain a provider reference, but that reference is not presented as a public post.
 
-The advanced settings distinguish **Public profile** (slug, public summary and
+The advanced settings in **Profile and media** distinguish **Public profile** (slug, public summary and
 private profile preview) from separately collapsed **Declared social tracking**
 (destination, declared status, channels, external reference and private notes).
 One versioned **Save changes** action saves changed fields from both sections;

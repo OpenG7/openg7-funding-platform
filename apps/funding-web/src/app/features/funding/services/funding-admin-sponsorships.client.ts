@@ -151,14 +151,16 @@ export class FundingAdminSponsorshipsClient {
 
   async getSponsorshipProgress(
     token: string,
-    sponsorshipId?: string
+    sponsorshipId?: string,
+    signal?: AbortSignal
   ): Promise<AdminSponsorshipProgressResponse> {
     const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
     return this.session.requestAdminData(
       `/admin/sponsorships/progress?${params}`,
       {
         auth: { token },
-        cache: 'no-store'
+        cache: 'no-store',
+        ...(signal ? { signal, abortBeforeFetch: true } : {})
       }
     );
   }

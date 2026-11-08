@@ -1,87 +1,55 @@
+﻿import { isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
-  Injector,
   PLATFORM_ID,
-  afterNextRender,
   computed,
   effect,
   inject,
   input,
   output,
   signal,
-  viewChild,
   untracked
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
-import { TranslatePipe } from '@ngx-translate/core';
-import {
-  type AdminSponsorshipProgress,
-  type PublicationPreparationCandidate,
-  type PublicationPreparationEntry,
-  type SponsorshipProgressPublication
-} from '@openg7/funding-core';
+import { Router, RouterLink } from '@angular/router';
+import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
-import enSchedule from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
-import frSchedule from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
-import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import en from '../../../../../assets/i18n/admin-publication-monitor.en.json' with { type: 'json' };
+import fr from '../../../../../assets/i18n/admin-publication-monitor.fr-CA.json' with { type: 'json' };
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
-import { PublicationWorkshopViewState } from '../../services/publication-workshop-view-state.js';
 import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-scheduling-controller.js';
+import { AdminPublicationMonitorController } from '../../services/admin-publication-monitor.controller.js';
+import {
+  publicationMonitor,
+  type PublicationMonitorRow
+} from '../../models/admin-sponsorship-publication-monitor.js';
+import { publicationBlockerTab } from '../../models/admin-sponsorship-workspace.js';
+import {
+  AdminIconComponent,
+  type AdminIconName
+} from '../admin-ui/admin-icon.component.js';
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { PublicationDeliveryDrawerComponent } from '../admin-publications/publication-delivery-drawer.component.js';
-import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
-import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
+
 import {
-  isDossierPublicationComplete,
-  publicationBlockerTab,
-  qualifiedPublicationEvidence
-} from '../../models/admin-sponsorship-workspace.js';
-import {
-  publicationJourneyObligation,
-  publicationJourneyParams,
-  publicationJourneySelection,
-  type PublicationJourneyTarget
-} from '../../models/admin-sponsorship-publication-navigation.js';
-import { revealControllerFocus } from '../admin-controller/admin-controller-navigation.js';
+  publicationDeskParams,
+  publicationExaminationParams,
+  publicationWorkshopParams
+} from './publication-monitor-navigation.js';
 
-import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
-import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
-import { AdminPublicationWorkshopComponent } from './admin-publication-workshop.component.js';
-import { registerSponsorPublicationTranslations } from './admin-sponsors-publication-translations.js';
-
-interface PublicationGuidanceLink {
-  readonly id:
-    | 'offer'
-    | 'preparation'
-    | 'content'
-    | 'authorization'
-    | 'delivery'
-    | 'evidence';
-  readonly path: string;
-  readonly fragment?: string;
-}
-
-/** Funding organism: persisted recognition facts and explicit visibility requests. */
+/** Individual monitor; owner workspaces retain every business decision. */
 @Component({
   selector: 'openg7-admin-sponsorship-publication',
   standalone: true,
   imports: [
     RouterLink,
-    FormsModule,
-    TranslatePipe,
     AdminIconComponent,
-    AdminAutomaticPreparationDirective,
-    AdminSponsorshipCommitmentsComponent,
-    PublicationDeliveryDrawerComponent,
-    AdminSponsorshipPreparationComponent,
-    AdminPublicationWorkshopComponent
+    AdminDrawerComponent,
+    PublicationDeliveryDrawerComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',
@@ -91,69 +59,18 @@ interface PublicationGuidanceLink {
   ]
 })
 export class AdminSponsorshipPublicationComponent {
-  readonly view = inject(PublicationWorkshopViewState);
   readonly dossier = input.required<AdminSponsorshipProgress>();
-  readonly canManageWebsite = input(false);
-  readonly websiteDisabled = input(false);
-  readonly websiteMessage = input('');
-  readonly changeWebsiteVisibility = output<boolean>();
-  readonly editWebsite = output<void>();
   readonly commitmentChanged = output<void>();
-  readonly guidanceLinks: readonly PublicationGuidanceLink[] = [
-    {
-      id: 'offer',
-      path: '/admin/fundraiser/sponsors',
-      fragment: 'dossier-agreement'
-    },
-    {
-      id: 'preparation',
-      path: '/admin/fundraiser/sponsors',
-      fragment: 'dossier-preparation'
-    },
-    {
-      id: 'content',
-      path: '/admin/fundraiser/sponsors',
-      fragment: 'dossier-publication-content'
-    },
-    { id: 'authorization', path: '/admin/fundraiser/sponsors' },
-    { id: 'delivery', path: '/admin/fundraiser/publications/automation' },
-    { id: 'evidence', path: '/admin/fundraiser/campaigns' }
-  ];
-  readonly blockerTab = publicationBlockerTab;
-  readonly websiteState = computed(() => {
-    const site = this.dossier().website;
-    return !site
-      ? 'unknown'
-      : site.visible
-        ? 'visible'
-        : site.canPublish
-          ? 'hidden'
-          : 'blocked';
-  });
-  readonly contextBlockers = computed(() =>
-    [...new Set(this.dossier().website?.blockers ?? [])].filter(
-      (reason) =>
-        !this.dossier().website?.visible &&
-        reason !== 'visibility_held' &&
-        !(reason === 'identity' && this.dossier().next.tab === 'identity')
-    )
-  );
-  private readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
+  private readonly i18n = inject(FundingI18nService);
+  private readonly router = inject(Router);
   private readonly moderation = inject(FundingModerationService);
   private readonly confirmation = inject(AdminConfirmationService);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
-  private readonly injector = inject(Injector);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly routeParams = toSignal(this.route.queryParamMap, {
-    initialValue: this.route.snapshot.queryParamMap
-  });
-  private readonly drawer = viewChild(PublicationDeliveryDrawerComponent, {
-    read: ElementRef<HTMLElement>
-  });
-  private journeyOpening = 0;
-  readonly journeyNotice = signal('');
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly tracking = new AdminPublicationMonitorController(this.admin);
+  readonly currentDossier = computed(
+    () => this.tracking.progress() ?? this.dossier()
+  );
   readonly scheduling = new AdminSponsorSchedulingController({
     admin: this.admin,
     i18n: this.i18n,
@@ -162,476 +79,321 @@ export class AdminSponsorshipPublicationComponent {
     confirm: (message, title) => this.confirmation.confirm(message, title),
     changed: () => this.commitmentChanged.emit()
   });
+  readonly monitor = computed(() =>
+    publicationMonitor(
+      this.currentDossier(),
+      this.tracking.workshop(),
+      this.scheduling.state(),
+      this.tracking.services()
+    )
+  );
+  readonly selectedId = signal<string | null>(null);
+  readonly agreementKnown = computed(() =>
+    ['ready', 'empty'].includes(this.monitor().agreementState)
+  );
+  readonly accessDenied = computed(
+    () =>
+      ['session', 'forbidden', 'not_found'].includes(this.tracking.error()) ||
+      this.scheduling.error() === 'admin.privacy.forbidden'
+  );
+  readonly selected = computed(
+    () =>
+      (!this.accessDenied() &&
+        this.monitor().rows.find(
+          (row) => row.obligation.id === this.selectedId()
+        )) ||
+      null
+  );
+  readonly deskPath = '/admin/fundraiser/preflight';
+  readonly sponsorsPath = '/admin/fundraiser/sponsors';
+  readonly automationPath = '/admin/fundraiser/publications/automation';
+  readonly contextBlockers = computed(() =>
+    [
+      ...new Set([
+        ...(this.currentDossier().publicationBlockers ?? []),
+        ...(this.currentDossier().website?.visible
+          ? []
+          : (this.currentDossier().website?.blockers ?? []))
+      ])
+    ].filter((code) => !['visibility_held', 'hidden'].includes(code))
+  );
+  readonly summaryState = computed(() => {
+    if (this.tracking.error() || this.scheduling.error()) return 'unavailable';
+    if (this.contextBlockers().length) return 'exception';
+    return this.monitor().state;
+  });
+  readonly busy = computed(
+    () =>
+      this.tracking.loading() ||
+      this.scheduling.loading() ||
+      this.scheduling.busy()
+  );
+  private context = '';
 
   constructor() {
-    registerSponsorPublicationTranslations();
-    effect(() => {
-      const identity = this.admin.identity();
-      const context = `${this.dossier().contributionId}:${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}`;
-      untracked(() => this.view.select(context));
-    });
-    const browser = isPlatformBrowser(inject(PLATFORM_ID));
     effect(() => {
       const language = this.i18n.currentLanguage();
-      untracked(() => {
-        const { adminOverrides, ...schedule } =
-          language === 'en' ? enSchedule : frSchedule;
-        this.i18n.mergeTranslations(language, adminOverrides);
+      untracked(() =>
         this.i18n.mergeTranslations(language, {
-          admin: {
-            dossier: {
-              publicationBridge: {
-                schedule
-              }
-            }
-          }
-        });
-      });
-    });
-    if (browser)
-      this.scheduling.delivery.browserTimezone =
-        Intl.DateTimeFormat().resolvedOptions().timeZone;
-    effect(() => {
-      if (!this.scheduling.delivery.selected()) {
-        this.journeyOpening++;
-        this.journeyNotice.set('');
-      }
-    });
-    effect(() => {
-      this.admin.sessionGeneration();
-      this.admin.identity();
-      untracked(() => {
-        this.journeyOpening++;
-        this.journeyNotice.set('');
-      });
+          admin: { publicationMonitor: language === 'en' ? en : fr }
+        })
+      );
     });
     effect(() => {
       const dossier = this.dossier();
-      if (browser)
+      const identity = this.admin.identity();
+      const context = `${dossier.contributionId}:${dossier.version}:${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'token'}`;
+      this.admin.dataRevision();
+      untracked(() => {
+        if (this.context !== context) {
+          this.context = context;
+          this.selectedId.set(null);
+          this.tracking.reset();
+          this.scheduling.reset();
+        }
+        if (this.browser) void this.refresh();
+      });
+    });
+    if (this.browser)
+      this.scheduling.delivery.browserTimezone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
+    effect(() => {
+      if (this.accessDenied())
         untracked(() => {
-          this.journeyOpening++;
-          this.journeyNotice.set('');
-          void this.scheduling.load(dossier.contributionId);
+          this.selectedId.set(null);
+          this.scheduling.delivery.clear();
         });
     });
-    this.destroyRef.onDestroy(() => {
-      this.journeyOpening++;
+    inject(DestroyRef).onDestroy(() => {
+      this.tracking.dispose();
       this.scheduling.dispose();
     });
   }
-  readonly benefitsKnown = computed(
-    () =>
-      this.dossier().commitment?.state === 'active' &&
-      Boolean(this.dossier().commitment?.offer)
-  );
-  readonly benefits = computed(() =>
-    this.benefitsKnown()
-      ? this.dossier().commitment!.offer!.benefits.map((b) => b.id)
-      : []
-  );
-  readonly cards = computed(() => {
-    const d = this.dossier();
-    const rows: {
-      key: string;
-      channel: string;
-      target: string;
-      publication: SponsorshipProgressPublication | null;
-      source: PublicationPreparationEntry | null;
-      candidate: PublicationPreparationCandidate | null;
-    }[] = d.publications.map((p) => ({
-      key: p.id,
-      channel: p.channel,
-      target: p.target,
-      publication: p,
-      source: null,
-      candidate: null
-    }));
-    for (const source of this.scheduling.entries()) {
-      const existing = rows.find((row) => row.key === source.draftId);
-      if (existing) existing.source = source;
-      else
-        rows.push({
-          key: source.draftId,
-          channel: source.feedId.split(':')[1],
-          target: source.feedId.split(':')[0],
-          publication: null,
-          source,
-          candidate: null
-        });
-    }
-    for (const candidate of this.scheduling.candidates()) {
-      rows.push({
-        key: `candidate:${candidate.obligationId}`,
-        channel: candidate.feedId.split(':')[1],
-        target: candidate.feedId.split(':')[0],
-        publication: null,
-        source: null,
-        candidate
-      });
-    }
-    for (const row of rows) {
-      const deliveryId = row.publication?.deliveryId ?? row.source?.deliveryId;
-      const delivery = this.scheduling
-        .state()
-        ?.deliveries.find((job) => job.id === deliveryId);
-      if (delivery)
-        row.publication = {
-          ...row.publication,
-          id: row.key,
-          channel: row.channel,
-          target: row.target,
-          status: row.publication?.status ?? 'draft',
-          batchStatus: row.publication?.batchStatus ?? null,
-          slotStatus: row.publication?.slotStatus ?? null,
-          deliveryId: delivery.id,
-          deliveryStatus: delivery.status,
-          deliveryMode: delivery.mode,
-          deliveryError: delivery.errorCode,
-          feedPaused: this.scheduling
-            .state()
-            ?.feeds.find((feed) => feed.id === delivery.feedId)?.paused,
-          publicUrl: delivery.externalPostUrl,
-          scheduledAt: delivery.scheduledAt,
-          publishedAt: delivery.publishedAt
-        };
-    }
-    for (const benefit of d.commitment?.offer?.benefits ?? []) {
-      if (
-        this.benefitsKnown() &&
-        benefit.channel !== 'website' &&
-        !rows.some(
-          (r) => r.channel === benefit.channel && r.target === benefit.target
-        )
-      )
-        rows.push({
-          key: `${benefit.target}:${benefit.channel}`,
-          channel: benefit.channel,
-          target: benefit.target,
-          publication: null,
-          source: null,
-          candidate: null
-        });
-    }
-    return rows;
-  });
-  readonly journeyTargets = computed(() =>
-    this.cards().flatMap((card): PublicationJourneyTarget[] => {
-      const draftId = card.publication?.id ?? card.source?.draftId ?? null;
-      const deliveryId = this.deliveryId(card.publication, card.source);
-      const obligationId = publicationJourneyObligation(
-        this.dossier(),
-        { channel: card.channel, target: card.target, deliveryId },
-        card.publication?.obligationId ?? card.candidate?.obligationId
-      );
-      return draftId || deliveryId || obligationId
-        ? [
-            {
-              key: card.key,
-              channel: card.channel,
-              target: card.target,
-              draftId,
-              deliveryId,
-              obligationId
-            }
-          ]
-        : [];
-    })
-  );
-  readonly journeySelection = computed(() => {
-    const params = this.routeParams();
-    const dossiers = params.getAll('sponsorshipId');
-    if (
-      dossiers.length !== 1 ||
-      dossiers[0]?.toLowerCase() !== this.dossier().contributionId.toLowerCase()
-    )
-      return { state: 'unavailable' } as const;
-    return publicationJourneySelection(this.journeyTargets(), params);
-  });
-  readonly journeyTarget = computed(() => {
-    const selection = this.journeySelection();
-    return selection.state === 'selected' ? selection.target : null;
-  });
-  readonly publicationCompletion = computed(() => {
-    const completion = this.dossier().publicationCompletion;
-    if (!completion) return null;
-    const qualified =
-      this.dossier().commitment?.obligations.filter((obligation) =>
-        Boolean(this.evidence(obligation.id))
-      ).length ?? 0;
-    return { ...completion, done: Math.min(completion.done, qualified) };
-  });
-  readonly publicationComplete = computed(() =>
-    isDossierPublicationComplete(this.dossier())
-  );
-  readonly automationPath = '/admin/fundraiser/publications/automation';
 
-  money(): string {
+  async refresh(): Promise<void> {
     const dossier = this.dossier();
-    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
-      style: 'currency',
-      currency: dossier.currency,
-      currencyDisplay: 'code'
-    }).format(dossier.amountMinor / 100);
+    await Promise.allSettled([
+      this.tracking.load(
+        dossier.contributionId,
+        dossier.reference,
+        this.context
+      ),
+      this.scheduling.load(dossier.contributionId)
+    ]);
   }
 
-  workshopChanged(): void {
-    this.commitmentChanged.emit();
-    void this.scheduling.refresh();
+  t(key: string, params?: Record<string, unknown>): string {
+    return this.i18n.t('admin.publicationMonitor.' + key, params);
   }
 
-  evidence(obligationId: string) {
-    return qualifiedPublicationEvidence(this.dossier(), obligationId);
-  }
-
-  publicationDateLabel(reasonOrDeliveryStatus: string): string {
-    return [
-      'approved',
-      'publishing',
-      'failed',
-      'uncertain',
-      'published',
-      'publication_scheduled',
-      'publication_publishing',
-      'publication_retry_pending',
-      'publication_paused',
-      'publication_worker_disabled',
-      'publication_failed',
-      'publication_uncertain'
-    ].includes(reasonOrDeliveryStatus)
-      ? 'admin.dossier.publicationBridge.schedule.workflow.scheduledFor'
-      : 'admin.dossier.publicationBridge.proposedDate';
-  }
-
-  deliveryId(
-    publication: SponsorshipProgressPublication | null,
-    source: PublicationPreparationEntry | null
-  ): string | null {
-    return publication?.deliveryId ?? source?.deliveryId ?? null;
-  }
-
-  canPrepare(
-    source: PublicationPreparationEntry | PublicationPreparationCandidate
-  ): boolean {
-    return source.nextOpportunity?.action === 'PREPARE_FEED';
-  }
-
-  canEdit(deliveryId: string): boolean {
-    const delivery = this.scheduling
-      .state()
-      ?.deliveries.find((job) => job.id === deliveryId);
-    return (
-      !!delivery && ['draft', 'approved', 'blocked'].includes(delivery.status)
-    );
-  }
-
-  status(p: SponsorshipProgressPublication | null): string {
-    if (!p) return 'waiting';
-    if (p.deliveryStatus === 'uncertain') return 'uncertain';
-    if (p.deliveryMode === 'mock' && p.deliveryStatus === 'published')
-      return 'simulated';
-    const proven = this.dossier().fulfilmentEvidence?.some(
-      (e) =>
-        this.evidence(e.obligationId)?.id === e.id &&
-        e.deliveryId === p.deliveryId &&
-        e.deliveryId !== null &&
-        e.channel === p.channel &&
-        e.target === p.target
-    );
-    if (proven) return 'published';
-    if (p.deliveryStatus === 'published')
-      return p.deliveryMode === 'mock' ? 'simulated' : 'unverified';
-    if (
-      ['uncertain', 'failed', 'blocked', 'rejected', 'cancelled'].includes(
-        p.deliveryStatus ?? ''
-      )
-    )
-      return p.deliveryStatus!;
-    if (
-      ['cancelled', 'rejected'].includes(p.status) ||
-      p.batchStatus === 'cancelled' ||
-      p.slotStatus === 'cancelled'
-    )
-      return 'cancelled';
-    if (p.deliveryId && p.deliveryStatus === 'approved') return 'scheduled';
-    if (p.deliveryStatus === 'publishing') return 'publishing';
-    if (p.deliveryId) return 'review';
-    if (p.status === 'published') return 'unverified';
-    if (['draft', 'pending_review', 'approved', 'scheduled'].includes(p.status))
-      return 'prepared';
-    return 'waiting';
-  }
-  action(p: SponsorshipProgressPublication | null): string {
-    const status = this.status(p);
-    if (status === 'review') return 'review';
-    if (status === 'scheduled' || status === 'publishing') return 'schedule';
-    if (['blocked', 'uncertain', 'failed'].includes(status)) return 'resolve';
-    return 'open';
-  }
-  params(p?: SponsorshipProgressPublication | null): Record<string, string> {
-    const selected = p
-      ? this.journeyTargets().find((target) => target.draftId === p.id)
-      : null;
-    if (selected)
-      return publicationJourneyParams(this.dossier().contributionId, selected);
-    return {
-      sponsorshipId: this.dossier().contributionId,
-      ...(p?.deliveryId ? { deliveryId: p.deliveryId } : {})
-    };
-  }
-  guidanceParams(link: PublicationGuidanceLink): Record<string, string> {
-    const selected = this.journeyTarget();
-    return {
-      sponsorshipId: this.dossier().contributionId,
-      ...(selected
-        ? publicationJourneyParams(this.dossier().contributionId, selected)
-        : {}),
-      ...(link.fragment ? { tab: 'publication' } : {})
-    };
-  }
-
-  selectJourney(key: string): void {
-    if (
-      this.scheduling.busy() ||
-      this.scheduling.loading() ||
-      this.scheduling.delivery.selected()
-    )
-      return;
-    const target = this.journeyTargets().find((item) => item.key === key);
-    this.journeyOpening++;
-    this.journeyNotice.set('');
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: {
-        draftId: null,
-        deliveryId: null,
-        obligationId: null,
-        ...(target
-          ? publicationJourneyParams(this.dossier().contributionId, target)
-          : {})
-      },
-      queryParamsHandling: 'merge',
-      replaceUrl: true
-    });
-  }
-
-  journeyLabel(target: PublicationJourneyTarget): string {
-    const obligation = this.dossier().commitment?.obligations.find(
-      (item) => item.id === target.obligationId
-    );
-    const reference = this.i18n.t(
-      'admin.dossier.publicationBridge.schedule.chain.source',
-      {
-        reference: (
-          target.draftId ??
-          target.deliveryId ??
-          target.obligationId ??
-          ''
-        ).slice(-8)
-      }
-    );
-    const repeatedPassage =
-      this.journeyTargets().filter(
-        (item) =>
-          item.obligationId === target.obligationId &&
-          item.channel === target.channel &&
-          item.target === target.target
-      ).length > 1;
-    return `${target.channel === 'facebook' ? 'Facebook' : target.channel === 'linkedin' ? 'LinkedIn' : target.channel} · ${target.target === 'openg20' ? 'OpenG20' : target.target === 'openg7' ? 'OpenG7' : target.target} · ${
-      obligation
-        ? this.i18n.t(
-            'admin.dossier.publicationBridge.schedule.chain.passage',
-            { number: obligation.ordinal }
-          )
-        : reference
-    }${obligation && repeatedPassage ? ' · ' + reference : ''}`;
-  }
-
-  async openJourney(step: PublicationGuidanceLink['id']): Promise<void> {
-    if (step !== 'content' && step !== 'authorization' && step !== 'delivery')
-      return;
-    const target = this.journeyTarget();
-    if (
-      !target?.deliveryId ||
-      this.scheduling.busy() ||
-      this.scheduling.loading() ||
-      this.scheduling.delivery.selected() ||
-      this.scheduling.delivery.dirty() ||
-      this.confirmation.pending()
-    )
-      return;
-    const opening = ++this.journeyOpening;
-    const sponsorshipId = this.dossier().contributionId;
-    const session = this.admin.sessionGeneration();
-    const current = () =>
-      !this.destroyRef.destroyed &&
-      opening === this.journeyOpening &&
-      this.dossier().contributionId === sponsorshipId &&
-      this.admin.hasValidAdminSession() &&
-      this.admin.sessionGeneration() === session &&
-      this.journeyTarget()?.key === target.key &&
-      this.scheduling.delivery.selected()?.id === target.deliveryId;
-    await this.scheduling.open(target.deliveryId);
-    if (!current()) return;
-    this.journeyNotice.set(
-      'admin.dossier.publicationBridge.schedule.chain.opened.' + step
-    );
-    afterNextRender(
-      () => {
-        const host: HTMLElement | undefined = this.drawer()?.nativeElement;
-        host?.ownerDocument.defaultView?.requestAnimationFrame(() => {
-          if (!current() || this.confirmation.pending()) return;
-          const dialog = host.querySelector('dialog[open]');
-          if (!dialog || !dialog.contains(host.ownerDocument.activeElement))
-            return;
-          const hook =
-            step === 'content'
-              ? 'publication-saved-content'
-              : step === 'authorization'
-                ? 'publication-authorization'
-                : 'publication-result';
-          const region = dialog.querySelector<HTMLElement>(
-            `[data-og7="${hook}"]`
-          );
-          if (!region || !region.getClientRects().length) {
-            this.journeyNotice.set(
-              'admin.dossier.publicationBridge.schedule.chain.regionUnavailable'
-            );
-            return;
-          }
-          region.setAttribute('tabindex', '-1');
-          revealControllerFocus(region);
-        });
-      },
-      { injector: this.injector }
-    );
-  }
   date(value: string): string {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime())
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.valueOf())
       ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
           dateStyle: 'medium',
           timeStyle: 'short',
           timeZone: 'America/Toronto'
-        }).format(date)
-      : '';
-  }
-  errorMessage(code: string): string {
-    const key = 'admin.publicationAutomation.errors.' + code;
-    const message = this.i18n.t(key);
-    return message === key
-      ? this.i18n.t('admin.dossier.publicationBridge.failureHelp')
-      : message;
-  }
-  publicUrl(p: SponsorshipProgressPublication | null): string | null {
-    if (!p?.publicUrl || this.status(p) !== 'published') return null;
-    return this.safePublicUrl(p.publicUrl);
+        }).format(parsed)
+      : '—';
   }
 
-  private safePublicUrl(value: string | null | undefined): string | null {
+  icon(row: PublicationMonitorRow): AdminIconName {
+    return row.obligation.channel === 'website' ? 'globe' : 'publications';
+  }
+
+  deskParams(row?: PublicationMonitorRow): Record<string, string | null> {
+    return publicationDeskParams(
+      this.dossier().contributionId,
+      this.dossier().reference,
+      row?.obligation.id
+    );
+  }
+
+  workshopParams(): Record<string, string> {
+    return publicationWorkshopParams(this.dossier().contributionId);
+  }
+
+  ownerParams(tab: string): Record<string, string> {
+    return { sponsorshipId: this.dossier().contributionId, tab };
+  }
+
+  warning(code: string): string {
+    const local = this.t('warning.' + code);
+    if (local !== 'admin.publicationMonitor.warning.' + code) return local;
+    for (const prefix of [
+      'admin.dossier.publicationBridge.schedule.workflow.reason.',
+      'admin.publicationAutomation.errors.',
+      'admin.publicationWorkshop.missing.'
+    ]) {
+      const message = this.i18n.t(prefix + code);
+      if (message !== prefix + code) return message;
+    }
+    return this.t('warning.other');
+  }
+
+  blockerParams(code: string): Record<string, string> {
+    const row = /consent/.test(code)
+      ? this.monitor().rows.find((item) => !item.evidence)
+      : null;
+    if (row)
+      return publicationExaminationParams(
+        this.dossier().contributionId,
+        row.obligation.id
+      );
+    return this.ownerParams(
+      ['commitment_needs_confirmation', 'commitment_blocked'].includes(code)
+        ? 'overview'
+        : /media|presentation/.test(code)
+          ? 'media'
+          : /identity|company|organization|contact|public_name/.test(code)
+            ? 'identity'
+            : publicationBlockerTab(code)
+    );
+  }
+
+  blockerPath(code: string): string {
+    return /consent/.test(code) &&
+      this.monitor().rows.some((row) => !row.evidence)
+      ? this.deskPath
+      : this.sponsorsPath;
+  }
+
+  differs(row: PublicationMonitorRow): boolean {
+    const content = row.queueService?.content;
+    return (
+      !!row.variant &&
+      !!content &&
+      (row.variant.title !== content.title || row.variant.body !== content.body)
+    );
+  }
+
+  details(row: PublicationMonitorRow): void {
+    this.selectedId.set(row.obligation.id);
+  }
+
+  async act(row: PublicationMonitorRow): Promise<void> {
+    if (this.busy() || this.accessDenied()) return;
+    if (row.action === 'proof' || row.action === 'details') {
+      this.details(row);
+      return;
+    }
+    if (row.action === 'refresh') {
+      await this.refresh();
+      return;
+    }
+    if (row.action === 'queue') {
+      await this.router.navigate([this.deskPath], {
+        queryParams: this.deskParams(row)
+      });
+      return;
+    }
+    if (row.action === 'resolve') {
+      const source = row.warnings.find((code) =>
+        /consent|identity|media|presentation|public_name|organization|company|contact_email|payment|refund|commitment|^review$|^review_/.test(
+          code
+        )
+      );
+      if (source) {
+        if (/consent/.test(source)) {
+          await this.router.navigate([this.deskPath], {
+            queryParams: publicationExaminationParams(
+              this.dossier().contributionId,
+              row.obligation.id
+            )
+          });
+        } else {
+          await this.router.navigate([this.sponsorsPath], {
+            queryParams: this.ownerParams(
+              /media|presentation/.test(source)
+                ? 'media'
+                : /refund/.test(source)
+                  ? 'billing'
+                  : /payment|commitment|^review/.test(source)
+                    ? 'overview'
+                    : 'identity'
+            )
+          });
+        }
+        return;
+      }
+    }
+    if (row.proposal?.adoptedAt && row.action === 'review') {
+      await this.router.navigate([this.deskPath], {
+        queryParams: publicationExaminationParams(
+          this.dossier().contributionId,
+          row.obligation.id
+        )
+      });
+      return;
+    }
+    const deliveryId = this.deliveryId(row);
+    if (deliveryId && ['resolve', 'schedule', 'review'].includes(row.action)) {
+      await this.scheduling.open(deliveryId);
+      return;
+    }
+    if (row.action === 'schedule') {
+      if (row.obligation.channel === 'website')
+        await this.router.navigate([this.sponsorsPath], {
+          queryParams: this.ownerParams('media'),
+          fragment: 'dossier-website-settings'
+        });
+      else
+        await this.router.navigate([this.automationPath], {
+          queryParams: this.automationParams(row)
+        });
+      return;
+    }
+    if (
+      row.status !== 'obsolete' &&
+      (row.proposal?.adoptedAt ||
+        (!row.proposal && (row.publication || row.queueService)))
+    ) {
+      await this.router.navigate([this.deskPath], {
+        queryParams: publicationExaminationParams(
+          this.dossier().contributionId,
+          row.obligation.id
+        )
+      });
+      return;
+    }
+    await this.router.navigate([this.deskPath], {
+      queryParams: this.workshopParams()
+    });
+  }
+
+  automationParams(row: PublicationMonitorRow): Record<string, string> {
+    return {
+      sponsorshipId: this.dossier().contributionId,
+      obligationId: row.obligation.id,
+      ...(row.publication ? { draftId: row.publication.id } : {})
+    };
+  }
+
+  deliveryId(row: PublicationMonitorRow): string | null {
+    return (
+      row.delivery?.id ??
+      row.workflow?.deliveryId ??
+      row.publication?.deliveryId ??
+      row.evidence?.deliveryId ??
+      null
+    );
+  }
+
+  actionLabel(row: PublicationMonitorRow): string {
+    return this.t(
+      row.status === 'approved'
+        ? row.obligation.channel === 'website'
+          ? 'manageWebsite'
+          : 'plan'
+        : 'action.' + row.action
+    );
+  }
+
+  safeUrl(value: string | null | undefined): string | null {
     if (!value) return null;
     try {
       const url = new URL(value);
-      return ['http:', 'https:'].includes(url.protocol) &&
+      return ['https:', 'http:'].includes(url.protocol) &&
         !url.username &&
         !url.password
         ? url.href

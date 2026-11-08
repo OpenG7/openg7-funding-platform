@@ -97,7 +97,12 @@ test('an unknown or empty tab does not become a valid return origin', () => {
 });
 
 test('unknown fragments and sections from another workspace are removed', () => {
-  for (const fragment of ['unknown', 'dossier-unknown', 'dossier-refund'])
+  for (const fragment of [
+    'unknown',
+    'dossier-unknown',
+    'dossier-refund',
+    'dossier-agreement'
+  ])
     assert.equal(
       router.serializeUrl(returned(path('publication', fragment))),
       path('publication'),
@@ -107,16 +112,16 @@ test('unknown fragments and sections from another workspace are removed', () => 
 
 test('private filters and nested return values are stripped from the rebuilt URL', () => {
   const origin =
-    path('publication') +
+    path('overview') +
     '&search=PRIVATE-SEARCH&email=private%40example.invalid&returnTo=%2Fadmin%2Ffundraiser%2Fassistant%3Fselected%3Dprivate#dossier-agreement';
   const result = returned(origin);
   assert.deepEqual(result.queryParams, {
     sponsorshipId,
-    tab: 'publication'
+    tab: 'overview'
   });
   assert.equal(
     router.serializeUrl(result),
-    path('publication', 'dossier-agreement')
+    path('overview', 'dossier-agreement')
   );
 });
 

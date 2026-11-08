@@ -4,7 +4,76 @@
     data-og7="admin-preflight"
     [attr.data-state]="state()"
   >
-    @if (examinationSelection(); as selection) {
+    @if (workshopSelection(); as contributionId) {
+      <section data-og7="publication-owner" [attr.data-state]="workshopState()">
+        <a
+          class="admin-button"
+          data-og7="publication-return"
+          routerLink="/admin/fundraiser/sponsors"
+          [queryParams]="{ sponsorshipId: contributionId, tab: 'publication' }"
+          fragment="dossier-publication"
+          >{{ 'admin.preflight.publicationOwner.return' | translate }}</a
+        >
+        <header class="page-header">
+          <div>
+            <h1>{{ 'admin.preflight.publicationOwner.title' | translate }}</h1>
+            <p>{{ 'admin.preflight.publicationOwner.intro' | translate }}</p>
+          </div>
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="publication-owner-refresh"
+            [disabled]="
+              workshopState() === 'loading' || workshopState() === 'forbidden'
+            "
+            (click)="loadPublicationOwner(true)"
+          >
+            <openg7-admin-icon name="refresh" />{{
+              'admin.preflight.refresh' | translate
+            }}
+          </button>
+        </header>
+        @if (workshopDossier(); as dossier) {
+          @if (workshopState() === 'unavailable') {
+            <p role="alert">
+              {{ 'admin.preflight.publicationOwner.unavailable' | translate }}
+            </p>
+          }
+          <p>{{ dossier.reference }}</p>
+          <h2 class="sr-only">
+            {{ 'admin.preflight.publicationOwner.proposals' | translate }}
+          </h2>
+          <openg7-admin-publication-workshop
+            [dossier]="dossier"
+            (changed)="loadPublicationOwner(true)"
+          />
+          <h2 id="publication-owner-controls-title" class="sr-only">
+            {{ 'admin.preflight.publicationOwner.controls' | translate }}
+          </h2>
+          <openg7-admin-sponsorship-preparation
+            aria-labelledby="publication-owner-controls-title"
+            id="dossier-preparation"
+            [contributionId]="dossier.contributionId"
+            [refreshKey]="dossier.version"
+          />
+        } @else {
+          <p [attr.role]="workshopState() === 'loading' ? 'status' : 'alert'">
+            {{
+              'admin.preflight.publicationOwner.' + workshopState() | translate
+            }}
+          </p>
+          @if (workshopState() === 'unavailable') {
+            <button
+              class="admin-button"
+              type="button"
+              (click)="loadPublicationOwner()"
+            >
+              {{ 'admin.preflight.refresh' | translate }}
+            </button>
+          }
+        }
+      </section>
+    } @else if (examinationSelection(); as selection) {
       <openg7-admin-preflight-examination
         [contributionId]="selection.contributionId"
         [obligationId]="selection.obligationId"

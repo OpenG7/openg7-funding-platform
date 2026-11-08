@@ -523,9 +523,14 @@ export class FundingAdminService {
 
   getSponsorshipProgress(
     token: string,
-    sponsorshipId?: string
+    sponsorshipId?: string,
+    signal?: AbortSignal
   ): Promise<AdminSponsorshipProgressResponse> {
-    return this.sponsorshipsClient.getSponsorshipProgress(token, sponsorshipId);
+    return this.sponsorshipsClient.getSponsorshipProgress(
+      token,
+      sponsorshipId,
+      signal
+    );
   }
 
   getSponsorshipPreparation(

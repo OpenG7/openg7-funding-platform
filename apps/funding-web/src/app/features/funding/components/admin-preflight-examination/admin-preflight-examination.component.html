@@ -14,6 +14,17 @@
     >
       <span aria-hidden="true">←</span> {{ t('back') }}
     </button>
+    @if (publicationReturn()) {
+      <button
+        type="button"
+        class="back-link"
+        data-og7="publication-return"
+        [disabled]="continuationBlocked()"
+        (click)="returnToPublication()"
+      >
+        {{ t('publicationReturn') }}
+      </button>
+    }
     @if (receipt(); as item) {
       <span class="breadcrumb-reference">/ {{ item.reference }}</span>
     }

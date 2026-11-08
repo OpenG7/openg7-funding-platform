@@ -31,6 +31,7 @@ import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
 import {
+  openSponsorshipWebsiteSettings,
   openDeclaredSponsorshipTracking,
   openSponsorshipModeration
 } from './support/sponsorship-dossier.js';
@@ -692,9 +693,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
           record.id +
           '&tab=publication'
       );
-      await admin
-        .locator('[data-og7="publication-advanced"] > summary')
-        .click();
+      await openSponsorshipWebsiteSettings(admin);
       const editor = admin.locator('[data-og7="dossier-publication-editor"]');
       await expect(editor).toBeVisible();
       await editor.getByLabel(/Slug public/i).fill('recette-' + record.id);

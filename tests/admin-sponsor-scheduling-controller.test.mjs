@@ -371,6 +371,66 @@ test('late reads from a previous dossier cannot replace the current forecast or 
   assert.equal(f.controller.loading(), false);
 });
 
+test('reset fences a same-dossier replacement session from late successful or denied reads', async (t) => {
+  for (const outcome of ['success', 401, 403])
+    await t.test(String(outcome), async (t) => {
+      const f = fixture(t, serverState({ deliveries: [delivery()] }));
+      await f.controller.load('synthetic-sponsor');
+      await f.controller.open('synthetic-delivery', true);
+      f.controller.delivery.changeEdit(
+        'message',
+        'Private text from the prior session'
+      );
+      const oldRead = deferred();
+      f.ports.admin.publicationAutomation = async () => oldRead.promise;
+      const pending = f.controller.refresh();
+      f.controller.reset();
+      assert.equal(f.controller.state(), null);
+      assert.equal(f.controller.delivery.selected(), null);
+      assert.equal(f.controller.delivery.edit.message, '');
+      assert.equal(f.controller.loading(), false);
+      assert.equal(f.controller.busy(), false);
+      const replacement = delivery({
+        version: 8,
+        message: 'Content from the replacement session'
+      });
+      f.ports.admin.publicationAutomation = async () =>
+        serverState({ deliveries: [replacement] });
+      await f.controller.load('synthetic-sponsor');
+      await f.controller.open(replacement.id);
+      if (outcome === 'success')
+        oldRead.resolve(serverState({ deliveries: [delivery()] }));
+      else oldRead.reject(new AdminDashboardRequestError(outcome));
+      assert.equal(await pending, false);
+      assert.equal(f.controller.state().deliveries[0], replacement);
+      assert.equal(f.controller.delivery.selected(), replacement);
+      assert.equal(f.controller.error(), '');
+      assert.equal(f.controller.notice(), '');
+      assert.equal(f.calls.changed, 0);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('reset prevents an older targeted opening from adding or reopening a delivery in the replacement session', async (t) => {
+  const f = fixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const oldRead = deferred();
+  f.ports.admin.publicationAutomation = async () => oldRead.promise;
+  const opening = f.controller.open('synthetic-delivery');
+  f.controller.reset();
+  const replacement = delivery({ id: 'replacement-delivery', version: 8 });
+  f.ports.admin.publicationAutomation = async () =>
+    serverState({ deliveries: [replacement] });
+  await f.controller.load('synthetic-sponsor');
+  await f.controller.open(replacement.id);
+  oldRead.resolve(serverState({ deliveries: [delivery()] }));
+  await opening;
+  assert.deepEqual(f.controller.state().deliveries, [replacement]);
+  assert.equal(f.controller.delivery.selected(), replacement);
+  assert.equal(f.controller.error(), '');
+  assert.deepEqual(f.calls.commands, []);
+});
+
 test('expired or forbidden reads and commands remove private state and invalidate the open review', async (t) => {
   for (const status of [401, 403])
     for (const phase of ['read', 'command', 'confirmingRead', 'recoveryRead'])

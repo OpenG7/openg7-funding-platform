@@ -24,7 +24,10 @@ import { adjustAcceptanceObligationDestination } from './support/acceptance-agre
 import { parkAcceptancePublicationCandidates } from './support/acceptance-publication-isolation.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
-import { openDeclaredSponsorshipTracking } from './support/sponsorship-dossier.js';
+import {
+  openSponsorshipWebsiteSettings,
+  openDeclaredSponsorshipTracking
+} from './support/sponsorship-dossier.js';
 
 for (const cause of ['rejection', 'destination'] as const)
   test(
@@ -240,9 +243,7 @@ for (const cause of ['rejection', 'destination'] as const)
                   removed.id +
                   '&tab=publication'
               );
-              await page
-                .locator('[data-og7="publication-advanced"] > summary')
-                .click();
+              await openSponsorshipWebsiteSettings(page);
               const editor = page.locator(
                 '[data-og7="dossier-publication-editor"]'
               );
