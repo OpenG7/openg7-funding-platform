@@ -77,7 +77,9 @@ export function registerContributionActivityOverlayTests(ports: {
         return route.fulfill({ json: { updated: true } });
       });
       await page.goto(
-        '/admin/fundraiser/sponsors?sponsorshipId=' + ports.sponsorshipId
+        '/admin/fundraiser/sponsors?sponsorshipId=' +
+          ports.sponsorshipId +
+          '&tab=publication'
       );
       if (english)
         await page

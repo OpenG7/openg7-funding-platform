@@ -24,7 +24,7 @@ type IdentityFacts = Pick<
   | 'public_name'
   | 'public_display_consent'
   | 'sponsor_details_submitted_at'
->;
+> & { readonly sponsor_message?: string | null };
 
 interface IdentityField {
   readonly id: string;

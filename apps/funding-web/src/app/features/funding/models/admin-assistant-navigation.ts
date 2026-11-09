@@ -1,7 +1,10 @@
 import { UrlTree } from '@angular/router';
 import type { Router } from '@angular/router';
 
-import { dossierSectionTab } from './admin-sponsorship-navigation.js';
+import {
+  dossierSectionOwnerTab,
+  dossierSectionTab
+} from './admin-sponsorship-navigation.js';
 import { workspaceTab } from './admin-sponsorship-workspace.js';
 
 const dossierPath = '/admin/fundraiser/sponsors';
@@ -51,8 +54,13 @@ export function assistantDossierReturn(
     tree.queryParams['sponsorshipId'] !== sponsorshipId
   )
     return null;
-  const tab = tree.queryParams['tab'] ?? 'overview';
-  if (!tabs.includes(tab)) return null;
+  const ownerTab =
+    dossierSectionOwnerTab(
+      tree.queryParams['tab'] ?? 'overview',
+      tree.fragment
+    ) ?? 'overview';
+  const tab = tabs.find((candidate) => candidate === ownerTab);
+  if (!tab) return null;
   const sectionTab = dossierSectionTab(tree.fragment);
   const fragment =
     sectionTab && workspaceTab(sectionTab) === workspaceTab(tab)

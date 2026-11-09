@@ -208,4 +208,16 @@
       </section>
     </li>
   </ol>
+  @if (sponsorship().sponsor_message?.trim(); as message) {
+    <section
+      class="profile-card sponsor-message"
+      aria-labelledby="identity-sponsor-message-title"
+      data-og7="identity-sponsor-message"
+    >
+      <h3 id="identity-sponsor-message-title">
+        {{ 'admin.legacy.message_du_commanditaire' | translate }}
+      </h3>
+      <p>{{ message }}</p>
+    </section>
+  }
 </section>

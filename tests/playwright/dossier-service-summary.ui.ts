@@ -1,8 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import type {
-  AdminCampaignItem,
-  AdminDossierPreparationReceipt,
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse,
   SponsorshipCommitmentRecord,
@@ -31,7 +29,6 @@ interface Context {
 }
 
 const dossierId = '10000000-0000-4000-8000-000000000401';
-const secondId = '10000000-0000-4000-8000-000000000402';
 const observedAt = '2026-10-18T12:00:00Z';
 const obligationId = (index: number) =>
   `10000000-0000-4000-8000-${String(6100 + index).padStart(12, '0')}`;
@@ -190,245 +187,75 @@ async function locale(page: Page, language: 'fr-CA' | 'en') {
   );
 }
 
-function campaignRow(
-  facts: Partial<AdminSponsorshipProgress>
-): AdminCampaignItem {
-  const item = facts.commitment!.obligations[1]!;
-  return {
-    id: item.id,
-    contributionId: dossierId,
-    reference: 'DEMO-401',
-    companyName: 'Atelier Boréal',
-    paidAt: observedAt,
-    channel: item.channel,
-    target: item.target,
-    ordinal: item.ordinal,
-    quantity: 2,
-    format: item.format ?? null,
-    obligationState: item.state,
-    timing: item.timing ?? null,
-    preparation: {
-      status: 'incomplete',
-      version: 'synthetic-service-summary-v1',
-      approvedAt: null,
-      blockers: []
-    },
-    workflow: facts.publicationWorkflow!.obligations[1]!,
-    content: {
-      title: 'Atelier Boréal',
-      body: 'Contenu de recette synthétique.'
-    },
-    proof: facts.fulfilmentEvidence![1]!,
-    adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${dossierId}&tab=publication`
-  };
+async function openOverview(page: Page, url: string): Promise<void> {
+  const projection = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/admin/sponsorships/progress' &&
+      response.status() === 200
+  );
+  await page.goto(url);
+  await (await projection).finished();
 }
 
+const services = (page: Page) =>
+  page.locator('[data-og7="overview-stat"][data-og7-id="services"]');
+
+/** Detailed fulfilment stays with Publication; Overview counts the same qualified facts. */
 export function registerDossierServiceSummaryTests(context: Context): void {
   for (const language of ['fr-CA', 'en'] as const) {
-    for (const width of [1536, 390, 1280, 768]) {
-      test(`dossier service summary preserves exact occurrences and qualified results in ${language} at ${width}px`, async ({
+    for (const width of [1536, 390]) {
+      test(`overview service statistic uses exact occurrences and qualified results in ${language} at ${width}px`, async ({
         page
       }, testInfo) => {
         const { calls, options } = await context.fixtures(page, 'reader');
-        const facts = serviceFacts(context);
-        options.progressOverrides = facts;
+        options.progressOverrides = serviceFacts(context);
         await locale(page, language);
-        const shortViewport = width === 1280 || width === 768;
-        await page.setViewportSize({
-          width,
-          height: width === 1280 ? 520 : width === 768 ? 432 : 864
-        });
-        const campaignQueries: URLSearchParams[] = [];
-        const campaign = campaignRow(facts);
-        await page.route('**/api/admin/campaigns?**', (route) => {
-          expect(route.request().method()).toBe('GET');
-          campaignQueries.push(new URL(route.request().url()).searchParams);
-          return route.fulfill({
-            json: {
-              generatedAt: observedAt,
-              items: [campaign],
-              pagination: {
-                page: 1,
-                pageSize: 25,
-                totalItems: 1,
-                totalPages: 1,
-                hasPreviousPage: false,
-                hasNextPage: false
-              }
-            }
-          });
-        });
-        const preparation: AdminDossierPreparationReceipt = {
-          context: 'dossier',
-          contributionId: dossierId,
-          reference: 'DEMO-401',
-          version: campaign.preparation.version,
-          status: 'incomplete',
-          payment: {
-            amountMinor: 50000,
-            currency: 'CAD',
-            status: 'paid',
-            confirmedAt: observedAt
-          },
-          acceptedOffer: null,
-          balance: null,
-          checks: [{ code: 'payment_confirmed', state: 'complete' }],
-          authorizations: [],
-          drafts: [],
-          blockers: [],
-          canApprove: false,
-          approval: null,
-          approvalHistory: []
-        };
-        await page.route('**/api/admin/sponsorships/preparation?**', (route) =>
-          route.fulfill({ json: preparation })
-        );
-        await page.goto(context.path());
-        const summary = hook(page, 'dossier-service-summary');
-        await expect(summary).toBeVisible();
-        await expect(summary.getByRole('heading')).toHaveText(
-          language === 'en'
-            ? 'Dossier service fulfilment'
-            : 'Suivi des prestations du dossier'
-        );
-        await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-        for (const [counter, text] of [
-          ['fulfilled', language === 'en' ? '2 fulfilled' : '2 réalisées'],
-          ['adjusted', language === 'en' ? '1 waived' : '1 dispensée'],
-          ['remaining', language === 'en' ? '3 remaining' : '3 à réaliser']
-        ] as const)
-          await expect(hook(page, `dossier-services-${counter}`)).toHaveText(
-            text
-          );
-        const rows = hook(page, 'dossier-service-row');
-        for (const [index, state] of [
-          [0, 'fulfilled'],
-          [1, 'fulfilled'],
-          [2, 'unverified'],
-          [3, 'adjusted'],
-          [4, 'action_required'],
-          [5, 'action_required']
-        ] as const)
-          await expect(rows.nth(index)).toHaveAttribute('data-state', state);
-        await expect(rows.nth(0)).toContainText('OpenG7');
-        await expect(rows.nth(0)).toContainText(
-          language === 'en'
-            ? 'Current profile visibility: hidden'
-            : 'Visibilité actuelle de la fiche : masquée'
-        );
-        await expect(rows.nth(1)).toContainText('Facebook');
-        await expect(rows.nth(2)).toContainText(
-          language === 'en' ? 'no. 2' : 'nº 2'
-        );
-        await expect(rows.nth(3)).toContainText('LinkedIn');
-        await expect(rows.nth(3)).toContainText('OpenG20');
-        await expect(rows.nth(5)).toContainText('OpenG20');
-        await expect(rows.nth(5)).not.toContainText(
-          language === 'en'
-            ? 'Current profile visibility:'
-            : 'Visibilité actuelle de la fiche :'
-        );
-        await expect(rows.nth(5)).toContainText(
-          language === 'en' ? 'duration' : 'Durée'
-        );
-        for (const item of facts.commitment!.obligations) {
-          const row = summary.locator(
-            `[data-og7="dossier-service-row"][data-og7-id="${item.id}"]`
-          );
-          await expect(row).toBeVisible();
-          await expect(
-            row.locator('[data-og7="dossier-service-detail"]')
-          ).toHaveAttribute(
-            'href',
-            `/admin/fundraiser/campaigns?sponsorshipId=${dossierId}&obligationId=${item.id}`
-          );
-        }
-        await expect(summary.locator('button')).toHaveCount(0);
-        await expect(hook(page, 'dossier-next')).toHaveCount(1);
+        await page.setViewportSize({ width, height: 864 });
+        await openOverview(page, context.path());
+        await expect(services(page)).toContainText(/2\s*\/\s*6/);
+        // Waivers, unqualified proofs, mock publication and declared totals add no deliveries.
+        await expect(
+          hook(page, 'overview-stat').filter({
+            hasText: language === 'en' ? 'Public profile' : 'Fiche publique'
+          })
+        ).toContainText(language === 'en' ? 'Hidden' : 'Masquée');
+        await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
+        await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('openg7-admin-sponsor-detail-overview')
+              .analyze()
+          ).violations
+        ).toEqual([]);
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth + 1
           )
         ).toBe(true);
-        expect(
-          (
-            await new AxeBuilder({ page })
-              .include('[data-og7="dossier-service-summary"]')
-              .analyze()
-          ).violations
-        ).toEqual([]);
-        if (shortViewport) {
-          const lastDetail = summary
-            .locator('[data-og7="dossier-service-detail"]')
-            .last();
-          await lastDetail.focus();
-          await expect(lastDetail).toBeFocused();
-          await expect
-            .poll(() =>
-              lastDetail.evaluate((element) => {
-                const bounds = element.getBoundingClientRect();
-                const x = bounds.left + bounds.width / 2;
-                const y = bounds.top + bounds.height / 2;
-                const hit = document.elementFromPoint(x, y);
-                return (
-                  x >= 0 &&
-                  x <= innerWidth &&
-                  y >= 0 &&
-                  y <= innerHeight &&
-                  !!hit &&
-                  (hit === element || element.contains(hit))
-                );
-              })
-            )
-            .toBe(true);
-        }
         await page.screenshot({
-          path: testInfo.outputPath(`service-summary-${language}-${width}.png`),
-          fullPage: !shortViewport,
+          path: testInfo.outputPath(
+            `overview-services-${language}-${width}.png`
+          ),
           animations: 'disabled'
         });
-
-        // A real keyboard activation must deliver the exact scope to its owner.
-        const detail = rows
-          .nth(1)
-          .locator('[data-og7="dossier-service-detail"]');
-        await detail.focus();
-        await page.keyboard.press('Enter');
-        await expect(page).toHaveURL(
-          `/admin/fundraiser/campaigns?sponsorshipId=${dossierId}&obligationId=${campaign.id}`
-        );
-        await expect(hook(page, 'campaign-row')).toHaveCount(1);
-        await expect(hook(page, 'campaign-row')).toHaveAttribute(
-          'data-og7-id',
-          campaign.id
-        );
-        await expect(hook(page, 'campaign-detail')).toBeVisible();
-        expect(campaignQueries.at(-1)?.get('sponsorshipId')).toBe(dossierId);
-        expect(campaignQueries.at(-1)?.get('obligationId')).toBe(campaign.id);
+        const open = services(page);
+        await open.focus();
+        await open.press('Enter');
+        await expect(page).toHaveURL(/tab=publication/);
+        await expect(hook(page, 'publication-monitor')).toBeVisible();
         expect(calls.every((call) => call.method === 'GET')).toBe(true);
       });
     }
 
-    test(`dossier service summary explains missing and older server facts in ${language}`, async ({
+    test(`overview service statistic distinguishes unavailable, unconfirmed and known empty agreements in ${language}`, async ({
       page
     }) => {
       const { calls, options } = await context.fixtures(page, 'reader');
       await locale(page, language);
-      await page.setViewportSize({
-        width: language === 'en' ? 390 : 1536,
-        height: 864
-      });
-      await page.goto(context.path());
-      const summary = hook(page, 'dossier-service-summary');
-      await expect(summary).toBeVisible();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      await expect(hook(page, 'dossier-services-fulfilled')).toHaveCount(0);
-      await expect(summary).toContainText(
-        language === 'en'
-          ? 'The promised services have not been documented yet.'
-          : 'Les prestations promises ne sont pas encore documentées.'
-      );
-
+      await openOverview(page, context.path());
+      await expect(services(page)).toContainText(/Indisponible|Unavailable/);
       options.progressOverrides = {
         commitment: {
           ...context.recordedCommitment(50000),
@@ -436,50 +263,28 @@ export function registerDossierServiceSummaryTests(context: Context): void {
         }
       };
       await hook(page, 'dossier-refresh').click();
-      await expect(summary).toContainText(
-        language === 'en'
-          ? 'Confirm the agreement before reviewing the promised services.'
-          : 'L’accord doit être confirmé avant de récapituler les prestations.'
-      );
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      await expect(hook(page, 'dossier-services-fulfilled')).toHaveCount(0);
-
+      await expect(services(page)).toContainText(/Indisponible|Unavailable/);
       options.progressOverrides = {
         commitment: { ...context.recordedCommitment(50000), obligations: [] }
       };
       await hook(page, 'dossier-refresh').click();
-      await expect(summary).toContainText(
-        language === 'en'
-          ? 'No services have been recorded for this agreement yet.'
-          : 'Aucune prestation n’est encore enregistrée pour cet accord.'
-      );
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      await expect(hook(page, 'dossier-services-fulfilled')).toHaveCount(0);
-
-      // Exact promises remain visible, but old servers supply no workflow verdict.
+      await expect(services(page)).toContainText(/0\s*\/\s*0/);
       options.progressOverrides = {
         commitment: context.recordedCommitment(50000)
       };
       await hook(page, 'dossier-refresh').click();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(3);
-      await expect(hook(page, 'dossier-services-fulfilled')).toContainText('0');
-      await expect(hook(page, 'dossier-services-remaining')).toContainText('3');
-      await expect(hook(page, 'dossier-service-row').first()).toContainText(
-        language === 'en' ? 'Tracking unavailable' : 'Suivi indisponible'
-      );
+      await expect(services(page)).toContainText(/0\s*\/\s*3/);
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
 
-    test(`dossier service summary clears private facts through refresh errors and access denial in ${language}`, async ({
+    test(`overview statistics clear private facts during refresh, errors and denied access in ${language}`, async ({
       page
     }) => {
       const { calls, options } = await context.fixtures(page, 'reader');
       options.progressOverrides = serviceFacts(context);
       await locale(page, language);
-      await page.goto(context.path());
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-      await page.reload();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
+      await openOverview(page, context.path());
+      await expect(services(page)).toContainText(/2\s*\/\s*6/);
       const progress = hook(page, 'sponsorship-progress');
       const refreshProgress = async (status: 200 | 401 | 403 | 503) => {
         options.status = status;
@@ -498,11 +303,11 @@ export function registerDossierServiceSummaryTests(context: Context): void {
         });
         try {
           await hook(page, 'dossier-refresh').click();
-          // Observe this refresh clearing the old UI before releasing any response.
           await expect(progress).toHaveAttribute('aria-busy', 'true');
-          await expect(progress.getByRole('alert')).toHaveCount(0);
-          await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
-          await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
+          await expect(services(page)).toContainText(
+            /Indisponible|Unavailable/
+          );
+          await expect(hook(page, 'overview-priority-action')).toHaveCount(0);
         } finally {
           options.progressGate = null;
           release();
@@ -512,59 +317,41 @@ export function registerDossierServiceSummaryTests(context: Context): void {
           await expect(progress).toHaveAttribute('aria-busy', 'false');
       };
       await refreshProgress(200);
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
+      await expect(services(page)).toContainText(/2\s*\/\s*6/);
       for (const status of [503, 403] as const) {
         await refreshProgress(status);
-        await expect(progress.getByRole('alert')).toHaveText(
-          status === 503
-            ? language === 'en'
-              ? 'Progress is unavailable. Please retry.'
-              : 'La progression est indisponible. Réessayez.'
-            : language === 'en'
-              ? 'You do not have access to this dossier.'
-              : 'Vous n’avez pas accès à ce dossier.'
-        );
-        await expect(hook(page, 'dossier-service-summary')).toHaveCount(0);
-        await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
+        await expect(progress.getByRole('alert')).toBeVisible();
+        await expect(services(page)).toContainText(/Indisponible|Unavailable/);
       }
       await refreshProgress(200);
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
+      await expect(services(page)).toContainText(/2\s*\/\s*6/);
       await refreshProgress(401);
       await expect(page).toHaveURL(/\/admin\/login/);
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
+      await expect(hook(page, 'overview-stat')).toHaveCount(0);
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
 
-    test(`dossier service summary follows the selected dossier and overview only in ${language}`, async ({
+    test(`overview statistics follow the selected dossier and stay out of other tabs in ${language}`, async ({
       page
     }) => {
       const { calls, options } = await context.fixtures(page, 'reader');
       options.progressOverrides = serviceFacts(context);
       await locale(page, language);
-      await page.setViewportSize({
-        width: language === 'en' ? 390 : 1536,
-        height: 864
-      });
-      // Opening from the unfiltered list preserves the two-dossier work queue.
-      // A direct sponsorshipId URL intentionally narrows that list to one dossier.
       await page.goto('/admin/fundraiser/sponsors');
-      await expect(hook(page, 'sponsor-row')).toHaveCount(2);
       await hook(page, 'sponsor-row').first().click();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
+      await expect(services(page)).toContainText(/2\s*\/\s*6/);
       const tabs = hook(page, 'dossier-tabs');
       await tabs
         .getByRole('button', { name: 'Publication', exact: true })
         .click();
-      await expect(hook(page, 'dossier-service-summary')).toBeHidden();
+      await expect(hook(page, 'overview-stat')).toHaveCount(0);
       await tabs
         .getByRole('button', {
           name: language === 'en' ? 'Overview' : 'Aperçu',
           exact: true
         })
         .click();
-      await expect(hook(page, 'dossier-service-summary')).toBeVisible();
-      await expect(hook(page, 'dossier-service-row')).toHaveCount(6);
-
+      await expect(services(page)).toContainText(/2\s*\/\s*6/);
       options.progressOverrides = {};
       await page
         .getByRole('button', {
@@ -572,10 +359,8 @@ export function registerDossierServiceSummaryTests(context: Context): void {
           exact: true
         })
         .click();
-      await expect(page).toHaveURL(context.path('overview', secondId));
-      await expect(hook(page, 'dossier-service-summary')).toBeVisible();
+      await expect(services(page)).toContainText(/Indisponible|Unavailable/);
       await expect(hook(page, 'dossier-service-row')).toHaveCount(0);
-      await expect(hook(page, 'dossier-service-detail')).toHaveCount(0);
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
   }

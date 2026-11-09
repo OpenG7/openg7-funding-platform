@@ -13,6 +13,7 @@ import {
   untracked
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import en from '../../../../../assets/i18n/admin-publication-monitor.en.json' with { type: 'json' };
@@ -21,6 +22,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-scheduling-controller.js';
 import { AdminPublicationMonitorController } from '../../services/admin-publication-monitor.controller.js';
 import {
@@ -47,6 +49,7 @@ import {
   standalone: true,
   imports: [
     RouterLink,
+    TranslatePipe,
     AdminIconComponent,
     AdminDrawerComponent,
     PublicationDeliveryDrawerComponent
@@ -59,6 +62,7 @@ import {
   ]
 })
 export class AdminSponsorshipPublicationComponent {
+  readonly activity = inject(ContributionActivityService);
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly commitmentChanged = output<void>();
   private readonly admin = inject(FundingAdminService);
@@ -240,15 +244,30 @@ export class AdminSponsorshipPublicationComponent {
         this.dossier().contributionId,
         row.obligation.id
       );
-    return this.ownerParams(
-      ['commitment_needs_confirmation', 'commitment_blocked'].includes(code)
-        ? 'overview'
-        : /media|presentation/.test(code)
-          ? 'media'
-          : /identity|company|organization|contact|public_name/.test(code)
-            ? 'identity'
-            : publicationBlockerTab(code)
-    );
+    return this.ownerParams(this.blockerOwnerTab(code));
+  }
+
+  blockerFragment(code: string): string | undefined {
+    if (this.blockerPath(code) === this.deskPath) return undefined;
+    return /commitment/.test(code)
+      ? 'dossier-agreement'
+      : /^review(?:_|$)/.test(code)
+        ? 'dossier-review'
+        : /payment|refund/.test(code)
+          ? 'dossier-payment'
+          : 'dossier-' + this.blockerOwnerTab(code);
+  }
+
+  private blockerOwnerTab(code: string): string {
+    return /media|presentation/.test(code)
+      ? 'media'
+      : /identity|company|organization|contact|public_name/.test(code)
+        ? 'identity'
+        : /commitment|^review(?:_|$)/.test(code)
+          ? 'publication'
+          : /payment|refund/.test(code)
+            ? 'billing'
+            : publicationBlockerTab(code);
   }
 
   blockerPath(code: string): string {
@@ -303,15 +322,8 @@ export class AdminSponsorshipPublicationComponent {
           });
         } else {
           await this.router.navigate([this.sponsorsPath], {
-            queryParams: this.ownerParams(
-              /media|presentation/.test(source)
-                ? 'media'
-                : /refund/.test(source)
-                  ? 'billing'
-                  : /payment|commitment|^review/.test(source)
-                    ? 'overview'
-                    : 'identity'
-            )
+            queryParams: this.blockerParams(source),
+            fragment: this.blockerFragment(source)
           });
         }
         return;

@@ -7,6 +7,7 @@ import type {
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 interface Context {
   fixtures(
     page: Page,
@@ -163,6 +164,7 @@ async function fixtures(page: Page, context: Context) {
   return state;
 }
 async function openTimingDetails(page: Page) {
+  await openPublicationSection(page, 'contract');
   const panel = page.locator('[data-og7="sponsorship-timing"]');
   await expect(panel).toBeVisible();
   await expect(page.locator('[data-og7="commitments-refresh"]')).toBeEnabled();

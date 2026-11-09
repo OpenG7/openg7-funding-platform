@@ -19,16 +19,25 @@ le [périmètre du consentement documenté](technical/sponsorship-public-consent
 Cette commande maintient le profil en attente de visibilité et n’approuve
 aucun contenu.
 
-L’en-tête affiche la référence, le montant avec sa devise et des états distincts
-pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
-**Aperçu** contient une seule recommandation détaillée issue de la progression
-serveur. Les autres onglets, hors **Fiche et médias**, en gardent un rappel navigable.
-Dans **Identité**, le rappel est masqué lorsque la prochaine étape vise déjà cet
-onglet; une recommandation vers un autre onglet reste accessible. Les points à traiter
-se regroupent par domaine, avec trois familles visibles puis une commande pour
-toutes les afficher. L’ordre par domaine n’est pas un calcul de priorité ; le
-responsable reste à déterminer quand la projection ne le renseigne pas. Les
-liens rejoignent les contrôles propriétaires sans exécuter leur décision.
+L’en-tête affiche la référence et sa commande de copie, le montant avec sa devise
+et des états distincts pour la revue, le paiement, la visibilité Web et le
+remboursement éventuel.
+**Aperçu** présente six statistiques, une priorité actuelle et un tableau navigable
+des domaines. Les étapes réglées, prestations livrées, blocages opérationnels
+consolidés, visibilité publique et validations de médias sont projetés depuis les
+faits métier disponibles. Une donnée inconnue reste indiquée indisponible. Le nombre
+de propositions Preflight prêtes reste indisponible tant qu’aucune source courante
+et examinable n’est chargée ; les obligations ou brouillons de publication ne sont
+pas assimilés à ces propositions.
+
+La priorité rejoint un seul espace responsable selon les prérequis et permissions
+connus. Une confirmation discrète remplace l’action lorsqu’aucune intervention n’est
+requise. Les lignes du tableau rejoignent Identité, Fiche et médias, Publication
+(y compris la revue administrative) ou Finances. Aucun formulaire, liste détaillée
+de blocages, prestation ou décision de publication n’est reproduit dans Aperçu.
+Identité, Finances et Historique conservent leur rappel contextuel existant ; dans
+Identité, il est masqué lorsqu’il vise déjà ce domaine. Publication possède son
+propre suivi individuel. Les liens n’exécutent aucune décision.
 
 Les six onglets sont `overview`, `identity`, `media`, `publication`, `billing` et
 `audit`. **Identité** et **Fiche et médias** sont deux espaces distincts; leurs
@@ -59,8 +68,12 @@ session et le même dossier. Leur fermeture est bloquée pendant une
 opération de modération ou d’accès en cours.
 Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
 
-**Aperçu** conserve les faits, la note et la prochaine étape. La rédaction, la
-conversation, les propositions de l’Assistant et l’aide pas à pas sont accessibles
+**Note interne** ouvre le même tiroir depuis chaque onglet, sans quitter celui-ci.
+Les brouillons, la limite de 1 000 caractères, la lecture seule, la sauvegarde
+versionnée et le retour du focus au déclencheur conservent leur mécanisme existant.
+Cette note privée reste distincte du journal d’interventions.
+
+La rédaction, la conversation, les propositions de l’Assistant et l’aide pas à pas sont accessibles
 par l’entrée unique **Assistant et aide**, avec le même `sponsorshipId` ; le lien
 Assistant du cadre administratif transporte aussi cette sélection et son origine.
 Sur cette page commune, l’Assistant occupe deux tiers et l’aide un tiers ; ils
@@ -80,9 +93,10 @@ propriétaire. Une cible différente ou un autre onglet n’ouvre aucun formulai
 La navigation n’enregistre aucune saisie et n’envoie aucun courriel; les commandes
 conservent leurs confirmations et contrôles API.
 
-Dans **Publication**, la synthèse des prestations rejoint Campagnes avec le
-dossier comme filtre. La fiche publique et le suivi social déclaré ont des
-sous-zones distinctes ; leur sauvegarde conserve le workflow versionné existant.
+Dans **Publication**, le suivi individuel présente l’état, les exceptions et les
+prestations du dossier. Leurs détails rejoignent les preuves dans Campagnes et les
+parcours de travail du Comptoir. La fiche publique et le suivi social déclaré sont
+dans **Fiche et médias** ; leur sauvegarde conserve le workflow versionné existant.
 Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
 `/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
 dans un dossier reste borné à ce dossier.
@@ -100,7 +114,8 @@ site web et le nom public. Seuls le nom de l’organisation et le courriel de co
 déterminent l’état **Complet** ou **À compléter** des coordonnées. L’absence d’un
 champ facultatif reste neutre. Le nom public distingue **Non fourni**, lorsque le
 consentement existe sans nom enregistré, de **Non consenti**, qui ne dévoile pas
-un nom public enregistré sans cet accord.
+un nom public enregistré sans cet accord. Le message reçu du commanditaire,
+lorsqu’il existe, reste consultable dans cet onglet.
 
 **Modifier l’identité et les coordonnées** ouvre le formulaire de correction
 existant pour les opérateurs et propriétaires; les lecteurs conservent la lecture
@@ -223,16 +238,17 @@ Livrer l’API avec le Web ; une API indisponible affiche une erreur de journal.
 
 ## Lecture des finances et de l’activité
 
-Les six onglets conservent leurs responsabilités. Le bloc commun **À traiter**
-présente la prochaine étape choisie par le serveur, le responsable de la publication
-et les prérequis encore ouverts, selon les règles d’affichage décrites plus haut.
+Les six onglets conservent leurs responsabilités. Dans Aperçu, la priorité unique
+et le tableau des domaines remplacent le bloc détaillé **À traiter**. Identité,
+Finances et Historique conservent leur orientation contextuelle selon leurs règles
+d’affichage ; le suivi de Publication présente ses propres états et prérequis.
 Les liens ciblent la section concernée, y compris
 au clavier sur mobile. Les indicateurs des onglets reprennent les états disponibles;
 une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
 La préparation, la revue, le paiement et l’autorisation de publication restent
 distincts. Le guide conserve les explications détaillées à la demande.
 
-Dans la fiche de préparation, sélectionner un contrôle affiche son détail, puis
+Dans la fiche de préparation du Comptoir, sélectionner un contrôle affiche son détail, puis
 **Actions** ouvre le controller partagé. L'action proposée rejoint l'écran
 propriétaire; relire ensuite la fiche pour obtenir la progression serveur. L'approbation
 d'une préparation admissible conserve sa confirmation explicite et la version
@@ -253,9 +269,9 @@ non résolue ou non représentable bloque l’application. La qualification exig
 toujours motif, confirmation et versions courantes. La voie manuelle reste
 accessible. Voir les [états, limites et règles de reprise](technical/preparation-assistance.md).
 
-**Aperçu** conserve la référence et les avantages enregistrés, avec des raccourcis
-vers la fiche et les finances. **Note interne** ouvre l’éditeur de la note de revue
-depuis chaque onglet; cette note reste distincte des interventions successives.
+La revue administrative et ses actions existantes sont accessibles dans
+**Publication**, à la section `dossier-review`. Les incidents Stripe sont consultables
+dans **Finances**, à la section `dossier-stripe`, puis rejoignent **À traiter**.
 
 **Finances** conserve les montants confirmés et les documents du dossier. Lorsqu’aucun
 remboursement n’est demandé, le suivi affiche une indication compacte, sans répéter
@@ -266,12 +282,16 @@ Le numéro d’une facture ouvre son inspection dans le dossier; l’accès au r
 complet reste disponible. Les entrées directes `billing` et `refund` partagent les
 mêmes sections et la même commande de suivi.
 
-Dans **Publication**, les repères **Offre → Préparation → Contenu → Autorisation →
-Livraison → Preuve** conduisent aux sections existantes et aux écrans propriétaires.
-L'autorisation reste celle du contenu et de la livraison exacts dans le tiroir
+Dans **Publication**, chaque prestation donne accès à son état courant, aux détails
+disponibles et au parcours propriétaire : Comptoir collectif, espace de préparation,
+Examiner, planification ou preuve. Le suivi distingue les propositions des
+livraisons et conserve les erreurs de lecture explicites. **Voir la préparation**,+lorsqu’une activité enregistrée existe, ouvre son tiroir transversal depuis
+l’en-tête du suivi. Les engagements restent accessibles dans ce même onglet à
+`dossier-agreement` ; leurs formulaires existants conservent versions et confirmations.
+L’autorisation reste celle du contenu et de la livraison exacts dans le tiroir
 partagé. Le suivi Web et les canaux sociaux gardent leurs décisions indépendantes ;
-un canal non promis n'est pas un prérequis de livraison. Les références de preuve
-qualifiées dans l'accord rejoignent la prestation exacte dans **Campagnes**.
+un canal non promis n’est pas un prérequis de livraison. Les références de preuve
+qualifiées dans l’accord rejoignent la prestation exacte dans **Campagnes**.
 Les dates et la portée de la réalisation restent distinctes de l'observation
 actuelle de visibilité ; une référence déclarée seule ne solde pas une prestation.
 Voir le [contrat de visibilité des preuves](technical/admin-campaigns.md).

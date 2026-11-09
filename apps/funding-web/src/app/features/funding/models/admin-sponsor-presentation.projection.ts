@@ -7,12 +7,12 @@ import type {
 import type {
   AdminSponsorDetailHeaderView,
   AdminSponsorDetailIdentityView,
-  AdminSponsorDetailOverviewView,
+  AdminSponsorNoteView,
   AdminSponsorListRow
 } from './admin-sponsors-ui.models.js';
 import type {
   AdminSponsorIdentityState,
-  AdminSponsorOverviewState,
+  AdminSponsorNoteState,
   AdminSponsorPresentation
 } from './admin-sponsor-workflow.ports.js';
 
@@ -119,43 +119,15 @@ export class AdminSponsorPresentationProjection {
     };
   }
 
-  overview(
+  note(
     sponsorship: AdminSponsorshipRecord,
-    state: AdminSponsorOverviewState
-  ): AdminSponsorDetailOverviewView {
+    state: AdminSponsorNoteState
+  ): AdminSponsorNoteView {
     return {
       companyName:
         sponsorship.sponsor_company_name ||
         this.presentation.t('admin.messages.entreprise_sans_nom'),
-      publicNameLabel: this.publicNameLabel(sponsorship),
-      contactName:
-        sponsorship.sponsor_contact_name ||
-        this.presentation.t('admin.legacy.non_fourni'),
-      contactEmail: sponsorship.sponsor_contact_email || null,
-      websiteUrl: sponsorship.sponsor_website_url || null,
       publicReference: sponsorship.public_reference || null,
-      copyMessage: state.copyMessage,
-      amountLabel: this.formatMoney(sponsorship),
-      tierClass: this.tierClass(sponsorship),
-      tierLabel: this.sponsorshipTierLabel(sponsorship),
-      benefitsLabel: this.sponsorshipBenefitsLabel(sponsorship),
-      paymentStatusClass: this.paymentStatusClass(sponsorship.payment_status),
-      paymentStatusLabel: this.presentation.paymentStatusLabel(
-        sponsorship.payment_status
-      ),
-      refundStatusClass: this.presentation.history.refundWorkflowStatusClass(
-        sponsorship.sponsorship_refund_status
-      ),
-      refundStatusLabel: this.presentation.history.refundWorkflowStatusLabel(
-        sponsorship.sponsorship_refund_status
-      ),
-      hasRefundWorkflow:
-        this.presentation.history.hasRefundWorkflow(sponsorship),
-      refundWorkflowTimelineLabel:
-        this.presentation.history.refundWorkflowTimelineLabel(sponsorship),
-      refundId: sponsorship.sponsorship_refund_id || null,
-      paidAtLabel: this.presentation.dateOnlyLabel(sponsorship.paid_at),
-      sponsorMessage: sponsorship.sponsor_message || null,
       reviewNote: state.reviewNote,
       reviewNoteDirty: state.reviewNoteDirty,
       reviewNoteStateLabel: state.reviewNoteStateLabel,

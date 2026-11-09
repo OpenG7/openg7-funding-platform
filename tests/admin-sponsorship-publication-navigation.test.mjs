@@ -6,6 +6,12 @@ import {
   publicationJourneyParams,
   publicationJourneySelection
 } from '../dist/apps/funding-web/src/app/features/funding/models/admin-sponsorship-publication-navigation.js';
+import {
+  publicationDeskParams,
+  publicationExaminationParams,
+  publicationReturnId,
+  publicationWorkshopParams
+} from '../dist/apps/funding-web/src/app/features/funding/components/admin-sponsors/publication-monitor-navigation.js';
 
 const id = (number) =>
   `10000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
@@ -173,4 +179,38 @@ test('outbound navigation contains routing identifiers and no editorial or priva
       sponsorshipId: id(99)
     }
   );
+});
+
+test('the publication monitor preserves its desk, examination and workshop return paths', () => {
+  assert.deepEqual(publicationDeskParams(id(1), 'SP-SYNTHETIC', id(2)), {
+    view: 'desk',
+    deskSearch: 'SP-SYNTHETIC',
+    deskPage: null,
+    deskStatus: null,
+    sponsorshipId: null,
+    obligationId: null,
+    workshopSponsorshipId: null,
+    reviewReturn: id(2),
+    publicationReturn: id(1)
+  });
+  assert.deepEqual(publicationExaminationParams(id(1), id(2)), {
+    view: 'desk',
+    sponsorshipId: id(1),
+    obligationId: id(2),
+    publicationReturn: id(1)
+  });
+  assert.deepEqual(publicationWorkshopParams(id(1)), {
+    view: 'publication',
+    workshopSponsorshipId: id(1),
+    publicationReturn: id(1)
+  });
+  assert.equal(publicationReturnId(id(1)), id(1));
+  for (const invalid of [
+    null,
+    undefined,
+    '',
+    'private text',
+    '/admin/fundraiser/sponsors'
+  ])
+    assert.equal(publicationReturnId(invalid), null);
 });

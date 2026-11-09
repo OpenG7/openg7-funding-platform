@@ -284,20 +284,20 @@ test('route query values are decoded by Angular and passed unchanged to the sele
 
 test('recognized section anchors select their exact dossier and tab after scrolling', () => {
   const cases = [
-    ['payment', 'overview'],
-    ['review', 'overview'],
-    ['stripe', 'overview'],
+    ['payment', 'billing'],
+    ['review', 'publication'],
+    ['stripe', 'billing'],
     ['identity', 'identity'],
     ['media', 'media'],
     ['media-gallery', 'media'],
     ['billing', 'billing'],
     ['publication', 'publication'],
-    ['agreement', 'overview'],
+    ['agreement', 'publication'],
     ['preparation', 'publication'],
     ['publication-content', 'media'],
     ['website-settings', 'media'],
-    ['assistance-review', 'overview'],
-    ['assistance-source', 'overview'],
+    ['assistance-review', 'publication'],
+    ['assistance-source', 'publication'],
     ['refund', 'refund'],
     ['audit', 'audit']
   ];
@@ -333,10 +333,36 @@ test('recognized section anchors select their exact dossier and tab after scroll
       {
         fragment: 'dossier-review',
         sponsorshipId,
-        tab: 'overview'
+        tab: 'publication'
       }
     ]
   ]);
+});
+
+test('legacy overview links open the current review, finance and agreement owners', () => {
+  for (const [fragment, tab] of [
+    ['review', 'publication'],
+    ['payment', 'billing'],
+    ['stripe', 'billing'],
+    ['agreement', 'publication'],
+    ['assistance-review', 'publication'],
+    ['assistance-source', 'publication']
+  ]) {
+    const f = fixture();
+    f.state.url = path() + '#dossier-' + fragment;
+    f.adapter.applyRouteSelection(
+      convertToParamMap({ sponsorshipId, tab: 'overview' })
+    );
+    assert.deepEqual(f.calls, [['selection', sponsorshipId, tab]]);
+    f.adapter.handleRouterEvent(
+      scrollEvent(18, f.state.url, 'dossier-' + fragment)
+    );
+    assert.deepEqual(f.calls.at(-1), [
+      'scrolled',
+      18,
+      { fragment: 'dossier-' + fragment, sponsorshipId, tab }
+    ]);
+  }
 });
 
 test('canonical tabs and aliases focus sections within the same visible workspace', () => {
@@ -420,7 +446,7 @@ test('Scroll is ignored while a new navigation is in progress, including a same 
       {
         fragment: 'dossier-review',
         sponsorshipId,
-        tab: 'overview'
+        tab: 'publication'
       }
     ]
   ]);

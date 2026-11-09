@@ -1,14 +1,14 @@
 @if (dossier(); as d) {
-  @if (view() !== 'overview' || d.failedStripeEvents.length) {
+  @if (view() !== 'stripe' || d.failedStripeEvents.length) {
     <section
       data-og7="dossier-facts"
       [attr.data-og7-id]="view()"
-      [id]="'dossier-' + (view() === 'overview' ? 'stripe' : view())"
+      [id]="'dossier-' + view()"
       class="admin-focus-target"
       [class.finance-card]="view() === 'billing' || view() === 'refund'"
       tabindex="-1"
       [attr.aria-label]="
-        (view() === 'overview'
+        (view() === 'stripe'
           ? 'admin.dossier.nextActions.stripe'
           : 'admin.dossier.tabs.' + view()
         ) | translate
@@ -135,7 +135,7 @@
           (commitmentChanged)="commitmentChanged.emit()"
         />
       }
-      @if (view() === 'overview') {
+      @if (view() === 'stripe') {
         @for (event of d.failedStripeEvents; track event.id) {
           <p>
             {{ 'admin.dossier.reasons.stripe_failed' | translate }} ·

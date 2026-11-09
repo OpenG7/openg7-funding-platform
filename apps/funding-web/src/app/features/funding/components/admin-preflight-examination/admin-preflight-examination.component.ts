@@ -768,13 +768,13 @@ export class AdminPreflightExaminationComponent {
       );
     const targets: Record<string, readonly string[]> = {
       payment: ['billing', 'dossier-billing'],
-      agreement: ['overview', 'dossier-agreement'],
-      dossierReview: ['overview', 'dossier-review'],
+      agreement: ['publication', 'dossier-agreement'],
+      dossierReview: ['publication', 'dossier-review'],
       media: ['media', 'dossier-media-gallery'],
       identity: ['identity', 'dossier-identity'],
       content: ['media', 'dossier-website-settings'],
       textReview: ['media', 'dossier-website-settings'],
-      other: ['overview', 'dossier-review']
+      other: ['publication', 'dossier-review']
     };
     const target = targets[this.guidedCheckKey(code)];
     return target

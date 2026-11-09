@@ -63,8 +63,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorDetailTabs = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-tabs.component.ts'
   );
-  const sponsorDetailOverview = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
+  const sponsorDetailOverview = readAdminSponsorsComponentSource(
+    'admin-sponsor-detail-overview'
+  );
+  const sponsorNote = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-note.component.ts'
   );
   const sponsorDetailMedia = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
@@ -342,7 +345,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'openg7-admin-sponsor-detail-header',
       'data-og7="dossier-back"',
       '(click)="closeDetails()"',
-      'selectedSponsorDetailOverview',
+      'selectedSponsorNote',
       'openg7-admin-sponsor-detail-overview',
       'selectedSponsorDetailIdentity',
       'openg7-admin-sponsor-detail-identity',
@@ -463,10 +466,19 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     sponsorDetailOverview,
     [
-      'AdminSponsorDetailOverviewView',
+      'SponsorOverviewView',
       'ChangeDetectionStrategy.OnPush',
-      'detail-card-grid',
-      'copyReference = output<void>()',
+      'data-og7="overview-stat"',
+      'data-og7="overview-priority"',
+      'data-og7="overview-domains"',
+      'navigate = output<OverviewDestination>()'
+    ],
+    'read-only statistical overview'
+  );
+  assertIncludesAll(
+    sponsorNote,
+    [
+      'AdminSponsorNoteView',
       'reviewNoteChange = output<string>()',
       'saveReviewNote = output<void>()',
       'onReviewNoteInput',
@@ -474,7 +486,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'id="sponsor-review-note"',
       'is-dirty'
     ],
-    'admin sponsor detail overview component'
+    'private note editor in the global dossier toolbar'
   );
 
   assertIncludesAll(

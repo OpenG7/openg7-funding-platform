@@ -1,0 +1,65 @@
+{
+  "statistics": "Statistiques du dossier",
+  "actions": {
+    "identity_missing": "Compléter les coordonnées du commanditaire"
+  },
+  "stats": {
+    "steps": "Étapes réglées",
+    "services": "Prestations livrées",
+    "blockers": "Blocages actifs",
+    "visibility": "Fiche publique",
+    "media": "Médias validés",
+    "proposals": "Propositions prêtes"
+  },
+  "visibility": {
+    "visible": "Visible",
+    "hidden": "Masquée",
+    "held": "Maintien privé",
+    "unknown": "Indisponible"
+  },
+  "priority": {
+    "title": "Priorité actuelle",
+    "unknown": "La priorité ne peut pas être déterminée avec les données disponibles.",
+    "complete": "Aucune intervention requise.",
+    "waiting": "Traitement en cours par la plateforme.",
+    "sponsorWaiting": "En attente du formulaire du commanditaire.",
+    "readonly": "Aucune intervention accessible avec vos permissions."
+  },
+  "open": {
+    "identity": "Ouvrir Identité",
+    "media": "Ouvrir Fiche et médias",
+    "publication": "Ouvrir Publication",
+    "review": "Ouvrir la revue administrative",
+    "finance": "Ouvrir Finances",
+    "agreement": "Ouvrir l’accord"
+  },
+  "domainsTitle": "État par domaine",
+  "domain": "Domaine",
+  "state": "État",
+  "domains": {
+    "identity": "Identité",
+    "media": "Médias",
+    "publication": "Publication",
+    "review": "Revue administrative",
+    "finance": "Finances"
+  },
+  "states": {
+    "unknown": "Indisponible",
+    "complete": "Terminé",
+    "incomplete": "Incomplète",
+    "pending": "En attente",
+    "partial": "Partiel",
+    "toReview": "À valider",
+    "missing": "Manquants",
+    "blocked": "Bloquée",
+    "error": "Incident",
+    "waiting": "En cours",
+    "cancelled": "Annulée",
+    "approved": "Approuvée",
+    "rejected": "Refusée",
+    "paid": "Payée",
+    "refunded": "Remboursée",
+    "disputed": "Contestée",
+    "notRequired": "Non requis"
+  }
+}

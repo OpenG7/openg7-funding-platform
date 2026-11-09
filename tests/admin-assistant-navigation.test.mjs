@@ -34,7 +34,7 @@ test('the six canonical dossier tabs retain their own recognized fragment', () =
     'billing',
     'audit'
   ]) {
-    const fragment = tab === 'overview' ? 'dossier-review' : 'dossier-' + tab;
+    const fragment = tab === 'overview' ? undefined : 'dossier-' + tab;
     const origin = path(tab, fragment);
     assert.equal(router.serializeUrl(returned(origin)), origin, tab);
   }
@@ -101,7 +101,7 @@ test('unknown fragments and sections from another workspace are removed', () => 
     'unknown',
     'dossier-unknown',
     'dossier-refund',
-    'dossier-agreement'
+    'dossier-website-settings'
   ])
     assert.equal(
       router.serializeUrl(returned(path('publication', fragment))),
@@ -117,12 +117,35 @@ test('private filters and nested return values are stripped from the rebuilt URL
   const result = returned(origin);
   assert.deepEqual(result.queryParams, {
     sponsorshipId,
-    tab: 'overview'
+    tab: 'publication'
   });
   assert.equal(
     router.serializeUrl(result),
-    path('overview', 'dossier-agreement')
+    path('publication', 'dossier-agreement')
   );
+});
+
+test('legacy Overview returns retain the current owner and exact section without retaining private filters', () => {
+  for (const [fragment, tab] of [
+    ['dossier-agreement', 'publication'],
+    ['dossier-assistance-review', 'publication'],
+    ['dossier-assistance-source', 'publication'],
+    ['dossier-review', 'publication'],
+    ['dossier-payment', 'billing'],
+    ['dossier-stripe', 'billing']
+  ])
+    assert.equal(
+      router.serializeUrl(returned(path('overview', fragment))),
+      path(tab, fragment)
+    );
+  for (const fragment of [
+    'dossier-publication-content',
+    'dossier-website-settings'
+  ])
+    assert.equal(
+      router.serializeUrl(returned(path('media', fragment))),
+      path('media', fragment)
+    );
 });
 
 test('missing, oversized and unparseable origins fail closed', () => {

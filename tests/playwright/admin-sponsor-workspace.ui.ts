@@ -56,216 +56,166 @@ export function registerSponsorWorkspaceTests({
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
   for (const [locale, width] of [
-    ['fr-CA', 1280],
+    ['fr-CA', 1536],
+    ['fr-CA', 3840],
     ['en', 390]
   ] as const) {
-    test(`shared dossier actions expose server states and targeted corrections in ${locale} at ${width}px`, async ({
+    test(`overview is limited to six statistics, one priority and five domains in ${locale} at ${width}px`, async ({
       page
-    }) => {
-      const { calls, options } = await fixtures(page, 'reader');
-      options.progressOverrides = {
-        publicationBlockers: ['media'],
-        publicationWorkflow: {
-          state: 'waiting',
-          responsibility: 'platform',
-          reason: 'publication_scheduled',
-          obligations: []
-        }
-      };
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto(path());
-      if (locale === 'en')
-        await page
-          .getByRole('button', {
-            name: 'Switch administration language to English'
-          })
-          .click();
-      const frame = page.locator('[data-og7="sponsorship-dossier"]');
-      const rail = frame.locator('[data-og7="dossier-worklist"]');
-      const recommendation = frame.locator(
-        '[data-og7="dossier-recommendation"]'
-      );
-      await expect(recommendation).toHaveCount(1);
-      await expect(rail.locator('[data-og7="dossier-next"]')).toHaveCount(1);
-      await expect(
-        rail.locator('[data-og7="publication-next-responsibility"]')
-      ).toContainText(
-        locale === 'en'
-          ? 'Next step: platform.'
-          : 'Prochaine étape : plateforme.'
-      );
-      await expect(rail).not.toContainText('admin.dossier.');
-      await expect(rail).not.toContainText('admin.sponsorsCleanup.');
-      const finances = frame
-        .locator('[data-og7="dossier-tabs"]')
-        .getByRole('button', { name: 'Finances', exact: true });
-      await expect(finances).toHaveAccessibleDescription(
-        locale === 'en' ? 'Error' : 'Erreur'
-      );
-      const blockers = rail.locator('[data-og7="publication-blockers"]');
-      const media = blockers
-        .locator('[data-og7="dossier-blocker-family"][data-og7-id="media"]')
-        .getByRole('link');
-      await media.focus();
-      await media.press('Enter');
-      await expect(page).toHaveURL(/tab=media.*#dossier-media$/);
-      await expect(page.locator('#dossier-media')).toBeFocused();
-      await expect(recommendation).toHaveCount(0);
-      await expect(frame.locator('[data-og7="dossier-main"]')).toBeVisible();
-      await expect(frame.locator('[data-og7="dossier-worklist"]')).toHaveCount(
-        0
-      );
-      await expect(
-        frame.locator('[data-og7="dossier-tabs"]').getByRole('button')
-      ).toHaveCount(6);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1
-        )
-      ).toBe(true);
-      expect(
-        (
-          await new AxeBuilder({ page })
-            .include('[data-og7="sponsorship-dossier"]')
-            .analyze()
-        ).violations
-      ).toEqual([]);
-      expect(calls.every((call) => call.method === 'GET')).toBe(true);
-    });
-  }
-
-  for (const [locale, width] of [
-    ['fr-CA', 1280],
-    ['en', 390]
-  ] as const) {
-    test(`dossier recommendation preserves server priority and discloses additional blocker families in ${locale} at ${width}px`, async ({
-      page
-    }) => {
-      const { calls, options } = await fixtures(page, 'reader');
-      const english = locale === 'en';
+    }, testInfo) => {
+      const { calls, options } = await fixtures(page, 'operator');
       options.next = {
-        reason: 'stripe_failed',
-        tab: 'overview',
-        adminUrl: path() + '#dossier-stripe'
+        reason: 'identity_missing',
+        tab: 'identity',
+        adminUrl: path('identity')
       };
       options.milestones = [
+        {
+          id: 'payment',
+          state: 'complete',
+          reason: 'payment_recorded',
+          tab: 'overview'
+        },
         {
           id: 'identity',
           state: 'blocked',
           reason: 'identity_missing',
           tab: 'identity'
         },
+        { id: 'media', state: 'pending', reason: 'media_review', tab: 'media' },
         {
           id: 'review',
           state: 'pending',
           reason: 'review_pending',
           tab: 'overview'
         },
-        { id: 'media', state: 'pending', reason: 'media_review', tab: 'media' },
+        {
+          id: 'billing',
+          state: 'complete',
+          reason: 'invoice_issued',
+          tab: 'billing'
+        },
         {
           id: 'publication',
-          state: 'pending',
-          reason: 'publication_pending',
+          state: 'blocked',
+          reason: 'publication_blocked',
           tab: 'publication'
         }
       ];
       options.progressOverrides = {
-        publicationBlockers: ['commitment_needs_confirmation'],
+        publicationBlockers: ['identity', 'review', 'media'],
         publicationWorkflow: {
-          state: 'action_required',
+          state: 'blocked',
+          reason: 'publication_blocked',
           responsibility: 'admin',
-          reason: 'publication_preparation_required',
           obligations: []
         },
-        failedStripeEvents: [
-          { id: 'evt_synthetic_ux03', type: 'payment_intent.succeeded' }
-        ]
+        website: {
+          visible: false,
+          held: false,
+          canPublish: false,
+          version: 'fixture-hidden',
+          blockers: ['identity', 'review', 'media']
+        },
+        refund: {
+          workflow: 'none',
+          state: 'not_required',
+          confirmedAmountMinor: 0,
+          creditMissing: false,
+          hasError: false
+        },
+        failedEmails: [],
+        failedStripeEvents: []
       };
-      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (value) => localStorage.setItem('openg7.language', value),
+        locale
+      );
+      await page.setViewportSize({
+        width,
+        height: width === 3840 ? 2160 : 900
+      });
       await page.goto(path());
-      if (english)
-        await page
-          .getByRole('button', {
-            name: 'Switch administration language to English'
-          })
-          .click();
-      const recommendation = page.locator(
-        '[data-og7="dossier-recommendation"]'
-      );
-      const families = recommendation.locator(
-        '[data-og7="dossier-blocker-family"]'
-      );
-      await expect(recommendation).toHaveCount(1);
-      await expect(
-        recommendation.getByText(
-          english
-            ? 'A Stripe event linked to this dossier failed.'
-            : 'Un événement Stripe lié au dossier est en échec.',
-          { exact: true }
-        )
-      ).toBeVisible();
-      const primary = recommendation.locator('[data-og7="dossier-next"]');
-      await expect(primary).toHaveText(
-        english ? 'View Stripe errors' : 'Voir les erreurs Stripe'
-      );
-      await expect(primary).toHaveAttribute('href', path() + '#dossier-stripe');
-      await expect(
-        recommendation.locator('[data-og7="dossier-next-owner"]')
-      ).toContainText(
-        english ? 'Responsibility to be determined' : 'Responsable à déterminer'
-      );
-      await expect(families).toHaveCount(3);
+      const overview = page.locator('openg7-admin-sponsor-detail-overview');
+      const stats = overview.locator('[data-og7="overview-stat"]');
+      await expect(stats).toHaveCount(6);
       expect(
-        await families.evaluateAll((elements) =>
-          elements.map((element) => element.getAttribute('data-og7-id'))
-        )
-      ).toEqual(['identity', 'review', 'media']);
-      await expect(
-        families.filter({
-          has: page.getByRole('heading', {
-            name: english ? 'Sponsor review' : 'Revue du commanditaire',
-            exact: true
-          })
-        })
-      ).toContainText(english ? 'Pending' : 'En attente');
-      const all = recommendation.locator('[data-og7="dossier-blockers-all"]');
-      await expect(all).toHaveAttribute('aria-expanded', 'false');
-      await all.focus();
-      await all.press('Enter');
-      await expect(all).toBeFocused();
-      await expect(all).toHaveAttribute('aria-expanded', 'true');
-      await expect(families).toHaveCount(6);
-      expect(
-        await families.evaluateAll((elements) =>
+        await stats.evaluateAll((elements) =>
           elements.map((element) => element.getAttribute('data-og7-id'))
         )
       ).toEqual([
-        'identity',
-        'review',
+        'steps',
+        'services',
+        'blockers',
+        'visibility',
         'media',
-        'preparation',
-        'publication',
-        'finance'
+        'proposals'
       ]);
-      for (const link of await families.getByRole('link').all()) {
-        const href = await link.getAttribute('href');
-        expect(href).not.toBeNull();
-        const destination = new URL(href!, 'http://fixture.invalid');
-        expect(destination.pathname).toBe('/admin/fundraiser/sponsors');
-        expect(destination.searchParams.get('sponsorshipId')).toBe(
-          new URL(path(), 'http://fixture.invalid').searchParams.get(
-            'sponsorshipId'
-          )
+      const positions = await stats.evaluateAll((elements) =>
+        elements.map((element) => {
+          const bounds = element.getBoundingClientRect();
+          return { left: Math.round(bounds.left), top: Math.round(bounds.top) };
+        })
+      );
+      if (width >= 1536) {
+        expect(
+          new Set(positions.slice(0, 3).map((position) => position.top)).size
+        ).toBe(1);
+        expect(
+          new Set(positions.slice(3).map((position) => position.top)).size
+        ).toBe(1);
+        expect(positions[3]!.top).toBeGreaterThan(positions[0]!.top);
+        expect(
+          new Set(positions.slice(0, 3).map((position) => position.left)).size
+        ).toBe(3);
+        expect(positions.slice(0, 3).map((position) => position.left)).toEqual(
+          positions.slice(3).map((position) => position.left)
         );
-        expect(destination.hash).toMatch(/^#dossier-/);
+      } else {
+        expect(new Set(positions.map((position) => position.top)).size).toBe(6);
+        expect(new Set(positions.map((position) => position.left)).size).toBe(
+          1
+        );
       }
-      await expect(primary).toHaveAttribute('href', path() + '#dossier-stripe');
-      await expect(recommendation).not.toContainText('admin.sponsorsCleanup.');
-      await expect(recommendation).not.toContainText('admin.dossier.');
+      await expect(
+        overview.locator('[data-og7="overview-stat"][data-og7-id="steps"]')
+      ).toContainText(/2\s*\/\s*6/);
+      await expect(
+        overview.locator('[data-og7="overview-stat"][data-og7-id="visibility"]')
+      ).toContainText(locale === 'en' ? 'Hidden' : 'Masquée');
+      await expect(
+        overview.locator('[data-og7="overview-stat"][data-og7-id="blockers"]')
+      ).toContainText('3');
+      await expect(
+        overview.locator('[data-og7="overview-stat"][data-og7-id="proposals"]')
+      ).toContainText(/Indisponible|Unavailable/);
+      await expect(
+        overview.locator('[data-og7="overview-priority"]')
+      ).toHaveCount(1);
+      const primary = overview.locator('[data-og7="overview-priority-action"]');
+      await expect(primary).toHaveCount(1);
+      const domains = overview.locator('[data-og7="overview-domain"]');
+      await expect(domains).toHaveCount(5);
+      expect(
+        await domains.evaluateAll((elements) =>
+          elements.map((element) => element.getAttribute('data-og7-id'))
+        )
+      ).toEqual(['identity', 'media', 'publication', 'review', 'finance']);
+      for (const hook of [
+        'dossier-actions',
+        'dossier-worklist',
+        'dossier-service-summary',
+        'publication-blockers',
+        'dossier-overview-summary'
+      ])
+        await expect(page.locator(`[data-og7="${hook}"]`)).toHaveCount(0);
+      await expect(overview.locator('textarea, input, details')).toHaveCount(0);
+      await expect(overview).not.toContainText('admin.dossier.');
+      await expect(overview).not.toContainText('admin.sponsorsCleanup.');
       expect(
         (
           await new AxeBuilder({ page })
-            .include('[data-og7="dossier-recommendation"]')
+            .include('openg7-admin-sponsor-detail-overview')
             .analyze()
         ).violations
       ).toEqual([]);
@@ -274,12 +224,43 @@ export function registerSponsorWorkspaceTests({
           () => document.documentElement.scrollWidth <= innerWidth + 1
         )
       ).toBe(true);
-      await all.press('Enter');
-      await expect(families).toHaveCount(3);
+      if (width === 3840) {
+        await page.screenshot({
+          path: testInfo.outputPath('overview-dashboard-fr-4k.png'),
+          animations: 'disabled'
+        });
+      }
       await primary.focus();
       await primary.press('Enter');
-      await expect(page).toHaveURL(path() + '#dossier-stripe');
-      await expect(page.locator('#dossier-stripe')).toBeFocused();
+      await expect(page).toHaveURL(/tab=identity.*#dossier-identity$/);
+      await expect(page.locator('#dossier-identity')).toBeFocused();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+
+    test(`overview domain rows navigate directly without duplicate shortcuts in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page, 'reader');
+      await page.addInitScript(
+        (value) => localStorage.setItem('openg7.language', value),
+        locale
+      );
+      await page.setViewportSize({
+        width,
+        height: width === 3840 ? 2160 : 900
+      });
+      await page.goto(path());
+      const overview = page.locator('openg7-admin-sponsor-detail-overview');
+      await expect(
+        overview.locator('[data-og7="overview-priority-action"]')
+      ).toHaveCount(0);
+      const media = overview.locator(
+        '[data-og7="overview-domain"][data-og7-id="media"]'
+      );
+      await media.getByRole('button').focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/tab=media.*#dossier-media$/);
+      await expect(page.locator('#dossier-media')).toBeFocused();
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
   }
@@ -297,10 +278,13 @@ export function registerSponsorWorkspaceTests({
       page.locator('[data-og7="sponsorship-progress"]').getByRole('alert')
     ).toBeVisible();
     await expect(states).toHaveCount(0);
-    await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
     await expect(
-      page.locator('[data-og7="dossier-recommendation"]')
+      page.locator('[data-og7="overview-priority-action"]')
     ).toHaveCount(0);
+    for (const id of ['steps', 'services', 'blockers', 'visibility'])
+      await expect(
+        page.locator(`[data-og7="overview-stat"][data-og7-id="${id}"]`)
+      ).toContainText(/Indisponible|Unavailable/);
   });
 
   test('invoice inspection stays in the dossier and restores focus after an unavailable preview', async ({

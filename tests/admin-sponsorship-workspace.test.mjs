@@ -107,13 +107,13 @@ test('publication blockers navigate to their owning section', () => {
     ['media', 'media', 'media'],
     ['identity', 'identity', 'identity'],
     ['hidden', 'publication', 'publication'],
-    ['commitment_needs_confirmation', 'publication', 'publication'],
-    ['commitment_blocked', 'publication', 'publication'],
+    ['commitment_needs_confirmation', 'publication', 'agreement'],
+    ['commitment_blocked', 'publication', 'agreement'],
     ['refund', 'refund', 'refund'],
-    ['review', 'overview', 'review'],
-    ['payment', 'overview', 'payment'],
-    ['consent', 'overview', 'payment'],
-    ['unknown_future_reason', 'overview', 'payment']
+    ['review', 'publication', 'review'],
+    ['payment', 'billing', 'payment'],
+    ['consent', 'identity', 'identity'],
+    ['unknown_future_reason', 'billing', 'payment']
   ]) {
     assert.equal(publicationBlockerTab(reason), tab);
     assert.equal(publicationBlockerSection(reason), section);

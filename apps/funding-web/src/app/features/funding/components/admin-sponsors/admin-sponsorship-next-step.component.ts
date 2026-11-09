@@ -15,6 +15,7 @@ import type {
 } from '@openg7/funding-core';
 
 import {
+  dossierSectionTab,
   nextDossierSection,
   type DossierSection
 } from '../../models/admin-sponsorship-navigation.js';
@@ -76,7 +77,9 @@ export class AdminSponsorshipNextStepComponent {
   );
   readonly params = computed(() => ({
     sponsorshipId: this.dossier().contributionId,
-    tab: this.dossier().next.tab
+    tab:
+      dossierSectionTab('dossier-' + this.nextSection()) ??
+      this.dossier().next.tab
   }));
 
   /** Domain order is explicit: this view neither scores nor reprioritizes work. */
@@ -105,7 +108,7 @@ export class AdminSponsorshipNextStepComponent {
         add(id, {
           reasonKey: 'admin.dossier.reasons.' + step.reason,
           state: step.state,
-          tab: step.tab,
+          tab: dossierSectionTab('dossier-' + section) ?? step.tab,
           section
         });
     }
@@ -126,7 +129,11 @@ export class AdminSponsorshipNextStepComponent {
           reasonKey: 'admin.dossier.publicationBridge.blocker.' + reason,
           state: 'blocked',
           tab:
-            reason === 'consent' ? 'identity' : publicationBlockerTab(reason),
+            reason === 'consent'
+              ? 'identity'
+              : (dossierSectionTab(
+                  'dossier-' + publicationBlockerSection(reason)
+                ) ?? publicationBlockerTab(reason)),
           section:
             reason === 'consent'
               ? 'identity'
@@ -137,7 +144,7 @@ export class AdminSponsorshipNextStepComponent {
     if (dossier.failedStripeEvents.length)
       add('finance', {
         reasonKey: 'admin.dossier.reasons.stripe_failed',
-        tab: 'overview',
+        tab: 'billing',
         section: 'stripe'
       });
     for (const email of dossier.failedEmails)

@@ -240,11 +240,11 @@ test('source, job and review revisions invalidate only the corresponding control
   );
   assert.equal(
     preparationAssistanceDestination(contributionId, 'review'),
-    adminUrl + '&tab=overview#dossier-assistance-review'
+    adminUrl + '&tab=publication#dossier-assistance-review'
   );
   assert.equal(
     preparationAssistanceDestination(contributionId, 'source'),
-    adminUrl + '&tab=overview#dossier-assistance-source'
+    adminUrl + '&tab=publication#dossier-assistance-source'
   );
 });
 
@@ -507,8 +507,8 @@ test('issue navigation opens the existing form matching the reported blocker', (
     (entry) => entry.checkCode === 'content_prepared'
   );
   for (const [actionKind, summaryCodes, tab, anchor] of [
-    ['agreement', [], 'overview', 'dossier-agreement'],
-    ['moderation', [], 'overview', 'dossier-review'],
+    ['agreement', [], 'publication', 'dossier-agreement'],
+    ['moderation', [], 'publication', 'dossier-review'],
     [
       'presentation',
       ['presentation_missing'],
@@ -530,11 +530,11 @@ test('issue navigation opens the existing form matching the reported blocker', (
       'dossier-website-settings'
     ],
     ['inspect', ['required_media_missing'], 'media', 'dossier-media'],
-    ['inspect', ['sponsor_review_required'], 'overview', 'dossier-review'],
+    ['inspect', ['sponsor_review_required'], 'publication', 'dossier-review'],
     [
       'inspect',
       ['commitment_needs_confirmation'],
-      'overview',
+      'publication',
       'dossier-agreement'
     ]
   ]) {

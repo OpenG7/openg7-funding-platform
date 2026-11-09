@@ -4,20 +4,20 @@ import type {
 } from '@openg7/funding-core';
 
 const sectionTabs = {
-  payment: 'overview',
-  review: 'overview',
-  stripe: 'overview',
+  payment: 'billing',
+  review: 'publication',
+  stripe: 'billing',
   identity: 'identity',
   media: 'media',
   'media-gallery': 'media',
   billing: 'billing',
   publication: 'publication',
-  agreement: 'overview',
+  agreement: 'publication',
   preparation: 'publication',
   'publication-content': 'media',
   'website-settings': 'media',
-  'assistance-review': 'overview',
-  'assistance-source': 'overview',
+  'assistance-review': 'publication',
+  'assistance-source': 'publication',
   refund: 'refund',
   audit: 'audit'
 } as const satisfies Record<string, SponsorshipDossierTab>;
@@ -43,4 +43,22 @@ export function dossierSectionTab(
   return Object.hasOwn(sectionTabs, section)
     ? sectionTabs[section as DossierSection]
     : null;
+}
+
+/** Old Overview anchors retain their target after work moves to its owning tab. */
+export function dossierSectionOwnerTab(
+  tab: string | null,
+  fragment: string | null
+): string | null {
+  return (tab === null || tab === 'overview') &&
+    [
+      'dossier-payment',
+      'dossier-review',
+      'dossier-stripe',
+      'dossier-agreement',
+      'dossier-assistance-review',
+      'dossier-assistance-source'
+    ].includes(fragment ?? '')
+    ? dossierSectionTab(fragment)
+    : tab;
 }

@@ -19,6 +19,8 @@ const controlledSponsorLogoUrlPrefixes = [
   '/public/sponsor-logos/'
 ];
 
+export type SponsorMediaReadState = 'loading' | 'ready' | 'error';
+
 /** Local media workflows; the page retains selection, rights, shared locks and errors. */
 export class AdminSponsorMediaWorkflow {
   readonly logoUploadMessages = signal<Record<string, string>>({});
@@ -26,6 +28,10 @@ export class AdminSponsorMediaWorkflow {
   readonly sponsorMedia = signal<Record<string, readonly SponsorMediaAsset[]>>(
     {}
   );
+  /** Cached assets remain usable by the gallery; only ready facts may feed statistics. */
+  readonly sponsorMediaReadState = signal<
+    Partial<Record<string, SponsorMediaReadState>>
+  >({});
   readonly sponsorMediaPreviewUrls = signal<Record<string, string>>({});
   readonly sponsorMediaMessages = signal<Record<string, string>>({});
   private readonly logoPreviews = new Map<string, BlobPreviewResource>();
@@ -450,6 +456,10 @@ export class AdminSponsorMediaWorkflow {
     this.clearPreviews(this.mediaPreviews);
     this.sponsorMediaPreviewUrls.set({});
     if (!contributionId) return;
+    this.sponsorMediaReadState.update((current) => ({
+      ...current,
+      [contributionId]: 'loading'
+    }));
     try {
       const response = await this.ports.admin.getSponsorMedia(
         this.ports.adminToken(),
@@ -460,11 +470,19 @@ export class AdminSponsorMediaWorkflow {
         ...current,
         [contributionId]: response.assets
       }));
+      this.sponsorMediaReadState.update((current) => ({
+        ...current,
+        [contributionId]: 'ready'
+      }));
       this.ports.mediaLoaded();
       if (this.options.eagerMediaPreviews !== false)
         await this.loadSponsorMediaPreviews(response.assets);
     } catch (error) {
       if (this.disposed || generation !== this.mediaLoadGeneration) return;
+      this.sponsorMediaReadState.update((current) => ({
+        ...current,
+        [contributionId]: 'error'
+      }));
       this.setSponsorMediaMessage(
         contributionId,
         this.ports.messageFromError(
@@ -486,6 +504,7 @@ export class AdminSponsorMediaWorkflow {
     this.clearPreviews(this.mediaPreviews);
     this.logoPreviewUrls.set({});
     this.sponsorMediaPreviewUrls.set({});
+    this.sponsorMediaReadState.set({});
   }
 
   private async loadSponsorMediaPreviews(

@@ -229,7 +229,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       ) {
         await page.goto(controllerPath('overview'));
         await expectSixTabs(page, language, 'overview');
-        await expect(hook(page, 'dossier-recommendation')).not.toContainText(
+        await expect(hook(page, 'overview-priority')).not.toContainText(
           'admin.dossier.'
         );
         await hook(page, 'dossier-header').scrollIntoViewIfNeeded();
@@ -240,7 +240,7 @@ for (const language of ['fr-CA', 'en'] as const) {
           animations: 'disabled'
         });
         if (language === 'en') {
-          await hook(page, 'dossier-recommendation').scrollIntoViewIfNeeded();
+          await hook(page, 'overview-priority').scrollIntoViewIfNeeded();
           await page.screenshot({
             path: testInfo.outputPath(
               'dossier-overview-en-390-recommendation.png'

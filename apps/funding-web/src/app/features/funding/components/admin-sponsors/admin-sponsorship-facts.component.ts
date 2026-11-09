@@ -40,7 +40,7 @@ export class AdminSponsorshipFactsComponent {
   private readonly i18n = inject(FundingI18nService);
   readonly dossier = input<AdminSponsorshipProgress | null>(null);
   readonly view = input.required<
-    'billing' | 'publication' | 'refund' | 'overview'
+    'billing' | 'publication' | 'refund' | 'stripe'
   >();
 
   money(amount: number, currency: string): string {

@@ -514,6 +514,7 @@ test('media metadata preserves ordering, notifies the page and owns preview URLs
   f.ports.admin.getSponsorMedia = async () => ({ assets });
   await f.workflow.loadSponsorMedia(f.selected.id);
   assert.deepEqual(f.workflow.sponsorMedia()[f.selected.id], assets);
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
   assert.equal(f.calls.filter(([name]) => name === 'mediaLoaded').length, 1);
   assert.deepEqual(f.workflow.sponsorMediaPreviewUrls(), {
     second: 'blob:synthetic-1',
@@ -521,6 +522,63 @@ test('media metadata preserves ordering, notifies the page and owns preview URLs
   });
   await f.workflow.loadSponsorMedia(f.selected.id);
   assert.deepEqual(f.revoked, ['blob:synthetic-1', 'blob:synthetic-2']);
+});
+
+test('metadata read state distinguishes an unavailable collection from a loaded empty collection', async (t) => {
+  const f = fixture(t);
+  const response = deferred();
+  f.ports.admin.getSponsorMedia = () => response.promise;
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], undefined);
+  assert.equal(f.workflow.sponsorMedia()[f.selected.id], undefined);
+  const pending = f.workflow.loadSponsorMedia(f.selected.id);
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'loading');
+  response.resolve({ assets: [] });
+  await pending;
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+  assert.deepEqual(f.workflow.sponsorMedia()[f.selected.id], []);
+});
+
+test('failed metadata refresh invalidates statistics while retaining the existing gallery cache', async (t) => {
+  const f = fixture(t);
+  const cached = [mediaAsset('approved', 'approved')];
+  f.ports.admin.getSponsorMedia = async () => ({ assets: cached });
+  await f.workflow.loadSponsorMedia(f.selected.id);
+  const refresh = deferred();
+  f.ports.admin.getSponsorMedia = () => refresh.promise;
+  const pending = f.workflow.loadSponsorMedia(f.selected.id);
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'loading');
+  assert.deepEqual(f.workflow.sponsorMedia()[f.selected.id], cached);
+  refresh.reject(new Error('synthetic unavailable metadata'));
+  await pending;
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'error');
+  assert.deepEqual(f.workflow.sponsorMedia()[f.selected.id], cached);
+  assert.equal(f.calls.filter(([name]) => name === 'mediaLoaded').length, 1);
+  assert.match(f.workflow.sponsorMediaMessages()[f.selected.id], /^central:/);
+});
+
+test('an obsolete refresh cannot overwrite a newer read state for the same dossier', async (t) => {
+  for (const outcome of ['success', 'failure']) {
+    await t.test(outcome, async (t) => {
+      const f = fixture(t);
+      const older = deferred();
+      let reads = 0;
+      f.ports.admin.getSponsorMedia = () =>
+        ++reads === 1 ? older.promise : Promise.resolve({ assets: [] });
+      const pending = f.workflow.loadSponsorMedia(f.selected.id);
+      await f.workflow.loadSponsorMedia(f.selected.id);
+      assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+      if (outcome === 'success')
+        older.resolve({ assets: [mediaAsset('obsolete')] });
+      else older.reject(new Error('obsolete refresh failure'));
+      await pending;
+      assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+      assert.deepEqual(f.workflow.sponsorMedia()[f.selected.id], []);
+      assert.equal(
+        f.calls.some(([name]) => name === 'error'),
+        false
+      );
+    });
+  }
 });
 
 test('SSR and absent browser URL APIs skip private previews without blocking metadata', async (t) => {
@@ -597,11 +655,14 @@ test('latest metadata request wins and obsolete failures do not reach central er
           : Promise.resolve({ assets: [mediaAsset('latest-asset')] });
       const pending = f.workflow.loadSponsorMedia('obsolete');
       await f.workflow.loadSponsorMedia('latest');
+      assert.equal(f.workflow.sponsorMediaReadState().latest, 'ready');
       if (outcome === 'success')
         old.resolve({ assets: [mediaAsset('obsolete-asset')] });
       else old.reject(new Error('obsolete failure'));
       await pending;
       assert.equal(f.workflow.sponsorMedia().obsolete, undefined);
+      assert.equal(f.workflow.sponsorMediaReadState().obsolete, 'loading');
+      assert.equal(f.workflow.sponsorMediaReadState().latest, 'ready');
       assert.deepEqual(f.workflow.sponsorMediaPreviewUrls(), {
         'latest-asset': 'blob:synthetic-1'
       });
@@ -637,6 +698,7 @@ test('selection clear and disposal invalidate unfinished media and logo requests
   assert.deepEqual(f.workflow.logoPreviewUrls(), {});
   assert.deepEqual(f.workflow.sponsorMediaPreviewUrls(), {});
   assert.deepEqual(f.workflow.sponsorMedia(), {});
+  assert.deepEqual(f.workflow.sponsorMediaReadState(), {});
   assert.equal(
     f.calls.some(([name]) => name === 'confirm' || name === 'mediaLoaded'),
     false

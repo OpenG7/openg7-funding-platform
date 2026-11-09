@@ -116,8 +116,7 @@ export interface AdminSponsorPresentation extends AdminSponsorHistoryPresentatio
   };
 }
 
-export interface AdminSponsorOverviewState {
-  readonly copyMessage: string;
+export interface AdminSponsorNoteState {
   readonly reviewNote: string;
   readonly reviewNoteDirty: boolean;
   readonly reviewNoteStateLabel: string;

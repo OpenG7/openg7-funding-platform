@@ -9,6 +9,19 @@
       <h2 id="publication-monitor-title">{{ t('title') }}</h2>
       <p>{{ t('subtitle') }}</p>
     </div>
+    @if (
+      !accessDenied() && currentDossier().preparationActivityId;
+      as activityId
+    ) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="publication-preparation-activity"
+        (click)="activity.openPreparation(activityId)"
+      >
+        {{ 'admin.contributionActivity.view' | translate }}
+      </button>
+    }
     <button
       class="admin-button refresh-button"
       type="button"
@@ -91,6 +104,7 @@
                 ><a
                   [routerLink]="blockerPath(blocker)"
                   [queryParams]="blockerParams(blocker)"
+                  [fragment]="blockerFragment(blocker)"
                   >{{ t('resolveSource') }}<openg7-admin-icon name="arrow"
                 /></a>
               </li>
@@ -232,7 +246,7 @@
                 <a
                   class="admin-button"
                   [routerLink]="sponsorsPath"
-                  [queryParams]="ownerParams('overview')"
+                  [queryParams]="ownerParams('publication')"
                   fragment="dossier-agreement"
                   >{{ t('links.agreement') }}</a
                 >

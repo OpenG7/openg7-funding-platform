@@ -463,6 +463,75 @@ export function registerDossierPublicationScheduleTests(
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
 
+    test('overview and publication monitor keep legacy delivery counts unconfirmed without qualified evidence', async ({
+      page
+    }) => {
+      const { options, controls, job } = await fixtures(
+        page,
+        context,
+        'reader'
+      );
+      job.mode = 'live';
+      job.status = 'published';
+      job.externalPostUrl = 'https://example.invalid/legacy-declaration';
+      const commitment = options.progressOverrides.commitment!;
+      const obligations = commitment.obligations.map((item) => ({
+        ...item,
+        state: 'fulfilled' as const,
+        fulfilmentEvidenceId: 'synthetic-unqualified-proof-' + item.id
+      }));
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: { ...commitment, obligations },
+        publicationCompletion: { done: 3, total: 3 },
+        publicationBlockers: ['review'],
+        qualifiedFulfilmentEvidenceIds: [],
+        fulfilmentEvidence: obligations.map((item) => ({
+          id: item.fulfilmentEvidenceId,
+          obligationId: item.id,
+          deliveryId: item.channel === 'facebook' ? deliveryId : null,
+          channel: item.channel,
+          target: item.target,
+          provenance:
+            item.channel === 'website'
+              ? 'website_verified'
+              : 'provider_acknowledged',
+          deliveredAt: evaluatedAt,
+          externalPostUrl: job.externalPostUrl,
+          visibility: 'unknown',
+          visibilityObservedAt: null
+        }))
+      };
+      await page.goto(context.path());
+      const services = page.locator(
+        '[data-og7="overview-stat"][data-og7-id="services"]'
+      );
+      await expect(services).toContainText(/0\s*\/\s*3/);
+      await expect(
+        page.locator('[data-og7="overview-domain"][data-og7-id="review"]')
+      ).toContainText('En attente');
+      await expect(
+        page.locator('[data-og7="publication-blockers"]')
+      ).toHaveCount(0);
+      await services.focus();
+      await services.press('Enter');
+      const monitor = page.locator('[data-og7="publication-monitor"]');
+      await expect(monitor).toBeVisible();
+      await expect(
+        monitor.locator('[data-og7="publication-service"]')
+      ).toHaveCount(3);
+      await expect(monitor.getByRole('progressbar')).toHaveAttribute(
+        'value',
+        '0'
+      );
+      await expect(monitor.getByRole('progressbar')).toHaveAttribute(
+        'max',
+        '3'
+      );
+      await expect(channel(page)).toHaveAttribute('data-state', 'exception');
+      expect(controls.commands).toEqual([]);
+    });
+
     for (const [language, width] of [
       ['fr-CA', 1280],
       ['en', 390]

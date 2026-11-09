@@ -51,7 +51,11 @@
 .detail-reference {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.2rem 0.5rem;
+}
+.reference-status {
+  color: var(--admin-muted);
 }
 .detail-reference [data-og7='dossier-public-reference'] {
   color: var(--admin-text);

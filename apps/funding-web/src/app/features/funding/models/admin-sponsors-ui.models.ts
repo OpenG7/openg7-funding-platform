@@ -74,27 +74,9 @@ export interface AdminSponsorDetailHeaderView {
   readonly reviewedAtLabel: string;
 }
 
-export interface AdminSponsorDetailOverviewView {
+export interface AdminSponsorNoteView {
   readonly companyName: string;
-  readonly publicNameLabel: string;
-  readonly contactName: string;
-  readonly contactEmail: string | null;
-  readonly websiteUrl: string | null;
   readonly publicReference: string | null;
-  readonly copyMessage: string;
-  readonly amountLabel: string;
-  readonly tierClass: string;
-  readonly tierLabel: string;
-  readonly benefitsLabel: string;
-  readonly paymentStatusClass: string;
-  readonly paymentStatusLabel: string;
-  readonly refundStatusClass: string;
-  readonly refundStatusLabel: string;
-  readonly hasRefundWorkflow: boolean;
-  readonly refundWorkflowTimelineLabel: string;
-  readonly refundId: string | null;
-  readonly paidAtLabel: string;
-  readonly sponsorMessage: string | null;
   readonly reviewNote: string;
   readonly reviewNoteDirty: boolean;
   readonly reviewNoteStateLabel: string;

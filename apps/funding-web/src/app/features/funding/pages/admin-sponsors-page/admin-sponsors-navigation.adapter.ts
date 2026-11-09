@@ -9,9 +9,25 @@ import {
 } from '@angular/router';
 import type { Event, Navigation, ParamMap } from '@angular/router';
 
-import { dossierSectionTab } from '../../models/admin-sponsorship-navigation.js';
+import {
+  dossierSectionOwnerTab,
+  dossierSectionTab
+} from '../../models/admin-sponsorship-navigation.js';
 import { workspaceTab } from '../../models/admin-sponsorship-workspace.js';
 import type { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
+import type { SponsorDetailsTab } from '../../models/admin-sponsors-ui.models.js';
+
+function isDossierTab(value: string): value is SponsorDetailsTab {
+  return [
+    'overview',
+    'identity',
+    'media',
+    'publication',
+    'billing',
+    'refund',
+    'audit'
+  ].includes(value);
+}
 
 export interface AdminSponsorsNavigationPorts {
   controller: Pick<
@@ -63,8 +79,16 @@ export class AdminSponsorsNavigationAdapter {
     const targetTab = dossierSectionTab(fragment);
     if (!event.position && fragment && targetTab) {
       const sponsorshipId = url.queryParams['sponsorshipId'];
-      const tab = url.queryParams['tab'] ?? 'overview';
-      if (sponsorshipId && workspaceTab(tab) === workspaceTab(targetTab)) {
+      const tab =
+        dossierSectionOwnerTab(
+          url.queryParams['tab'] ?? 'overview',
+          fragment
+        ) ?? 'overview';
+      if (
+        sponsorshipId &&
+        isDossierTab(tab) &&
+        workspaceTab(tab) === workspaceTab(targetTab)
+      ) {
         this.ports.controller.navigationScrolled(event.routerEvent.id, {
           fragment,
           sponsorshipId,
@@ -77,9 +101,10 @@ export class AdminSponsorsNavigationAdapter {
   }
 
   applyRouteSelection(params: Pick<ParamMap, 'get'>): void {
+    const fragment = this.ports.parseUrl(this.ports.currentUrl()).fragment;
     this.ports.controller.applyRouteSelection(
       params.get('sponsorshipId'),
-      params.get('tab')
+      dossierSectionOwnerTab(params.get('tab'), fragment)
     );
   }
 
