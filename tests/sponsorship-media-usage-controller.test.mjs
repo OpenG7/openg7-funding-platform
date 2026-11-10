@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SponsorshipMediaUsageController } from '../dist/apps/funding-web/src/app/features/funding/services/sponsorship-media-usage-controller.js';
+import { registerHooks } from 'node:module';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
+const { version, fingerprint, locale } = getSponsorMediaUsageTerms('fr-CA');
+const acceptance = { version, fingerprint, locale, accepted: true };
+// The root build emits public workspaces under dist/, without package-local builds.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { SponsorshipMediaUsageController } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/sponsorship-media-usage-controller.js');
+workspaceHook.deregister();
 import { SponsorshipFollowupError } from '../dist/apps/funding-web/src/app/features/funding/models/sponsorship-followup-ui.js';
 const usage = {
   state: 'confirmed',
@@ -70,9 +90,23 @@ function fixture() {
     ports
   };
 }
-test('usage updates capture exact rights/asset version and refresh only after server confirmation', async () => {
+test('a grant cannot be saved without explicit acceptance of the current terms', async () => {
   const f = fixture();
   await f.controller.updateUsage(asset, usage);
+  await f.controller.updateUsage(asset, usage, {
+    ...acceptance,
+    accepted: false
+  });
+  await f.controller.updateUsage(asset, usage, {
+    ...acceptance,
+    version: 'outdated'
+  });
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.controller.pending(), null);
+});
+test('usage updates capture exact rights/asset version and refresh only after server confirmation', async () => {
+  const f = fixture();
+  await f.controller.updateUsage(asset, usage, acceptance);
   assert.deepEqual(
     { ...f.calls[0], requestId: 'captured' },
     {
@@ -81,7 +115,8 @@ test('usage updates capture exact rights/asset version and refresh only after se
       expectedVersion: 'asset-v1',
       requestId: 'captured',
       confirmed: true,
-      usage
+      usage,
+      termsAcceptance: acceptance
     }
   );
   assert.match(f.calls[0].requestId, /^[a-f0-9-]{36}$/);
@@ -92,10 +127,14 @@ test('usage updates capture exact rights/asset version and refresh only after se
 test('uncertain usage keeps the same UUID and exact payload; a changed grant cannot bypass verification', async () => {
   const f = fixture();
   f.state.fail = true;
-  await f.controller.updateUsage(asset, usage);
+  await f.controller.updateUsage(asset, usage, acceptance);
   const first = f.calls[0];
   assert.equal(f.controller.notice(), 'mutationUnavailable');
-  await f.controller.updateUsage(asset, { ...usage, credit: 'Another author' });
+  await f.controller.updateUsage(
+    asset,
+    { ...usage, credit: 'Another author' },
+    acceptance
+  );
   assert.equal(f.calls.length, 1);
   assert.equal(f.controller.notice(), 'verificationRequired');
   f.state.fail = false;
@@ -108,7 +147,7 @@ test('a token change and reset discards late results from the previous dossier',
   const f = fixture(),
     waiting = deferred();
   f.ports.service.updateSponsorshipMediaUsage = () => waiting.promise;
-  const saving = f.controller.updateUsage(asset, usage);
+  const saving = f.controller.updateUsage(asset, usage, acceptance);
   assert.equal(f.controller.busy(), true);
   f.state.token = 'synthetic-private-link-B';
   f.controller.reset();
@@ -190,14 +229,18 @@ test('a validation refusal permits correction while ambiguous or conflicting rec
     400,
     'INVALID_MEDIA_USAGE_REQUEST'
   );
-  await invalid.controller.updateUsage(asset, usage);
+  await invalid.controller.updateUsage(asset, usage, acceptance);
   assert.equal(invalid.controller.pending(), null);
   assert.equal(invalid.controller.notice(), 'mutationRejected');
   invalid.state.error = null;
-  await invalid.controller.updateUsage(asset, {
-    ...usage,
-    credit: 'Corrected synthetic credit'
-  });
+  await invalid.controller.updateUsage(
+    asset,
+    {
+      ...usage,
+      credit: 'Corrected synthetic credit'
+    },
+    acceptance
+  );
   assert.notEqual(invalid.calls[0].requestId, invalid.calls[1].requestId);
   for (const error of [
     new SponsorshipFollowupError(503, 'MEDIA_USAGE_UNAVAILABLE'),

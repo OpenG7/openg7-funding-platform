@@ -90,7 +90,16 @@ export function preparationReturnOrigin(
     Partial<Pick<AdminPreparationReceipt, 'runId' | 'position'>>,
   issueId: string
 ): PreparationReturnOrigin | null {
-  const safeUrl = automaticAdminUrl(currentUrl);
+  const guide = receipt.runId !== undefined;
+  // The publication owner is a declared workspace outside the retained Guide.
+  // Its selector is checked below before any return bookmark can be created.
+  const publicationCandidate =
+    !guide &&
+    currentUrl.startsWith('/admin/fundraiser/preflight?') &&
+    !/[\\\u0000-\u0020]/.test(currentUrl)
+      ? currentUrl
+      : null;
+  const safeUrl = automaticAdminUrl(currentUrl) ?? publicationCandidate;
   if (
     !safeUrl ||
     !returnIdentifier.test(receipt.contributionId) ||
@@ -98,7 +107,6 @@ export function preparationReturnOrigin(
   )
     return null;
   const url = new URL(safeUrl, 'https://admin.invalid');
-  const guide = receipt.runId !== undefined;
   if (
     guide &&
     (!returnIdentifier.test(receipt.runId!) ||
@@ -106,7 +114,18 @@ export function preparationReturnOrigin(
       receipt.position! < 1)
   )
     return null;
-  if (!guide && url.pathname !== '/admin/fundraiser/sponsors') return null;
+  const publicationOwner =
+    !guide &&
+    url.pathname === '/admin/fundraiser/preflight' &&
+    url.searchParams.get('view') === 'publication' &&
+    url.searchParams.get('workshopSponsorshipId') === receipt.contributionId &&
+    url.searchParams.get('publicationReturn') === receipt.contributionId;
+  if (
+    !guide &&
+    url.pathname !== '/admin/fundraiser/sponsors' &&
+    !publicationOwner
+  )
+    return null;
   // The origin may contain search text or a fragment naming a private detail.
   // Keep only the dossier selector and its declared tab, never those contents.
   const params = new URLSearchParams();
@@ -122,6 +141,10 @@ export function preparationReturnOrigin(
       /^(overview|identity|media|billing|publication|refund|audit)$/.test(tab)
     )
       params.set('tab', tab);
+  } else if (publicationOwner) {
+    params.set('view', 'publication');
+    params.set('workshopSponsorshipId', receipt.contributionId);
+    params.set('publicationReturn', receipt.contributionId);
   }
   const query = params.toString();
   return {

@@ -26,6 +26,8 @@ interface MediaReviewCommandView {
   value(event: Event): string;
   checked(event: Event): boolean;
   obligationLabel(obligation: SponsorMediaPreparationObligation): string;
+  previewUrl(): string | null;
+  previewFailed(): boolean;
 }
 
 /** Funding command surface: scoped rights, batches, rejection and the exact execution manifest. */
@@ -51,4 +53,13 @@ export class MediaReviewCommandsComponent {
   readonly view = input.required<MediaReviewCommandView>();
   readonly thumbnails = input.required<MediaPreviewCollection>();
   readonly i18n = inject(FundingI18nService);
+  acceptanceDate(value: string): string {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        }).format(date)
+      : this.view().t('acceptanceUnknownDate');
+  }
 }

@@ -241,7 +241,6 @@ for (const review of ['pending', 'reapproved'] as const) {
       })
         .png()
         .toBuffer();
-      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo.png'],
         ['Ajouter des photos', 'photo.png']
@@ -257,6 +256,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         await company
           .getByLabel(label!)
           .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+        await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
@@ -353,10 +353,10 @@ for (const review of ['pending', 'reapproved'] as const) {
       });
       if (review === 'reapproved') {
         // Reapprove before the stopped worker can observe pending_review.
-        await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
-        await admin
-          .getByRole('button', { name: 'Accepter', exact: true })
-          .click();
+        await admin.goto(
+          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
+        );
+        await admin.locator('[data-og7="sponsorship-approve"]').click();
         await completeModeration(admin);
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)

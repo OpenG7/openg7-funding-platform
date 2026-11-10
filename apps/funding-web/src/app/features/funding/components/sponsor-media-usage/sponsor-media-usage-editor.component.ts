@@ -8,18 +8,22 @@ import {
   signal,
   untracked
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   normalizeSponsorMediaUsage,
+  getSponsorMediaUsageTerms,
   SPONSOR_MEDIA_USAGE_CHANNELS,
   SPONSOR_MEDIA_USAGE_TARGETS,
   SPONSOR_MEDIA_TRANSFORMATIONS,
-  type SponsorMediaUsageRights
+  type SponsorMediaUsageRights,
+  type SponsorMediaTermsAcceptance
 } from '@openg7/funding-core';
 
 export interface SponsorMediaUsageSubmission {
   readonly usage: SponsorMediaUsageRights;
   readonly evidenceReference?: string;
+  readonly termsAcceptance?: SponsorMediaTermsAcceptance;
 }
 
 export type SponsorMediaUsageScope = Pick<
@@ -31,7 +35,7 @@ export type SponsorMediaUsageScope = Pick<
 @Component({
   selector: 'openg7-sponsor-media-usage-editor',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sponsor-media-usage-editor.component.html',
   styleUrl: './sponsor-media-usage-editor.component.css'
@@ -42,7 +46,11 @@ export class SponsorMediaUsageEditorComponent {
   readonly disabled = input(false);
   readonly requireEvidence = input(false);
   readonly saveButton = input(true);
+  readonly compactTerms = input(false);
+  readonly locale = input<'fr-CA' | 'en'>('fr-CA');
+  readonly contextKey = input<unknown>(null);
   readonly valueChange = output<SponsorMediaUsageRights | null>();
+  readonly acceptanceChange = output<SponsorMediaTermsAcceptance | null>();
   readonly saved = output<SponsorMediaUsageSubmission>();
   readonly channels = SPONSOR_MEDIA_USAGE_CHANNELS;
   readonly targets = SPONSOR_MEDIA_USAGE_TARGETS;
@@ -54,6 +62,12 @@ export class SponsorMediaUsageEditorComponent {
   readonly restrictions = signal('');
   readonly evidence = signal('');
   readonly confirmed = signal(false);
+  readonly terms = computed(() => getSponsorMediaUsageTerms(this.locale()));
+  readonly acceptance = computed<SponsorMediaTermsAcceptance | null>(() => {
+    if (!this.compactTerms() || !this.normalized()) return null;
+    const { version, fingerprint, locale } = this.terms();
+    return { version, fingerprint, locale, accepted: true };
+  });
   readonly usesSuggestedScope = computed(() => {
     const usage = this.value();
     return (
@@ -88,17 +102,16 @@ export class SponsorMediaUsageEditorComponent {
     effect(() => {
       const usage = this.value();
       const scope = this.usesSuggestedScope() ? this.suggestedScope() : null;
-      untracked(() => {
-        this.selectedChannels.set(scope?.channels ?? usage?.channels ?? []);
-        this.selectedTargets.set(scope?.targets ?? usage?.targets ?? []);
-        this.selectedTransforms.set(usage?.transformations ?? []);
-        this.credit.set(usage?.credit ?? '');
-        this.restrictions.set(usage?.restrictions ?? '');
-        this.confirmed.set(false);
-        this.evidence.set('');
-      });
+      const compact = this.compactTerms();
+      this.contextKey();
+      untracked(() => this.resetDraft(usage, scope, compact));
+    });
+    effect(() => {
+      this.locale();
+      untracked(() => this.confirmed.set(false));
     });
     effect(() => this.valueChange.emit(this.normalized()));
+    effect(() => this.acceptanceChange.emit(this.acceptance()));
   }
   toggle(
     group: 'channel' | 'target' | 'transform',
@@ -128,11 +141,38 @@ export class SponsorMediaUsageEditorComponent {
   confirm(event: Event): void {
     this.confirmed.set((event.target as HTMLInputElement).checked);
   }
+  cancel(): void {
+    this.resetDraft(
+      this.value(),
+      this.usesSuggestedScope() ? this.suggestedScope() : null,
+      this.compactTerms()
+    );
+  }
+  private resetDraft(
+    usage: SponsorMediaUsageRights | null,
+    scope: SponsorMediaUsageScope | null,
+    compact: boolean
+  ): void {
+    this.selectedChannels.set(
+      scope?.channels ?? usage?.channels ?? (compact ? ['website'] : [])
+    );
+    this.selectedTargets.set(
+      scope?.targets ?? usage?.targets ?? (compact ? ['openg7'] : [])
+    );
+    this.selectedTransforms.set(
+      usage?.transformations ?? (compact ? ['technical'] : [])
+    );
+    this.credit.set(usage?.credit ?? '');
+    this.restrictions.set(usage?.restrictions ?? '');
+    this.confirmed.set(false);
+    this.evidence.set('');
+  }
   submit(): void {
     const usage = this.normalized();
     if (usage && this.canSave())
       this.saved.emit({
         usage,
+        ...(this.acceptance() ? { termsAcceptance: this.acceptance()! } : {}),
         ...(this.requireEvidence()
           ? { evidenceReference: this.evidence().trim() }
           : {})

@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
 import { FundingSponsorshipFollowupClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-sponsorship-followup.client.js';
 import { FundingAdminSponsorshipsClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-sponsorships.client.js';
 import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 import { SponsorshipFollowupError } from '../dist/apps/funding-web/src/app/features/funding/models/sponsorship-followup-ui.js';
 const base = 'https://funding.example.test/api';
+const { version, fingerprint, locale } = getSponsorMediaUsageTerms('en');
+const termsAcceptance = { version, fingerprint, locale, accepted: true };
 const usage = {
   state: 'confirmed',
   channels: ['website', 'facebook'],
@@ -26,7 +29,8 @@ test('private rights and preference writes send the exact owned/versioned reques
     assetId: 'synthetic-photo',
     expectedVersion: 'v1',
     confirmed: true,
-    usage
+    usage,
+    termsAcceptance
   };
   const preference = {
     token: 'synthetic-private-link',
@@ -71,13 +75,44 @@ test('multipart uploads preserve explicit usage facts separately from editorial 
     'supporting_image',
     new File(['synthetic image'], 'synthetic.png', { type: 'image/png' }),
     'Exact public description',
-    usage
+    usage,
+    termsAcceptance,
+    '10000000-0000-4000-8000-000000000001'
   );
   assert.deepEqual(JSON.parse(posted.get('usage')), usage);
   assert.equal(posted.get('usageConfirmed'), 'true');
+  assert.deepEqual(JSON.parse(posted.get('termsAcceptance')), termsAcceptance);
+  assert.equal(posted.get('requestId'), '10000000-0000-4000-8000-000000000001');
   assert.equal(posted.get('altText'), 'Exact public description');
   assert.equal(posted.has('moderationDecision'), false);
   assert.equal(result.asset.reviewStatus, 'pending_review');
+});
+test('upload receipt reads scope the stable UUID to the private token and bypass caches', async (t) => {
+  const client = new FundingSponsorshipFollowupClient(base),
+    requestId = '10000000-0000-4000-8000-000000000001';
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, options });
+    return Response.json({ found: false });
+  });
+  assert.deepEqual(
+    await client.getSponsorshipMediaUploadReceipt(
+      'synthetic token+/=&?',
+      requestId
+    ),
+    { found: false }
+  );
+  const parsed = new URL(calls[0].url);
+  assert.equal(
+    parsed.pathname,
+    '/api/sponsorship-followup/media/upload-receipt'
+  );
+  assert.equal(parsed.searchParams.has('token'), false);
+  assert.equal(parsed.searchParams.get('requestId'), requestId);
+  assert.deepEqual(calls[0].options, {
+    cache: 'no-store',
+    headers: { 'X-Sponsorship-Followup-Token': 'synthetic token+/=&?' }
+  });
 });
 test('media mutations preserve explicit error status and code without automatically replaying a refused or uncertain command', async (t) => {
   for (const [status, code] of [

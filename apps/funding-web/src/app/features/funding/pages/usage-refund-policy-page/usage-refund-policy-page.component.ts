@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { getSponsorMediaUsageTerms } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -49,6 +50,11 @@ export class UsageRefundPolicyPageComponent {
     }).format(new Date(`${this.revision}T00:00:00.000Z`))
   );
   readonly contactEmail = 'contact@openg7.org';
+  readonly mediaTerms = computed(() =>
+    getSponsorMediaUsageTerms(
+      this.i18n.currentLanguage() === 'en' ? 'en' : 'fr-CA'
+    )
+  );
   readonly canPrint = signal(false);
   readonly summaryItems = ['nature', 'refunds', 'visibility'] as const;
   readonly requestSteps = ['reference', 'contact', 'decision'] as const;

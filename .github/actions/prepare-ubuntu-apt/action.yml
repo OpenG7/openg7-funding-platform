@@ -1,0 +1,13 @@
+name: Prepare Ubuntu package downloads
+description: Use the official Ubuntu archive and bound APT downloads without skipping installation.
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Ubuntu 24.04 archive sources and APT limits
+      shell: bash
+      env:
+        PREPARE_APT_SCRIPT: ${{ github.action_path }}/../../../scripts/prepare-ubuntu-apt.mjs
+      run: |
+        set -euo pipefail
+        sudo -- "$(command -v node)" "$PREPARE_APT_SCRIPT" --apply

@@ -10,6 +10,7 @@ import type {
 import { sponsorMediaPublicUrl } from './public-url.js';
 
 export const mapAsset = (row: SponsorMediaAssetRow): SponsorMediaAsset => ({
+  ...(row.usage_acceptance ? { usageAcceptance: row.usage_acceptance } : {}),
   usage: normalizeSponsorMediaUsage(row.usage_rights),
   usageRestrictionsReviewed: row.usage_restrictions_reviewed === true,
   id: row.id,

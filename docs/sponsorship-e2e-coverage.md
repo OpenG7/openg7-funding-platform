@@ -499,6 +499,11 @@ fixtures, leurs observations éditoriales, récurrences et lots, puis les
 commandites et médias associés. Les protections des publications autorisées
 restent actives. Un lot partagé avec une commandite hors fixtures ou une
 publication en mode `live` bloque le nettoyage sans suppression partielle.
+Les événements mutables de préparation sont retirés uniquement pour les fixtures
+sélectionnées. Un historique commercial, d’usage média ou de préparation durable
+(mission, proposition ou reçu Preflight) impose une nouvelle pile jetable : le
+nettoyage et le réensemencement le refusent atomiquement. Les événements et les
+historiques des dossiers hors fixtures restent conservés.
 Le test [de nettoyage PostgreSQL](../tests/integration/playwright-fixture-cleanup.integration.mjs)
 vérifie ces protections et la réexécution sur une base jetable. La recette
 isolée `yarn test:e2e:acceptance` conserve les fixtures pour les diagnostics

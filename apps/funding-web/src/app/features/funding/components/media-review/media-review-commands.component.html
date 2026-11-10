@@ -2,19 +2,21 @@
   [opened]="!!commands().form()"
   [title]="
     view().t(
-      commands().form() === 'rules'
-        ? 'rulesTitle'
-        : commands().form() === 'batch'
-          ? 'newBatch'
-          : commands().form() === 'reject'
-            ? commands().decisionAction() === 'request_correction'
-              ? 'library.correctionTitle'
-              : 'rejectTitle'
-            : 'planTitle'
+      commands().form() === 'review'
+        ? 'acceptanceReviewTitle'
+        : commands().form() === 'rules'
+          ? 'rulesTitle'
+          : commands().form() === 'batch'
+            ? 'newBatch'
+            : commands().form() === 'reject'
+              ? commands().decisionAction() === 'request_correction'
+                ? 'library.correctionTitle'
+                : 'rejectTitle'
+              : 'planTitle'
     )
   "
   [closeLabel]="view().t('close')"
-  [busy]="commands().c.busy()"
+  [busy]="commands().c.busy() || commands().reviewSubmitting()"
   [wide]="commands().form() === 'plan'"
   (closed)="commands().closeForm()"
 >
@@ -23,7 +25,148 @@
       {{ view().t('errors.' + commands().c.error()) }}
     </p>
   }
+  @if (commands().form() === 'review') {
+    <section data-og7="media-acceptance-review">
+      @if (commands().acceptedReviewAsset(); as asset) {
+        <h3>{{ asset.originalFilename }}</h3>
+        @if (view().previewUrl(); as url) {
+          <img
+            class="accepted-review-image"
+            [src]="url"
+            [alt]="asset.altText || asset.originalFilename"
+          />
+        } @else {
+          <p role="status">
+            {{
+              view().t(
+                view().previewFailed() ? 'previewUnavailable' : 'loading'
+              )
+            }}
+          </p>
+        }
+        @if (asset.usageAcceptance; as acceptance) {
+          <section class="notice" data-og7="media-acceptance-proof">
+            <p>{{ view().t('acceptanceRecorded') }}</p>
+            <time [attr.datetime]="acceptance.acceptedAt">{{
+              acceptanceDate(acceptance.acceptedAt)
+            }}</time>
+            <p>{{ view().usageSummary(asset) }}</p>
+            <details>
+              <summary>{{ view().t('acceptanceDetails') }}</summary>
+              <p>
+                {{
+                  view().t('acceptanceVersion', {
+                    version: acceptance.termsVersion
+                  })
+                }}
+              </p>
+              <p>
+                {{
+                  view().t('acceptanceLanguage', {
+                    language: acceptance.locale
+                  })
+                }}
+              </p>
+            </details>
+          </section>
+        }
+        @if (asset.usage?.credit) {
+          <p>{{ view().t('credit') }} : {{ asset.usage?.credit }}</p>
+        }
+        <label class="field"
+          >{{ view().t('altText') }}
+          <textarea
+            rows="3"
+            maxlength="300"
+            [value]="commands().c.draft(asset).altText"
+            [disabled]="
+              !commands().c.canWrite() || commands().reviewSubmitting()
+            "
+            (input)="
+              commands().c.edit(asset, { altText: view().value($event) })
+            "
+            data-og7="media-acceptance-alt"
+          ></textarea>
+        </label>
+        @if (asset.usage?.restrictions) {
+          <p class="notice">
+            {{ view().t('restrictions') }} : {{ asset.usage?.restrictions }}
+          </p>
+          @if (!asset.usageRestrictionsReviewed) {
+            <label class="check"
+              ><input
+                type="checkbox"
+                [checked]="commands().c.draft(asset).restrictions"
+                [disabled]="
+                  !commands().c.canWrite() || commands().reviewSubmitting()
+                "
+                (change)="
+                  commands().c.edit(asset, {
+                    restrictions: view().checked($event)
+                  })
+                "
+                data-og7="media-acceptance-restrictions"
+              />{{ view().t('reviewRestrictions') }}</label
+            >
+          }
+        }
+        @if (commands().c.plan()?.blocked?.length) {
+          <div role="alert" class="notice error">
+            @for (item of commands().c.plan()!.blocked; track item.id) {
+              @for (reason of item.reasons; track reason) {
+                <p>{{ view().reasonLabel(reason) }}</p>
+              }
+            }
+          </div>
+        }
+        <p>{{ view().t('acceptanceReviewConfirm') }}</p>
+        <div class="accepted-review-actions">
+          <button
+            type="button"
+            class="admin-button primary"
+            [disabled]="
+              !commands().canApproveAcceptedReview() ||
+              !view().previewUrl() ||
+              view().previewFailed()
+            "
+            (click)="commands().approveAcceptedReview()"
+            data-og7="media-acceptance-approve"
+          >
+            {{ view().t('acceptanceApproveContinue') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="commands().c.busy() || commands().reviewSubmitting()"
+            (click)="commands().closeForm()"
+            data-og7="media-acceptance-cancel"
+          >
+            {{ view().t('acceptanceCancel') }}
+          </button>
+        </div>
+      } @else {
+        <p role="alert" class="notice error">
+          {{ view().t('errors.changed') }}
+        </p>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="commands().closeForm()"
+          data-og7="media-acceptance-cancel"
+        >
+          {{ view().t('acceptanceCancel') }}
+        </button>
+      }
+    </section>
+  }
   @if (commands().form() === 'rules') {
+    @if (commands().reviewPermissions(); as target) {
+      <p class="notice" role="status" data-og7="media-review-permissions-help">
+        {{
+          view().t('reviewPermissionsHelp', { name: target.originalFilename })
+        }}
+      </p>
+    }
     <p>{{ view().t('rulesHelp') }}</p>
     @if (commands().inheritRequested()) {
       <p class="notice">{{ view().t('inheritConfirm') }}</p>
@@ -32,13 +175,29 @@
       >{{ view().t('scope')
       }}<select
         [value]="commands().rulesScope()"
-        [disabled]="commands().c.busy() || commands().inheritRequested()"
+        [disabled]="
+          commands().c.busy() ||
+          commands().inheritRequested() ||
+          !!commands().reviewPermissions()
+        "
         (change)="commands().changeScope($event)"
       >
-        <option value="dossier">{{ view().t('scopes.dossier') }}</option>
-        <option value="batch">{{ view().t('scopes.batch') }}</option>
+        <option
+          value="dossier"
+          [selected]="commands().rulesScope() === 'dossier'"
+        >
+          {{ view().t('scopes.dossier') }}
+        </option>
+        <option value="batch" [selected]="commands().rulesScope() === 'batch'">
+          {{ view().t('scopes.batch') }}
+        </option>
         @if (commands().c.inspected()) {
-          <option value="media">{{ view().t('scopes.media') }}</option>
+          <option
+            value="media"
+            [selected]="commands().rulesScope() === 'media'"
+          >
+            {{ view().t('scopes.media') }}
+          </option>
         }
       </select></label
     >

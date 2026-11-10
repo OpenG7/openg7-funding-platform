@@ -304,9 +304,42 @@ export function registerSponsorProfileTests({
       await expect(
         media(page).locator('[data-og7="media-full-preview"] img')
       ).toHaveAttribute('src', /^blob:/);
+      const approve = media(page).locator(
+        '[data-og7="media-inspector-approve"]'
+      );
+      await expect(approve).toBeEnabled();
+      await approve.focus();
+      await approve.press('Enter');
+      const dialog = page.locator('dialog[open]');
+      const editor = dialog.locator('[data-og7="media-usage-editor"]');
+      await expect(editor).toBeVisible();
       await expect(
-        media(page).locator('[data-og7="media-inspector-approve"]')
+        dialog.locator('[data-og7="media-review-permissions-help"]')
+      ).toContainText(options.media[0]!.originalFilename);
+      const scope = dialog.getByRole('combobox', {
+        name: english ? 'Apply at level' : 'Appliquer au niveau',
+        exact: true
+      });
+      await expect(scope).toHaveValue('media');
+      await expect(scope).toBeDisabled();
+      await expect(
+        editor.locator('[data-og7="media-usage-confirmation"]')
+      ).not.toBeChecked();
+      await expect(
+        editor.locator('[data-og7="media-usage-evidence"]')
+      ).toHaveValue('');
+      await expect(
+        editor.locator('[data-og7="media-usage-save"]')
       ).toBeDisabled();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .click();
+      await expect(dialog).toHaveCount(0);
+      await expect(approve).toBeFocused();
       await expectResponsiveProfile(page, media(page));
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });

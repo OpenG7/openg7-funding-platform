@@ -1939,9 +1939,8 @@ test('Social publication provider is explicit, configurable, audited, and visibl
 
 test('Admin sponsors page presents the recorded tier and leaves unknown historical commitments to qualification', () => {
   const page = readAdminSponsorsSource();
-  const overviewComponent = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts',
-    'utf8'
+  const commitmentsComponent = readAdminSponsorsComponentSource(
+    'admin-sponsorship-commitments'
   );
 
   assert.ok(
@@ -1966,12 +1965,17 @@ test('Admin sponsors page presents the recorded tier and leaves unknown historic
       'tierLabel: this.sponsorshipTierLabel(sponsorship)'
     )
   );
-  assert.ok(
-    translatedUiSource(page).includes(
-      'benefitsLabel: this.sponsorshipBenefitsLabel(sponsorship)'
-    )
+  assert.ok(page.includes('<openg7-admin-sponsorship-commitments'));
+  assert.match(
+    commitmentsComponent,
+    /@for \(b of offer\.benefits; track b\.id\)/
   );
-  assert.match(overviewComponent, /\{\{\s*overview\(\)\.benefitsLabel\s*\}\}/);
+  assert.match(
+    commitmentsComponent,
+    /@if \(canOwn\(\) && m\.state === 'needs_confirmation'\)/
+  );
+  assert.match(commitmentsComponent, /data-og7="commitments-qualification"/);
+  assert.match(commitmentsComponent, /c\.qualify\(\)/);
   assert.ok(page.includes('admin.dossier.publicationBridge.commitmentUnknown'));
 });
 

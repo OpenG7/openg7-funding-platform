@@ -110,7 +110,8 @@ export function createSponsorMediaUsageHttpHandler(deps: Dependencies) {
                 'assetId',
                 'expectedVersion',
                 'confirmed',
-                'usage'
+                'usage',
+                'termsAcceptance'
               ]
             : [
                 'token',

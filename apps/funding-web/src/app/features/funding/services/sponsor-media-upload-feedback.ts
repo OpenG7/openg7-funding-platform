@@ -1,5 +1,15 @@
 import type { SponsorMediaLimits } from '@openg7/funding-core';
 
+export class SponsorMediaUploadError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly code = ''
+  ) {
+    super(message);
+  }
+}
+
 export interface SponsorMediaFeedback {
   readonly key: string;
   readonly params?: Record<string, string | number>;

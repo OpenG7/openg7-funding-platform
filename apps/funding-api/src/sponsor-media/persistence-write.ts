@@ -7,7 +7,10 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
-import { normalizeSponsorMediaUsage } from '../../../../packages/funding-core/src/index.js';
+import {
+  normalizeSponsorMediaUsage,
+  normalizeSponsorMediaTermsAcceptance
+} from '../../../../packages/funding-core/src/index.js';
 import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import {
@@ -31,6 +34,7 @@ import type {
   SponsorMediaStorageRecord
 } from './persistence-contracts.js';
 import { SponsorMediaPersistenceError } from './persistence-error.js';
+import { recordSponsorMediaTermsAcceptance } from './terms-acceptance.js';
 import {
   editableContribution,
   mapAsset,
@@ -65,6 +69,26 @@ export const createSponsorMediaAsset = async (
 ): Promise<CreateSponsorMediaAssetResult> => {
   if (!pool) {
     return { status: 'contribution_not_found' };
+  }
+  if (input.termsAcceptance || input.auditActor === 'sponsor-followup') {
+    try {
+      normalizeSponsorMediaTermsAcceptance(input.termsAcceptance);
+      if (
+        input.uploadedBy !== 'sponsor' ||
+        input.auditActor !== 'sponsor-followup' ||
+        normalizeSponsorMediaUsage(input.usage).state !== 'confirmed' ||
+        !isValidUuid(input.requestId) ||
+        !/^[a-f0-9]{64}$/.test(input.originalChecksumSha256 ?? '')
+      )
+        throw new Error('INVALID_MEDIA_TERMS_ACCEPTANCE');
+    } catch (error) {
+      throw new ModerationError(
+        error instanceof Error
+          ? error.message
+          : 'INVALID_MEDIA_TERMS_ACCEPTANCE',
+        400
+      );
+    }
   }
   if (input.requestId !== undefined || input.requestFingerprint !== undefined) {
     if (
@@ -178,10 +202,10 @@ export const createSponsorMediaAsset = async (
          id, contribution_id, kind, uploaded_by, original_filename,
          original_mime_type, original_size_bytes, original_storage_key,
          processed_size_bytes, processed_storage_key, checksum_sha256,
-         width, height, alt_text, sort_order, usage_rights
+         width, height, alt_text, sort_order, usage_rights, original_checksum_sha256
        ) VALUES (
          $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8,
-         $9, $10, $11, $12, $13, $14, $15, $16::jsonb
+         $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17
        )
        RETURNING ${selectAssetColumns}`,
       [
@@ -200,7 +224,8 @@ export const createSponsorMediaAsset = async (
         input.height,
         input.altText,
         sortOrder,
-        JSON.stringify(normalizeSponsorMediaUsage(input.usage))
+        JSON.stringify(normalizeSponsorMediaUsage(input.usage)),
+        input.originalChecksumSha256 ?? null
       ]
     );
     if (input.uploadedBy === 'sponsor') {
@@ -234,6 +259,22 @@ export const createSponsorMediaAsset = async (
       throw new Error('Sponsor media upload audit is unavailable.');
     }
     const usage = normalizeSponsorMediaUsage(input.usage);
+    const usageRequestId = input.requestId ?? input.id;
+    const usageAcceptance = input.termsAcceptance
+      ? await recordSponsorMediaTermsAcceptance(client, {
+          assetId: input.id,
+          contributionId: input.contributionId,
+          requestId: usageRequestId,
+          termsAcceptance: input.termsAcceptance,
+          usage,
+          originalChecksumSha256: input.originalChecksumSha256!,
+          processedChecksumSha256: input.checksumSha256
+        })
+      : undefined;
+    const asset = {
+      ...mapAsset(inserted.rows[0]!),
+      ...(usageAcceptance ? { usageAcceptance } : {})
+    };
     if (usage.state === 'confirmed') {
       const captured = {
         assetId: input.id,
@@ -246,19 +287,21 @@ export const createSponsorMediaAsset = async (
         VALUES($1,$2,'usage',$3,$4::jsonb)`,
         [
           input.contributionId,
-          input.id,
+          usageRequestId,
           createHash('sha256').update(JSON.stringify(captured)).digest('hex'),
-          JSON.stringify({ updated: true, asset: mapAsset(inserted.rows[0]!) })
+          JSON.stringify({ updated: true, asset })
         ]
       );
       await client.query(
-        `INSERT INTO sponsor_media_usage_history(asset_id,contribution_id,request_id,usage_rights,evidence_reference,actor)
-        VALUES($1,$2,$1,$3::jsonb,NULL,$4)`,
+        `INSERT INTO sponsor_media_usage_history(asset_id,contribution_id,request_id,usage_rights,evidence_reference,actor,terms_acceptance_id)
+        VALUES($1,$2,$3,$4::jsonb,NULL,$5,$6)`,
         [
           input.id,
           input.contributionId,
+          usageRequestId,
           JSON.stringify(usage),
-          input.auditActor
+          input.auditActor,
+          usageAcceptance?.id ?? null
         ]
       );
     }
@@ -271,7 +314,7 @@ export const createSponsorMediaAsset = async (
           input.requestFingerprint,
           JSON.stringify({
             uploaded: true,
-            asset: mapAsset(inserted.rows[0]!)
+            asset
           }),
           input.auditActor
         ]
@@ -279,7 +322,7 @@ export const createSponsorMediaAsset = async (
     }
     return {
       status: 'created',
-      asset: mapAsset(inserted.rows[0]!),
+      asset,
       replaced
     };
   });

@@ -292,6 +292,72 @@ test(
         await client.query(sql, [activityId]);
       }
     }
+    async function workshopMission(contributionId) {
+      return (
+        await client.query(
+          `INSERT INTO preflight_workshop_missions
+            (id,event_id,contribution_id,tenant_id,source_version,snapshot_digest,payload,draft_baseline)
+          VALUES(gen_random_uuid(),gen_random_uuid(),$1,'fixture-cleanup-test',1,repeat('a',64),'{}','{}') RETURNING id`,
+          [contributionId]
+        )
+      ).rows[0].id;
+    }
+    async function workshopProposal(contributionId, missionId) {
+      return (
+        await client.query(
+          `INSERT INTO preflight_workshop_proposals
+            (id,mission_id,contribution_id,tenant_id,source_version,snapshot_digest,proposal)
+          VALUES(gen_random_uuid(),$2,$1,'fixture-cleanup-test',1,repeat('a',64),'{}') RETURNING id`,
+          [contributionId, missionId]
+        )
+      ).rows[0].id;
+    }
+    async function workshopRequest(contributionId, resultId = randomUUID()) {
+      return (
+        await client.query(
+          `INSERT INTO preflight_workshop_requests
+            (request_id,tenant_id,contribution_id,action,actor,request_hash,result_id)
+          VALUES(gen_random_uuid(),'fixture-cleanup-test',$1,'adopt','fixture-cleanup-test',repeat('a',64),$2)
+          RETURNING request_id`,
+          [contributionId, resultId]
+        )
+      ).rows[0].request_id;
+    }
+    async function workshopHistory(contributionId) {
+      const missionId = await workshopMission(contributionId);
+      const proposalId = await workshopProposal(contributionId, missionId);
+      const requestId = await workshopRequest(contributionId, proposalId);
+      await client.query(
+        `INSERT INTO preflight_workshop_adoptions(proposal_id,request_id,actor,drafts)
+        VALUES($1,$2,'fixture-cleanup-test','[]')`,
+        [proposalId, requestId]
+      );
+    }
+    async function workshopSnapshot(contributionId) {
+      const result = {};
+      for (const table of [
+        'preflight_workshop_events',
+        'preflight_workshop_missions',
+        'preflight_workshop_proposals',
+        'preflight_workshop_requests'
+      ]) {
+        result[table] = (
+          await client.query(
+            `SELECT * FROM ${table} WHERE contribution_id=$1 ORDER BY 1,2`,
+            [contributionId]
+          )
+        ).rows;
+      }
+      result.preflight_workshop_adoptions = (
+        await client.query(
+          `SELECT * FROM preflight_workshop_adoptions WHERE proposal_id IN (
+            SELECT id FROM preflight_workshop_proposals WHERE contribution_id=$1
+          ) ORDER BY 1,2`,
+          [contributionId]
+        )
+      ).rows;
+      return result;
+    }
     async function publication(
       contributionIds,
       status = 'approved',
@@ -366,6 +432,11 @@ test(
         'sponsor_media_analysis_suggestions',
         'sponsor_media_analysis_reviews',
         'sponsor_media_analysis_requests',
+        'preflight_workshop_events',
+        'preflight_workshop_missions',
+        'preflight_workshop_proposals',
+        'preflight_workshop_requests',
+        'preflight_workshop_adoptions',
         ...dependencyTables
       ]
     ) {
@@ -456,6 +527,31 @@ test(
       );
     }
 
+    for (const history of ['mission', 'proposal', 'request']) {
+      await t.test(
+        `recorded workshop ${history} rejects cleanup and reseed atomically`,
+        async () => {
+          await reset();
+          const id = await fixtureId();
+          const outsideId = await contribution(`outside-${randomUUID()}`);
+          if (history === 'mission') await workshopMission(id);
+          if (history === 'proposal') {
+            const outsideMission = await workshopMission(outsideId);
+            await workshopProposal(id, outsideMission);
+          }
+          if (history === 'request') await workshopRequest(id);
+          const before = await snapshot();
+          for (const sql of [cleanup, seed]) {
+            await assert.rejects(
+              run(sql),
+              /preserve durable preparation history/
+            );
+            assert.deepEqual(await snapshot(), before);
+          }
+        }
+      );
+    }
+
     for (const action of ['cleanup', 'reseed']) {
       await t.test(
         `${action} removes fixture refund and activity dependencies while preserving foreign records`,
@@ -467,6 +563,8 @@ test(
             [outsideId]
           );
           await financialDependencies(outsideId, 'uncertain');
+          await workshopHistory(outsideId);
+          const outsideWorkshop = await workshopSnapshot(outsideId);
           const outsideDependencies = await snapshot(dependencyTables);
           const outsideContribution = async () =>
             (
@@ -521,6 +619,10 @@ test(
               outsideDependencies
             );
             assert.deepEqual(await outsideContribution(), outsideBefore);
+            assert.deepEqual(
+              await workshopSnapshot(outsideId),
+              outsideWorkshop
+            );
             assert.deepEqual(
               (
                 await client.query(

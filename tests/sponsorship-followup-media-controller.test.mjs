@@ -1,7 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { registerHooks } from 'node:module';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
+const { version, fingerprint, locale } = getSponsorMediaUsageTerms('fr-CA');
+const acceptance = { version, fingerprint, locale, accepted: true };
+const usage = {
+  state: 'confirmed',
+  channels: ['website'],
+  targets: ['openg7'],
+  transformations: ['technical'],
+  credit: null,
+  restrictions: null
+};
 
-import { SponsorshipFollowupMediaController } from '../dist/apps/funding-web/src/app/features/funding/services/sponsorship-followup-media-controller.js';
+// The root build emits public workspaces under dist/, without package-local builds.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { SponsorshipFollowupMediaController } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/sponsorship-followup-media-controller.js');
+workspaceHook.deregister();
 
 const limits = {
   maxUploadBytes: 8 * 1024 * 1024,
@@ -49,6 +77,8 @@ function fixture(t, initial = []) {
     reads = [],
     previews = [],
     uploads = [],
+    grants = [],
+    receipts = [],
     deletions = [],
     busy = [];
   const state = {
@@ -74,7 +104,16 @@ function fixture(t, initial = []) {
       previews.push({ token, assetId });
       return new Blob(['synthetic-preview'], { type: 'image/png' });
     },
-    async uploadSponsorshipMedia(token, kind, file, altText) {
+    async uploadSponsorshipMedia(
+      token,
+      kind,
+      file,
+      altText,
+      usage,
+      termsAcceptance,
+      requestId
+    ) {
+      grants.push({ usage, termsAcceptance, requestId });
       uploads.push({ token, kind, file, altText });
       const uploaded = asset({
         id: `synthetic-upload-${uploads.length}`,
@@ -84,6 +123,10 @@ function fixture(t, initial = []) {
       });
       server.assets = [...server.assets, uploaded];
       return { uploaded: true, asset: uploaded };
+    },
+    async getSponsorshipMediaUploadReceipt(token, requestId) {
+      receipts.push({ token, requestId });
+      return { found: false };
     },
     async deleteSponsorshipMedia(request) {
       deletions.push(request);
@@ -115,10 +158,132 @@ function fixture(t, initial = []) {
     reads,
     previews,
     uploads,
+    grants,
+    receipts,
     deletions,
     busy
   };
 }
+
+test('uploads require explicit current terms acceptance and confirmed rights', async (t) => {
+  const f = fixture(t),
+    c = f.controller;
+  await c.refresh();
+  await c.uploadMedia('supporting_image', [file()], usage, undefined);
+  await c.uploadMedia('supporting_image', [file()], usage, {
+    ...acceptance,
+    accepted: false
+  });
+  await c.uploadMedia(
+    'supporting_image',
+    [file()],
+    { ...usage, state: 'needs_confirmation' },
+    acceptance
+  );
+  assert.deepEqual(f.uploads, []);
+  assert.deepEqual(c.attempts(), []);
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
+  assert.deepEqual(f.grants[0].usage, usage);
+  assert.deepEqual(f.grants[0].termsAcceptance, acceptance);
+  assert.match(f.grants[0].requestId, /^[a-f0-9-]{36}$/);
+});
+
+test('a lost successful upload response is reconciled by its receipt without replaying the file', async (t) => {
+  const f = fixture(t),
+    c = f.controller,
+    upload = f.service.uploadSponsorshipMedia;
+  await c.refresh();
+  let saved;
+  f.service.uploadSponsorshipMedia = async (...args) => {
+    saved = await upload(...args);
+    throw new Error('Synthetic response lost');
+  };
+  f.service.getSponsorshipMediaUploadReceipt = async (token, requestId) => {
+    assert.equal(token, f.state.token);
+    assert.equal(requestId, f.grants[0].requestId);
+    return { found: true, result: saved };
+  };
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
+  assert.equal(f.uploads.length, 1);
+  assert.equal(c.assets().length, 1);
+  assert.equal(c.hasUnresolvedUpload(), false);
+  assert.deepEqual(c.attempts(), []);
+  assert.deepEqual(c.message(), {
+    key: 'result',
+    params: { received: 1, failed: 0 }
+  });
+});
+
+test('uncertain uploads retain the exact file, UUID and accepted terms and block replacements until explicit verified retry', async (t) => {
+  const f = fixture(t),
+    c = f.controller,
+    calls = [],
+    original = file(),
+    upload = f.service.uploadSponsorshipMedia;
+  await c.refresh();
+  c.setAltText('Exact captured description');
+  f.service.uploadSponsorshipMedia = async (...args) => {
+    calls.push(args);
+    throw new Error('Synthetic network loss');
+  };
+  f.service.getSponsorshipMediaUploadReceipt = async () => {
+    throw new Error('Synthetic receipt unavailable');
+  };
+  await c.uploadMedia(
+    'supporting_image',
+    [original, file('not-sent.png')],
+    usage,
+    acceptance
+  );
+  assert.equal(c.attempts()[0].status, 'uncertain');
+  assert.equal(c.attempts()[1].feedback.key, 'uploadPaused');
+  assert.equal(c.hasUnresolvedUpload(), true);
+  await c.dismiss(c.attempts()[0]);
+  await c.uploadMedia(
+    'supporting_image',
+    [file('replacement.png')],
+    usage,
+    acceptance
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(c.attempts().length, 2);
+  c.setAltText('Later unrelated draft');
+  f.service.getSponsorshipMediaUploadReceipt = async () => ({ found: false });
+  f.service.uploadSponsorshipMedia = async (...args) => {
+    calls.push(args);
+    return upload(...args);
+  };
+  await c.retryUpload(c.attempts()[0]);
+  assert.deepEqual(calls[1], calls[0]);
+  assert.equal(calls[1][2], original);
+  assert.equal(calls[1][3], 'Exact captured description');
+  assert.deepEqual(calls[1][5], acceptance);
+  assert.match(calls[1][6], /^[a-f0-9-]{36}$/);
+  assert.equal(c.hasUnresolvedUpload(), false);
+  assert.equal(f.uploads.length, 1);
+});
+
+test('an incomplete receipt never authorizes replay and changing dossier discards the pending file', async (t) => {
+  const f = fixture(t),
+    c = f.controller;
+  await c.refresh();
+  let uploads = 0;
+  f.service.uploadSponsorshipMedia = async () => {
+    uploads++;
+    throw new Error('Synthetic network loss');
+  };
+  f.service.getSponsorshipMediaUploadReceipt = async () => ({ found: true });
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
+  const attempt = c.attempts()[0];
+  await c.retryUpload(attempt);
+  assert.equal(uploads, 1);
+  assert.equal(c.attempts()[0].status, 'uncertain');
+  f.state.token = 'synthetic-next-dossier';
+  await c.refresh();
+  await c.retryUpload(attempt);
+  assert.equal(uploads, 1);
+  assert.equal(c.hasUnresolvedUpload(), false);
+});
 
 test('loads server limits and private previews, serializes refresh and releases replaced URLs', async (t) => {
   const f = fixture(t, [asset()]),
@@ -152,17 +317,22 @@ test('validates each selected file and enforces remaining capacity while countin
   await c.refresh();
   c.setAltText('Synthetic description');
   const valid = file();
-  await c.uploadMedia('supporting_image', [
-    new File([], 'empty.png', { type: 'image/png' }),
-    {
-      name: 'too-large.png',
-      size: limits.maxUploadBytes + 1,
-      type: 'image/png'
-    },
-    new File(['test'], 'invalid.gif', { type: 'image/gif' }),
-    valid,
-    file('over-capacity.png')
-  ]);
+  await c.uploadMedia(
+    'supporting_image',
+    [
+      new File([], 'empty.png', { type: 'image/png' }),
+      {
+        name: 'too-large.png',
+        size: limits.maxUploadBytes + 1,
+        type: 'image/png'
+      },
+      new File(['test'], 'invalid.gif', { type: 'image/gif' }),
+      valid,
+      file('over-capacity.png')
+    ],
+    usage,
+    acceptance
+  );
   assert.deepEqual(
     c.attempts().map((attempt) => [attempt.filename, attempt.feedback.key]),
     [
@@ -202,10 +372,12 @@ test('a failed upload does not consume capacity, and its preview remains removab
       throw new Error('Payment for this sponsorship is not confirmed yet.');
     return upload(...args);
   };
-  await c.uploadMedia('supporting_image', [
-    file('rejected.png'),
-    file('accepted.png')
-  ]);
+  await c.uploadMedia(
+    'supporting_image',
+    [file('rejected.png'), file('accepted.png')],
+    usage,
+    acceptance
+  );
   const attempt = c.attempts()[0];
   assert.equal(attempt.status, 'failed');
   assert.equal(attempt.feedback.key, 'paymentUnconfirmed');
@@ -228,7 +400,7 @@ test('server capacity rejection releases the rejected file preview immediately',
   f.service.uploadSponsorshipMedia = async () => {
     throw new Error('The supporting image limit has been reached.');
   };
-  await c.uploadMedia('supporting_image', [file()]);
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
   assert.equal(c.attempts()[0].feedback.key, 'limit');
   assert.equal(c.attempts()[0].previewUrl, '');
   assert.deepEqual(f.revoked, ['blob:synthetic-1']);
@@ -246,7 +418,7 @@ for (const kind of ['logo', 'supporting_image'])
     f.service.getSponsorshipMedia = async () => {
       throw new Error('Synthetic reread failure');
     };
-    await c.uploadMedia(kind, [file()]);
+    await c.uploadMedia(kind, [file()], usage, acceptance);
     assert.equal(c.loadError(), true);
     assert.equal(c.attempts()[0].status, 'uploaded');
     assert.equal(c.attempts()[0].asset.id, 'synthetic-upload-1');
@@ -257,7 +429,12 @@ for (const kind of ['logo', 'supporting_image'])
       key: 'result',
       params: { received: 1, failed: 0 }
     });
-    await c.uploadMedia(kind, [file('blocked-after-read-error.png')]);
+    await c.uploadMedia(
+      kind,
+      [file('blocked-after-read-error.png')],
+      usage,
+      acceptance
+    );
     assert.equal(f.uploads.length, 1);
     f.service.getSponsorshipMedia = read;
     await c.refresh();
@@ -270,13 +447,13 @@ for (const kind of ['logo', 'supporting_image'])
 test('upload guards protect an approved logo, unconfirmed payment, initial loading and double submission', async (t) => {
   const f = fixture(t, [asset({ kind: 'logo', reviewStatus: 'approved' })]),
     c = f.controller;
-  await c.uploadMedia('supporting_image', [file()]);
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
   await c.refresh();
-  await c.uploadMedia('logo', [file()]);
+  await c.uploadMedia('logo', [file()], usage, acceptance);
   assert.equal(await c.deleteMedia(f.server.assets[0]), false);
   assert.equal(f.state.confirmations, 0);
   f.state.canUploadMedia = false;
-  await c.uploadMedia('supporting_image', [file()]);
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
   assert.equal(f.uploads.length, 0);
   f.state.canUploadMedia = true;
   const pending = deferred();
@@ -284,9 +461,19 @@ test('upload guards protect an approved logo, unconfirmed payment, initial loadi
     f.uploads.push(args);
     return pending.promise;
   };
-  const uploading = c.uploadMedia('supporting_image', [file()]);
+  const uploading = c.uploadMedia(
+    'supporting_image',
+    [file()],
+    usage,
+    acceptance
+  );
   await flush();
-  await c.uploadMedia('supporting_image', [file('duplicate.png')]);
+  await c.uploadMedia(
+    'supporting_image',
+    [file('duplicate.png')],
+    usage,
+    acceptance
+  );
   assert.equal(f.uploads.length, 1);
   pending.resolve({ uploaded: true, asset: asset() });
   await uploading;
@@ -304,7 +491,7 @@ test('failed initial read disables uploads until the server snapshot can be retr
   assert.equal(c.loaded(), false);
   assert.equal(c.loadError(), true);
   assert.equal(c.busy(), false);
-  await c.uploadMedia('supporting_image', [file()]);
+  await c.uploadMedia('supporting_image', [file()], usage, acceptance);
   assert.deepEqual(f.uploads, []);
   f.service.getSponsorshipMedia = read;
   await c.refresh();
@@ -388,10 +575,12 @@ for (const failure of [false, true])
       f.uploads.push(args);
       return pending.promise;
     };
-    const upload = c.uploadMedia('supporting_image', [
-      file(),
-      file('next.png')
-    ]);
+    const upload = c.uploadMedia(
+      'supporting_image',
+      [file(), file('next.png')],
+      usage,
+      acceptance
+    );
     await flush();
     f.state.token = 'synthetic-next-followup-token';
     await c.refresh();
@@ -424,7 +613,12 @@ for (const operation of ['read', 'preview', 'upload', 'delete'])
       await c.refresh();
       if (operation === 'upload') {
         f.service.uploadSponsorshipMedia = () => pending.promise;
-        request = c.uploadMedia('supporting_image', [file()]);
+        request = c.uploadMedia(
+          'supporting_image',
+          [file()],
+          usage,
+          acceptance
+        );
       } else {
         f.service.deleteSponsorshipMedia = () => pending.promise;
         request = c.deleteMedia(f.server.assets[0]);
@@ -459,7 +653,7 @@ for (const operation of ['read', 'preview', 'upload', 'delete'])
       f.created.map(({ url }) => url)
     );
     await c.refresh();
-    await c.uploadMedia('logo', [file()]);
+    await c.uploadMedia('logo', [file()], usage, acceptance);
     await c.deleteMedia(asset());
     c.setAltText('ignored');
     assert.equal(c.altText(), '');

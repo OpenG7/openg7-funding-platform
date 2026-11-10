@@ -116,26 +116,45 @@ test(
     });
 
     const request = command(receipt);
-    const concurrent = await Promise.all([
-      service.decideServicePreparation(request, actor),
-      service.decideServicePreparation(
-        { ...request, requestId: randomUUID() },
-        'synthetic-other-session'
+    const requests = [
+      { input: request, actor },
+      {
+        input: { ...request, requestId: randomUUID() },
+        actor: 'synthetic-other-session'
+      }
+    ];
+    const concurrent = await Promise.all(
+      requests.map(({ input, actor: reviewer }) =>
+        service.decideServicePreparation(input, reviewer)
       )
-    ]);
+    );
+    const recordedDecision = concurrent[0].decision;
+    assert.ok(recordedDecision);
     for (const approved of concurrent) {
       assert.equal(approved.status, 'approved');
       assert.equal(approved.history.length, 1);
       assert.equal(approved.canDecide, false);
+      assert.deepEqual(approved.decision, recordedDecision);
     }
     assert.equal(
       (await service.decideServicePreparation(request, actor)).history.length,
       1
     );
+    // Equivalent concurrent intents share one decision, but only the winning
+    // request key is recorded. Test key reuse against that exact actor and key.
+    const winningRequest = requests.find(
+      ({ input, actor: reviewer }) =>
+        input.requestId === recordedDecision.requestId &&
+        reviewer === recordedDecision.actor
+    );
+    assert.ok(winningRequest);
     await assert.rejects(
       service.decideServicePreparation(
-        { ...request, reason: 'A conflicting reuse of the request key.' },
-        actor
+        {
+          ...winningRequest.input,
+          reason: 'A conflicting reuse of the request key.'
+        },
+        winningRequest.actor
       ),
       { code: 'PREPARATION_REQUEST_CONFLICT' }
     );

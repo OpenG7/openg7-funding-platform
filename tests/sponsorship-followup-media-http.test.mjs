@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import test from 'node:test';
-import { UNKNOWN_SPONSOR_MEDIA_USAGE } from '../dist/packages/funding-core/src/index.js';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
 
 import { createSponsorshipFollowupMediaHttpHandler } from '../dist/apps/funding-api/src/sponsorship-followup-media.http.js';
 import { SponsorMediaPersistenceError } from '../dist/apps/funding-api/src/sponsor-media.repository.js';
+import { ModerationError } from '../dist/apps/funding-api/src/moderation/policy.js';
 import {
   readBody,
   readBodyBuffer
@@ -19,6 +21,17 @@ const version = '2026-09-24 12:00:00.123456+00';
 const originalBytes = Buffer.from('synthetic-png');
 const processedBytes = Buffer.from('synthetic-webp');
 const maxBytes = 32;
+const requestId = '00000000-0000-4000-8000-000000000003';
+const usage = {
+  state: 'confirmed',
+  channels: ['website'],
+  targets: ['openg7'],
+  transformations: ['technical'],
+  credit: null,
+  restrictions: null
+};
+const { text: _termsText, ...terms } = getSponsorMediaUsageTerms('fr-CA');
+const termsAcceptance = { ...terms, accepted: true };
 const deleteInput = {
   token,
   assetId,
@@ -37,6 +50,9 @@ const uploadBody = ({
   filename = 'synthetic.png',
   mime = 'image/png',
   extra = [],
+  acceptance = termsAcceptance,
+  permissions = usage,
+  uploadRequestId = requestId,
   includeFile = true
 } = {}) => {
   const boundary = 'synthetic-followup-media-boundary';
@@ -45,6 +61,10 @@ const uploadBody = ({
     ['token', tokenValue],
     ['kind', kind],
     ['altText', altText],
+    ['requestId', uploadRequestId],
+    ['usage', JSON.stringify(permissions)],
+    ['usageConfirmed', 'true'],
+    ['termsAcceptance', JSON.stringify(acceptance)],
     ...extra
   ])
     parts.push(
@@ -73,7 +93,8 @@ const fixture = ({
   failures = {},
   failAt = {},
   paymentStatus = 'paid',
-  assetPatch = {}
+  assetPatch = {},
+  receiptPort = false
 } = {}) => {
   const calls = [];
   const asset = {
@@ -109,13 +130,22 @@ const fixture = ({
     const count = calls.filter((entry) => entry.name === name).length;
     if (failures[name] && (!failAt[name] || count === failAt[name]))
       throw failures[name];
-    return Object.hasOwn(results, name) ? results[name] : fallback;
+    return Object.hasOwn(results, name)
+      ? typeof results[name] === 'function'
+        ? results[name](value)
+        : results[name]
+      : fallback;
   };
-  const writeJson = (_request, response, status, payload) => {
+  const writeJson = (_request, response, status, payload, headers = {}) => {
     calls.push({ name: 'json', value: status });
     Object.assign(response, { status, payload });
+    Object.assign(response.headers, headers);
   };
   const handler = createSponsorshipFollowupMediaHttpHandler({
+    readUploadReceipt: receiptPort
+      ? (id, requestId, fingerprint) =>
+          call('receipt', { id, requestId, fingerprint }, null)
+      : async () => null,
     publicBaseOrigin: origin,
     databaseAvailable: () => databaseAvailable,
     sponsorMediaMaxBytes: maxBytes,
@@ -444,6 +474,7 @@ test('media upload checks eligibility then processes and stores private bytes be
         }
       ]);
       const input = f.values('create')[0];
+      assert.match(input.requestFingerprint, /^[a-f0-9]{64}$/);
       assert.ok(isValidUuid(input.id));
       const base = `sponsors/${contributionId}/${input.id}`;
       assert.deepEqual(f.values('write'), [
@@ -459,6 +490,12 @@ test('media upload checks eligibility then processes and stores private bytes be
         }
       ]);
       assert.deepEqual(input, {
+        requestId,
+        requestFingerprint: input.requestFingerprint,
+        termsAcceptance,
+        originalChecksumSha256: createHash('sha256')
+          .update(originalBytes)
+          .digest('hex'),
         id: input.id,
         contributionId,
         kind: 'supporting_image',
@@ -476,7 +513,7 @@ test('media upload checks eligibility then processes and stores private bytes be
         height: 75,
         altText: 'Synthetic photo',
         maxSupportingImages: 4,
-        usage: UNKNOWN_SPONSOR_MEDIA_USAGE
+        usage
       });
       assert.deepEqual(f.values('audit'), []);
       assert.deepEqual(f.names(), [
@@ -492,6 +529,125 @@ test('media upload checks eligibility then processes and stores private bytes be
       assert.deepEqual(f.values('deletePrivate'), []);
     });
   }
+});
+
+test('public uploads require current exact terms, an explicit usage grant and a stable request UUID before any storage', async () => {
+  for (const [input, code] of [
+    [{ acceptance: null }, 'MEDIA_TERMS_ACCEPTANCE_REQUIRED'],
+    [
+      { acceptance: { ...termsAcceptance, accepted: false } },
+      'INVALID_MEDIA_TERMS_ACCEPTANCE'
+    ],
+    [
+      { acceptance: { ...termsAcceptance, version: 'old' } },
+      'MEDIA_TERMS_VERSION_CONFLICT'
+    ],
+    [
+      { acceptance: { ...termsAcceptance, locale: 'en' } },
+      'MEDIA_TERMS_VERSION_CONFLICT'
+    ],
+    [
+      { acceptance: { ...termsAcceptance, fingerprint: 'b'.repeat(64) } },
+      'MEDIA_TERMS_VERSION_CONFLICT'
+    ],
+    [{ permissions: null }, 'INVALID_MEDIA_USAGE_REQUEST'],
+    [
+      { permissions: { ...usage, state: 'withdrawn' } },
+      'INVALID_MEDIA_USAGE_REQUEST'
+    ],
+    [{ uploadRequestId: '' }, undefined]
+  ]) {
+    const f = fixture(),
+      res = await f.run('/sponsorship-followup/media', {
+        method: 'POST',
+        ...uploadBody(input)
+      });
+    assert.equal(res.status, 400);
+    assert.equal(res.payload.code, code);
+    assert.equal(f.values('fresh').length, 0);
+    assert.equal(f.values('write').length, 0);
+  }
+});
+
+test('public receipt reconciliation verifies the fresh private link and replays uploads before quota, processing and storage', async () => {
+  const asset = fixture().asset,
+    result = { uploaded: true, asset };
+  const f = fixture({ receiptPort: true, results: { receipt: result } });
+  const receipt = await f.run(
+    `/sponsorship-followup/media/upload-receipt?requestId=${requestId}`,
+    { headerToken: token }
+  );
+  assert.deepEqual(receipt.payload, { found: true, result });
+  assert.equal(receipt.headers['Cache-Control'], 'private, no-store');
+  assert.equal(
+    (
+      await f.run(
+        `/sponsorship-followup/media/upload-receipt?token=${token}&requestId=${requestId}`
+      )
+    ).status,
+    400
+  );
+  const replay = await f.run('/sponsorship-followup/media', {
+    method: 'POST',
+    ...uploadBody()
+  });
+  assert.deepEqual(replay.payload, result);
+  assert.match(f.values('receipt')[1].fingerprint, /^[a-f0-9]{64}$/);
+  for (const name of ['eligibility', 'process', 'write', 'create'])
+    assert.equal(f.values(name).length, 0);
+  const missing = fixture({ receiptPort: true });
+  assert.deepEqual(
+    (
+      await missing.run(
+        `/api/sponsorship-followup/media/upload-receipt?requestId=${requestId}`,
+        { headerToken: token }
+      )
+    ).payload,
+    { found: false }
+  );
+  const absent = fixture({ receiptPort: true, results: { fresh: null } });
+  assert.equal(
+    (
+      await absent.run(
+        `/sponsorship-followup/media/upload-receipt?requestId=${requestId}`,
+        { headerToken: token }
+      )
+    ).status,
+    404
+  );
+  assert.equal(absent.values('receipt').length, 0);
+  const conflict = fixture({
+    receiptPort: true,
+    failures: { receipt: new ModerationError('MEDIA_REQUEST_CONFLICT', 409) }
+  });
+  const refused = await conflict.run('/sponsorship-followup/media', {
+    method: 'POST',
+    ...uploadBody()
+  });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.payload.code, 'MEDIA_REQUEST_CONFLICT');
+  assert.equal(conflict.values('write').length, 0);
+});
+
+test('a concurrent commit between receipt lookup and quota check is reconciled as the same successful upload', async () => {
+  const winner = { uploaded: true, asset: fixture().asset };
+  let lookups = 0;
+  const f = fixture({
+    receiptPort: true,
+    results: {
+      receipt: () => (++lookups === 1 ? null : winner),
+      eligibility: 'supporting_image_limit_reached'
+    }
+  });
+  const result = await f.run('/sponsorship-followup/media', {
+    method: 'POST',
+    ...uploadBody()
+  });
+  assert.equal(result.status, 201);
+  assert.deepEqual(result.payload, winner);
+  assert.equal(lookups, 2);
+  assert.deepEqual(f.values('write'), []);
+  assert.deepEqual(f.values('create'), []);
 });
 
 test('uploads reject unsupported multipart transport, duplicate fields, unsafe text, missing file and size before decoding', async (t) => {
@@ -635,11 +791,11 @@ test('replacement cleanup removes only the previous private objects after audite
   const old = fixture().stored;
   const f = fixture({
     results: {
-      create: {
+      create: (input) => ({
         status: 'created',
-        asset: { ...old, kind: 'logo' },
+        asset: { ...old, id: input.id, kind: 'logo' },
         replaced: old
-      }
+      })
     }
   });
   const result = await f.run('/sponsorship-followup/media', {
@@ -790,7 +946,13 @@ test('a missing row never authorizes cleanup when rollback could not be confirme
 test('a cleanup exception after successful audited creation never removes the new media objects', async () => {
   const old = fixture().stored;
   const f = fixture({
-    results: { create: { status: 'created', asset: old, replaced: old } },
+    results: {
+      create: (input) => ({
+        status: 'created',
+        asset: { ...old, id: input.id },
+        replaced: old
+      })
+    },
     failures: { cleanup: new Error('Synthetic replacement cleanup failure') }
   });
   const result = await f.run('/sponsorship-followup/media', {
@@ -802,6 +964,22 @@ test('a cleanup exception after successful audited creation never removes the ne
   assert.equal(result.payload.code, 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED');
   assert.deepEqual(f.values('deletePrivate'), []);
   assert.deepEqual(f.values('get'), []);
+});
+
+test('a concurrent upload replay cleans its own losing nonce and preserves the winner objects', async () => {
+  const winner = fixture().asset;
+  const f = fixture({
+    results: { create: { status: 'created', asset: winner, replaced: null } }
+  });
+  const result = await f.run('/sponsorship-followup/media', {
+    method: 'POST',
+    ...uploadBody()
+  });
+  assert.equal(result.status, 201);
+  assert.equal(result.payload.asset.id, winner.id);
+  assert.equal(f.values('deletePrivate').length, 2);
+  assert.ok(f.values('deletePrivate').every((key) => !key.includes(winner.id)));
+  assert.deepEqual(f.values('cleanup'), []);
 });
 
 test('sponsor deletion keeps confirmation, exact scope and version, blocks approved media and audits cleanup', async (t) => {

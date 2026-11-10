@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import { getSponsorMediaUsageTerms } from '@openg7/funding-core';
 import type {
   SponsorMediaAsset,
   SponsorMediaPreference,
@@ -70,6 +71,9 @@ async function privateMedia(
     } as SponsorMediaPreference,
     commands: [] as Record<string, unknown>[],
     uploads: [] as string[],
+    uploadFailure: false,
+    receiptUnavailable: false,
+    receiptChecks: 0,
     failure: false,
     conflict: false
   };
@@ -78,6 +82,14 @@ async function privateMedia(
       url = new URL(req.url());
     if (url.pathname.includes('/content/'))
       return route.fulfill({ contentType: 'image/png', body: png });
+    if (url.pathname.endsWith('/upload-receipt')) {
+      state.receiptChecks++;
+      expect(url.searchParams.has('token')).toBe(false);
+      expect(req.headers()['x-sponsorship-followup-token']).toBeTruthy();
+      return state.receiptUnavailable
+        ? json(route, { code: 'MEDIA_UPLOAD_RECEIPT_UNAVAILABLE' }, 503)
+        : json(route, { found: false });
+    }
     if (req.method() === 'GET')
       return json(route, {
         assets: state.assets,
@@ -126,6 +138,8 @@ async function privateMedia(
       return json(route, { updated: true, preference: state.preference });
     }
     state.uploads.push(req.postDataBuffer()!.toString('utf8'));
+    if (state.uploadFailure)
+      return json(route, { code: 'MEDIA_UPLOAD_UNAVAILABLE' }, 503);
     state.assets = [asset()];
     return json(route, { asset: state.assets[0] });
   });
@@ -148,12 +162,15 @@ export function registerPrivateMediaUsageTests(): void {
         `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
       );
       const editor = disclosure.locator('[data-og7="media-usage-editor"]');
-      const summary = disclosure.locator('summary');
+      const summary = disclosure.locator(':scope > summary');
       await expect(disclosure).toHaveJSProperty('open', false);
       await expect(editor).toHaveCount(1);
       await summary.focus();
       await page.keyboard.press('Enter');
       await expect(disclosure).toHaveJSProperty('open', true);
+      await editor
+        .locator('[data-og7="media-usage-customize"] > summary')
+        .click();
       const credit = editor.locator('[data-og7="media-usage-credit"]');
       const confirmation = editor.locator(
         '[data-og7="media-usage-confirmation"]'
@@ -191,23 +208,53 @@ export function registerPrivateMediaUsageTests(): void {
         english ? 'Add photos' : 'Ajouter des photos',
         { exact: true }
       );
-      await expect(input).toBeDisabled();
-      await confirmAcceptanceMediaUsage(page, {
-        channels: ['website', 'facebook'],
-        targets: ['openg7'],
-        transformations: ['technical', 'portrait'],
-        credit: rights.credit
-      });
       await expect(input).toBeEnabled();
       await input.setInputFiles({
         name: 'synthetic.png',
         mimeType: 'image/png',
         buffer: png
       });
+      const selection = page.locator('[data-og7="media-upload-selection"]');
+      await expect(selection).toContainText('synthetic.png');
+      await expect(
+        selection.locator('[data-og7="media-usage-confirmation"]')
+      ).not.toBeChecked();
+      await expect(
+        selection.locator('[data-og7="media-upload-send"]')
+      ).toBeDisabled();
+      expect(state.uploads).toHaveLength(0);
+      await confirmAcceptanceMediaUsage(page, {
+        channels: ['website', 'facebook'],
+        targets: ['openg7'],
+        transformations: ['technical', 'portrait'],
+        credit: rights.credit
+      });
       await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
       expect(state.uploads).toHaveLength(1);
       expect(state.uploads[0]).toContain(JSON.stringify(rights));
       expect(state.uploads[0]).toMatch(/name="usageConfirmed"[\s\S]*?true/);
+      const { version, fingerprint, locale } = getSponsorMediaUsageTerms(
+        english ? 'en' : 'fr-CA'
+      );
+      expect(state.uploads[0]).toContain(
+        JSON.stringify({ version, fingerprint, locale, accepted: true })
+      );
+      expect(state.uploads[0]).toMatch(/name="requestId"[\s\S]*?[a-f0-9-]{36}/);
+      await expect(selection).toHaveCount(0);
+      await input.setInputFiles({
+        name: 'second.png',
+        mimeType: 'image/png',
+        buffer: png
+      });
+      await expect(
+        selection.locator('[data-og7="media-usage-confirmation"]')
+      ).not.toBeChecked();
+      await expect(
+        selection.locator('[data-og7="media-upload-send"]')
+      ).toBeDisabled();
+      await page.locator('[data-og7="media-upload-cancel"]').click();
+      await expect(selection).toHaveCount(0);
+      expect(state.uploads).toHaveLength(1);
       expect(
         (await new AxeBuilder({ page }).include('.media-manager').analyze())
           .violations
@@ -217,6 +264,97 @@ export function registerPrivateMediaUsageTests(): void {
           () => document.documentElement.scrollWidth <= innerWidth + 1
         )
       ).toBe(true);
+    });
+    test(`image usage amendments capture explicit current terms without a manual evidence field ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page, [asset()]);
+      await visit(page, english);
+      const disclosure = page.locator(
+        `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
+      );
+      await disclosure.locator(':scope > summary').click();
+      const editor = disclosure.locator('[data-og7="media-usage-editor"]');
+      await expect(
+        editor.locator('[data-og7="media-usage-evidence"]')
+      ).toHaveCount(0);
+      await expect(
+        editor.locator('[data-og7="media-usage-scope-summary"]')
+      ).toContainText('OPENG7');
+      await editor.locator('[data-og7="media-usage-terms"] > summary').click();
+      const { version, fingerprint, locale, text } = getSponsorMediaUsageTerms(
+        english ? 'en' : 'fr-CA'
+      );
+      await expect(
+        editor.locator('[data-og7="media-usage-terms"]')
+      ).toContainText(text);
+      const confirmation = editor.locator(
+        '[data-og7="media-usage-confirmation"]'
+      );
+      await editor
+        .locator('[data-og7="media-usage-customize"] > summary')
+        .click();
+      await editor
+        .locator('[data-og7="media-usage-credit"]')
+        .fill('Unsaved synthetic credit');
+      await confirmation.check();
+      await editor.locator('[data-og7="media-usage-cancel"]').click();
+      await expect(confirmation).not.toBeChecked();
+      await expect(
+        editor.locator('[data-og7="media-usage-credit"]')
+      ).toHaveValue(rights.credit!);
+      expect(state.commands).toEqual([]);
+      await confirmation.check();
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      await expect(confirmation).not.toBeChecked();
+      expect(state.commands).toHaveLength(1);
+      expect(state.commands[0]).toMatchObject({
+        assetId: id,
+        expectedVersion: 'v1',
+        usage: rights,
+        termsAcceptance: { version, fingerprint, locale, accepted: true }
+      });
+    });
+    test(`image usage upload checks uncertain receipts and retries the exact accepted file ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page);
+      state.uploadFailure = true;
+      state.receiptUnavailable = true;
+      await visit(page, english);
+      const input = page.getByLabel(
+        english ? 'Add photos' : 'Ajouter des photos',
+        { exact: true }
+      );
+      await expect(input).toBeEnabled();
+      await input.setInputFiles({
+        name: 'exact-file.png',
+        mimeType: 'image/png',
+        buffer: png
+      });
+      await confirmAcceptanceMediaUsage(page);
+      const retry = page.locator('[data-og7="media-upload-retry"]');
+      await expect(retry).toBeVisible();
+      await expect(input).toBeDisabled();
+      expect(state.uploads).toHaveLength(1);
+      await retry.click();
+      await expect.poll(() => state.receiptChecks).toBe(2);
+      await expect(retry).toBeEnabled();
+      expect(state.uploads).toHaveLength(1);
+      state.uploadFailure = false;
+      state.receiptUnavailable = false;
+      await retry.click();
+      await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
+      await expect(retry).toHaveCount(0);
+      expect(state.uploads).toHaveLength(2);
+      const requestId = (body: string) =>
+        body.match(/name="requestId"\r\n\r\n([^\r]+)/)?.[1];
+      expect(requestId(state.uploads[0])).toMatch(/^[a-f0-9-]{36}$/);
+      expect(requestId(state.uploads[1])).toBe(requestId(state.uploads[0]));
+      for (const body of state.uploads)
+        expect(body).toContain('filename="exact-file.png"');
     });
     test(`image usage withdrawal keeps a captured uncertain request and requires confirmation ${suffix}`, async ({
       page

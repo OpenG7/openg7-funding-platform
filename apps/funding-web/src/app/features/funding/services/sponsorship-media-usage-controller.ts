@@ -1,8 +1,10 @@
 import { signal } from '@angular/core';
+import { normalizeSponsorMediaTermsAcceptance } from '@openg7/funding-core';
 import type {
   SponsorMediaAsset,
   SponsorMediaPreference,
   SponsorMediaUsageRights,
+  SponsorMediaTermsAcceptance,
   SponsorMediaUsageRequest,
   SponsorMediaPreferenceRequest
 } from '@openg7/funding-core';
@@ -48,9 +50,18 @@ export class SponsorshipMediaUsageController {
   constructor(private readonly ports: Ports) {}
   async updateUsage(
     asset: SponsorMediaAsset,
-    usage: SponsorMediaUsageRights
+    usage: SponsorMediaUsageRights,
+    termsAcceptance?: SponsorMediaTermsAcceptance
   ): Promise<void> {
     if (!this.currentAsset(asset) || !this.ports.isBrowser()) return;
+    if (usage.state === 'confirmed' && !termsAcceptance) return;
+    if (usage.state === 'confirmed') {
+      try {
+        termsAcceptance = normalizeSponsorMediaTermsAcceptance(termsAcceptance);
+      } catch {
+        return;
+      }
+    }
     await this.submit({
       kind: 'usage',
       token: this.ports.token(),
@@ -60,7 +71,10 @@ export class SponsorshipMediaUsageController {
         expectedVersion: asset.version,
         requestId: globalThis.crypto.randomUUID(),
         confirmed: true,
-        usage: structuredClone(usage)
+        usage: structuredClone(usage),
+        ...(usage.state === 'confirmed'
+          ? { termsAcceptance: structuredClone(termsAcceptance!) }
+          : {})
       }
     });
   }

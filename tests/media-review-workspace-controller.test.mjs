@@ -4,6 +4,7 @@ import { registerHooks } from 'node:module';
 import { MediaReviewWorkspaceController } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.controller.js';
 import { MediaPreviewCollection } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-preview-collection.js';
 import { MediaReviewUpload } from '../dist/apps/funding-web/src/app/features/funding/components/media-review/media-review-upload.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
 // Match the existing Node test loaders: the root build emits workspace packages under dist/.
 const workspaceHook = registerHooks({
@@ -132,6 +133,381 @@ function fixture(
     }
   };
 }
+
+const acceptedMedia = (index = 0) => ({
+  ...asset(index),
+  usageSource: 'media',
+  ruleId: null,
+  usageAcceptance: {
+    id: 'synthetic-acceptance-' + index,
+    termsVersion: 'synthetic-media-terms-v1',
+    termsFingerprint: 'f'.repeat(64),
+    locale: 'fr-CA',
+    acceptedAt: '2026-11-09T15:20:00.000Z',
+    source: 'platform_acceptance'
+  }
+});
+
+async function acceptedReviewFixture(assets = [acceptedMedia(), asset(1)]) {
+  const f = fixture(assets);
+  await f.c.load();
+  f.c.inspectedId.set(assets[0].id);
+  return {
+    ...f,
+    selected: assets[0],
+    commands: new MediaReviewCommands(f.c, () => id)
+  };
+}
+
+test('platform acceptance opens and cancels a review without any command or business decision', async () => {
+  const f = await acceptedReviewFixture();
+  f.c.selectedIds.set(['media-1']);
+  f.commands.openAcceptedReview(f.selected);
+  assert.equal(f.commands.form(), 'review');
+  assert.equal(f.commands.acceptedReviewAsset(), f.selected);
+  assert.equal(f.commands.canApproveAcceptedReview(), true);
+  assert.equal(f.commands.humanReviewed(), false);
+  assert.deepEqual(f.calls, [['read']]);
+  f.commands.closeForm();
+  assert.equal(f.commands.form(), null);
+  assert.equal(f.commands.acceptedReview(), null);
+  assert.equal(f.c.plan(), null);
+  assert.equal(f.selected.reviewStatus, 'pending_review');
+  assert.deepEqual(f.calls, [['read']]);
+});
+
+test('an explicit platform review prepares and executes only the displayed file despite another selection', async () => {
+  const f = await acceptedReviewFixture();
+  f.c.selectedIds.set(['media-1']);
+  f.commands.openAcceptedReview(f.selected);
+  f.c.edit(f.selected, {
+    altText: '  Human description of this exact image  '
+  });
+  assert.deepEqual(f.calls, [['read']]);
+  await f.commands.approveAcceptedReview();
+  const plans = f.calls.filter(([name]) => name === 'plan');
+  const executions = f.calls.filter(([name]) => name === 'execute');
+  assert.equal(plans.length, 1);
+  assert.equal(executions.length, 1);
+  assert.deepEqual(plans[0][1].assets, [
+    {
+      id: 'media-0',
+      version: 'v1',
+      altText: 'Human description of this exact image'
+    }
+  ]);
+  assert.equal(plans[0][1].expectedRevision, 'workspace-v1');
+  assert.equal(plans[0][1].action, 'approve');
+  assert.equal(plans[0][1].contributionId, id);
+  assert.equal(executions[0][1].planId, 'plan');
+  assert.equal(executions[0][1].confirmation, 'plan');
+  assert.equal(executions[0][1].humanReviewed, true);
+  assert.equal(f.commands.form(), null);
+  assert.equal(f.c.receipt().status, 'completed');
+  assert.equal(
+    f.calls.some(([name]) => name === 'rules'),
+    false
+  );
+});
+
+test('platform review requires a bounded description and explicit review of recorded restrictions', async () => {
+  const selected = acceptedMedia();
+  selected.altText = null;
+  selected.usage.restrictions = 'Synthetic restriction for this image';
+  const f = await acceptedReviewFixture([selected]);
+  f.commands.openAcceptedReview(selected);
+  assert.equal(f.c.draft(selected).restrictions, false);
+  assert.equal(f.commands.canApproveAcceptedReview(), false);
+  await f.commands.approveAcceptedReview();
+  f.c.edit(selected, { altText: 'Human description' });
+  assert.equal(f.commands.canApproveAcceptedReview(), false);
+  await f.commands.approveAcceptedReview();
+  f.c.edit(selected, { restrictions: true });
+  assert.equal(f.commands.canApproveAcceptedReview(), true);
+  f.c.edit(selected, { altText: 'x'.repeat(301) });
+  assert.equal(f.commands.canApproveAcceptedReview(), false);
+  await f.commands.approveAcceptedReview();
+  assert.deepEqual(f.calls, [['read']]);
+  f.c.edit(selected, { altText: 'Human description' });
+  await f.commands.approveAcceptedReview();
+  assert.deepEqual(f.calls.find(([name]) => name === 'plan')[1].assets, [
+    {
+      id: 'media-0',
+      version: 'v1',
+      altText: 'Human description',
+      usageRestrictionsConfirmed: true
+    }
+  ]);
+  assert.equal(f.calls.filter(([name]) => name === 'execute').length, 1);
+});
+
+test('platform review cannot open without active rights, source proof and writing permission', async (t) => {
+  for (const [name, change] of [
+    [
+      'reader',
+      (f) => f.c.data.update((data) => ({ ...data, writable: false }))
+    ],
+    [
+      'denied actor',
+      (f) => {
+        f.ports.permitted = () => false;
+      }
+    ],
+    ['uncertain command', (f) => f.c.uncertain.set(true)],
+    [
+      'blocked media',
+      (f) => {
+        f.selected.readiness.state = 'blocked';
+      }
+    ],
+    [
+      'withdrawn rights',
+      (f) => {
+        f.selected.usage.state = 'withdrawn';
+      }
+    ],
+    [
+      'missing acceptance',
+      (f) => {
+        delete f.selected.usageAcceptance;
+      }
+    ],
+    ['another inspected file', (f) => f.c.inspectedId.set('media-1')]
+  ]) {
+    await t.test(name, async () => {
+      const f = await acceptedReviewFixture();
+      change(f);
+      f.commands.openAcceptedReview(f.selected);
+      assert.equal(f.commands.form(), null);
+      assert.equal(f.commands.acceptedReview(), null);
+      assert.deepEqual(f.calls, [['read']]);
+    });
+  }
+});
+
+test('platform review refuses changed source context before preparing a decision', async (t) => {
+  for (const [name, change] of [
+    ['dossier', (f) => f.c.setScope('another-dossier')],
+    ['inspected file', (f) => f.c.inspectedId.set('media-1')],
+    [
+      'workspace revision',
+      (f) => f.c.data.update((data) => ({ ...data, revision: 'workspace-v2' }))
+    ],
+    [
+      'asset version',
+      (f) =>
+        f.c.data.update((data) => ({
+          ...data,
+          assets: data.assets.map((item) => ({ ...item, version: 'v2' }))
+        }))
+    ],
+    [
+      'acceptance evidence',
+      (f) =>
+        f.c.data.update((data) => ({
+          ...data,
+          assets: data.assets.map((item) => ({
+            ...item,
+            usageAcceptance: {
+              ...item.usageAcceptance,
+              id: 'changed-acceptance'
+            }
+          }))
+        }))
+    ]
+  ]) {
+    await t.test(name, async () => {
+      const f = await acceptedReviewFixture();
+      f.commands.openAcceptedReview(f.selected);
+      change(f);
+      assert.equal(f.commands.canApproveAcceptedReview(), false);
+      await f.commands.approveAcceptedReview();
+      assert.deepEqual(f.calls, [['read']]);
+      assert.equal(f.commands.humanReviewed(), false);
+    });
+  }
+});
+
+test('platform review rejects a server plan that differs from the exact human confirmation', async (t) => {
+  for (const [name, change] of [
+    ['dossier', (plan) => ({ ...plan, contributionId: 'other-dossier' })],
+    ['workspace revision', (plan) => ({ ...plan, revision: 'workspace-v2' })],
+    [
+      'asset version',
+      (plan) => ({ ...plan, assets: [{ ...plan.assets[0], version: 'v2' }] })
+    ],
+    [
+      'acceptance evidence',
+      (plan) => ({
+        ...plan,
+        assets: [
+          {
+            ...plan.assets[0],
+            usageAcceptance: {
+              ...plan.assets[0].usageAcceptance,
+              id: 'changed-acceptance'
+            }
+          }
+        ]
+      })
+    ],
+    [
+      'usage permissions',
+      (plan) => ({
+        ...plan,
+        assets: [
+          {
+            ...plan.assets[0],
+            usage: { ...plan.assets[0].usage, channels: ['facebook'] }
+          }
+        ]
+      })
+    ],
+    [
+      'description',
+      (plan) => ({
+        ...plan,
+        assets: [
+          { ...plan.assets[0], altText: 'Unreviewed replacement description' }
+        ]
+      })
+    ],
+    ['extra file', (plan) => ({ ...plan, assets: [...plan.assets, asset(1)] })]
+  ]) {
+    await t.test(name, async () => {
+      const f = await acceptedReviewFixture();
+      const prepare = f.ports.admin.mediaBatchPlan;
+      f.ports.admin.mediaBatchPlan = async (request) =>
+        change(await prepare(request));
+      f.commands.openAcceptedReview(f.selected);
+      await f.commands.approveAcceptedReview();
+      assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+      assert.equal(
+        f.calls.some(([command]) => command === 'execute'),
+        false
+      );
+      assert.equal(f.c.error(), 'changed');
+      assert.equal(f.c.plan(), null);
+      assert.equal(f.commands.humanReviewed(), false);
+    });
+  }
+});
+
+test('a platform review invalidated while its plan is pending never executes or retains that plan', async () => {
+  const f = await acceptedReviewFixture();
+  const prepare = f.ports.admin.mediaBatchPlan;
+  let release;
+  let reportReady;
+  const ready = new Promise((resolve) => {
+    reportReady = resolve;
+  });
+  f.ports.admin.mediaBatchPlan = async (request) => {
+    const plan = await prepare(request);
+    await new Promise((resolve) => {
+      release = resolve;
+      reportReady();
+    });
+    return plan;
+  };
+  f.commands.openAcceptedReview(f.selected);
+  const pending = f.commands.approveAcceptedReview();
+  await ready;
+  assert.equal(f.commands.reviewSubmitting(), true);
+  await f.commands.approveAcceptedReview();
+  f.c.data.update((data) => ({ ...data, revision: 'workspace-v2' }));
+  release();
+  await pending;
+  assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+  assert.equal(
+    f.calls.some(([command]) => command === 'execute'),
+    false
+  );
+  assert.equal(f.c.plan(), null);
+  assert.equal(f.c.error(), 'changed');
+  assert.equal(f.commands.reviewSubmitting(), false);
+});
+
+test('blocked or rejected platform plans never execute a media approval', async (t) => {
+  for (const response of ['blocked', 'conflict']) {
+    await t.test(response, async () => {
+      const f = await acceptedReviewFixture();
+      const prepare = f.ports.admin.mediaBatchPlan;
+      f.ports.admin.mediaBatchPlan = async (request) => {
+        const plan = await prepare(request);
+        if (response === 'conflict') throw new AdminDashboardRequestError(409);
+        return {
+          ...plan,
+          blocked: [{ id: 'media-0', reasons: ['MEDIA_INVALID'] }]
+        };
+      };
+      f.commands.openAcceptedReview(f.selected);
+      await f.commands.approveAcceptedReview();
+      assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+      assert.equal(
+        f.calls.some(([command]) => command === 'execute'),
+        false
+      );
+      assert.equal(f.commands.humanReviewed(), false);
+      assert.equal(f.commands.form(), 'review');
+      if (response === 'blocked') assert.equal(f.c.plan().blocked.length, 1);
+      else assert.equal(f.c.plan(), null);
+    });
+  }
+});
+
+test('platform review preserves authentication and authorization errors returned during planning', async (t) => {
+  for (const status of [401, 403]) {
+    await t.test(String(status), async () => {
+      const f = await acceptedReviewFixture();
+      f.ports.admin.mediaBatchPlan = async (request) => {
+        f.calls.push(['plan', request]);
+        throw new AdminDashboardRequestError(status);
+      };
+      f.commands.openAcceptedReview(f.selected);
+      await f.commands.approveAcceptedReview();
+      assert.equal(f.c.error(), status === 401 ? 'unauthorized' : 'forbidden');
+      assert.equal(f.c.data(), null);
+      assert.equal(f.c.plan(), null);
+      assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+      assert.equal(
+        f.calls.some(([command]) => command === 'execute'),
+        false
+      );
+      assert.equal(f.commands.humanReviewed(), false);
+      assert.equal(
+        f.calls.filter(([command]) => command === 'unauthorized').length,
+        status === 401 ? 1 : 0
+      );
+    });
+  }
+});
+
+test('an uncertain platform approval is reconciled without planning or executing it twice', async () => {
+  const f = await acceptedReviewFixture();
+  f.ports.admin.mediaBatchExecute = async (request) => {
+    f.calls.push(['execute', request]);
+    throw new AdminDashboardRequestError(503);
+  };
+  f.commands.openAcceptedReview(f.selected);
+  await f.commands.approveAcceptedReview();
+  assert.equal(f.c.uncertain(), true);
+  assert.equal(f.c.error(), 'uncertain');
+  assert.equal(f.commands.form(), 'review');
+  assert.equal(f.commands.canApproveAcceptedReview(), false);
+  await f.commands.approveAcceptedReview();
+  f.commands.closeForm();
+  f.commands.openAcceptedReview(f.selected);
+  assert.equal(f.commands.form(), null);
+  assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+  assert.equal(f.calls.filter(([command]) => command === 'execute').length, 1);
+  f.receiptFound();
+  await f.c.reconcile();
+  assert.equal(f.c.uncertain(), false);
+  assert.equal(f.c.receipt().status, 'completed');
+  assert.equal(f.calls.filter(([command]) => command === 'receipt').length, 1);
+  assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
+  assert.equal(f.calls.filter(([command]) => command === 'execute').length, 1);
+});
 
 test('one hundred metadata entries render pages of eight and filter without preview reads', async () => {
   const f = fixture();
@@ -362,6 +738,316 @@ test('missing services and restoring inheritance do not propose new usage rights
   commands.restoreInheritance(f.data.assets[0]);
   assert.equal(commands.rulesSuggestedScope(), null);
   assert.equal(commands.inheritRequested(), true);
+});
+
+const unconfirmedMedia = (index = 0) => ({
+  ...asset(index, 'blocked'),
+  usage: {
+    state: 'needs_confirmation',
+    channels: [],
+    targets: [],
+    transformations: [],
+    credit: null,
+    restrictions: null
+  },
+  readiness: {
+    state: 'blocked',
+    reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+  }
+});
+const documentedUsage = {
+  usage: {
+    state: 'confirmed',
+    channels: ['website'],
+    targets: ['openg7'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  },
+  evidenceReference: 'Synthetic private image-usage agreement'
+};
+
+test('guided media review asks for documented rights on the inspected file without planning or approving', async () => {
+  const f = fixture([unconfirmedMedia(), asset(1)]);
+  await f.c.load();
+  f.c.inspectedId.set('media-0');
+  f.c.selectedIds.set(['media-1']);
+  const continued = [];
+  const commands = new MediaReviewCommands(
+    f.c,
+    () => id,
+    (target) => continued.push(target)
+  );
+  commands.openReviewPermissions(f.data.assets[0]);
+  assert.equal(commands.form(), 'rules');
+  assert.equal(commands.rulesScope(), 'media');
+  assert.equal(commands.rulesScopeId(), 'media-0');
+  assert.deepEqual(
+    commands.coveredAssets().map((item) => item.id),
+    ['media-0']
+  );
+  commands.changeScope({ target: { value: 'dossier' } });
+  assert.equal(commands.rulesScope(), 'media');
+  await commands.saveRules({ ...documentedUsage, evidenceReference: '' });
+  assert.deepEqual(f.calls, [['read']]);
+  assert.deepEqual(continued, []);
+
+  f.ports.admin.mediaRules = async (request) => {
+    f.calls.push(['rules', request]);
+    return {
+      ...f.data,
+      revision: 'workspace-v2',
+      assets: f.data.assets.map((item) =>
+        item.id === 'media-0'
+          ? {
+              ...item,
+              version: 'v2',
+              usage: request.usage,
+              readiness: {
+                state: 'needs_review',
+                reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
+              }
+            }
+          : item
+      )
+    };
+  };
+  await commands.saveRules(documentedUsage);
+  const request = f.calls.find(([name]) => name === 'rules')[1];
+  assert.equal(request.contributionId, id);
+  assert.equal(request.expectedRevision, 'workspace-v1');
+  assert.equal(request.scope, 'media');
+  assert.equal(request.scopeId, 'media-0');
+  assert.equal(request.confirmation, 'media-0');
+  assert.deepEqual(request.coveredAssetIds, ['media-0']);
+  assert.equal(request.includesFutureUploads, undefined);
+  assert.equal(request.evidenceReference, documentedUsage.evidenceReference);
+  assert.equal(f.c.inspected().version, 'v2');
+  assert.equal(f.c.inspected().reviewStatus, 'pending_review');
+  assert.equal(commands.form(), null);
+  assert.equal(commands.reviewPermissions(), null);
+  assert.equal(commands.humanReviewed(), false);
+  assert.deepEqual(continued, [{ id: 'media-0', contributionId: id }]);
+  assert.equal(
+    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
+    false
+  );
+});
+
+test('confirmed rights retain the exact review target while parent refresh temporarily disables the surface', async () => {
+  const f = fixture([unconfirmedMedia()]);
+  await f.c.load();
+  f.c.inspectedId.set('media-0');
+  let refreshing = false;
+  f.ports.permitted = () => !refreshing;
+  f.ports.changed = () => {
+    refreshing = true;
+  };
+  f.ports.admin.mediaRules = async (request) => {
+    f.calls.push(['rules', request]);
+    return {
+      ...f.data,
+      revision: 'workspace-v2',
+      assets: [
+        {
+          ...f.data.assets[0],
+          version: 'v2',
+          usage: request.usage,
+          readiness: {
+            state: 'needs_review',
+            reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
+          }
+        }
+      ]
+    };
+  };
+  const targets = [];
+  const commands = new MediaReviewCommands(
+    f.c,
+    () => id,
+    (target) => targets.push(target)
+  );
+  commands.openReviewPermissions(f.data.assets[0]);
+  await commands.saveRules(documentedUsage);
+  assert.equal(f.c.canWrite(), false);
+  assert.deepEqual(targets, [{ id: 'media-0', contributionId: id }]);
+  assert.equal(commands.form(), null);
+  assert.equal(
+    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
+    false
+  );
+});
+
+test('guided rights cannot be saved after their file, version, workspace or scope changes', async (t) => {
+  for (const [name, change] of [
+    ['inspected file', (f) => f.c.inspectedId.set('media-1')],
+    [
+      'asset version',
+      (f) =>
+        f.c.data.update((data) => ({
+          ...data,
+          assets: data.assets.map((item) => ({ ...item, version: 'v2' }))
+        }))
+    ],
+    [
+      'workspace revision',
+      (f) => f.c.data.update((data) => ({ ...data, revision: 'workspace-v2' }))
+    ],
+    ['rules scope', (_f, commands) => commands.rulesScope.set('dossier')],
+    ['inheritance', (_f, commands) => commands.inheritRequested.set(true)],
+    [
+      'future files',
+      (_f, commands) => commands.includesFutureUploads.set(true)
+    ],
+    ['dossier', (f) => f.c.setScope('another-dossier')]
+  ]) {
+    await t.test(name, async () => {
+      const f = fixture([unconfirmedMedia(), asset(1)]);
+      await f.c.load();
+      f.c.inspectedId.set('media-0');
+      const continued = [];
+      const commands = new MediaReviewCommands(
+        f.c,
+        () => id,
+        (target) => continued.push(target)
+      );
+      commands.openReviewPermissions(f.data.assets[0]);
+      change(f, commands);
+      await commands.saveRules(documentedUsage);
+      assert.deepEqual(f.calls, [['read']]);
+      assert.deepEqual(continued, []);
+      assert.equal(f.c.error(), 'changed');
+    });
+  }
+});
+
+test('guided rights do not open for a hard blocker, denied actor or uncertain operation', async (t) => {
+  for (const [name, change] of [
+    [
+      'technical failure',
+      (f) => {
+        f.data.assets[0].readiness.reasons.push('MEDIA_INVALID');
+      }
+    ],
+    [
+      'withdrawn rights',
+      (f) => {
+        f.data.assets[0].readiness.reasons = ['MEDIA_USAGE_WITHDRAWN'];
+      }
+    ],
+    [
+      'moderation restriction',
+      (f) => {
+        f.data.assets[0].readiness.reasons.push('MODERATION_RESTRICTED');
+      }
+    ],
+    [
+      'rejected media with an inconsistent reason',
+      (f) => {
+        f.data.assets[0].reviewStatus = 'rejected';
+      }
+    ],
+    [
+      'withdrawn rights with an inconsistent reason',
+      (f) => {
+        f.data.assets[0].usage.state = 'withdrawn';
+      }
+    ],
+    ['denied actor', (f) => (f.ports.permitted = () => false)],
+    ['uncertain command', (f) => f.c.uncertain.set(true)],
+    ['busy command', (f) => f.c.busy.set(true)]
+  ]) {
+    await t.test(name, async () => {
+      const f = fixture([unconfirmedMedia()]);
+      change(f);
+      await f.c.load();
+      f.c.inspectedId.set('media-0');
+      const commands = new MediaReviewCommands(f.c, () => id);
+      commands.openReviewPermissions(f.data.assets[0]);
+      assert.equal(commands.form(), null);
+      assert.equal(commands.reviewPermissions(), null);
+      assert.deepEqual(f.calls, [['read']]);
+    });
+  }
+});
+
+test('an uncertain rights save keeps the guided form blocked without retrying or continuing acceptance', async () => {
+  const f = fixture([unconfirmedMedia()]);
+  f.ports.admin.mediaRules = async (request) => {
+    f.calls.push(['rules', request]);
+    throw new AdminDashboardRequestError(503);
+  };
+  await f.c.load();
+  f.c.inspectedId.set('media-0');
+  const continued = [];
+  const commands = new MediaReviewCommands(
+    f.c,
+    () => id,
+    (target) => continued.push(target)
+  );
+  commands.openReviewPermissions(f.data.assets[0]);
+  await commands.saveRules(documentedUsage);
+  assert.equal(f.c.uncertain(), true);
+  assert.equal(commands.form(), 'rules');
+  assert.equal(commands.reviewPermissions().id, 'media-0');
+  await commands.saveRules(documentedUsage);
+  assert.equal(f.calls.filter(([name]) => name === 'rules').length, 1);
+  assert.deepEqual(continued, []);
+  assert.equal(
+    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
+    false
+  );
+});
+
+test('a delayed rights response never continues review for a different inspected file', async () => {
+  const f = fixture([unconfirmedMedia(), asset(1)]);
+  let resolve;
+  f.ports.admin.mediaRules = async () =>
+    new Promise((complete) => {
+      resolve = complete;
+    });
+  await f.c.load();
+  f.c.inspectedId.set('media-0');
+  const continued = [];
+  const commands = new MediaReviewCommands(
+    f.c,
+    () => id,
+    (target) => continued.push(target)
+  );
+  commands.openReviewPermissions(f.data.assets[0]);
+  const saving = commands.saveRules(documentedUsage);
+  f.c.inspectedId.set('media-1');
+  resolve({ ...f.data, revision: 'workspace-v2' });
+  await saving;
+  assert.deepEqual(continued, []);
+  assert.equal(f.c.inspected().id, 'media-1');
+  assert.equal(commands.reviewPermissions(), null);
+});
+
+test('resetting the review context prevents a late rights response from closing a new form', async () => {
+  const f = fixture([unconfirmedMedia()]);
+  let resolve;
+  f.ports.admin.mediaRules = async () =>
+    new Promise((complete) => {
+      resolve = complete;
+    });
+  await f.c.load();
+  f.c.inspectedId.set('media-0');
+  const continued = [];
+  const commands = new MediaReviewCommands(
+    f.c,
+    () => id,
+    (target) => continued.push(target)
+  );
+  commands.openReviewPermissions(f.data.assets[0]);
+  const saving = commands.saveRules(documentedUsage);
+  commands.reset();
+  commands.form.set('batch');
+  resolve({ ...f.data, revision: 'workspace-v2' });
+  await saving;
+  assert.equal(commands.form(), 'batch');
+  assert.equal(commands.reviewPermissions(), null);
+  assert.deepEqual(continued, []);
 });
 
 test('a correction uses native N1 reasons and requires the editorial provision before preparing its manifest', async () => {

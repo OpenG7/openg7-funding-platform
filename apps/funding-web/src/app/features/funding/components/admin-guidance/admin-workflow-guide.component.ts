@@ -18,6 +18,7 @@ import en from '../../../../../assets/i18n/admin-workflow-guide.en.json' with { 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
+import { dossierSectionOwnerTab } from '../../models/admin-sponsorship-navigation.js';
 
 import { ADMIN_WORKFLOW_GUIDE_JOURNEYS } from './admin-workflow-guide.catalog.js';
 import { highlightGuidanceRegions } from './admin-guidance-highlight.js';
@@ -56,11 +57,10 @@ export class AdminWorkflowGuideComponent {
   readonly context = computed(() => {
     if (this.guidance.page()?.id !== 'sponsors') return null;
     const id = this.guidance.paymentContext();
+    const url = new URL(this.guidance.navigationUrl(), 'https://admin.invalid');
     const tab =
-      new URL(
-        this.guidance.navigationUrl(),
-        'https://admin.invalid'
-      ).searchParams.get('tab') ?? 'overview';
+      dossierSectionOwnerTab(url.searchParams.get('tab'), url.hash.slice(1)) ??
+      'overview';
     return id && tab === this.journey().dossierTab ? id : null;
   });
   readonly dossierParams = computed(() => ({

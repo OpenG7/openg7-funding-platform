@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
 
 import { FundingSponsorshipFollowupClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-sponsorship-followup.client.js';
+import { SponsorMediaUploadError } from '../dist/apps/funding-web/src/app/features/funding/services/sponsor-media-upload-feedback.js';
 import {
   followupAccessExpired,
   SponsorshipFollowupError
@@ -10,6 +12,17 @@ import {
 const baseUrl = 'https://funding.example.test/api';
 const token = 'synthetic token+/=&?';
 const encodedToken = 'synthetic+token%2B%2F%3D%26%3F';
+const { version, fingerprint, locale } = getSponsorMediaUsageTerms('fr-CA');
+const acceptance = { version, fingerprint, locale, accepted: true };
+const usage = {
+  state: 'confirmed',
+  channels: ['website'],
+  targets: ['openg7'],
+  transformations: ['technical'],
+  credit: null,
+  restrictions: null
+};
+const requestId = '10000000-0000-4000-8000-000000000001';
 const file = new File(['synthetic image'], 'sponsor.png', {
   type: 'image/png'
 });
@@ -77,6 +90,17 @@ const jsonEndpoints = [
     fallback: 'Sponsorship media could not be loaded.'
   },
   {
+    name: 'media upload receipt',
+    invoke: (client) =>
+      client.getSponsorshipMediaUploadReceipt(token, requestId),
+    path: `/sponsorship-followup/media/upload-receipt?requestId=${requestId}`,
+    options: {
+      cache: 'no-store',
+      headers: { 'X-Sponsorship-Followup-Token': token }
+    },
+    typedError: true
+  },
+  {
     name: 'media delete',
     invoke: (client) => client.deleteSponsorshipMedia(deletion),
     path: '/sponsorship-followup/media/delete',
@@ -105,8 +129,18 @@ const endpoints = [
   },
   {
     name: 'media upload',
-    invoke: (client) => client.uploadSponsorshipMedia(token, 'logo', file),
+    invoke: (client) =>
+      client.uploadSponsorshipMedia(
+        token,
+        'logo',
+        file,
+        undefined,
+        usage,
+        acceptance,
+        requestId
+      ),
     serverError: true,
+    uploadError: true,
     fallback: 'Sponsor media could not be uploaded.'
   }
 ];
@@ -234,6 +268,12 @@ test('media upload preserves multipart File, token, kind and trimmed optional al
               assert.ok(options.body instanceof FormData);
               assert.equal(options.body.get('token'), token);
               assert.equal(options.body.get('kind'), kind);
+              assert.equal(options.body.get('requestId'), requestId);
+              assert.deepEqual(JSON.parse(options.body.get('usage')), usage);
+              assert.deepEqual(
+                JSON.parse(options.body.get('termsAcceptance')),
+                acceptance
+              );
               const media = options.body.get('media');
               assert.ok(media instanceof File);
               assert.equal(media.name, file.name);
@@ -246,14 +286,39 @@ test('media upload preserves multipart File, token, kind and trimmed optional al
               assert.deepEqual(
                 [...options.body.keys()].sort(),
                 altText?.trim()
-                  ? ['altText', 'kind', 'media', 'token']
-                  : ['kind', 'media', 'token']
+                  ? [
+                      'altText',
+                      'kind',
+                      'media',
+                      'requestId',
+                      'termsAcceptance',
+                      'token',
+                      'usage',
+                      'usageConfirmed'
+                    ]
+                  : [
+                      'kind',
+                      'media',
+                      'requestId',
+                      'termsAcceptance',
+                      'token',
+                      'usage',
+                      'usageConfirmed'
+                    ]
               );
               return Response.json(result);
             }
           );
           assert.deepEqual(
-            await client.uploadSponsorshipMedia(token, kind, file, altText),
+            await client.uploadSponsorshipMedia(
+              token,
+              kind,
+              file,
+              altText,
+              usage,
+              acceptance,
+              requestId
+            ),
             result
           );
           assert.equal(fetchMock.mock.callCount(), 1);
@@ -294,6 +359,11 @@ test('HTTP failures retain each endpoint error class, status, code or server mes
               error.message,
               'Sponsorship follow-up request failed.'
             );
+          } else if (endpoint.uploadError) {
+            assert.ok(error instanceof SponsorMediaUploadError);
+            assert.equal(error.status, status);
+            assert.equal(error.code, 'SYNTHETIC_FAILURE');
+            assert.equal(error.message, 'Synthetic server message');
           } else {
             assert.equal(error.constructor, Error);
             assert.equal(error.status, undefined);
@@ -326,6 +396,11 @@ test('malformed HTTP error bodies preserve fallback policies and recovery skips 
           assert.ok(error instanceof SponsorshipFollowupError);
           assert.equal(error.status, 503);
           assert.equal(error.code, '');
+        } else if (endpoint.uploadError) {
+          assert.ok(error instanceof SponsorMediaUploadError);
+          assert.equal(error.status, 503);
+          assert.equal(error.code, '');
+          assert.equal(error.message, endpoint.fallback);
         } else {
           assert.equal(error.constructor, Error);
           assert.equal(error.message, endpoint.fallback);

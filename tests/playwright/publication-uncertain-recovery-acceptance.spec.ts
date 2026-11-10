@@ -224,9 +224,6 @@ test('lost social responses survive restart and recover through verified reconci
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
-        await confirmAcceptanceMediaUsage(page, {
-          targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
-        });
         for (const [label, filename] of [
           ['Ajouter le logo', 'logo.png'],
           ['Ajouter des photos', 'photo.png']
@@ -242,6 +239,9 @@ test('lost social responses survive restart and recover through verified reconci
           await page
             .getByLabel(label!)
             .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+          await confirmAcceptanceMediaUsage(page, {
+            targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
+          });
           expect((await upload).ok()).toBe(true);
           await expect(
             page.locator('[data-og7="media-upload-attempt"]')

@@ -649,10 +649,20 @@ export function registerDossierPublicationScheduleTests(
       await dialog
         .locator('input[type="datetime-local"]')
         .fill('2030-06-06T11:15');
-      await dialog
-        .getByRole('button', { name: 'Enregistrer le brouillon' })
-        .click();
+      const save = dialog.getByRole('button', {
+        name: 'Enregistrer le brouillon'
+      });
+      // Observe the pending save before letting reconciliation finish.
+      let releaseRead!: () => void;
+      controls.gate = new Promise<void>((resolve) => {
+        releaseRead = resolve;
+      });
+      const reads = controls.reads.length;
+      await save.click();
       await expect.poll(() => controls.commands.length).toBe(1);
+      await expect.poll(() => controls.reads.length).toBeGreaterThan(reads);
+      await expect(dialog).toBeVisible();
+      await expect(save).toBeDisabled();
       const expectedAt = await page.evaluate(() =>
         new Date('2030-06-06T11:15').toISOString()
       );
@@ -664,13 +674,28 @@ export function registerDossierPublicationScheduleTests(
       });
       expect(job.approvedAt).toBeNull();
       expect(job.status).toBe('draft');
-      if (!(await dialog.isVisible()))
-        await channel(page)
-          .locator('[data-og7="publication-service-action"]')
-          .click();
+      expect(job.version).toBe(2);
+      releaseRead();
+      controls.gate = null;
+      await expect(dialog).toBeHidden();
+      const review = channel(page).locator(
+        '[data-og7="publication-service-action"]'
+      );
+      await expect(review).toBeEnabled();
+      await review.click();
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog
+          .locator('[data-og7="publication-content-context"] strong')
+          .first()
+      ).toHaveText('2');
+      await expect(
+        dialog.getByRole('checkbox', { name: /J’approuve/ })
+      ).not.toBeChecked();
       await expect(
         dialog.getByRole('button', { name: 'Accepter et programmer' })
       ).toBeDisabled();
+      expect(controls.commands).toHaveLength(1);
       await expect(
         page
           .locator('[data-og7="publication-monitor"]')

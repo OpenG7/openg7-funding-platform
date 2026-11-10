@@ -208,6 +208,8 @@ export const createRequestRateLimit = (
         '/api/sponsorship-followup/reconsideration',
         '/sponsorship-followup/media',
         '/api/sponsorship-followup/media',
+        '/sponsorship-followup/media/upload-receipt',
+        '/api/sponsorship-followup/media/upload-receipt',
         '/sponsorship-followup/media/delete',
         '/api/sponsorship-followup/media/delete',
         '/sponsorship-followup/media/usage',

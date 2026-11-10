@@ -51,11 +51,17 @@ export const openFixtureSponsorship = async (
     new URL(page.url()).searchParams.has('sponsorshipId') ||
     (await back.isVisible())
   ) {
+    const tools = page.locator('[data-og7="dossier-global-tools"]');
+    await expect(tools).toBeVisible();
+    if ((await tools.getAttribute('open')) === null) {
+      await tools.locator(':scope > summary').click();
+      await expect(tools).toHaveAttribute('open', '');
+    }
+    await expect(back).toBeVisible();
     await back.click();
   }
-  await page
-    .locator('[data-og7="sponsors-list"]')
-    .getByRole('searchbox')
-    .fill(companyName);
-  await page.getByRole('button', { name: new RegExp(companyName) }).click();
+  const list = page.locator('[data-og7="sponsors-list"]');
+  await expect(list).toBeVisible();
+  await list.getByRole('searchbox').fill(companyName);
+  await list.getByRole('button', { name: new RegExp(companyName) }).click();
 };

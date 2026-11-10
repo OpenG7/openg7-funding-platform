@@ -51,8 +51,10 @@
             {{ 'admin.preflight.publicationOwner.controls' | translate }}
           </h2>
           <openg7-admin-sponsorship-preparation
+            #publicationPreparation
             aria-labelledby="publication-owner-controls-title"
             id="dossier-preparation"
+            tabindex="-1"
             [contributionId]="dossier.contributionId"
             [refreshKey]="dossier.version"
           />

@@ -386,7 +386,6 @@ for (const amount of [100, 250]) {
           })
             .png()
             .toBuffer();
-          await confirmAcceptanceMediaUsage(company);
           for (const [label, filename] of [
             ['Ajouter le logo', 'logo.png'],
             ['Ajouter des photos', 'photo.png']
@@ -404,6 +403,7 @@ for (const amount of [100, 250]) {
               mimeType: 'image/png',
               buffer
             });
+            await confirmAcceptanceMediaUsage(company);
             expect((await uploaded).ok()).toBe(true);
             await expect(
               company.locator('[data-og7="media-upload-attempt"]')
@@ -554,15 +554,12 @@ for (const amount of [100, 250]) {
               ).status()
             ).toBe(404);
           await assertPrivate();
-          const overview = admin
+          const publication = admin
             .locator('[data-og7="dossier-tabs"]')
-            .getByRole('button', { name: 'Aperçu', exact: true });
-          if (xbox) await xbox.activate(overview);
-          else await overview.click();
-          const accept = admin.getByRole('button', {
-            name: 'Accepter',
-            exact: true
-          });
+            .getByRole('button', { name: 'Publication', exact: true });
+          if (xbox) await xbox.activate(publication);
+          else await publication.click();
+          const accept = admin.locator('[data-og7="sponsorship-approve"]');
           if (xbox) await xbox.activate(accept);
           else await accept.click();
           await completeModeration(admin, false, xbox);

@@ -25,7 +25,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - name: Install encrypted backup tooling
+        timeout-minutes: 10
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - run: yarn lint
       - run: yarn exec tsc --noEmit -p tsconfig.json
@@ -68,7 +71,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: development
@@ -99,7 +105,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium webkit
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: development
@@ -134,7 +143,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium firefox webkit
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: development
@@ -167,7 +179,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium firefox webkit
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: production
@@ -200,13 +215,17 @@ jobs:
       - run: yarn install --immutable
       - name: Build runtime for identity fixtures
         run: yarn build
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - name: Install encrypted backup tooling for the admin request journey
+        timeout-minutes: 10
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - name: Prepare isolated identity providers
         run: |
           docker pull postgres:16-alpine
           docker pull axllent/mailpit:v1.27.4
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: production
@@ -237,13 +256,17 @@ jobs:
       - run: yarn install --immutable
       - name: Build runtime for recovery fixtures
         run: yarn build
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - name: Install encrypted backup tooling
+        timeout-minutes: 10
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - name: Prepare isolated recovery providers
         run: |
           docker pull postgres:16-alpine
           docker pull adobe/s3mock:5.1.0
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - uses: ./.github/actions/cache-angular
         with:
           configuration: production
@@ -308,7 +331,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance --shard=${{ matrix.shard }}/4
       - name: Preserve acceptance evidence
@@ -332,7 +358,10 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - name: Real API and private DB sandbox without financial fixture seed
         run: yarn test:e2e:sandbox
       - name: Preserve sandbox evidence
@@ -392,9 +421,13 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - uses: ./.github/actions/prepare-ubuntu-apt
+        timeout-minutes: 2
       - name: Install disposable HTTPS trust tooling
+        timeout-minutes: 10
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mkcert libnss3-tools
       - run: yarn exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - name: Prepare isolated runner CA and localhost certificates
         shell: bash
         env:

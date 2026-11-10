@@ -1,6 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { USAGE_REFUND_POLICY_REVISION } from '../../apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.metadata.js';
+import { getSponsorMediaUsageTerms } from '../../packages/funding-core/src/sponsor-media-terms.js';
 
 import { expect, test } from './support/test.js';
 
@@ -52,6 +53,12 @@ for (const locale of locales) {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       locale.title
     );
+    const mediaTerms = getSponsorMediaUsageTerms(locale.language);
+    const mediaTermsSection = page.locator(
+      '[data-og7="policy-media-usage-terms"]'
+    );
+    await expect(mediaTermsSection).toContainText(mediaTerms.text);
+    await expect(mediaTermsSection).toContainText(mediaTerms.version);
     const request = page.locator('[data-og7="refund-request"]');
     await expect(request.getByRole('listitem')).toHaveCount(3);
     await expect(request).toContainText(
@@ -134,7 +141,10 @@ for (const locale of locales) {
     await expect(page).toHaveURL(route + '#refund-request');
     await expect(page.locator('#refund-request')).toBeFocused();
     const links = page.locator('[data-og7="policy-toc"] a');
-    await expect(links).toHaveCount(9);
+    await expect(links).toHaveCount(10);
+    await expect(
+      page.locator('[data-og7="policy-toc"] a[href$="#media-usage-terms"]')
+    ).toHaveCount(1);
     for (const link of await links.all()) {
       const href = (await link.getAttribute('href'))!;
       expect(href).toMatch(new RegExp('^' + route + '#'));

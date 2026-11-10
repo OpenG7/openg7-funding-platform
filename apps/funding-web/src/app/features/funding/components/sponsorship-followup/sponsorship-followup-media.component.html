@@ -48,11 +48,6 @@
     <small>{{ 'funding.followup.media.descriptionHelp' | translate }}</small>
   </label>
   <div class="toolbar">
-    <openg7-sponsor-media-usage-editor
-      [disabled]="busy() || !canUploadMedia()"
-      [saveButton]="false"
-      (valueChange)="uploadUsage.set($event)"
-    />
     <label class="media-upload-control"
       >{{
         (hasActiveLogo()
@@ -69,9 +64,9 @@
           !loaded() ||
           loadError() ||
           hasApprovedLogo() ||
-          !uploadUsage()
+          hasUnresolvedUpload()
         "
-        (change)="uploadMedia('logo', $event)"
+        (change)="selectMedia('logo', $event)"
       />
     </label>
     <label class="media-upload-control"
@@ -86,11 +81,51 @@
           !loaded() ||
           loadError() ||
           !canAddSupportingImage() ||
-          !uploadUsage()
+          hasUnresolvedUpload()
         "
-        (change)="uploadMedia('supporting_image', $event)"
+        (change)="selectMedia('supporting_image', $event)"
       />
     </label>
+    @if (selectedUpload(); as selected) {
+      <section data-og7="media-upload-selection">
+        <h4>{{ 'funding.followup.media.selectedFiles' | translate }}</h4>
+        <ul>
+          @for (file of selected.files; track $index) {
+            <li>{{ file.name }}</li>
+          }
+        </ul>
+        <openg7-sponsor-media-usage-editor
+          [disabled]="busy() || !canUploadMedia() || hasUnresolvedUpload()"
+          [saveButton]="false"
+          [compactTerms]="true"
+          [locale]="i18n.currentLanguage()"
+          [contextKey]="selected"
+          (valueChange)="uploadUsage.set($event)"
+          (acceptanceChange)="uploadAcceptance.set($event)"
+        />
+        <button
+          type="button"
+          [disabled]="
+            busy() ||
+            !uploadUsage() ||
+            !uploadAcceptance() ||
+            hasUnresolvedUpload()
+          "
+          (click)="sendMedia()"
+          data-og7="media-upload-send"
+        >
+          {{ 'funding.followup.media.sendSelected' | translate }}
+        </button>
+        <button
+          type="button"
+          [disabled]="busy()"
+          (click)="cancelSelection()"
+          data-og7="media-upload-cancel"
+        >
+          {{ 'funding.followup.media.usage.cancel' | translate }}
+        </button>
+      </section>
+    }
   </div>
   <p role="status">
     {{
@@ -178,7 +213,11 @@
         <span *ngIf="!attempt.previewUrl" aria-hidden="true">!</span>
         <button
           type="button"
-          [disabled]="busy()"
+          [disabled]="
+            busy() ||
+            attempt.status === 'uncertain' ||
+            attempt.status === 'retryable'
+          "
           [attr.aria-label]="
             'funding.followup.media.remove'
               | translate: { name: attempt.filename }
@@ -196,6 +235,21 @@
               | translate: attempt.feedback.params
           }}
         </p>
+        @if (attempt.status === 'uncertain' || attempt.status === 'retryable') {
+          <button
+            type="button"
+            [disabled]="busy()"
+            (click)="retryUpload(attempt)"
+            data-og7="media-upload-retry"
+          >
+            {{
+              (attempt.status === 'uncertain'
+                ? 'funding.followup.media.verifyUpload'
+                : 'funding.followup.media.retryExactUpload'
+              ) | translate
+            }}
+          </button>
+        }
       </div>
     </article>
     <article
@@ -239,6 +293,7 @@
           }}
         </p>
         <small>{{ asset.width }} × {{ asset.height }} px</small>
+        <p data-og7="media-usage-filename">{{ asset.originalFilename }}</p>
         <details
           class="media-rights"
           data-og7="followup-media-rights"
@@ -250,7 +305,15 @@
           <openg7-sponsor-media-usage-editor
             [value]="asset.usage ?? null"
             [disabled]="busy()"
-            (saved)="usageController.updateUsage(asset, $event.usage)"
+            [compactTerms]="true"
+            [locale]="i18n.currentLanguage()"
+            (saved)="
+              usageController.updateUsage(
+                asset,
+                $event.usage,
+                $event.termsAcceptance
+              )
+            "
           />
         </details>
         <button

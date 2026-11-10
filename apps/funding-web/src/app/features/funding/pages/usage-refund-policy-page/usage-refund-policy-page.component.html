@@ -122,6 +122,14 @@
           <li>
             <a
               [routerLink]="policyPath()"
+              fragment="media-usage-terms"
+              (click)="focusSection($event, 'media-usage-terms')"
+              >{{ 'funding.policyPage.mediaTerms.title' | translate }}</a
+            >
+          </li>
+          <li>
+            <a
+              [routerLink]="policyPath()"
               fragment="policy-contact"
               (click)="focusSection($event, 'policy-contact')"
               >{{ 'funding.policyPage.contact.title' | translate }}</a
@@ -212,6 +220,23 @@
         </section>
       }
 
+      <section
+        class="policy-section panel"
+        aria-labelledby="media-usage-terms"
+        data-og7="policy-media-usage-terms"
+      >
+        <h2 id="media-usage-terms" tabindex="-1">
+          {{ 'funding.policyPage.mediaTerms.title' | translate }}
+        </h2>
+        <p>{{ mediaTerms().text }}</p>
+        <p>
+          {{
+            'funding.policyPage.mediaTerms.version'
+              | translate: { version: mediaTerms().version }
+          }}
+        </p>
+        <p>{{ 'funding.policyPage.mediaTerms.acceptanceHelp' | translate }}</p>
+      </section>
       <section class="policy-contact panel" aria-labelledby="policy-contact">
         <span class="eyebrow">{{
           'funding.policyPage.contact.kicker' | translate

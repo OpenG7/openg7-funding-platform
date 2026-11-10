@@ -270,7 +270,6 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       })
         .png()
         .toBuffer();
-      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo.png'],
         ['Ajouter des photos', 'photo.png'],
@@ -287,6 +286,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await company
           .getByLabel(label!)
           .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+        await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
@@ -366,10 +366,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       )!;
       selectedMediaId = originalAsset.id;
       // Media selection requires an approved dossier; website visibility remains separate.
-      await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
-      await admin
-        .getByRole('button', { name: 'Accepter', exact: true })
-        .click();
+      await admin.goto(
+        '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
+      );
+      await admin.locator('[data-og7="sponsorship-approve"]').click();
       await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
@@ -574,7 +574,6 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await company
           .getByRole('button', { name: 'Modifier mes informations' })
           .click();
-        await confirmAcceptanceMediaUsage(company);
         await company
           .getByLabel('Description des images à téléverser')
           .fill('Nouveau logo synthétique');
@@ -598,6 +597,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           mimeType: 'image/png',
           buffer: replacement
         });
+        await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
         const pending = (await assets()).find((a) => a.kind === 'logo')!;
         selectedMediaId = pending.id;
@@ -624,10 +624,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + pending.id)
           ).status()
         ).toBe(404);
-        await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
-        await admin
-          .getByRole('button', { name: 'Accepter', exact: true })
-          .click();
+        await admin.goto(
+          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
+        );
+        await admin.locator('[data-og7="sponsorship-approve"]').click();
         await completeModeration(admin);
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)
@@ -639,13 +639,11 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + pending.id)
           ).status()
         ).toBe(404);
-        await admin
-          .getByRole('button', { name: 'Publication', exact: true })
-          .click();
         await approveAcceptanceSubject(request, {
           type: 'sponsorship',
           id: id
         });
+        await openSponsorshipWebsiteSettings(admin);
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();
         await expect(

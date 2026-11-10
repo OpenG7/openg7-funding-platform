@@ -59,10 +59,8 @@ export function registerSponsorHistoryPanelTests({
           `/admin/fundraiser/campaigns?sponsorshipId=${id}`
         );
         const preparation = sources.locator('[data-og7-id="preparation"]');
-        await expect(preparation).toHaveAttribute(
-          'href',
-          path('publication') + '#dossier-preparation'
-        );
+        const preparationPath = `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${id}&publicationReturn=${id}#dossier-preparation`;
+        await expect(preparation).toHaveAttribute('href', preparationPath);
         await expect(sources.locator('[data-og7-id="moderation"]')).toHaveCount(
           reader ? 0 : 1
         );
@@ -132,9 +130,7 @@ export function registerSponsorHistoryPanelTests({
         });
         await preparation.focus();
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL(
-          path('publication') + '#dossier-preparation'
-        );
+        await expect(page).toHaveURL(preparationPath);
         await expect(page.locator('#dossier-preparation')).toBeFocused();
         expect(calls.every((call) => call.method === 'GET')).toBe(true);
       });

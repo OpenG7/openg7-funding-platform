@@ -74,6 +74,12 @@ export class AdminPreflightPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly routeParams = toSignal(this.route.queryParamMap);
+  private readonly routeFragment = toSignal(this.route.fragment);
+  private readonly publicationPreparation = viewChild<
+    AdminSponsorshipPreparationComponent,
+    ElementRef<HTMLElement>
+  >('publicationPreparation', { read: ElementRef });
+  private focusedPublicationAnchor = '';
   readonly workshopSelection = computed(() =>
     this.routeParams()?.get('view') === 'publication'
       ? publicationReturnId(this.routeParams()?.get('workshopSponsorshipId'))
@@ -163,6 +169,41 @@ export class AdminPreflightPageComponent implements OnInit {
         if (!id || this.work.current()?.id !== id)
           void this.work.load(id || undefined);
       });
+    });
+    effect((onCleanup) => {
+      const fragment = this.routeFragment();
+      const target = this.publicationPreparation();
+      const dossier = this.workshopDossier();
+      const context = this.publicationOwnerContext();
+      if (fragment !== 'dossier-preparation') {
+        this.focusedPublicationAnchor = '';
+        return;
+      }
+      if (
+        !this.browser ||
+        !target ||
+        dossier?.contributionId !== this.workshopSelection() ||
+        context === this.focusedPublicationAnchor
+      )
+        return;
+      let current = true;
+      onCleanup(() => (current = false));
+      afterNextRender(
+        () => {
+          if (
+            !current ||
+            this.disposed ||
+            !this.admin.hasValidAdminSession() ||
+            context !== this.publicationOwnerContext() ||
+            this.routeFragment() !== 'dossier-preparation' ||
+            !target.nativeElement.isConnected
+          )
+            return;
+          this.focusedPublicationAnchor = context;
+          target.nativeElement.focus();
+        },
+        { injector: this.injector }
+      );
     });
     effect(() => {
       const generation = this.admin.sessionGeneration();

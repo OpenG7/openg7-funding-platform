@@ -14,6 +14,59 @@ exige la référence privée de l’autorisation obtenue. Les droits initiaux et
 modifications sont conservés dans un historique immuable, avec acteur et requête.
 Le portail, l’annuaire et les courriels ne reçoivent pas cette référence privée.
 
+## Conditions d’utilisation et preuve automatique
+
+Le suivi commanditaire propose les fichiers avant leur envoi. Le commanditaire
+voit la liste choisie, le périmètre d’utilisation et les conditions FR/EN de
+[`sponsor-media-terms.ts`](../../packages/funding-core/src/sponsor-media-terms.ts).
+La proposition courante est Site Web / OpenG7 / adaptation technique; les autres
+canaux, destinations, transformations, crédits et restrictions restent modifiables.
+La confirmation est décochée à chaque sélection. **Envoyer les fichiers** transmet
+uniquement cette sélection et l’acceptation explicite du texte affiché.
+Les mêmes conditions accompagnent une nouvelle confirmation de droits dans le suivi.
+
+Le contrat `SponsorMediaTermsAcceptance` contient version, empreinte, langue et
+`accepted: true`. Le serveur vérifie ces valeurs contre le texte canonique puis
+enregistre le texte accepté, les usages exacts, les empreintes originale et WebP,
+le média, la date serveur et le mode d’identification par lien privé. Ce mode
+identifie le dossier; il ne constitue pas une identité civile vérifiée.
+Droits, preuve, historique, audit et reçu sont enregistrés dans la même transaction.
+La modification d’un texte publié exige une nouvelle version et de nouvelles empreintes.
+La lecture de la politique publique ne crée aucune acceptation.
+
+Chaque envoi public porte un UUID stable `requestId`. Le même UUID et le même
+contenu retrouvent le reçu; un contenu incompatible est refusé. Après une réponse
+incertaine, la sélection est suspendue et son reçu est recherché par
+`GET /api/sponsorship-followup/media/upload-receipt?requestId=…`, avec le jeton
+dans `X-Sponsorship-Followup-Token`. Une nouvelle tentative explicite conserve
+UUID, fichier et acceptation. Aucun nouveau fichier n’est envoyé en arrière-plan.
+Une sélection suivante demande une nouvelle confirmation et ne reçoit pas
+automatiquement les autorisations de l’envoi précédent.
+
+La projection privée `usageAcceptance` expose uniquement la preuve correspondant
+au dernier accord direct, aux usages et aux empreintes actuels. Un retrait ou
+une nouvelle règle d’usage retire cette indication lorsqu’elle ne correspond plus.
+Le texte et la preuve enregistrés restent immuables.
+
+Dans l’administration, A ouvre le panneau **Examiner le média** lorsque cette
+preuve est présente : image, autorisation recueillie, date, usages, description et
+restrictions. **Approuver et continuer** constitue la confirmation humaine du
+fichier affiché. L’interface prépare le plan natif, vérifie qu’il correspond
+exactement au dossier, média, version, description, droits et preuve affichés,
+puis exécute cette seule décision si aucun blocage n’est présent. **Annuler**
+ferme le panneau sans préparer ni exécuter de décision. Une réponse incertaine
+suspend les écritures et conserve le parcours de réconciliation existant.
+L’acceptation d’un média conserve la sélection Web et la publication comme
+décisions séparées. L’administrateur ne ressaisit aucune preuve pour cet accord.
+
+La migration additive
+[`070_sponsor_media_terms_acceptance.sql`](../../apps/funding-api/migrations/070_sponsor_media_terms_acceptance.sql)
+ajoute le registre et son raccordement aux historiques. Appliquer la migration et
+les grants correspondants avant de démarrer ensemble l’API et le Web mis à jour.
+Les nouveaux champs sont validés strictement; les procédures sont dans le
+[runbook des migrations](../operations/database-migrations.md). Cette livraison
+ne reconstruit aucun accord ancien et ne réécrit aucun historique.
+
 `POST /api/sponsorship-followup/media/usage` vérifie le jeton, le propriétaire,
 la version du fichier, la confirmation et la clé de requête. Son équivalent admin
 vérifie aussi les droits et la confirmation de l’identifiant du fichier. Même clé
@@ -99,6 +152,17 @@ ne donne de nouveaux droits qu'après qualification explicite avec sa preuve.
 d'autorisation de publication. Sans analyse visuelle, l'absence de signal ne rend
 pas une image conforme : la personne peut examiner manuellement le manifeste.
 Les restrictions, le texte alternatif, les refus et les recours restent contrôlés.
+
+Dans l’inspecteur, **Examiner et accepter** et le bouton contextuel **A** ouvrent
+les autorisations du fichier lorsque leur confirmation constitue le seul obstacle.
+Le formulaire reste limité à ce média et exige une preuve réelle, le périmètre
+d’utilisation et une confirmation explicite. Après une sauvegarde confirmée,
+l’interface revient au même fichier et à sa version actuelle, sur le texte alternatif
+à compléter ou l’action d’examen. La sauvegarde des droits ne prépare ni n’exécute
+automatiquement une acceptation. Les retraits, refus, blocages techniques,
+restrictions et recours restent bloquants; les conditions de sélection groupée
+restent identiques. Un changement de dossier, de fichier ou de version invalide
+le contexte guidé et empêche une reprise sur une autre cible.
 
 Les commandes collectives préparent un plan valable dix minutes, avec sélection,
 versions, contenu exact et effets. La confirmation humaine porte sur ce plan.

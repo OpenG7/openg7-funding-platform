@@ -13,6 +13,8 @@ import type {
 
 import { SponsorshipFollowupError } from '../models/sponsorship-followup-ui.js';
 
+import { SponsorMediaUploadError } from './sponsor-media-upload-feedback.js';
+
 /** Private sponsor follow-up endpoints; tokens retain their endpoint-specific location. */
 export class FundingSponsorshipFollowupClient {
   constructor(private readonly apiBaseUrl: string) {}
@@ -181,13 +183,17 @@ export class FundingSponsorshipFollowupClient {
     token: string,
     kind: SponsorMediaKind,
     file: File,
-    altText?: string,
-    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
+    altText: string | undefined,
+    usage: import('@openg7/funding-core').SponsorMediaUsageRights,
+    termsAcceptance: import('@openg7/funding-core').SponsorMediaTermsAcceptance,
+    requestId: string
   ): Promise<SponsorMediaUploadResult> {
     const body = new FormData();
     body.set('token', token);
     body.set('kind', kind);
     body.set('media', file);
+    body.set('requestId', requestId);
+    body.set('termsAcceptance', JSON.stringify(termsAcceptance));
     if (usage) {
       body.set('usage', JSON.stringify(usage));
       body.set('usageConfirmed', 'true');
@@ -202,10 +208,27 @@ export class FundingSponsorshipFollowupClient {
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
         readonly error?: string;
+        readonly code?: string;
       } | null;
-      throw new Error(payload?.error ?? 'Sponsor media could not be uploaded.');
+      throw new SponsorMediaUploadError(
+        response.status,
+        payload?.error ?? 'Sponsor media could not be uploaded.',
+        payload?.code ?? ''
+      );
     }
     return (await response.json()) as SponsorMediaUploadResult;
+  }
+
+  async getSponsorshipMediaUploadReceipt(
+    token: string,
+    requestId: string
+  ): Promise<{ found: boolean; result?: SponsorMediaUploadResult }> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/media/upload-receipt?${new URLSearchParams({ requestId })}`,
+      { cache: 'no-store', headers: { 'X-Sponsorship-Followup-Token': token } }
+    );
+    if (!response.ok) throw new SponsorshipFollowupError(response.status);
+    return response.json();
   }
 
   async deleteSponsorshipMedia(

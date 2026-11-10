@@ -621,6 +621,7 @@ for (const language of ['fr-CA', 'en']) {
     });
 
     await page.goto(path());
+    await openPublicationSection(page, 'controls');
     const preparations = page.locator('[data-og7="preflight-preparations"]');
     await expect(preparations.getByRole('heading', { level: 3 })).toHaveText(
       language === 'en'
@@ -752,7 +753,7 @@ test('changing the current dossier only reads data and discards the previous dos
   expect(f.calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
-test('the dossier receipt and a batch receipt for the same payment keep separate accessible descriptions', async ({
+test('the dossier and guide receipts for the same payment keep distinct accessible descriptions across their owning workspaces', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -806,36 +807,55 @@ test('the dossier receipt and a batch receipt for the same payment keep separate
   await page.goto(path());
   await openPublicationSection(page, 'controls');
   await expectDossier(page);
+  const descriptionsFor = async (receipts: ReturnType<typeof card>) =>
+    receipts.evaluateAll((elements) =>
+      elements.map((element) => {
+        const button = element.querySelector(
+          '[data-og7="preparation-receipt-approve"]'
+        )!;
+        const ids = button.getAttribute('aria-describedby')!.split(/\s+/);
+        return {
+          ids,
+          references: ids.length,
+          unique: ids.every(
+            (id) =>
+              element.ownerDocument.querySelectorAll(`[id="${CSS.escape(id)}"]`)
+                .length === 1
+          ),
+          local: ids.every((id) =>
+            element.contains(element.ownerDocument.getElementById(id))
+          )
+        };
+      })
+    );
+  const dossierDescriptions = await descriptionsFor(card(page));
+  await page.locator('[data-og7="publication-return"]').first().click();
+  await expect(page).toHaveURL(path() + '#dossier-publication');
+  await expect(page.locator('[data-og7="publication-monitor"]')).toBeVisible();
   await restoreLegacyGuideMode(page, 'automatic');
   const receipts = page.locator('[data-og7="preparation-receipt"]');
-  await expect(receipts).toHaveCount(2);
-  const descriptions = await receipts.evaluateAll((elements) =>
-    elements.map((element) => {
-      const button = element.querySelector(
-        '[data-og7="preparation-receipt-approve"]'
-      )!;
-      const ids = button.getAttribute('aria-describedby')!.split(/\s+/);
-      return {
-        references: ids.length,
-        unique: ids.every(
-          (id) =>
-            element.ownerDocument.querySelectorAll(`[id="${CSS.escape(id)}"]`)
-              .length === 1
-        ),
-        local: ids.every((id) =>
-          element.contains(element.ownerDocument.getElementById(id))
-        )
-      };
-    })
-  );
-  expect(descriptions).toEqual([
+  await expect(receipts).toHaveCount(1);
+  const guideDescriptions = await descriptionsFor(receipts);
+  const descriptions = [...dossierDescriptions, ...guideDescriptions];
+  expect(
+    descriptions.map(({ references, unique, local }) => ({
+      references,
+      unique,
+      local
+    }))
+  ).toEqual([
     { references: 2, unique: true, local: true },
     { references: 2, unique: true, local: true }
   ]);
+  expect(
+    guideDescriptions[0]!.ids.some((id) =>
+      dossierDescriptions[0]!.ids.includes(id)
+    )
+  ).toBe(false);
   expect(f.writes).toEqual([]);
 });
 
-test('a dossier agreement refreshes the mounted batch receipt during a pending read and its old response cannot restore unapproved facts', async ({
+test('a dossier agreement appears on returning to the guide and a previous pending read cannot restore unapproved facts', async ({
   page
 }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -894,8 +914,6 @@ test('a dossier agreement refreshes the mounted batch receipt during a pending r
     });
   });
   await page.goto(path());
-  await openPublicationSection(page, 'controls');
-  await expectDossier(page);
   await restoreLegacyGuideMode(page, 'automatic');
   const batch = page.locator('[data-og7="preparation-receipts-carousel"]');
   const batchReceipt = batch.locator('[data-og7="preparation-receipt"]');
@@ -905,20 +923,16 @@ test('a dossier agreement refreshes the mounted batch receipt during a pending r
   await expect(batchReceipt).toHaveCount(0);
   expect(f.writes).toEqual([]);
 
+  await openPublicationSection(page, 'controls');
+  await expectDossier(page);
   await approveReceipt(page);
   await expect(hook(page, 'stamp')).toContainText(actor);
-  // This second GET must be caused by the owner's confirmed mutation while the
-  // first GET is still pending; no refresh control or raw fetch is invoked.
+  // The guide is reopened through the visible owner return; no refresh control
+  // or raw fetch supplies its updated approval facts.
+  await page.locator('[data-og7="publication-return"]').first().click();
   await expect.poll(() => preparationReads).toBeGreaterThan(1);
   await expect(batchStamp).toContainText(actor);
-  const lateResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname ===
-        '/api/admin/automatic-runs/preparation' &&
-      response.request().method() === 'GET'
-  );
   releaseOldRead();
-  await (await lateResponse).finished();
   await sampledFrames(page);
   await expect(batchStamp).toContainText(actor);
   await expect(

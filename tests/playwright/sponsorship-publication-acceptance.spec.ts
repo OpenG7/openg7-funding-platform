@@ -274,7 +274,6 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       })
         .png()
         .toBuffer();
-      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo-demo.png'],
         ['Ajouter des photos', 'photo-demo.png']
@@ -290,6 +289,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         await company
           .getByLabel(label!)
           .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+        await confirmAcceptanceMediaUsage(company);
         expect((await upload).ok()).toBe(true);
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')

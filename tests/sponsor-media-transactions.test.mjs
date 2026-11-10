@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
 
 import {
   createSponsorMediaAsset,
@@ -10,7 +11,19 @@ import {
 const contributionId = '10000000-0000-4000-8000-000000000001';
 const assetId = '10000000-0000-4000-8000-000000000002';
 const replacementId = '10000000-0000-4000-8000-000000000003';
+const requestId = '10000000-0000-4000-8000-000000000004';
+const acceptanceId = '10000000-0000-4000-8000-000000000005';
 const version = '2026-09-01 00:00:00+00';
+const { text: _termsText, ...terms } = getSponsorMediaUsageTerms('fr-CA');
+const termsAcceptance = { ...terms, accepted: true };
+const usage = {
+  state: 'confirmed',
+  channels: ['website'],
+  targets: ['openg7'],
+  transformations: ['technical'],
+  credit: null,
+  restrictions: null
+};
 
 const assetRow = (overrides = {}) => ({
   id: assetId,
@@ -41,6 +54,10 @@ const assetRow = (overrides = {}) => ({
 
 const uploadInput = (overrides = {}) => ({
   id: replacementId,
+  requestId,
+  requestFingerprint: 'a'.repeat(64),
+  termsAcceptance,
+  usage,
   contributionId,
   kind: 'logo',
   uploadedBy: 'sponsor',
@@ -53,6 +70,7 @@ const uploadInput = (overrides = {}) => ({
   processedSizeBytes: 80,
   processedStorageKey: 'synthetic/replacement-processed.webp',
   checksumSha256: '1'.repeat(64),
+  originalChecksumSha256: '2'.repeat(64),
   width: 1,
   height: 1,
   altText: null,
@@ -77,7 +95,11 @@ const fixture = ({
           }
         : contribution,
     assets,
-    audits: []
+    audits: [],
+    acceptances: [],
+    usageCommands: [],
+    usageHistory: [],
+    uploadCommands: []
   };
   let transaction;
   const calls = [];
@@ -92,6 +114,32 @@ const fixture = ({
       if (sql === 'BEGIN') transaction = structuredClone(committed);
       else if (sql === 'COMMIT') committed = transaction;
       else if (sql === 'ROLLBACK') transaction = null;
+      else if (sql.includes('FROM sponsor_media_workspace_commands'))
+        return {
+          rows: transaction.uploadCommands.filter(
+            (row) =>
+              row.contributionId === parameters[0] &&
+              row.requestId === parameters[1]
+          )
+        };
+      else if (sql.startsWith('INSERT INTO sponsor_media_terms_acceptances')) {
+        transaction.acceptances.push({ id: acceptanceId, parameters });
+        return {
+          rows: [{ id: acceptanceId, accepted_at: '2026-09-01T00:00:00.000Z' }],
+          rowCount: 1
+        };
+      } else if (sql.startsWith('INSERT INTO sponsor_media_usage_commands'))
+        transaction.usageCommands.push(parameters);
+      else if (sql.startsWith('INSERT INTO sponsor_media_usage_history'))
+        transaction.usageHistory.push(parameters);
+      else if (sql.startsWith('INSERT INTO sponsor_media_workspace_commands'))
+        transaction.uploadCommands.push({
+          contributionId: parameters[0],
+          requestId: parameters[1],
+          payload_fingerprint: parameters[2],
+          result: JSON.parse(parameters[3]),
+          actor: parameters[4]
+        });
       else if (sql.includes("to_regclass('public.admin_audit_log')")) {
         return { rows: [{ has_audit_log: auditAvailable }] };
       } else if (sql.startsWith('INSERT INTO admin_audit_log')) {
@@ -115,7 +163,9 @@ const fixture = ({
           original_storage_key: parameters[7],
           processed_storage_key: parameters[9],
           checksum_sha256: parameters[10],
-          sort_order: parameters[14]
+          sort_order: parameters[14],
+          usage_rights: JSON.parse(parameters[15]),
+          original_checksum_sha256: parameters[16]
         });
         transaction.assets.push(row);
         return { rows: [row] };
@@ -227,10 +277,21 @@ test('logo replacement commits the new asset, old soft deletion and sponsor revi
         mimeType: 'image/png',
         sizeBytes: 100,
         storageDriver: 'local',
+        requestId,
         replacedAssetId: assetId
       })
     ]
   ]);
+  assert.equal(result.asset.usageAcceptance.id, acceptanceId);
+  assert.equal(state().acceptances.length, 1);
+  assert.equal(state().usageCommands.length, 1);
+  assert.equal(state().usageHistory.length, 1);
+  assert.equal(state().usageHistory[0][5], acceptanceId);
+  assert.equal(state().uploadCommands.length, 1);
+  assert.deepEqual(state().uploadCommands[0].result, {
+    uploaded: true,
+    asset: result.asset
+  });
   assertClosed(calls, 'COMMIT');
 });
 

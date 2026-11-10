@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { Pool } from 'pg';
 import type { SponsorMediaUploadResult } from '@openg7/funding-core';
 
@@ -93,6 +95,9 @@ export class SponsorMediaUploadService {
         processedSizeBytes: image.processedSizeBytes,
         processedStorageKey: objects.processedStorageKey,
         checksumSha256: image.checksumSha256,
+        originalChecksumSha256: createHash('sha256')
+          .update(image.originalData)
+          .digest('hex'),
         width: image.width,
         height: image.height,
         altText: null,

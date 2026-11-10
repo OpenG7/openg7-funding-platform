@@ -15,7 +15,7 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
   [
     {
       id: 'agreement',
-      dossierTab: 'overview',
+      dossierTab: 'publication',
       steps: [
         { id: 'pilot', targets: ['admin-commitments'] },
         {
