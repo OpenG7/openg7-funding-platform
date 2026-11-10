@@ -239,7 +239,12 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
       .getByRole('button', { name: 'Soumettre mes informations à l’équipe' })
       .click();
     expect((await save).ok()).toBe(true);
-    await expect(company.getByText(/Informations enregistrées/)).toBeVisible();
+    await expect(
+      company
+        .locator('openg7-sponsorship-followup-form form')
+        .getByRole('status')
+        .filter({ hasText: /Informations enregistrées/ })
+    ).toBeVisible();
     await page.bringToFront();
     await expect(toast).toContainText('moteur arrêté', { timeout: 15000 });
     await page.locator('[data-og7="publication-worker-toggle"]').click();
