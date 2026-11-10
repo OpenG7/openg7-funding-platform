@@ -55,23 +55,25 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
 | `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
 
-[Admin acceptance](../../.github/workflows/admin-acceptance.yml) répartit Docker
-et l'UI admin en quatre groupes chacun; commandites, public, accessibilité,
-identité et récupération ont leurs runners isolés. Docker garde un worker et
-un seed complet par pile. Artefacts distincts; tous les groupes, intégrations
-et Keycloak doivent réussir.
+[Admin acceptance](../../.github/workflows/admin-acceptance.yml) exige chaque groupe :
+quatre shards Docker, quatre UI admin, puis commandites, public, accessibilité,
+identité, récupération et Keycloak. Runners et artefacts isolés; par pile Docker,
+un worker et un seed complet.
 
-En recette Docker, N0 porte sur le contenu persisté avant publication. Le refus
-N4 attend une seconde identité OIDC signée locale; l'auteur ne peut pas le
-confirmer. L'API OIDC partage base et médias jetables avec l'API token, sans
-worker supplémentaire. Web et fournisseur ont des ports loopback distincts;
-aucun fournisseur externe ni `.env` n'est utilisé.
+Ubuntu 24.04 : la [préparation APT](../../.github/actions/prepare-ubuntu-apt/action.yml)
+écarte Azure pour l’archive officielle HTTPS, conserve signatures/dépôts tiers
+et borne délais/reprises. Installations : paquets 10 min, Playwright/dépendances
+15 min. Blocage ou index indisponible : échec explicite; aucun test sauté.
+
+Docker : N0 sur contenu persisté; N4 exige une seconde identité OIDC
+signée locale, distincte de l’auteur. API OIDC et token partagent base/médias
+jetables, sans worker ajouté. Web et fournisseur : ports loopback distincts,
+aucun fournisseur externe ni `.env`.
 
 Le [passage à heure contrôlée](../../tests/playwright/support/acceptance-publication-worker.ts)
-du service API jetable vérifie échéance et rejeu. Le résultat incertain est aussi
-vérifié au vrai timer après redémarrage. La recette courriel conserve les backoffs,
-puis avance l'éligibilité de son seul message synthétique. Les cadences de
-production sont inchangées.
+vérifie échéance/rejeu; le vrai timer est aussi testé après redémarrage en cas
+d’incertitude. Courriel : backoffs conservés, seule l’éligibilité du message
+synthétique avance. Cadences de production inchangées.
 
 `keycloak:check` exige Compose pour un fichier d'environnement, sans contacter daemon ou fournisseur.
 Les [vérifications DNS/HTTPS et OIDC/MFA](../operations/keycloak-vps.md) restent
@@ -81,11 +83,9 @@ exige une CA déjà approuvée et reste séparée. Aucun test local ne qualifie 
 
 Prérequis et preuves datées : [état de la plateforme](../platform-status.md),
 [recette fournisseurs](../operations/integration-rehearsal.md),
-[couverture commandite](../sponsorship-e2e-coverage.md). Choisir la suite UI du
-parcours touché dans `package.json`; ne pas exécuter toutes les suites par réflexe.
-Les contrôles navigateur demandent leurs binaires; les intégrations Docker leurs
-images. Un test simulé, un conteneur sain et une qualification externe sont des
-preuves différentes.
+[couverture commandite](../sponsorship-e2e-coverage.md).
+Choisir dans `package.json` la suite du parcours touché. Binaires navigateur et
+images Docker requis. Simulation, santé et qualification externe restent distinctes.
 
 [Réception UX](ux-unification-acceptance.md).
 
