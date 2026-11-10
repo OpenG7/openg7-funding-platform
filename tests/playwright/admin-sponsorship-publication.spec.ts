@@ -194,6 +194,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     await page.reload();
     await openFixtureSponsorship(page, fixture.companyName);
     await page
+      .locator('[data-og7="dossier-tabs"]')
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await openSponsorshipWebsiteSettings(page);

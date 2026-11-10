@@ -330,6 +330,12 @@ test('source and review URL fragments preserve the agreement owner context for w
       controllerPath('overview') + '#dossier-assistance-' + section
     );
     await restoreLegacyGuideMode(page, 'workflows');
+    await expect(
+      hook(page, 'dossier-tabs').getByRole('button', {
+        name: 'Publication',
+        exact: true
+      })
+    ).toHaveAttribute('aria-current', 'page');
     const target = page.locator('#dossier-assistance-' + section);
     await expect(
       section === 'source' ? target.locator('summary') : target

@@ -639,14 +639,11 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + pending.id)
           ).status()
         ).toBe(404);
-        await admin
-          .locator('[data-og7="dossier-tabs"]')
-          .getByRole('button', { name: 'Publication', exact: true })
-          .click();
         await approveAcceptanceSubject(request, {
           type: 'sponsorship',
           id: id
         });
+        await openSponsorshipWebsiteSettings(admin);
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();
         await expect(

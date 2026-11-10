@@ -830,6 +830,8 @@ test('the dossier and guide receipts for the same payment keep distinct accessib
     );
   const dossierDescriptions = await descriptionsFor(card(page));
   await page.locator('[data-og7="publication-return"]').first().click();
+  await expect(page).toHaveURL(path() + '#dossier-publication');
+  await expect(page.locator('[data-og7="publication-monitor"]')).toBeVisible();
   await restoreLegacyGuideMode(page, 'automatic');
   const receipts = page.locator('[data-og7="preparation-receipt"]');
   await expect(receipts).toHaveCount(1);

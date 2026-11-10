@@ -31,6 +31,11 @@ BEGIN
     OR EXISTS(SELECT 1 FROM sponsor_media_analysis_requests WHERE contribution_id=ANY(contribution_ids)) THEN
     RAISE EXCEPTION 'Acceptance fixtures now preserve commercial and image-use history; start a fresh disposable acceptance stack instead of reseeding these records';
   END IF;
+  IF EXISTS(SELECT 1 FROM preflight_workshop_missions WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM preflight_workshop_proposals WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM preflight_workshop_requests WHERE contribution_id=ANY(contribution_ids)) THEN
+    RAISE EXCEPTION 'Acceptance fixtures preserve durable preparation history; start a fresh disposable acceptance stack instead of reseeding these records';
+  END IF;
   SELECT ARRAY(SELECT DISTINCT batch_id FROM sponsor_publication_drafts
     WHERE contribution_id = ANY(contribution_ids) AND batch_id IS NOT NULL)
     INTO batch_ids;
@@ -69,6 +74,9 @@ BEGIN
   -- This revision is a mutable projection created even for legacy fixture media.
   -- Every recorded media operation above requires a fresh disposable stack.
   DELETE FROM sponsor_media_workspaces WHERE contribution_id = ANY(contribution_ids);
+  -- This mutable source-change projection is created even when Preflight is off.
+  -- Missions, proposals and requests above must retain their immutable inputs.
+  DELETE FROM preflight_workshop_events WHERE contribution_id = ANY(contribution_ids);
 END $$;`;
 
   const deleteStatements = fixtures
