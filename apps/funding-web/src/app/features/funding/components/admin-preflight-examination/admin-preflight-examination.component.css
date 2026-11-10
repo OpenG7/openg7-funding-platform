@@ -957,6 +957,8 @@ blockquote {
 .guided-check .admin-button {
   white-space: normal;
   text-align: start;
+  margin-inline-end: 0.5rem;
+  margin-block-end: 0.5rem;
 }
 .guided-reference {
   margin-top: 0.8rem;

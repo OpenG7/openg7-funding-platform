@@ -45,6 +45,7 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminPreflightWorkSessionCoordinator } from '../../services/admin-preflight-work-session-coordinator.js';
 import { AdminSponsorshipConsentController } from '../../services/admin-sponsorship-consent-controller.js';
+import { AdminAssistantContextComponent } from '../admin-assistant/admin-assistant-context.component.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { FundingModerationActionsComponent } from '../admin-moderation/funding-moderation-actions.component.js';
 import {
@@ -84,6 +85,7 @@ type ApprovalGuidance =
     PreflightServicePreviewComponent,
     AdminDrawerComponent,
     AdminSponsorshipConsentFormComponent,
+    AdminAssistantContextComponent,
     FundingModerationActionsComponent
   ],
   templateUrl: './admin-preflight-examination.component.html',
@@ -124,6 +126,8 @@ export class AdminPreflightExaminationComponent {
   readonly viewport = signal<Viewport>('desktop');
   readonly enlarged = signal(false);
   readonly consentOpened = signal(false);
+  readonly consentRequestOpened = signal(false);
+  readonly consentRequestBusy = signal(false);
   readonly textReviewBusy = signal(false);
   private readonly textReviewContext = signal<{
     contributionId: string;
@@ -154,6 +158,7 @@ export class AdminPreflightExaminationComponent {
       !this.busy() &&
       !this.mediaBusy() &&
       !this.work.busy() &&
+      !this.consentRequestBusy() &&
       !this.work.unresolved() &&
       !this.decisionUncertain() &&
       !this.draftUncertain(),
@@ -227,6 +232,7 @@ export class AdminPreflightExaminationComponent {
       this.busy() ||
       this.mediaBusy() ||
       this.consent.busy() ||
+      this.consentRequestBusy() ||
       this.textReviewBusy() ||
       this.consent.uncertain() ||
       this.work.busy() ||
@@ -269,6 +275,18 @@ export class AdminPreflightExaminationComponent {
     );
   });
   readonly readOnly = computed(() => this.admin.identity()?.role === 'reader');
+  readonly canRequestConsent = computed(
+    () =>
+      this.state() === 'ready' &&
+      !this.readOnly() &&
+      !this.continuationBlocked() &&
+      this.receipt()?.checks.some(
+        (check) =>
+          this.guidedCheckKey(check.code) === 'consent' &&
+          check.state !== 'complete' &&
+          check.state !== 'not_required'
+      ) === true
+  );
   readonly canDecide = computed(
     () =>
       this.state() === 'ready' &&
@@ -277,6 +295,7 @@ export class AdminPreflightExaminationComponent {
       !this.busy() &&
       !this.mediaBusy() &&
       !this.consent.busy() &&
+      !this.consentRequestBusy() &&
       !this.textReviewBusy() &&
       !this.consent.uncertain() &&
       !this.work.busy() &&
@@ -299,6 +318,7 @@ export class AdminPreflightExaminationComponent {
       this.busy() ||
       this.mediaBusy() ||
       this.consent.busy() ||
+      this.consentRequestBusy() ||
       this.textReviewBusy() ||
       this.work.busy() ||
       this.state() === 'loading'
@@ -455,6 +475,8 @@ export class AdminPreflightExaminationComponent {
         this.selectionKey = key;
         this.consent.setScope(contribution, session);
         this.consentOpened.set(false);
+        this.consentRequestOpened.set(false);
+        this.consentRequestBusy.set(false);
         this.textReviewContext.set(null);
         this.textReviewBusy.set(false);
         ++this.decisionSerial;
@@ -495,6 +517,7 @@ export class AdminPreflightExaminationComponent {
         this.localDirty() ||
         this.busy() ||
         this.consent.busy() ||
+        this.consentRequestBusy() ||
         this.textReviewBusy() ||
         this.consent.uncertain() ||
         this.work.busy() ||
@@ -799,15 +822,26 @@ export class AdminPreflightExaminationComponent {
       this.mediaBusy() ||
       this.work.busy() ||
       this.consent.busy() ||
+      this.consentRequestBusy() ||
       this.textReviewBusy()
     )
       return;
     this.consent.setScope(this.contributionId(), this.work.identityKey());
+    this.consentRequestOpened.set(false);
     this.consentOpened.set(true);
     await this.consent.read();
   }
   closeConsent(): void {
     if (!this.consent.busy()) this.consentOpened.set(false);
+  }
+  openConsentRequest(): void {
+    if (!this.canRequestConsent()) return;
+    this.consentOpened.set(false);
+    this.textReviewContext.set(null);
+    this.consentRequestOpened.set(true);
+  }
+  closeConsentRequest(): void {
+    if (!this.consentRequestBusy()) this.consentRequestOpened.set(false);
   }
   async refreshConsent(): Promise<void> {
     await this.consent.read(true);
@@ -1495,6 +1529,8 @@ export class AdminPreflightExaminationComponent {
   }
   private purgeGuidedAccess(): void {
     this.consentOpened.set(false);
+    this.consentRequestOpened.set(false);
+    this.consentRequestBusy.set(false);
     this.textReviewContext.set(null);
     this.textReviewBusy.set(false);
     this.consent.clearAccess();

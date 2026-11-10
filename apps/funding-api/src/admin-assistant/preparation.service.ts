@@ -21,6 +21,7 @@ import {
 } from '../sponsorship-admin-presentation.js';
 import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
 import {
+  canRequestSponsorshipConsent,
   canRequestSponsorshipInformation,
   hasCompleteFiche,
   isApprovedActionableSponsorship,
@@ -134,6 +135,38 @@ const prepareReminder = (
     notice: NOT_SENT_NOTICE,
     limitations: [
       'Brouillon générique : personnalisez le nom du contact avant envoi.'
+    ]
+  });
+};
+
+const prepareConsentRequest = (
+  dataset: AttentionDataset,
+  record: SponsorshipAttentionRecord
+): AdminAssistantPrepareResponse => {
+  const reference = sponsorshipRef(record);
+  return ok({
+    ...baseDraft('sponsorship_consent_request', dataset.now, reference),
+    title: `Demande de consentement public — ${reference}`,
+    fields: [
+      {
+        label: 'Objet',
+        value: `Votre accord pour la présentation publique de votre organisation (${reference})`
+      }
+    ],
+    bodyLines: [
+      'Bonjour,',
+      `Nous vous contactons au sujet de votre commandite ${reference}.`,
+      'Autorisez-vous OpenG7 à utiliser publiquement le nom et la présentation de votre organisation figurant dans votre dossier de commandite?',
+      'Veuillez répondre à ce courriel en indiquant explicitement votre accord, votre refus ou les précisions souhaitées. Vous pouvez demander à revoir le nom et la présentation avant de décider.',
+      'Votre paiement, la réception de ce message et une absence de réponse ne constituent pas un consentement. Aucun accord ne sera enregistré avant votre réponse explicite.',
+      'Merci,',
+      'L’équipe OpenG7'
+    ],
+    adminUrl: sponsorshipAdminUrl(record.contributionId),
+    notice:
+      'Cette demande n’a pas été envoyée. Relisez-la avant de confirmer son envoi. Elle n’enregistre aucun consentement.',
+    limitations: [
+      'Vérifiez le nom et la présentation concernés avec le commanditaire avant de consigner un accord reçu.'
     ]
   });
 };
@@ -331,24 +364,40 @@ export const prepareAdminAssistantDraft = async (
         ? 'Sponsorship not found.'
         : 'Commandite introuvable.'
     );
-  const result = prepareDraftFromDataset(source.dataset, {
-    ...request,
-    reference: source.record.contributionId
-  });
+  if (
+    request.type === 'sponsorship_consent_request' &&
+    !canRequestSponsorshipConsent(source)
+  )
+    return notApplicable(
+      request.language === 'en'
+        ? 'A public consent request is not available for this sponsorship or contact.'
+        : 'Une demande de consentement public n’est pas disponible pour cette commandite ou ce contact.'
+    );
+  const result =
+    request.type === 'sponsorship_consent_request'
+      ? prepareConsentRequest(source.dataset, source.record)
+      : prepareDraftFromDataset(source.dataset, {
+          ...request,
+          reference: source.record.contributionId
+        });
   if (!result.draft) return result;
   const draft =
     request.language === 'en'
       ? englishDraft(result.draft, source.record)
       : result.draft;
   if (
-    request.type !== 'sponsorship_reminder' ||
-    !canRequestSponsorshipInformation(source)
+    request.type !== 'sponsorship_consent_request' &&
+    (request.type !== 'sponsorship_reminder' ||
+      !canRequestSponsorshipInformation(source))
   )
     return { ...result, draft };
   return {
     ...result,
     draft,
     delivery: {
+      ...(request.type === 'sponsorship_consent_request'
+        ? { purpose: 'public_consent' as const }
+        : {}),
       contributionId: source.record.contributionId,
       contextVersion: source.version,
       recipient: source.recipient!,
@@ -364,6 +413,31 @@ const englishDraft = (
   record: SponsorshipAttentionRecord
 ): AdminAssistantDraftProposal => {
   const reference = sponsorshipRef(record);
+  if (draft.type === 'sponsorship_consent_request')
+    return {
+      ...draft,
+      title: `Public consent request — ${reference}`,
+      fields: [
+        {
+          label: 'Subject',
+          value: `Your permission to publicly present your organization (${reference})`
+        }
+      ],
+      bodyLines: [
+        'Hello,',
+        `We are contacting you about your sponsorship ${reference}.`,
+        'Do you authorize OpenG7 to publicly use the organization name and presentation recorded in your sponsorship profile?',
+        'Please reply to this email with your explicit agreement, refusal or questions. You may ask to review the name and presentation before deciding.',
+        'Your payment, receipt of this message and an absence of reply do not constitute consent. No agreement will be recorded before your explicit reply.',
+        'Thank you,',
+        'The OpenG7 team'
+      ],
+      notice:
+        'This request has not been sent. Review it before confirming delivery. It does not record consent.',
+      limitations: [
+        'Verify the name and presentation with the sponsor before recording an agreement received.'
+      ]
+    };
   if (draft.type === 'sponsorship_reminder') {
     const labels: Record<string, string> = {
       formulaire_non_soumis: 'the sponsor form',

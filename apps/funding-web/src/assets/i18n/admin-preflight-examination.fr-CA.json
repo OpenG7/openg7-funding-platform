@@ -218,6 +218,7 @@
       "payment": "Consulter le paiement",
       "agreement": "Consulter l’accord accepté",
       "consent": "Consigner un accord reçu",
+      "requestConsent": "Demander le consentement",
       "viewConsent": "Consulter le consentement public",
       "dossierReview": "Examiner la commandite et le dossier",
       "media": "Examiner les médias du dossier",
@@ -227,6 +228,11 @@
       "content": "Examiner la présentation et le contenu",
       "other": "Ouvrir le dossier source"
     }
+  },
+  "consentRequest": {
+    "title": "Demander le consentement public",
+    "intro": "Vérifiez et adaptez le courriel destiné au contact enregistré du commanditaire, puis confirmez son envoi pour demander son accord explicite à l’utilisation publique du nom et de la présentation de son organisation.",
+    "noAgreement": "Une demande envoyée ne vaut pas consentement. Après réception d’un accord explicite, utilisez « Consigner un accord reçu » avec sa date et sa preuve. Aucune publication n’est autorisée par cet envoi."
   },
   "consent": {
     "title": "Consentement public · Consigner un accord reçu",

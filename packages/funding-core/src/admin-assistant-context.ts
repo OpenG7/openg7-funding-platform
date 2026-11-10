@@ -55,6 +55,7 @@ export interface AdminAssistantContextResponse {
 
 /** Private, admin-only preview. Never supplied to a model provider. */
 export interface AdminInformationRequestPreview {
+  readonly purpose?: 'public_consent';
   readonly contributionId: string;
   readonly contextVersion: string;
   readonly recipient: string;

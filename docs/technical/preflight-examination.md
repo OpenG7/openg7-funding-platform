@@ -107,7 +107,10 @@ du même dossier. Les revues du commanditaire et du dossier partagent le contrô
 natif de revue dans **Aperçu**. Identité, présentation et médias rejoignent leurs
 espaces propriétaires, sans changer de commanditaire.
 
-Le consentement ouvre le formulaire d’[accord public documenté](sponsorship-public-consent.md).
+Le contrôle du consentement propose **Demander le consentement**, avec un aperçu
+du courriel au contact enregistré et confirmation avant mise en file. Une demande
+envoyée ne résout pas ce contrôle. **Consigner un accord reçu** ouvre le formulaire
+d’[accord public documenté](sponsorship-public-consent.md).
 L’accord reçu, sa preuve, sa date et une confirmation sont nécessaires; son
 enregistrement ne rend pas les autres contrôles valides. Le texte d’une
 publication existante peut être examiné dans un panneau qui réutilise la

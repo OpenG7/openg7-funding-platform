@@ -299,6 +299,7 @@ test('preparation accepts only known types and locales and bounds the reference 
   }
   for (const type of [
     'sponsorship_reminder',
+    'sponsorship_consent_request',
     'publication_draft',
     'admin_note',
     'slot_proposal'

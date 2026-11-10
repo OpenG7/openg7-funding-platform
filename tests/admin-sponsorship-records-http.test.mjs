@@ -464,6 +464,40 @@ test('confirmation, version and recipient remain mandatory and retries retain th
   }
 });
 
+test('public consent requests retain explicit intent and operator-only confirmed delivery', async () => {
+  const payload = { ...information, purpose: 'public_consent' };
+  for (const role of ['owner', 'operator', 'reader']) {
+    const f = fixture({ role });
+    const result = await f.run('/api/admin/sponsorships/request-information', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    assert.equal(result.status, role === 'reader' ? 403 : 200);
+    const call = f.calls.find((entry) => entry.name === 'information');
+    if (role === 'reader') assert.equal(call, undefined);
+    else assert.deepEqual(call.args, [payload, actor]);
+  }
+  for (const patch of [
+    { confirmed: false },
+    { purpose: 'publication_approval' }
+  ]) {
+    const f = fixture({ role: 'operator' });
+    assert.equal(
+      (
+        await f.run('/api/admin/sponsorships/request-information', {
+          method: 'POST',
+          body: JSON.stringify({ ...payload, ...patch })
+        })
+      ).status,
+      400
+    );
+    assert.equal(
+      f.calls.some((entry) => entry.name === 'information'),
+      false
+    );
+  }
+});
+
 test('information receipts authorize the original API actor before a private, strict, read-only lookup', async () => {
   for (const role of ['operator', 'owner']) {
     for (const prefix of ['/admin', '/api/admin']) {

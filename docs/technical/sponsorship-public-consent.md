@@ -7,6 +7,23 @@ historique. Une validation administrative ne remplace pas le consentement.
 
 ## Parcours administratif
 
+Dans la zone **Consentement public** de l’atelier, **Demander le consentement**
+ouvre un courriel privé préparé en français ou en anglais. L’opérateur ou le
+propriétaire vérifie le destinataire enregistré, adapte l’objet et le message,
+puis confirme l’envoi. La demande sollicite une réponse explicite pour le nom
+et la présentation de l’organisation; ni le paiement ni le silence ne valent
+accord. Elle est disponible pour une commandite payée, sans remboursement en
+cours, non refusée, sans consentement et avec une adresse de contact valide.
+Un dossier déjà complet peut aussi nécessiter cette demande.
+
+La commande réutilise la [file et les reçus de demande de renseignements](assistant-information-receipts.md)
+avec la finalité `public_consent`. Le serveur revalide état, adresse et version;
+mise en file, déduplication, audit et reçu restent transactionnels. Une réponse
+incertaine exige une recherche explicite du reçu, sans nouvel envoi automatique.
+Le statut en file ou envoyé ne change aucun consentement, prérequis ou droit de
+publication. Après une réponse favorable réellement reçue, l’équipe consigne
+l’accord et sa preuve par l’action suivante.
+
 Dans l’[atelier d’examen](preflight-examination.md), **Compléter les prérequis**
 affiche les contrôles du serveur et leurs actions. Le contrôle du consentement
 ouvre un formulaire limité au dossier sélectionné. Il demande :
