@@ -1,0 +1,63 @@
+{
+  "statistics": "Dossier statistics",
+  "actions": { "identity_missing": "Complete the sponsor’s contact details" },
+  "stats": {
+    "steps": "Resolved steps",
+    "services": "Delivered services",
+    "blockers": "Active blockers",
+    "visibility": "Public profile",
+    "media": "Approved media",
+    "proposals": "Ready proposals"
+  },
+  "visibility": {
+    "visible": "Visible",
+    "hidden": "Hidden",
+    "held": "Held private",
+    "unknown": "Unavailable"
+  },
+  "priority": {
+    "title": "Current priority",
+    "unknown": "The priority cannot be determined from the available data.",
+    "complete": "No intervention required.",
+    "waiting": "Processing is underway on the platform.",
+    "sponsorWaiting": "Waiting for the sponsor to submit their form.",
+    "readonly": "No intervention is available with your permissions."
+  },
+  "open": {
+    "identity": "Open Identity",
+    "media": "Open Profile and media",
+    "publication": "Open Publication",
+    "review": "Open administrative review",
+    "finance": "Open Finances",
+    "agreement": "Open agreement"
+  },
+  "domainsTitle": "Status by domain",
+  "domain": "Domain",
+  "state": "Status",
+  "domains": {
+    "identity": "Identity",
+    "media": "Media",
+    "publication": "Publication",
+    "review": "Administrative review",
+    "finance": "Finances"
+  },
+  "states": {
+    "unknown": "Unavailable",
+    "complete": "Complete",
+    "incomplete": "Incomplete",
+    "pending": "Pending",
+    "partial": "Partial",
+    "toReview": "To review",
+    "missing": "Missing",
+    "blocked": "Blocked",
+    "error": "Incident",
+    "waiting": "In progress",
+    "cancelled": "Cancelled",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "paid": "Paid",
+    "refunded": "Refunded",
+    "disputed": "Disputed",
+    "notRequired": "Not required"
+  }
+}

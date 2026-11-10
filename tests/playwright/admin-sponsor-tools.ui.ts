@@ -133,9 +133,7 @@ export function registerSponsorToolTests({
     const { calls } = await fixtures(page, 'reader');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path());
-    await expect(
-      page.locator('[data-og7="dossier-overview-summary"]')
-    ).toBeVisible();
+    await expect(page.locator('[data-og7="overview-domains"]')).toBeVisible();
     await expect(toggle(page, 'moderation')).toHaveCount(0);
     await expect(toggle(page, 'access')).toHaveCount(0);
     await expect(page.locator('[data-og7="moderation-actions"]')).toHaveCount(

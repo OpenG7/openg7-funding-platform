@@ -173,7 +173,7 @@
                 routerLink="/admin/fundraiser/sponsors"
                 [queryParams]="{
                   sponsorshipId: d.contributionId,
-                  tab: 'overview'
+                  tab: 'publication'
                 }"
                 fragment="dossier-agreement"
                 >{{
@@ -185,24 +185,26 @@
           </section>
         }
       }
-      <details data-og7="dossier-progress-details" [hidden]="!showSummary()">
-        <summary>
-          <span>{{ 'admin.dossier.stateSummary' | translate }}</span>
-          <span class="progress-count">{{
-            'admin.dossier.resolvedSteps'
-              | translate
-                : { completed: completedSteps(), total: d.milestones.length }
-          }}</span>
-        </summary>
-        <dl class="status-list">
-          @for (step of d.milestones; track step.id) {
-            <div [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
-              <dt>{{ 'admin.dossier.steps.' + step.id | translate }}</dt>
-              <dd>{{ 'admin.dossier.states.' + step.state | translate }}</dd>
-            </div>
-          }
-        </dl>
-      </details>
+      @if (showSummary()) {
+        <details data-og7="dossier-progress-details">
+          <summary>
+            <span>{{ 'admin.dossier.stateSummary' | translate }}</span>
+            <span class="progress-count">{{
+              'admin.dossier.resolvedSteps'
+                | translate
+                  : { completed: completedSteps(), total: d.milestones.length }
+            }}</span>
+          </summary>
+          <dl class="status-list">
+            @for (step of d.milestones; track step.id) {
+              <div [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
+                <dt>{{ 'admin.dossier.steps.' + step.id | translate }}</dt>
+                <dd>{{ 'admin.dossier.states.' + step.state | translate }}</dd>
+              </div>
+            }
+          </dl>
+        </details>
+      }
       @if (showNextStep()) {
         <openg7-admin-sponsorship-next-step
           [dossier]="d"

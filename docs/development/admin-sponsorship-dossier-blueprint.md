@@ -58,7 +58,7 @@ et [page Qualité][quality-page].
 | Zone | Avant le rangement | État actuel et propriétaire |
 | --- | --- | --- |
 | Aperçu / DOS-O.z01 | Assistant intégré : faits, recommandation, rédaction et envoi confirmé. | Instance retirée. **Assistant et aide**, dans la barre, transmet `sponsorshipId` et l’origine de retour ; l’Assistant de l’enveloppe reçoit aussi ce contexte. Les actions DOS-O.a01–a12/a21/a22 sont un catalogue historique de l’ancienne instance. |
-| Orientation / DOS-T | Prochain point et recommandations répétées dans plusieurs surfaces. | Un bandeau principal `AdminSponsorshipNextStep` ; progression factuelle repliable dans Aperçu. L’aide du dossier explique à la demande, la fiche de préparation évalue sa propre version. |
+| Orientation / DOS-T | Prochain point et recommandations répétées dans plusieurs surfaces. | Aperçu : six statistiques, une priorité et un tableau des domaines ; aucun détail de blocage ou formulaire. Les autres onglets conservent leur rappel contextuel. L’aide explique à la demande, la fiche de préparation évalue sa propre version. |
 | Contexte / DOS-C et DOS-U | Colonne permanente de modération, édition, aide et accès. | Colonne retirée. **Modération éditoriale** et **Accès au suivi** ouvrent un panneau non modal depuis la barre, selon les rôles ; le même tiroir d’édition est accessible dans la barre et depuis l’identité. L’aide rejoint la page commune **Assistant et aide**. |
 | Publication / DOS-P.z06 | Console complète de chaque obligation, doublant les prestations et les cartes sociales. | Synthèse d’avancement, responsabilité et motif ; lien **Voir les prestations de cette commandite** vers Campagnes avec `sponsorshipId`. Les cartes sociales et leur tiroir partagé restent actifs. |
 | Paramètres / DOS-W | Slug, résumé public et déclaration sociale présentés dans une même grille. | Section **Fiche publique** avec aperçu privé ; **Suivi social déclaré** replié séparément. Une sauvegarde versionnée commune enregistre les champs modifiés, sans publier ni autoriser d’envoi. |
@@ -121,7 +121,7 @@ d’onglets de liste distincts des cinq onglets du dossier. Source de présentat
 <!-- prettier-ignore -->
 | ID | Onglet affiché | Valeur d’URL | Responsabilité actuelle | Surface additionnelle |
 | --- | --- | --- | --- | --- |
-| DOS-O | Aperçu | `overview` | Comprendre le dossier et la prochaine intervention | Progression factuelle, synthèse, incidents Stripe, note interne, décisions de revue |
+| DOS-O | Aperçu | `overview` | Comprendre les statistiques, la priorité et les domaines | Six cartes, une action pertinente et un tableau navigable ; aucune mutation métier |
 | DOS-I | Fiche et médias | `identity` | Identité, coordonnées, soumission commanditaire et médias | Galerie complète, droits, analyses et modération de média |
 | DOS-P | Publication | `publication` | Aller des engagements à leur livraison | Fiche de préparation, accord historique, assistance, échéances, audit du dossier, visibilité Web, cartes sociales et synthèse vers Campagnes |
 | DOS-F | Finances | `billing` | Lire documents et remboursements, ouvrir le remboursement | Factures/avoirs, courriels défaillants, suivi Stripe |
@@ -230,14 +230,14 @@ Elles ne deviennent pas des responsabilités propres aux Commandites.
 Responsabilité : identifier le dossier, distinguer ses états indépendants et
 rejoindre l’intervention utile. Sources : [page][page], [en-tête][header],
 [prochain point][next], [progression][progress]. La progression est chargée sur
-tous les onglets ; sa synthèse repliable ne s’affiche que sur Aperçu.
+tous les onglets ; Aperçu la projette en statistiques sans résumé détaillé repliable.
 
 <!-- prettier-ignore -->
 | Zone / action | Responsabilité et comportement |
 | --- | --- |
 | DOS-T.z01 — En-tête | L, T : entreprise, initiales, montant/palier ; revue, visibilité Web, paiement, état de remboursement restent des badges séparés. |
 | DOS-T.a01 — Revenir à la liste | N, T : fermer le dossier sélectionné ; ne refuse ni n’annule la commandite. |
-| DOS-T.a02 — Note interne | N, T : rejoint Aperçu puis ouvre le tiroir de note DOS-O.z05. |
+| DOS-T.a02 — Note interne | N, T : ouvre le tiroir global de note sans quitter l’onglet courant ; lecture seule selon les droits. |
 | DOS-T.a03 — Activité (retiré) | Le raccourci de la barre est supprimé ; l’onglet Historique reste l’accès au même contenu. |
 | DOS-T.a04 — Suivi / interventions | N/L, T : ouvre DOS-J, avec prochaine date de revue si connue. |
 | DOS-T.a05 — Actualiser le dossier | L, T : relire les faits ; désactivé pendant chargement/action. |
@@ -246,11 +246,11 @@ tous les onglets ; sa synthèse repliable ne s’affiche que sur Aperçu.
 | DOS-T.z02 — Alerte de paiement | L, T : expliquer l’inadmissibilité ; le paiement n’est jamais corrigé par le navigateur. |
 | DOS-T.a08 — Actualiser après conflit | L, T : relire une version devenue obsolète ; ne rejoue pas automatiquement la décision. |
 | DOS-T.a09 — Choisir un des cinq onglets | N, T : afficher le domaine et son état projeté ; ne complète aucun jalon. |
-| DOS-T.a10 — Consulter l’activité de préparation | N/L, T : si `preparationActivityId` existe, ouvrir le tiroir d’activité avec `activity.openPreparation`. Voir ENV06 dans les [zones communes](admin-operations-blueprint.md#zones-et-actions-de-lenveloppe-commune). Ce tiroir est distinct du Parcours du paiement du Guide. |
+| DOS-T.a10 — Consulter l’activité de préparation | N/L, T, Publication : dans l’en-tête du suivi individuel, si `preparationActivityId` existe, ouvrir le tiroir d’activité avec `activity.openPreparation`. Voir ENV06 dans les [zones communes](admin-operations-blueprint.md#zones-et-actions-de-lenveloppe-commune). Ce tiroir est distinct de la Fiche de préparation et du Parcours du paiement du Guide. |
 | DOS-T.a11 — Rejoindre le prochain point | N, T : lien paramétré vers onglet/fragment décidé par la projection de progression. |
-| DOS-T.a12 — Déplier les blocages de publication | L, T : lire les causes et la responsabilité du traitement ; chaque cause donne un lien N vers sa zone propriétaire. |
+| DOS-T.a12 — Blocages détaillés retirés d’Aperçu | L, T : Aperçu affiche un nombre consolidé ; les causes et contrôles détaillés restent dans leurs domaines responsables. |
 | DOS-T.a13 — Réessayer la lecture de progression | L, T : visible en erreur/indisponibilité, relire les faits de progression. |
-| DOS-T.a14 — Déplier le résumé d’avancement | L, T, Aperçu : lire les jalons et le nombre résolu. Dans cette page `streamlined=true`, ce résumé n’est pas le parcours complet non compact du composant. |
+| DOS-T.a14 — Résumé d’avancement retiré | L, T : Aperçu affiche le nombre réglé dans ses cartes ; les jalons détaillés ne sont plus rendus dans cet onglet. |
 | DOS-T.a15 — Assistant et aide | N, T : entrée unique `dossier-assistant` vers `/admin/fundraiser/assistant?sponsorshipId=…` ; conserve le dossier courant et son origine de retour pour l’Assistant et le guide sur leur page commune. L’enveloppe reçoit aussi ce contexte. |
 | DOS-T.a16 — Modifier le dossier | N/P, G : ouvrir le tiroir de correction DOS-I.a04–a11 depuis la barre ; même instance que les raccourcis d’identité. |
 | DOS-T.a17 — Ouvrir un outil du dossier | L/N : Modération pour G, Accès pour O. Un panneau non modal affiche un outil à la fois. L’aide se consulte sur la page Assistant et aide. |
@@ -270,7 +270,7 @@ attendue et donne accès aux parcours existants. Sources : [template][next],
 | --- | --- | --- |
 | C01.1 | **À traiter** | Indicateur textuel d’une intervention attendue ; aucune action. |
 | C01.2 | **L’accord d’origine doit être qualifié avant de confirmer les prestations attendues.** | Motif `commitment_needs_confirmation` ; expliquer le préalable métier. |
-| C01.3 / DOS-T.a10 | **Voir la préparation** | Bouton secondaire : ouvre le tiroir transversal d’activité sur `preparationActivityId`, sans changer d’URL. Il consulte l’activité enregistrée, pas la Fiche de préparation. |
+| C01.3 / DOS-T.a10 | **Voir la préparation** | Désormais dans l’en-tête du suivi de Publication : ouvre le tiroir transversal d’activité sur `preparationActivityId`, sans changer d’URL. Il consulte l’activité enregistrée, pas la Fiche de préparation. |
 | C01.4 / DOS-T.a11 | **Voir les publications** | Lien principal : rejoint le même dossier, `tab=publication`, fragment `#dossier-publication`, en conservant les autres paramètres. Ce clic ne qualifie ni ne publie rien. |
 
 **Périmètres :** orientation vers l’intervention métier et consultation d’une
@@ -321,29 +321,33 @@ par [AdminAssistantAnswer][assistant-answer] ; leur consultation ne vaut ni appl
 automatique de la note, ni confirmation d’une publication. Ces présentations et leurs
 liens éventuels appartiennent à l’Assistant transversal.
 
-### DOS-O.z02 à DOS-O.z05 — Incidents synthèse message et note
+### Tableau de bord actuel et propriétaires des anciennes zones
 
-Sources : [faits][facts], [synthèse et tiroir de note][overview],
-[workflow de revue][review-workflow].
+Sources : [tableau de bord][overview], [tiroir de note][note],
+[faits][facts] et [workflow de revue][review-workflow].
+
+Aperçu contient uniquement six cartes statistiques, une priorité actuelle et un
+tableau de domaines navigable. Les sources chargées du dossier font foi ; une
+absence de données n’est pas transformée en zéro. Les propositions Preflight restent
+indisponibles sans liste courante et examinable. Les validations de médias ne sont
+pas déduites de leur seule présence ou visibilité. L’orientation ne crée aucune
+nouvelle autorité de décision.
 
 <!-- prettier-ignore -->
-| Zone / action | Responsabilité, effet et conditions |
+| Ancienne zone / action | Propriétaire actuel |
 | --- | --- |
-| DOS-O.z02 — Incidents Stripe | L, T, seulement si événements échoués : type et référence ; pas de réparation automatique. |
-| DOS-O.a13 — Ouvrir l’incident | N, T : `/admin/fundraiser/attention?type=stripe_event_failed&itemId=…`. |
-| DOS-O.z03 — Commandite | L, T : référence publique et avantages affichés ; lien d’aide vers les Finances. Cette synthèse n’est pas le registre détaillé des engagements. |
-| DOS-O.a14 — Copier la référence | L, T : presse-papiers, sans mutation du dossier ; désactivé si référence absente, retour de statut local. |
-| DOS-O.a15 — Consulter la fiche et les médias | N, T : sélectionne `identity`. |
-| DOS-O.a16 — Ouvrir les Finances | N, T : sélectionne `billing`. |
-| DOS-O.z04 — Message du commanditaire | L, T, conditionnel : message reçu, distinct d’une note interne. |
-| DOS-O.z05 — Note interne | L, T : aperçu privé, brouillon non enregistré, compteur et état de sauvegarde dans le tiroir. |
-| DOS-O.a17 — Lire/modifier la note | N/L, T ; l’ouverture reste possible en lecture seule. |
+| DOS-O.z02 / a13 — Incidents Stripe | Finances, `dossier-stripe`, puis lien vers À traiter avec le type et l’identifiant d’incident. |
+| DOS-O.z03 / a14 — Référence et commandite | Référence dans l’en-tête ; accord et engagements dans Publication, faits financiers dans Finances. L’ancienne carte synthèse est retirée. |
+| DOS-O.a15 / a16 — Navigation dédiée | Les cartes et lignes de domaine rejoignent les onglets responsables ; aucun panneau supplémentaire de raccourcis. |
+| DOS-O.z04 — Message du commanditaire | Identité : message reçu affiché lorsqu’il existe, distinct de la note interne. |
+| DOS-O.z05 / a17 — Note interne | Tiroir unique accessible par DOS-T.a02 depuis chaque onglet, sans changement d’onglet. |
 | DOS-O.a18 — Saisir la note | P, G : maximum 1 000 caractères ; aucune sauvegarde au fil de frappe. |
-| DOS-O.a19 — Enregistrer la note | M, G : seulement si modifiée ; sauvegarde par le workflow de revue, ne modifie pas la décision de revue. |
-| DOS-O.a20 — Fermer la note | L : fermeture du tiroir ; indisponible pendant sauvegarde. Le libellé « Fermer » ne promet pas d’abandonner le brouillon. |
+| DOS-O.a19 — Enregistrer la note | M, G : seulement si modifiée ; workflow de revue existant, sans modifier sa décision. |
+| DOS-O.a20 — Fermer la note | L : fermeture bloquée pendant sauvegarde ; brouillon conservé et focus rendu au déclencheur. |
 
-La [barre de décisions DOS-D](#decisions-de-revue-et-remboursement) est présente
-sur cet onglet pour G. Le refus ouvre un panneau conditionnel dans le corps du dossier.
+La [barre de décisions DOS-D](#decisions-de-revue-et-remboursement) de revue est
+accessible dans Publication, `dossier-review`. Aperçu n’affiche aucune commande
+d’approbation, de refus ou de publication.
 
 ## Fiche et médias
 
@@ -521,15 +525,20 @@ Sources : [tiroir de commandes][media-commands], [orchestrateur][media-commands-
 
 ### DOS-P.z01 — Assemblage du parcours
 
-Sources : [parcours de publication][publication], [faits][facts]. L’ordre actuel est :
-fiche de préparation → résumé générique des avantages → avancement et synthèse vers Campagnes → cartes Web/social → engagements
-enregistrés (avec assistance et qualification) → lien vers le moteur. Le panneau
-de paramètres avancés du site et de déclaration historique arrive ensuite dans
-la page. La console répétée par obligation a été retirée ; le résumé générique
-des avantages reste affiché. Campagnes porte la lecture détaillée des prestations et leurs
-preuves. **Prestations promises** conserve ici l’accord, la qualification et les
-ajustements. Le titre « Publication » couvre donc plusieurs domaines et plusieurs
-niveaux de décisions, pas seulement la rédaction d’un contenu.
+Sources : [suivi de publication][publication], [faits][facts] et
+[propriétaires des parcours](../technical/publication-workshop.md).
+L’onglet conserve le suivi individuel : état courant, exceptions, prestations,
+progression et détails consultables. Les contrôleurs de suivi et de programmation
+conservent leurs états d’erreur, leur contexte de session et la relecture des faits.
+L’activité de préparation enregistrée reste accessible dans l’en-tête.
+
+Les opérations éditoriales et contrôles de préparation rejoignent le Comptoir et
+Examiner ; les réglages de fiche et de visibilité rejoignent Fiche et médias.
+L’accord, sa qualification et les ajustements restent dans Publication à
+`dossier-agreement`, séparés du tableau de bord Aperçu. La revue administrative du
+commanditaire reste accessible à `dossier-review`. Les sous-sections détaillées
+DOS-B, DOS-P et DOS-W ci-dessous inventorient l’assemblage initial ; elles ne
+décrivent plus des panneaux tous montés dans le suivi actuel.
 
 <a id="bon-de-preparation-partage"></a>
 
@@ -1008,8 +1017,8 @@ ce choix ne crée pas un envoi SMTP.
 ### DOS-D — Barre de décision de revue commanditaire
 
 Sources : [barre de décisions][decisions], [workflow revue][review-workflow].
-La barre est affichée pour G sur Aperçu et Fiche et médias ; elle est absente sur
-Publication et Historique. Sur Finances, elle devient une barre de remboursement
+La barre de revue est affichée pour G dans Publication, `dossier-review` ; elle
+est absente d’Aperçu. Sur Finances, elle devient une barre de remboursement
 réservée à O. La revue du commanditaire, l’approbation de la préparation,
 la décision de visibilité Web et l’autorisation de publication d’une livraison
 sociale sont des décisions distinctes.
@@ -1025,7 +1034,7 @@ sociale sont des décisions distinctes.
 #### DOS-D.z02 — Formulaire de refus
 
 Source : [formulaire refus][rejection] et [workflow revue][review-workflow].
-L’ouverture rejoint Aperçu et referme le remboursement. Le formulaire
+L’ouverture rejoint Publication et referme le remboursement. Le formulaire
 peut encore être rendu tant que son état reste ouvert ; ce n’est pas un onglet autonome.
 
 <!-- prettier-ignore -->
@@ -1105,9 +1114,9 @@ surface à un travail portant sur plusieurs commandites.
 | DOS-L.z02/z03/z04 — Liste, pagination, états | Une collection et ses états de lecture. | Conserver la sélection et la reprise. | Liste existante ; aucune raison de créer un second registre transversal. |
 | DOS-T — Barre, en-tête et prochain point | Navigation du dossier et états indépendants ; orientation répétée ailleurs. | **Appliqué** : identité/navigation conservées, un bandeau principal et progression factuelle. | Projection de progression et `AdminSponsorshipNextStep` ; DOS-X06. |
 | DOS-O.z01 — Assistant | Synthèse, recommandation, brouillons, conversation et communication. | **Appliqué** : instance retirée ; accès contextuel vers l’Assistant. | Route Assistant avec dossier depuis barre/enveloppe ; parcours d’envoi confirmé puis file courriel. DOS-X07. |
-| DOS-O.z02 — Incidents Stripe | Alerte liée au dossier, puis traitement opérationnel. | Conserver l’alerte et orienter. | À traiter avec type et identifiant d’incident ; aucun outil Stripe à recréer ici. |
-| DOS-O.z03/z04 — Commandite et message | Lire référence, avantages synthétiques et message reçu. | Conserver ; déléguer le détail des engagements et les finances. | DOS-E et DOS-F ; les liens existants suffisent. |
-| DOS-O.z05 — Note interne | Synthèse privée mutable. | Conserver son tiroir unique. | DOS-O.a17–a20 ; ni journal d’interventions ni historique d’audit. DOS-X08. |
+| DOS-O.z02 — Incidents Stripe | Alerte liée au dossier, puis traitement opérationnel. | **Appliqué** : détail dans Finances. | À traiter avec type et identifiant d’incident ; aucun outil Stripe à recréer dans Aperçu. |
+| DOS-O.z03/z04 — Commandite et message | Lire référence, avantages synthétiques et message reçu. | **Appliqué** : carte synthèse retirée ; message dans Identité. | Référence dans l’en-tête, engagements dans Publication, finances dans DOS-F. |
+| DOS-O.z05 — Note interne | Synthèse privée mutable. | **Appliqué** : tiroir global unique. | DOS-T.a02 et DOS-O.a17–a20 ; ni journal d’interventions ni historique d’audit. DOS-X08. |
 | DOS-I.z01/z02 — Identité et soumission | Corriger la fiche et constater la soumission du commanditaire sont distincts. | Conserver une section Identité ; réutiliser le même tiroir depuis tous les raccourcis. | `AdminSponsorEdit` ; accès DOS-A pour une soumission manquante. |
 | DOS-M.z01/z02 — Logo et préférence | Aperçu du logo, puis décision sur le souhait du commanditaire. | Séparer clairement lecture et décision ; conserver les deux. | Logo en lecture seule et parcours de préférence versionné ; aucune approbation de fichier implicite. |
 | DOS-M.z03/z04/z05 — Galerie, inspecteur, analyse | Revue complète des médias, de portée différente des coordonnées. | Scinder visuellement l’identité et la revue des médias, ou ouvrir la revue dans un panneau focalisé. | `MediaReviewWorkspace`, inspecteur transversal et analyse existants ; aucune route Médias autonome actuelle. DOS-X04. |
@@ -1248,6 +1257,7 @@ instances explicitement marquées historiques, sans rendre actives leurs ancienn
 [assistant-answer]: ../../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-answer.component.ts
 [facts]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsorship-facts.component.html
 [overview]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts
+[note]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-note.component.ts
 [identity]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-identity.component.html
 [edit]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-edit.component.html
 [edit-controller]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-edit-controller.ts

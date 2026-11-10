@@ -114,9 +114,12 @@
           <openg7-admin-sponsor-detail-header
             *ngIf="selectedSponsorDetailHeader() as detailHeader"
             [detail]="detailHeader"
+            [publicReference]="selected.public_reference || null"
+            [copyMessage]="copyMessageFor(selected.id)"
+            (copyReference)="copyReference(selected)"
             [compact]="activeTab() === 'media'"
             [reviewStatus]="selected.sponsor_review_status"
-            [reviewAnchor]="!canManage() && activeTab() === 'overview'"
+            [reviewAnchor]="!canManage() && activeTab() === 'publication'"
             [website]="
               progress()?.contributionId === selected.id
                 ? progress()?.website
@@ -249,6 +252,18 @@
             </nav>
           </details>
 
+          @if (selectedSponsorNote(); as note) {
+            <openg7-admin-sponsor-note
+              [sponsorshipId]="selected.id"
+              [view]="note"
+              [disabled]="actionsDisabled()"
+              (reviewNoteChange)="
+                reviewWorkflow.setReviewNoteValue(selected.id, $event)
+              "
+              (saveReviewNote)="reviewWorkflow.saveReviewNote(selected)"
+            />
+          }
+
           <p
             class="payment-alert"
             *ngIf="paymentEligibilityMessage(selected)"
@@ -350,7 +365,8 @@
                 }}
               </h2>
               @if (
-                activeTab() !== 'media' &&
+                activeTab() !== 'overview' &&
+                  activeTab() !== 'media' &&
                   activeTab() !== 'publication' &&
                   progress();
                 as dossier
@@ -373,7 +389,7 @@
               <openg7-admin-sponsorship-progress
                 [sponsorshipId]="selected.id"
                 [streamlined]="true"
-                [showSummary]="activeTab() === 'overview'"
+                [showSummary]="false"
                 [showNextStep]="false"
                 [refreshKey]="assistantRefresh()"
                 [disabled]="actionState() !== null || state() === 'loading'"
@@ -385,33 +401,10 @@
               }
 
               <ng-container *ngIf="activeTab() === 'overview'">
-                <openg7-admin-sponsorship-facts
-                  *ngIf="progress()"
-                  view="overview"
-                  [dossier]="progress()"
-                />
                 <openg7-admin-sponsor-detail-overview
-                  *ngIf="selectedSponsorDetailOverview() as overview"
-                  [overview]="overview"
-                  [showBenefits]="
-                    !progress() || progress()?.contributionId !== selected.id
-                  "
-                  [disabled]="actionsDisabled()"
-                  (sectionRequested)="openDossierSection($event)"
-                  (copyReference)="copyReference(selected)"
-                  (reviewNoteChange)="
-                    reviewWorkflow.setReviewNoteValue(selected.id, $event)
-                  "
-                  (saveReviewNote)="reviewWorkflow.saveReviewNote(selected)"
+                  [view]="selectedSponsorOverview()"
+                  (navigate)="openOverviewDestination($event)"
                 />
-                @if (progress(); as dossier) {
-                  <section class="detail-body">
-                    <openg7-admin-sponsorship-commitments
-                      [dossier]="dossier"
-                      (changed)="loadSponsorships(true)"
-                    />
-                  </section>
-                }
               </ng-container>
 
               <ng-container *ngIf="activeTab() === 'identity'">
@@ -455,6 +448,14 @@
                   [dossier]="progress()"
                   (commitmentChanged)="loadSponsorships(true)"
                 />
+                @if (progress(); as dossier) {
+                  <section class="detail-body">
+                    <openg7-admin-sponsorship-commitments
+                      [dossier]="dossier"
+                      (changed)="loadSponsorships(true)"
+                    />
+                  </section>
+                }
               }
 
               <section
@@ -596,12 +597,18 @@
 
               @if (isFinanceTab()) {
                 <div
+                  id="dossier-payment"
                   class="dossier-finances"
                   data-og7="dossier-finances"
+                  tabindex="-1"
                   role="region"
                   [attr.aria-label]="'admin.finance.regionLabel' | translate"
                 >
                   @if (progress(); as dossier) {
+                    <openg7-admin-sponsorship-facts
+                      view="stripe"
+                      [dossier]="dossier"
+                    />
                     <div class="finance-facts-grid">
                       <openg7-admin-sponsorship-facts
                         view="refund"
@@ -724,10 +731,7 @@
           @if (
             canManage() &&
             (!isFinanceTab() || canUseOwnerActions()) &&
-            activeTab() !== 'identity' &&
-            activeTab() !== 'media' &&
-            activeTab() !== 'publication' &&
-            activeTab() !== 'audit'
+            (activeTab() === 'publication' || isFinanceTab())
           ) {
             <openg7-admin-sponsor-decision-actions
               [sponsorship]="selected"
@@ -738,7 +742,7 @@
               [canRefund]="refundWorkflow.canRefundSponsorship(selected)"
               [approvalState]="approvalState(selected.id)"
               [reviewMessage]="reviewWorkflow.reviewMessageFor(selected.id)"
-              [anchor]="activeTab() === 'overview' ? 'dossier-review' : null"
+              [anchor]="activeTab() === 'publication' ? 'dossier-review' : null"
               (returnPending)="
                 reviewWorkflow.review(selected, 'pending_review')
               "

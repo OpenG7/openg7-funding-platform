@@ -10,6 +10,7 @@ import {
   afterNextRender,
   PLATFORM_ID,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -60,6 +61,8 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly dossierOpen = output<void>();
   readonly sponsorshipId = input<string>();
   readonly refreshKey = input<unknown>(0);
+  readonly requestType = input<'sponsorship_consent_request' | null>(null);
+  readonly busyChanged = output<boolean>();
   readonly dialog =
     viewChild<ElementRef<HTMLDialogElement>>('confirmationDialog');
   readonly router = inject(Router);
@@ -125,6 +128,16 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   );
   private initialized = false;
 
+  constructor() {
+    effect(() =>
+      this.busyChanged.emit(
+        this.state() === 'loading' ||
+          this.busy() ||
+          this.receiptState() === 'checking'
+      )
+    );
+  }
+
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platform)) return;
     this.initialized = true;
@@ -132,7 +145,9 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
       this.router.currentNavigation() ?? this.router.lastSuccessfulNavigation();
     const info = navigation?.extras.info;
     void this.load(
-      !this.showWorkspaceLink() && info instanceof AssistantContextNavigation
+      !this.requestType() &&
+        !this.showWorkspaceLink() &&
+        info instanceof AssistantContextNavigation
         ? info.take()
         : null
     );
@@ -142,8 +157,18 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
     if (this.initialized) void this.load();
   }
 
-  load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
-    return this.controller.load(snapshot);
+  async load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
+    const sponsorshipId = this.sponsorshipId();
+    await this.controller.load(snapshot);
+    if (
+      !this.destroy.destroyed &&
+      sponsorshipId === this.sponsorshipId() &&
+      this.requestType() &&
+      this.state() === 'ready' &&
+      !this.prepared() &&
+      this.canPrepare()
+    )
+      await this.prepare(this.requestType()!);
   }
 
   prepare(type: AdminAssistantDraftType): Promise<void> {

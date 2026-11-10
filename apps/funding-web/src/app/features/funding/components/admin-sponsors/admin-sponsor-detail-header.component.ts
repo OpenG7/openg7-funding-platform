@@ -4,7 +4,12 @@ import type {
   AdminSponsorshipProgress,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output
+} from '@angular/core';
 
 import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-ui.models.js';
 
@@ -31,7 +36,21 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
             <span data-og7="dossier-public-reference">{{
               detail().publicReferenceLabel
             }}</span>
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="dossier-copy-reference"
+              [disabled]="!publicReference()"
+              (click)="copyReference.emit()"
+            >
+              {{ 'admin.legacy.copier' | translate }}
+            </button>
           </p>
+          @if (copyMessage()) {
+            <small class="reference-status" role="status">{{
+              copyMessage()
+            }}</small>
+          }
         </div>
       </div>
 
@@ -103,6 +122,9 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
 })
 export class AdminSponsorDetailHeaderComponent {
   readonly compact = input(false);
+  readonly publicReference = input<string | null>(null);
+  readonly copyMessage = input('');
+  readonly copyReference = output<void>();
   readonly website = input<AdminSponsorshipProgress['website']>();
   readonly detail = input.required<AdminSponsorDetailHeaderView>();
   readonly reviewStatus = input.required<SponsorshipReviewStatus>();

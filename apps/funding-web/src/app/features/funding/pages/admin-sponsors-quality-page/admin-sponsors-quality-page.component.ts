@@ -37,7 +37,7 @@ import { AdminSponsorsQualityI18nService } from '../../services/admin-sponsors-q
             <a
               class="admin-link"
               routerLink="/admin/fundraiser/sponsors"
-              [queryParams]="{ sponsorshipId: id, tab: 'overview' }"
+              [queryParams]="{ sponsorshipId: id, tab: 'publication' }"
               fragment="dossier-agreement"
             >
               {{ labels.t('backToDossier') }}

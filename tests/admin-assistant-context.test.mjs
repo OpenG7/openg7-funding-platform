@@ -6,6 +6,7 @@ import {
   getAdminAssistantContext
 } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { validateInformationRequest } from '../dist/apps/funding-api/src/sponsorship-information.service.js';
+import { canRequestSponsorshipConsent } from '../dist/apps/funding-api/src/sponsorship-review-policy.js';
 import { getSponsorshipProgress } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
@@ -211,6 +212,22 @@ test('public context omits recipients and request eligibility requires a usable 
   assert.equal((await getAdminAssistantContext(null)).status, 'unavailable');
 });
 
+test('consent requests allow complete dossiers but require missing consent and an actionable sponsor contact', () => {
+  const eligible = source({}, { consent: false });
+  assert.equal(canRequestSponsorshipInformation(eligible), false);
+  assert.equal(canRequestSponsorshipConsent(eligible), true);
+  for (const input of [
+    source(),
+    source({}, { consent: null }),
+    source({ paymentStatus: 'pending' }, { consent: false }),
+    source({ refundStatus: 'requested' }, { consent: false }),
+    source({ reviewStatus: 'rejected' }, { consent: false }),
+    source({}, { consent: false, recipient: null }),
+    source({}, { consent: false, recipient: 'invalid' })
+  ])
+    assert.equal(canRequestSponsorshipConsent(input), false);
+});
+
 test('context and progress report unavailable sources before opening a default dossier', async () => {
   const now = new Date('2026-10-02T12:00:00.000Z');
   for (const reference of [undefined, '', source().record.contributionId]) {
@@ -301,10 +318,16 @@ test('information request validates explicit confirmation and safe bounded messa
     confirmed: true
   };
   assert.deepEqual(validateInformationRequest(valid), valid);
+  assert.deepEqual(
+    validateInformationRequest({ ...valid, purpose: 'public_consent' }),
+    { ...valid, purpose: 'public_consent' }
+  );
   for (const patch of [
     { requestId: undefined },
     { requestId: 'invalid' },
     { unexpected: true },
+    { purpose: 'publication_approval' },
+    { purpose: null },
     { confirmed: false },
     { contributionId: 'bad' },
     { contextVersion: '' },

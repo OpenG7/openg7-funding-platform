@@ -12,6 +12,17 @@ alongside `contributionId`, `contextVersion`, `recipient`, `subject`, `body` and
 `status` and adds `requestId`, `messageId`, canonical ISO UTC `acceptedAt`,
 `deliveryStatus` (`queued|sending|sent|failed|uncertain`) and nullable `sentAt`.
 
+The optional `purpose: "public_consent"` requests explicit public profile consent
+instead of missing profile information. It is prepared with
+`POST /api/admin/assistant/prepare`, type `sponsorship_consent_request`, in French
+or English. The API requires a paid, non-refunded, non-rejected sponsorship with
+no recorded consent and a valid current contact, even when the profile is
+otherwise complete. The preview fixes that recipient and carries the current
+context version. The purpose participates in the command hash, email
+deduplication and private audit metadata. Omitting it preserves the existing
+information-request behavior and hashes. Neither purpose records consent or
+authorizes publication; see [documented consent](sponsorship-public-consent.md).
+
 An exact replay by the same actor with the same request and payload returns the
 original acceptance and message with its current delivery state. Reusing the UUID
 with another actor, dossier or payload returns 409

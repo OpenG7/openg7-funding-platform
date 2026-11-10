@@ -113,9 +113,8 @@ function sponsorship(overrides = {}) {
   };
 }
 
-function overviewState(overrides = {}) {
+function noteState(overrides = {}) {
   return {
-    copyMessage: '',
     reviewNote: '',
     reviewNoteDirty: false,
     reviewNoteStateLabel: '',
@@ -340,18 +339,16 @@ test('partial dossier fields retain name, date and contact fallbacks across list
   );
 });
 
-test('overview preserves edited notes and page messages while delegating refund history', () => {
+test('private-note presentation preserves edited drafts without unrelated dossier facts', () => {
   const { projection, presentation } = fixture();
   const record = Object.freeze(
     sponsorship({
-      sponsorship_refund_status: 'failed',
-      sponsorship_refund_id: 're_synthetic',
+      public_reference: 'SYNTHETIC-REF-001',
       sponsor_message: 'Synthetic sponsor message'
     })
   );
   const state = Object.freeze(
-    overviewState({
-      copyMessage: 'Synthetic copied message',
+    noteState({
       reviewNote: '  Unsaved synthetic note  ',
       reviewNoteDirty: true,
       reviewNoteStateLabel: 'Synthetic save failed message',
@@ -359,50 +356,22 @@ test('overview preserves edited notes and page messages while delegating refund 
     })
   );
   const before = structuredClone({ record, state });
-  const overview = projection.overview(record, state);
-  for (const key of Object.keys(state)) assert.equal(overview[key], state[key]);
-  assert.equal(overview.sponsorMessage, record.sponsor_message);
-  assert.equal(overview.refundId, 're_synthetic');
-  assert.equal(overview.hasRefundWorkflow, true);
-  assert.equal(
-    overview.refundStatusClass,
-    presentation.history.refundWorkflowStatusClass('failed')
-  );
-  assert.equal(
-    overview.refundStatusLabel,
-    presentation.history.refundWorkflowStatusLabel('failed')
-  );
-  assert.equal(
-    overview.refundWorkflowTimelineLabel,
-    presentation.history.refundWorkflowTimelineLabel(record)
-  );
-  assert.equal(
-    projection.listRow(record).refundWorkflowStatusLabel,
-    overview.refundStatusLabel
-  );
-  assert.equal(
-    projection.header(record).refundWorkflowStatusClass,
-    overview.refundStatusClass
-  );
+  assert.deepEqual(projection.note(record, state), {
+    companyName: record.sponsor_company_name,
+    publicReference: record.public_reference,
+    ...state
+  });
   assert.deepEqual({ record, state }, before);
-  const empty = projection.overview(sponsorship(), overviewState());
-  assert.equal(empty.contactName, presentation.t('admin.legacy.non_fourni'));
-  for (const key of [
-    'contactEmail',
-    'websiteUrl',
-    'publicReference',
-    'refundId',
-    'sponsorMessage'
-  ])
-    assert.equal(empty[key], null);
-  assert.equal(
-    projection.listRow(sponsorship()).refundWorkflowStatusClass,
-    null
+  const empty = projection.note(
+    sponsorship({ sponsor_company_name: '' }),
+    noteState()
   );
   assert.equal(
-    projection.header(sponsorship()).refundWorkflowStatusLabel,
-    null
+    empty.companyName,
+    presentation.t('admin.messages.entreprise_sans_nom')
   );
+  assert.equal(empty.publicReference, null);
+  assert.equal(empty.reviewNote, '');
 });
 
 test('identity creates immutable media views with owner formatting, versions and separate busy state', () => {

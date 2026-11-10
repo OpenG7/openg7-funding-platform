@@ -62,6 +62,17 @@ export const canRequestSponsorshipInformation = (
     source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
   );
 
+/** Contacting the sponsor never records an agreement or grants visibility. */
+export const canRequestSponsorshipConsent = (
+  source: SponsorshipInformationRequestSource & { readonly consent: boolean }
+): boolean =>
+  source.consent === false &&
+  isActionableSponsorship(source.record) &&
+  source.record.reviewStatus !== 'rejected' &&
+  Boolean(
+    source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
+  );
+
 export const isSponsorshipAwaitingReview = (
   record: SponsorshipAttentionRecord
 ): boolean =>

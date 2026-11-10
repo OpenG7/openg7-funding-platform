@@ -43,6 +43,10 @@ import type {
   SponsorshipApprovalFeedback
 } from '../../models/admin-sponsor-workflow.ports.js';
 import { AdminSponsorPresentationProjection } from '../../models/admin-sponsor-presentation.projection.js';
+import {
+  projectSponsorOverview,
+  type OverviewDestination
+} from '../../models/admin-sponsor-overview.projection.js';
 import { AdminSponsorReviewWorkflow } from '../../services/admin-sponsor-review-workflow.js';
 import { AdminSponsorPublicationWorkflow } from '../../services/admin-sponsor-publication-workflow.js';
 import { AdminSponsorHistoryProjection } from '../../models/admin-sponsor-history.projection.js';
@@ -72,6 +76,8 @@ import enAssistance from '../../../../../assets/i18n/admin-dossier-assistance.en
 import frAssistance from '../../../../../assets/i18n/admin-dossier-assistance.fr-CA.json' with { type: 'json' };
 import enCleanup from '../../../../../assets/i18n/admin-sponsors-cleanup.en.json' with { type: 'json' };
 import frCleanup from '../../../../../assets/i18n/admin-sponsors-cleanup.fr-CA.json' with { type: 'json' };
+import enOverview from '../../../../../assets/i18n/admin-sponsor-overview.en.json' with { type: 'json' };
+import frOverview from '../../../../../assets/i18n/admin-sponsor-overview.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
@@ -82,6 +88,7 @@ import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponso
 import { AdminSponsorEditComponent } from '../../components/admin-sponsors/admin-sponsor-edit.component.js';
 import { AdminSponsorDetailIdentityComponent } from '../../components/admin-sponsors/admin-sponsor-detail-identity.component.js';
 import { AdminSponsorDetailOverviewComponent } from '../../components/admin-sponsors/admin-sponsor-detail-overview.component.js';
+import { AdminSponsorNoteComponent } from '../../components/admin-sponsors/admin-sponsor-note.component.js';
 import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors/admin-sponsor-detail-tabs.component.js';
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
@@ -133,6 +140,7 @@ type SponsorDossierTool = 'moderation' | 'access';
     AdminSponsorEditComponent,
     AdminSponsorDetailIdentityComponent,
     AdminSponsorDetailOverviewComponent,
+    AdminSponsorNoteComponent,
     AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
     AdminSponsorsSummaryComponent,
@@ -299,10 +307,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
 
   openReviewNote(): void {
-    this.setActiveTab('overview');
-    afterNextRender(() => this.sponsorOverview()?.openNote(), {
-      injector: this.injector
-    });
+    this.sponsorNote()?.openNote();
   }
 
   openDossierSection(tab: SponsorDetailsTab): void {
@@ -311,6 +316,18 @@ export class AdminSponsorsPageComponent implements OnInit {
       queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
       queryParamsHandling: 'merge',
       fragment: 'dossier-' + tab
+    });
+  }
+
+  openOverviewDestination(destination: OverviewDestination): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        sponsorshipId: this.selectedSponsorshipId(),
+        tab: destination.tab
+      },
+      queryParamsHandling: 'merge',
+      fragment: 'dossier-' + (destination.section ?? destination.tab)
     });
   }
 
@@ -336,7 +353,7 @@ export class AdminSponsorsPageComponent implements OnInit {
     });
   }
 
-  readonly sponsorOverview = viewChild(AdminSponsorDetailOverviewComponent);
+  private readonly sponsorNote = viewChild(AdminSponsorNoteComponent);
   readonly sponsorAccess = viewChild(AdminSponsorshipAccessComponent);
   private readonly sponsorProgress = viewChild(
     AdminSponsorshipProgressComponent
@@ -633,11 +650,25 @@ export class AdminSponsorsPageComponent implements OnInit {
     const selected = this.selectedSponsorship();
     return selected ? this.presentationProjection.header(selected) : null;
   });
-  readonly selectedSponsorDetailOverview = computed(() => {
+  readonly selectedSponsorOverview = computed(() => {
+    const selected = this.selectedSponsorship();
+    const progress = this.progress();
+    return projectSponsorOverview({
+      dossier:
+        selected && progress?.contributionId === selected.id ? progress : null,
+      media:
+        selected &&
+        this.mediaWorkflow.sponsorMediaReadState()[selected.id] === 'ready'
+          ? (this.mediaWorkflow.sponsorMedia()[selected.id] ?? null)
+          : null,
+      canManage: this.canManage(),
+      canUseOwnerActions: this.canUseOwnerActions()
+    });
+  });
+  readonly selectedSponsorNote = computed(() => {
     const selected = this.selectedSponsorship();
     return selected
-      ? this.presentationProjection.overview(selected, {
-          copyMessage: this.copyMessageFor(selected.id),
+      ? this.presentationProjection.note(selected, {
           reviewNote: this.reviewWorkflow.reviewNoteFor(selected.id),
           reviewNoteDirty: this.reviewWorkflow.isReviewNoteDirty(selected),
           reviewNoteStateLabel:
@@ -788,6 +819,7 @@ export class AdminSponsorsPageComponent implements OnInit {
             finance: language === 'en' ? enFinance : frFinance,
             dossier: {
               ...(language === 'en' ? enProfile : frProfile),
+              overviewDashboard: language === 'en' ? enOverview : frOverview,
               publicationBridge: { schedule }
             },
             history: language === 'en' ? enHistory : frHistory,
@@ -975,7 +1007,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
     if (!this.reviewWorkflow.openRejectionPanel(sponsorship)) return;
-    this.setActiveTab('overview');
+    this.setActiveTab('publication');
     this.refundWorkflow.activeRefundId.set(null);
     afterNextRender(() => this.rejectionPanel()?.focusReason(), {
       injector: this.injector

@@ -214,6 +214,7 @@
       "payment": "View payment",
       "agreement": "View accepted agreement",
       "consent": "Record an agreement received",
+      "requestConsent": "Request consent",
       "viewConsent": "View public consent",
       "dossierReview": "Review sponsorship and dossier",
       "media": "Review dossier media",
@@ -223,6 +224,11 @@
       "content": "Review presentation and content",
       "other": "Open the source dossier"
     }
+  },
+  "consentRequest": {
+    "title": "Request public consent",
+    "intro": "Review and edit the email to the sponsor’s registered contact, then confirm sending it to request explicit agreement to the public use of the organization’s name and presentation.",
+    "noAgreement": "Sending a request does not grant consent. Once explicit agreement is received, use “Record an agreement received” with its date and evidence. Sending this email does not authorize publication."
   },
   "consent": {
     "title": "Public consent · Record an agreement received",

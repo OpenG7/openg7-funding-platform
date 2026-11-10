@@ -27,7 +27,7 @@ export async function openPublicationSection(
   if (section === 'contract' || section === 'offer') {
     await page
       .locator('[data-og7="dossier-tabs"]')
-      .getByRole('button', { name: /^(Aperçu|Overview)$/ })
+      .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await expect(page.locator('#dossier-agreement')).toBeVisible();
     return;
@@ -45,14 +45,15 @@ export async function openSponsorshipWebsiteSettings(
   page: Page,
   controller?: AdminController
 ): Promise<void> {
-  const current = new URL(page.url());
-  if (current.searchParams.get('tab') !== 'media') {
-    const tab = page
-      .locator('[data-og7="dossier-tabs"]')
-      .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ });
-    if (controller) await controller.activate(tab);
-    else await tab.click();
-  }
+  const tab = page
+    .locator('[data-og7="dossier-tabs"]')
+    .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ });
+  if (controller) await controller.activate(tab);
+  else await tab.click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get('tab') === 'media'
+  );
+  await expect(tab).toHaveAttribute('aria-current', 'page');
   const settings = page.locator('[data-og7="publication-advanced"]');
   await expect(settings).toBeVisible();
   if ((await settings.getAttribute('open')) === null) {

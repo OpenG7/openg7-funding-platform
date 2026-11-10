@@ -1,10 +1,13 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Locator, Page } from '@playwright/test';
 import type {
+  AdminAssistantContextResponse,
+  AdminAssistantPrepareResponse,
   AdminCampaignItem,
   AdminDossierPreparationReceipt,
   AdminPreflightWorkSession,
   AdminPreflightWorkSessionCommandRequest,
+  AdminInformationRequest,
   AdminServicePreparationDecision,
   AdminServicePreparationDecisionRequest,
   AdminServicePreparationReceipt,
@@ -367,7 +370,7 @@ async function fixtures(
   page: Page,
   options: {
     language?: 'fr-CA' | 'en';
-    role?: 'owner' | 'reader';
+    role?: 'owner' | 'operator' | 'reader';
     theme?: 'mineral' | 'night' | 'graphite';
   } = {}
 ) {
@@ -936,6 +939,135 @@ async function fillConsent(page: Page) {
   await consentControl(page, 'agreement').check();
   await consentControl(page, 'date').fill('2026-11-04');
   await consentControl(page, 'evidence').fill(consentEvidence);
+}
+
+async function consentRequestFixtures(
+  page: Page,
+  state: Awaited<ReturnType<typeof fixtures>>,
+  language: 'fr-CA' | 'en' = 'fr-CA'
+) {
+  const english = language === 'en';
+  const recipient = 'synthetic-consent-contact@example.invalid';
+  const subject = english
+    ? 'Public profile consent — SYNTHETIC-EXAM-001'
+    : 'Consentement au profil public — SYNTHETIC-EXAM-001';
+  const body = english
+    ? 'Hello, please reply explicitly to confirm whether you agree to the public use of your organization name and presentation. No agreement is assumed without your reply.'
+    : 'Bonjour, merci de répondre explicitement pour nous indiquer si vous acceptez l’utilisation publique du nom et de la présentation de votre organisation. Aucun accord n’est présumé sans votre réponse.';
+  const context: AdminAssistantContextResponse = {
+    status: 'ok',
+    generatedAt: at,
+    conversationMode: 'disabled',
+    context: {
+      contributionId: dossierId,
+      reference: 'SYNTHETIC-EXAM-001',
+      version: 'a'.repeat(64),
+      paymentStatus: 'paid',
+      refundStatus: 'not_requested',
+      reviewStatus: 'approved',
+      feedStatus: 'not_planned',
+      publicConsent: false,
+      missingFields: [],
+      media: { total: 1, approved: 1, pending: 0, rejected: 0 },
+      promisedChannels: ['facebook'],
+      coveredChannels: [],
+      nextStep: 'confirm_consent',
+      adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${dossierId}`,
+      canRequestInformation: false
+    }
+  };
+  const proposal: AdminAssistantPrepareResponse = {
+    status: 'ok',
+    message: null,
+    draft: {
+      type: 'sponsorship_consent_request',
+      title: subject,
+      generatedAt: at,
+      reference: 'SYNTHETIC-EXAM-001',
+      sent: false,
+      published: false,
+      persisted: false,
+      fields: [{ label: english ? 'Subject' : 'Objet', value: subject }],
+      bodyLines: [body],
+      notice: english ? 'No email sent.' : 'Aucun courriel envoyé.',
+      limitations: [],
+      adminUrl: context.context!.adminUrl
+    },
+    delivery: {
+      contributionId: dossierId,
+      contextVersion: context.context!.version,
+      recipient,
+      subject,
+      body,
+      purpose: 'public_consent'
+    }
+  };
+  const requests = {
+    contextReads: [] as URL[],
+    preparations: [] as Record<string, unknown>[],
+    posts: [] as AdminInformationRequest[],
+    receiptReads: [] as URL[],
+    prepareStatus: 200,
+    sendStatus: 200,
+    receiptFound: false
+  };
+  await page.route('**/api/admin/assistant/context?*', async (route) => {
+    requests.contextReads.push(new URL(route.request().url()));
+    return route.fulfill({ json: context });
+  });
+  await page.route('**/api/admin/assistant/prepare', async (route) => {
+    requests.preparations.push(
+      route.request().postDataJSON() as Record<string, unknown>
+    );
+    return route.fulfill({
+      status: requests.prepareStatus,
+      json: requests.prepareStatus === 200 ? proposal : { code: 'UNAVAILABLE' }
+    });
+  });
+  const receipt = (requestId: string) => ({
+    requestId,
+    contributionId: dossierId,
+    found: true,
+    messageId: '80000000-0000-4000-8000-000000000001',
+    acceptedAt: at,
+    deliveryStatus: 'queued',
+    sentAt: null
+  });
+  await page.route(
+    '**/api/admin/sponsorships/request-information',
+    async (route) => {
+      const input = route.request().postDataJSON() as AdminInformationRequest;
+      requests.posts.push(input);
+      return route.fulfill({
+        status: requests.sendStatus,
+        json:
+          requests.sendStatus === 200
+            ? { ...receipt(input.requestId), status: 'queued' }
+            : { code: 'INFORMATION_REQUEST_UNAVAILABLE' }
+      });
+    }
+  );
+  await page.route(
+    '**/api/admin/sponsorships/information-request-receipt?*',
+    async (route) => {
+      const url = new URL(route.request().url());
+      requests.receiptReads.push(url);
+      const requestId = url.searchParams.get('requestId') ?? '';
+      return route.fulfill({
+        json: requests.receiptFound
+          ? receipt(requestId)
+          : { requestId, contributionId: dossierId, found: false }
+      });
+    }
+  );
+  return Object.assign(requests, {
+    context,
+    proposal,
+    state,
+    recipient,
+    subject,
+    body
+  });
 }
 
 for (const language of ['fr-CA', 'en'] as const) {
@@ -2319,4 +2451,226 @@ test('Documented consent ignores a late private response after leaving its exact
   await expect(page.locator('body')).not.toContainText(consentActor);
   expect(state.consentPosts).toEqual([]);
   expect(state.writes).toEqual([]);
+});
+
+for (const [language, width, role] of [
+  ['fr-CA', 390, 'owner'],
+  ['en', 1536, 'operator']
+] as const) {
+  test(`Public consent request requires reviewed delivery and leaves consent missing in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 1100 });
+    const state = await fixtures(page, { language, role });
+    missingConsent(state);
+    const requests = await consentRequestFixtures(page, state, language);
+    const english = language === 'en';
+    await page.goto(examinationUrl());
+    await hook(page, 'guided-open').click();
+    const opener = hook(page, 'consent-request-open');
+    await opener.focus();
+    await page.keyboard.press('Enter');
+    const panel = hook(page, 'consent-request');
+    const drawer = page.getByRole('dialog', {
+      name: english
+        ? 'Request public consent'
+        : 'Demander le consentement public',
+      exact: true
+    });
+    await expect(panel).toBeVisible();
+    const form = panel.locator('[data-og7="assistant-information-form"]');
+    await expect(form).toBeVisible();
+    expect(
+      requests.contextReads.map((url) => url.searchParams.get('sponsorshipId'))
+    ).toEqual([dossierId]);
+    expect(requests.preparations).toEqual([
+      { type: 'sponsorship_consent_request', reference: dossierId, language }
+    ]);
+    const recipient = form.getByLabel(english ? 'Recipient' : 'Destinataire', {
+      exact: true
+    });
+    await expect(recipient).toHaveValue(requests.recipient);
+    await expect(recipient).toHaveAttribute('readonly', '');
+    await expect(form.getByLabel('Message', { exact: true })).toHaveValue(
+      requests.body
+    );
+    expect(requests.posts).toEqual([]);
+    expect(state.consentPosts).toEqual([]);
+    const customMessage = english
+      ? 'Synthetic request: do you agree to the public use of your organization name and presentation? Please reply explicitly.'
+      : 'Demande synthétique : acceptez-vous l’utilisation publique du nom et de la présentation de votre organisation ? Merci de répondre explicitement.';
+    await form.getByLabel('Message', { exact: true }).fill(customMessage);
+    const review = form.getByRole('button', {
+      name: english ? 'Review delivery' : 'Vérifier l’envoi',
+      exact: true
+    });
+    await review.focus();
+    await page.keyboard.press('Enter');
+    const confirmation = page.getByRole('dialog', {
+      name: english
+        ? 'Confirm information request'
+        : 'Confirmer la demande d’informations',
+      exact: true
+    });
+    await expect(confirmation).toBeVisible();
+    await expect(confirmation).toContainText(requests.recipient);
+    await expect(confirmation).toContainText(customMessage);
+    expect(requests.posts).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(confirmation).not.toBeVisible();
+    await expect(drawer).toBeVisible();
+    await expect(review).toBeFocused();
+    expect(requests.posts).toEqual([]);
+    await review.click();
+    await confirmation
+      .getByRole('button', {
+        name: english ? 'Confirm delivery' : 'Confirmer l’envoi',
+        exact: true
+      })
+      .click();
+    await expect(
+      panel.locator('[data-og7="assistant-information-receipt"]')
+    ).toBeVisible();
+    expect(requests.posts).toEqual([
+      {
+        contributionId: dossierId,
+        contextVersion: 'a'.repeat(64),
+        recipient: requests.recipient,
+        subject: requests.subject,
+        body: customMessage,
+        purpose: 'public_consent',
+        requestId: expect.stringMatching(
+          /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i
+        ),
+        confirmed: true
+      }
+    ]);
+    await expectAdminPageFits(page);
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-og7="examination-consent-request"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await drawer
+      .getByRole('button', {
+        name: english ? 'Close' : 'Fermer',
+        exact: true
+      })
+      .click();
+    await expect(panel).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    await expect(
+      hook(page, 'guided-preparation').locator(
+        '[data-og7="examination-guided-check"][data-og7-id="public_consent"]'
+      )
+    ).toHaveAttribute('data-state', 'missing');
+    await expect(hook(page, 'approve')).toBeDisabled();
+    expect(state.consent.effectiveConsent).toBe(false);
+    expect(state.consentPosts).toEqual([]);
+    expect(state.writes).toEqual([]);
+    expect(state.personalWrites).toEqual([]);
+  });
+}
+
+test('Public consent request reconciles an uncertain delivery through its receipt without repeating POST', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  missingConsent(state);
+  const requests = await consentRequestFixtures(page, state);
+  requests.sendStatus = 503;
+  requests.receiptFound = true;
+  await page.goto(examinationUrl());
+  await hook(page, 'guided-open').click();
+  await hook(page, 'consent-request-open').click();
+  const panel = hook(page, 'consent-request');
+  await panel
+    .getByRole('button', { name: 'Vérifier l’envoi', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Confirmer l’envoi', exact: true })
+    .click();
+  await expect(
+    panel.locator('[data-og7="assistant-information-uncertain"]')
+  ).toBeVisible();
+  expect(requests.posts).toHaveLength(1);
+  expect(requests.receiptReads).toEqual([]);
+  await expect(
+    panel.getByRole('button', { name: 'Vérifier l’envoi', exact: true })
+  ).toBeDisabled();
+  await panel
+    .locator('[data-og7="assistant-information-receipt-check"]')
+    .click();
+  const receipt = panel.locator('[data-og7="assistant-information-receipt"]');
+  await expect(receipt).toBeVisible();
+  await expect(receipt).toBeFocused();
+  expect(requests.receiptReads).toHaveLength(1);
+  expect(requests.receiptReads[0]!.searchParams.get('requestId')).toBe(
+    requests.posts[0]!.requestId
+  );
+  expect(requests.receiptReads[0]!.searchParams.get('contributionId')).toBe(
+    dossierId
+  );
+  expect(requests.posts).toHaveLength(1);
+  expect(state.consentPosts).toEqual([]);
+  expect(state.consent.effectiveConsent).toBe(false);
+  expect(state.writes).toEqual([]);
+});
+
+test('Public consent request preparation failure exposes no sending form or consent mutation', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  missingConsent(state);
+  const requests = await consentRequestFixtures(page, state);
+  requests.prepareStatus = 503;
+  await page.goto(examinationUrl());
+  await hook(page, 'guided-open').click();
+  await hook(page, 'consent-request-open').click();
+  const panel = hook(page, 'consent-request');
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(
+    panel.locator('[data-og7="assistant-information-form"]')
+  ).toHaveCount(0);
+  expect(requests.posts).toEqual([]);
+  expect(state.consentPosts).toEqual([]);
+  expect(state.writes).toEqual([]);
+});
+
+test('Public consent contact action is absent for readers', async ({
+  page
+}) => {
+  const state = await fixtures(page, { role: 'reader' });
+  missingConsent(state, 'reader');
+  const requests = await consentRequestFixtures(page, state);
+  await page.goto(examinationUrl());
+  await hook(page, 'guided-open').click();
+  await expect(hook(page, 'consent-open')).toBeVisible();
+  await expect(hook(page, 'consent-request-open')).toHaveCount(0);
+  expect(requests.contextReads).toEqual([]);
+  expect(requests.preparations).toEqual([]);
+  expect(requests.posts).toEqual([]);
+  expect(state.consentPosts).toEqual([]);
+});
+
+test('Public consent contact action is absent when consent is already recorded', async ({
+  page
+}) => {
+  const state = await fixtures(page);
+  state.receipts[0] = {
+    ...state.receipts[0]!,
+    checks: [
+      ...state.receipts[0]!.checks,
+      { code: 'public_consent', state: 'complete' }
+    ]
+  };
+  const requests = await consentRequestFixtures(page, state);
+  await page.goto(examinationUrl());
+  await hook(page, 'guided-open').click();
+  await expect(hook(page, 'consent-open')).toBeVisible();
+  await expect(hook(page, 'consent-request-open')).toHaveCount(0);
+  expect(requests.contextReads).toEqual([]);
+  expect(requests.preparations).toEqual([]);
+  expect(requests.posts).toEqual([]);
+  expect(state.consentPosts).toEqual([]);
 });

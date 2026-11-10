@@ -1,0 +1,123 @@
+<div class="overview" data-og7="dossier-overview">
+  <section class="overview-stats" aria-labelledby="overview-stats-title">
+    <h3 id="overview-stats-title">
+      {{ 'admin.dossier.overviewDashboard.statistics' | translate }}
+    </h3>
+    @for (stat of stats(); track stat.id) {
+      <button
+        type="button"
+        class="stat"
+        data-og7="overview-stat"
+        [attr.data-og7-id]="stat.id"
+        [attr.data-tone]="stat.tone"
+        [disabled]="!stat.destination"
+        (click)="stat.destination && navigate.emit(stat.destination)"
+      >
+        <span class="stat-icon"><openg7-admin-icon [name]="stat.icon" /></span>
+        <span class="stat-content">
+          <span class="stat-label">{{
+            'admin.dossier.overviewDashboard.stats.' + stat.id | translate
+          }}</span>
+          <span
+            class="stat-value"
+            [class.is-unknown]="
+              stat.value === null &&
+              (!stat.valueKey || stat.valueKey.endsWith('unknown'))
+            "
+          >
+            @if (stat.valueKey) {
+              {{ stat.valueKey | translate }}
+            } @else if (stat.value !== null) {
+              {{ stat.value }}
+            } @else {
+              {{ 'admin.dossier.overviewDashboard.states.unknown' | translate }}
+            }
+          </span>
+          @if (stat.ratio && stat.ratio.total > 0) {
+            <progress
+              [value]="stat.ratio.done"
+              [max]="stat.ratio.total"
+              [attr.aria-label]="
+                'admin.dossier.overviewDashboard.stats.' + stat.id | translate
+              "
+            ></progress>
+          }
+        </span>
+      </button>
+    }
+  </section>
+  <section
+    class="priority"
+    data-og7="overview-priority"
+    [attr.data-state]="view().priority.state"
+    aria-labelledby="overview-priority-title"
+  >
+    <span class="priority-icon"
+      ><openg7-admin-icon
+        [name]="view().priority.state === 'complete' ? 'check' : 'assistant'"
+    /></span>
+    <div class="priority-copy">
+      <h3 id="overview-priority-title">
+        {{ 'admin.dossier.overviewDashboard.priority.title' | translate }}
+      </h3>
+      <p role="status">{{ view().priority.labelKey | translate }}</p>
+    </div>
+    @if (view().priority.destination; as destination) {
+      <button
+        type="button"
+        class="admin-button admin-button--primary"
+        data-og7="overview-priority-action"
+        (click)="navigate.emit(destination)"
+      >
+        <openg7-admin-icon name="arrow" />
+        {{ view().priority.actionKey! | translate }}
+      </button>
+    }
+  </section>
+  <section
+    class="domains"
+    data-og7="overview-domains"
+    aria-labelledby="overview-domains-title"
+  >
+    <h3 id="overview-domains-title">
+      <openg7-admin-icon name="transparency" />{{
+        'admin.dossier.overviewDashboard.domainsTitle' | translate
+      }}
+    </h3>
+    <table aria-labelledby="overview-domains-title">
+      <thead>
+        <tr>
+          <th scope="col">
+            {{ 'admin.dossier.overviewDashboard.domain' | translate }}
+          </th>
+          <th scope="col">
+            {{ 'admin.dossier.overviewDashboard.state' | translate }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (domain of view().domains; track domain.id) {
+          <tr data-og7="overview-domain" [attr.data-og7-id]="domain.id">
+            <th scope="row">
+              <button
+                type="button"
+                class="domain-link"
+                [attr.aria-describedby]="'overview-domain-state-' + domain.id"
+                (click)="navigate.emit(domain.destination)"
+              >
+                <openg7-admin-icon [name]="domainIcon(domain.id)" />{{
+                  domain.labelKey | translate
+                }}<openg7-admin-icon name="arrow" />
+              </button>
+            </th>
+            <td [id]="'overview-domain-state-' + domain.id">
+              <openg7-admin-badge [tone]="domain.tone">{{
+                domain.stateKey | translate
+              }}</openg7-admin-badge>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+</div>

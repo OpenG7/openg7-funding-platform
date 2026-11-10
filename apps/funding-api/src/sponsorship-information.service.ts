@@ -14,7 +14,10 @@ import {
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { lockSponsorshipContribution } from './fund-contributions.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
-import { canRequestSponsorshipInformation } from './sponsorship-review-policy.js';
+import {
+  canRequestSponsorshipConsent,
+  canRequestSponsorshipInformation
+} from './sponsorship-review-policy.js';
 import { readSponsorshipInformationRequestReceipt } from './sponsorship-information-receipts.repository.js';
 import { isValidUuid } from './business-helpers/request-validation.js';
 
@@ -42,6 +45,7 @@ export const validateInformationRequest = (
       (key) =>
         ![
           'requestId',
+          'purpose',
           'contributionId',
           'contextVersion',
           'recipient',
@@ -50,6 +54,7 @@ export const validateInformationRequest = (
           'confirmed'
         ].includes(key)
     ) ||
+    (raw.purpose !== undefined && raw.purpose !== 'public_consent') ||
     raw.confirmed !== true ||
     !isValidUuid(raw.requestId) ||
     typeof raw.contributionId !== 'string' ||
@@ -72,6 +77,7 @@ export const validateInformationRequest = (
   )
     throw new InformationRequestError(400);
   return {
+    ...(raw.purpose === 'public_consent' ? { purpose: raw.purpose } : {}),
     requestId: raw.requestId.toLowerCase(),
     contributionId: raw.contributionId.toLowerCase(),
     contextVersion: raw.contextVersion,
@@ -97,7 +103,8 @@ export const requestSponsorshipInformation = async (
         input.recipient,
         input.subject,
         input.body,
-        input.confirmed
+        input.confirmed,
+        ...(input.purpose ? [input.purpose] : [])
       ])
     )
     .digest('hex');
@@ -109,7 +116,8 @@ export const requestSponsorshipInformation = async (
           input.contributionId,
           input.recipient,
           input.subject,
-          input.body
+          input.body,
+          ...(input.purpose ? [input.purpose] : [])
         ])
       )
       .digest('hex');
@@ -163,7 +171,9 @@ export const requestSponsorshipInformation = async (
       !source ||
       source.version !== input.contextVersion ||
       source.recipient !== input.recipient ||
-      !canRequestSponsorshipInformation(source)
+      !(input.purpose === 'public_consent'
+        ? canRequestSponsorshipConsent(source)
+        : canRequestSponsorshipInformation(source))
     )
       throw new InformationRequestError(409);
     const existing = (
@@ -188,7 +198,11 @@ export const requestSponsorshipInformation = async (
         entityId: input.contributionId,
         summary:
           'Sponsorship information request queued after administrator confirmation.',
-        metadata: { requestId: input.requestId, messageId }
+        metadata: {
+          requestId: input.requestId,
+          messageId,
+          ...(input.purpose ? { purpose: input.purpose } : {})
+        }
       });
       if (!audited) throw new InformationRequestError(503);
     }

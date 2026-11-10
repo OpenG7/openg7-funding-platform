@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminSponsorshipProgress,
+  ContributionActivityItem,
   AdminSponsorshipProgressResponse,
   AdminSponsorshipRecord,
   SponsorMediaAsset,
@@ -13,8 +14,11 @@ import type {
 import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
-import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
+import {
+  openPublicationSection,
+  openSponsorshipWebsiteSettings
+} from './support/sponsorship-dossier.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorWorkspaceTests } from './admin-sponsor-workspace.ui.js';
@@ -799,7 +803,9 @@ const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 const dossierNext = (page: Page) =>
   page
     .locator('[data-og7="sponsorship-dossier"]')
-    .locator('[data-og7="dossier-next"]');
+    .locator(
+      '[data-og7="overview-priority-action"], [data-og7="dossier-next"]'
+    );
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorWorkspaceTests({ fixtures, path });
@@ -1198,7 +1204,7 @@ for (const language of ['fr-CA', 'en'] as const)
           expect(await page.evaluate(() => scrollY)).toBe(0);
           await expect(
             journey.getByRole('heading', {
-              name: language === 'en' ? 'Publication' : 'Publication',
+              name: 'Publication',
               exact: true
             })
           ).toBeInViewport({
@@ -1277,6 +1283,7 @@ for (const [language, width] of [
             name: 'Switch administration language to English'
           })
           .click();
+      await openPublicationSection(page, 'contract');
       const panel = page.locator('[data-og7="admin-commitments"]');
       await expect(
         panel.locator('[data-og7="commitments-accepted-offer"]')
@@ -1374,14 +1381,17 @@ for (const width of [1280, 390]) {
     for (let repeat = 0; repeat < 2; repeat++) {
       await panel.locator('[data-og7="guide-open-section"]').click();
       await expect(page).toHaveURL(/tab=overview#dossier-review$/);
+      await expect(
+        tabs(page).getByRole('button', { name: 'Publication', exact: true })
+      ).toHaveAttribute('aria-current', 'page');
       await expect(page.locator('#dossier-review')).toBeFocused();
       await expect(page.locator('#dossier-review')).toBeInViewport();
       await expect(
-        progress(page).locator('[data-og7-id="review"]')
-      ).toHaveAttribute('data-state', 'pending');
+        page.getByRole('group', { name: 'Revue', exact: true })
+      ).toHaveAttribute('data-review-state', 'pending_review');
       await expect(
-        progress(page).locator('[data-og7-id="publication"]')
-      ).toHaveAttribute('data-state', 'cancelled');
+        page.locator('[data-og7="publication-monitor"]')
+      ).toBeVisible();
       await openDossierHelp(page);
     }
     expect(
@@ -1758,7 +1768,7 @@ for (const width of [1920, 1280, 390]) {
   }) => {
     const { calls } = await fixtures(page);
     await page.setViewportSize({ width, height: 844 });
-    await page.goto(path());
+    await page.goto(path('publication'));
     const panel = page.locator('[data-og7="sponsorship-dossier"]');
     const dock = actions(page);
     await expect(dock).toHaveAccessibleName('Actions de validation');
@@ -1786,7 +1796,7 @@ for (const width of [1920, 1280, 390]) {
       .click();
     await expect(dock).toHaveCount(0);
     await tabs(page)
-      .getByRole('button', { name: 'Aperçu', exact: true })
+      .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await panel.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
@@ -1848,6 +1858,201 @@ const postsTo = (
     (call) => call.method === 'POST' && call.url.pathname.endsWith(suffix)
   );
 
+test('preparation activity stays accessible from Publication without adding a dashboard panel', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.progressOverrides = { preparationActivityId: '7401' };
+  const item: ContributionActivityItem = {
+    id: '7401',
+    contributionId: id,
+    reference: 'DEMO-PREPARATION-7401',
+    companyName: 'Atelier préparation synthétique',
+    amountMinor: 50000,
+    currency: 'CAD',
+    confirmedAt: date,
+    revision: 1,
+    preparation: {
+      state: 'worker_stopped',
+      reasons: ['payment_confirmed', 'worker_stopped', 'review_required'],
+      cartouche: null
+    },
+    email: 'not_configured',
+    sms: 'disabled',
+    simulatedSms: false,
+    adminUrl: path('publication'),
+    history: [
+      {
+        revision: 1,
+        state: 'worker_stopped',
+        reasons: ['worker_stopped'],
+        at: date
+      }
+    ]
+  };
+  const queries: URL[] = [];
+  await page.route('**/api/admin/contribution-activity**', (route) => {
+    expect(route.request().method()).toBe('GET');
+    const url = new URL(route.request().url());
+    queries.push(url);
+    return route.fulfill({
+      json: {
+        items: url.searchParams.get('id') === item.id ? [item] : [],
+        hasMore: false
+      }
+    });
+  });
+  await page.goto(path());
+  await expect(
+    page.locator('[data-og7="publication-preparation-activity"]')
+  ).toHaveCount(0);
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
+  const open = page.locator('[data-og7="publication-preparation-activity"]');
+  await open.focus();
+  await open.press('Enter');
+  const history = page.getByRole('dialog', {
+    name: 'Contributions reçues',
+    exact: true
+  });
+  await expect(history).toContainText(item.reference);
+  expect(queries.some((url) => url.searchParams.get('id') === item.id)).toBe(
+    true
+  );
+  await page.keyboard.press('Escape');
+  await expect(open).toBeFocused();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('overview public profile statistic opens its media owner without changing visibility', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.progressOverrides = {
+    website: {
+      visible: false,
+      held: false,
+      canPublish: false,
+      version: 'synthetic-profile-version',
+      blockers: ['review']
+    }
+  };
+  await page.goto(path());
+  const visibility = page.locator(
+    '[data-og7="overview-stat"][data-og7-id="visibility"]'
+  );
+  await visibility.focus();
+  await visibility.press('Enter');
+  await expect(page).toHaveURL(path('media') + '#dossier-website-settings');
+  await expect(page.locator('#dossier-website-settings')).toBeFocused();
+  await expect(
+    page.locator('[data-og7="dossier-publication-editor"]')
+  ).toBeVisible();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('overview media statistic counts recorded approvals and distinguishes missing media data', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.media = [
+    {
+      ...mediaAsset(),
+      id: 'synthetic-approved-media',
+      reviewStatus: 'approved',
+      reviewedAt: date
+    },
+    { ...mediaAsset(), id: 'synthetic-pending-media' },
+    {
+      ...mediaAsset(),
+      id: 'synthetic-rejected-media',
+      reviewStatus: 'rejected',
+      reviewedAt: date
+    }
+  ];
+  await page.goto(path());
+  const stat = page.locator('[data-og7="overview-stat"][data-og7-id="media"]');
+  await expect(stat).toContainText(/1\s*\/\s*3/);
+  await stat.focus();
+  await stat.press('Enter');
+  await expect(page).toHaveURL(/tab=media.*#dossier-media$/);
+  await expect(page.locator('[data-og7="media-tile"]')).toHaveCount(3);
+  options.media = [];
+  await page.goto(path());
+  await expect(stat).toContainText(/0\s*\/\s*0/);
+  await page.route('**/api/admin/sponsorships/media?**', (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: 'Synthetic unavailable media' }
+    })
+  );
+  await page.reload();
+  await expect(stat).toContainText(/Indisponible|Unavailable/);
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('overview waits for the sponsor submission while identity remains available', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'operator');
+  options.edited.set(id, { sponsor_details_submitted_at: null });
+  options.next = {
+    reason: 'identity_submission_pending',
+    tab: 'identity',
+    adminUrl: path('identity')
+  };
+  await page.goto(path());
+  const priority = page.locator('[data-og7="overview-priority"]');
+  await expect(priority).toHaveAttribute('data-state', 'waiting');
+  await expect(priority).not.toContainText('admin.dossier.');
+  await expect(
+    page.locator('[data-og7="overview-priority-action"]')
+  ).toHaveCount(0);
+  await page
+    .locator('[data-og7="overview-domain"][data-og7-id="identity"]')
+    .getByRole('button')
+    .click();
+  await expect(
+    page.locator('[data-og7="identity-submission-state"]')
+  ).toHaveAttribute('data-state', 'pending');
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('overview leaves scheduled platform work waiting without an administrative action', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'operator');
+  options.next = {
+    reason: 'publication_scheduled',
+    tab: 'publication',
+    adminUrl: path('publication')
+  };
+  options.progressOverrides = {
+    publicationWorkflow: {
+      state: 'waiting',
+      responsibility: 'platform',
+      reason: 'publication_scheduled',
+      obligations: []
+    }
+  };
+  await page.goto(path());
+  await expect(page.locator('[data-og7="overview-priority"]')).toHaveAttribute(
+    'data-state',
+    'waiting'
+  );
+  await expect(
+    page.locator('[data-og7="overview-priority-action"]')
+  ).toHaveCount(0);
+  await page
+    .locator('[data-og7="overview-domain"][data-og7-id="review"]')
+    .getByRole('button')
+    .click();
+  await expect(page).toHaveURL(/tab=publication.*#dossier-review$/);
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
 test('dossier controls respect reader and operator permissions', async ({
   page
 }) => {
@@ -1857,9 +2062,6 @@ test('dossier controls respect reader and operator permissions', async ({
   });
   options.media = [mediaAsset()];
   await page.goto(path());
-  await expect(
-    page.getByRole('article', { name: 'Note interne', exact: true })
-  ).toContainText('Suivi interne réservé à l’équipe.');
   await expect(
     page.getByText('Accès en lecture seule', { exact: false })
   ).toBeVisible();
@@ -1871,10 +2073,10 @@ test('dossier controls respect reader and operator permissions', async ({
   await expect(
     page.getByRole('button', { name: 'Modifier le dossier', exact: true })
   ).toBeDisabled();
-  await page
-    .locator('openg7-admin-sponsor-detail-overview')
-    .getByRole('button', { name: 'Note interne', exact: true })
-    .click();
+  await page.locator('[data-og7="dossier-note"]').click();
+  await expect(page.locator('dialog[open]').getByRole('textbox')).toHaveValue(
+    'Suivi interne réservé à l’équipe.'
+  );
   await expect(
     page.locator('dialog[open]').getByRole('textbox')
   ).toBeDisabled();
@@ -1902,7 +2104,7 @@ test('dossier controls respect reader and operator permissions', async ({
 
 test('operator can review but owner controls are absent', async ({ page }) => {
   await fixtures(page, 'operator');
-  await page.goto(path());
+  await page.goto(path('publication'));
   await expect(
     actions(page).getByRole('button', { name: 'Accepter', exact: true })
   ).toBeEnabled();
@@ -1932,7 +2134,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       release = resolve;
     });
     options.reviewStatus = 200;
-    await page.goto(path());
+    await page.goto(path('publication'));
     const approve = page.locator('[data-og7="sponsorship-approve"]');
     await expect(approve).toHaveAttribute('data-state', 'idle');
     await approve.focus();
@@ -2006,7 +2208,7 @@ for (const failure of ['http', 'not_updated'] as const) {
     const { calls, options } = await fixtures(page);
     options.reviewStatus = failure === 'http' ? 503 : 200;
     options.reviewUpdated = failure !== 'not_updated';
-    await page.goto(path());
+    await page.goto(path('publication'));
     const approve = page.locator('[data-og7="sponsorship-approve"]');
     await approve.click();
     await completeModeration(page);
@@ -2035,6 +2237,9 @@ test('late approval never celebrates on another dossier or after returning to it
   options.reviewStatus = 200;
   await page.goto('/admin/fundraiser/sponsors');
   await page.locator('[data-og7="sponsor-row"]').first().click();
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
   const approve = page.locator('[data-og7="sponsorship-approve"]');
   await approve.click();
   await completeModeration(page);
@@ -2059,7 +2264,7 @@ test('review controls disable redundant decisions and retain mandatory refusal c
 }) => {
   const { calls, options } = await fixtures(page);
   options.reviewStatus = 200;
-  await page.goto(path('overview'));
+  await page.goto(path('publication'));
   await expect(
     actions(page).getByRole('button', { name: 'Remettre en attente' })
   ).toBeDisabled();
@@ -2068,7 +2273,7 @@ test('review controls disable redundant decisions and retain mandatory refusal c
     exact: true
   });
   await reject.click();
-  await expect(page).toHaveURL(path('overview'));
+  await expect(page).toHaveURL(path('publication'));
   const form = page.locator('[data-og7="dossier-rejection-form"]');
   await expect(form.getByLabel(/Justification interne/)).toBeFocused();
   const confirm = form.getByRole('button', { name: /Confirmer/ });
@@ -2396,7 +2601,7 @@ for (const blocked of [
         .locator('[data-og7="publication-tracking-save"]')
     ).toBeDisabled();
     await tabs(page)
-      .getByRole('button', { name: 'Aperçu', exact: true })
+      .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await expect(
       actions(page).getByRole('button', { name: 'Accepter', exact: true })
@@ -2418,7 +2623,7 @@ test('copy, refresh, close, list pagination and filter reset perform their named
   options.listSize = 8;
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto(path());
-  await page.getByRole('button', { name: 'Copier', exact: true }).click();
+  await page.locator('[data-og7="dossier-copy-reference"]').click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toBe('DEMO-401');
@@ -2570,9 +2775,12 @@ test('switching dossiers prefills the selected company and clears absent optiona
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
-  await expect(actions(page)).toContainText('Atelier Rivage');
-  await expect(actions(page)).toContainText('DEMO-402');
-  await expect(actions(page)).not.toContainText('Atelier Boréal');
+  await expect(page.locator('[data-og7="dossier-header"]')).toContainText(
+    'Atelier Rivage'
+  );
+  await expect(page.locator('[data-og7="dossier-header"]')).toContainText(
+    'DEMO-402'
+  );
   await opener.click();
   await expect(
     form.getByLabel('Nom de l’entreprise', { exact: true })
@@ -2863,10 +3071,7 @@ for (const [width, localNote] of [
     await page
       .locator('[data-og7="sponsor-row"][data-og7-id="' + id + '"]')
       .click();
-    const opener = page.getByRole('button', {
-      name: 'Modifier la note',
-      exact: true
-    });
+    const opener = page.locator('[data-og7="dossier-note"]');
     const drawer = page.getByRole('dialog', {
       name: 'Note interne',
       exact: true
@@ -2936,41 +3141,25 @@ for (const [width, localNote] of [
   });
 }
 
-test('overview shortcuts keep profile, finances and internal notes reachable', async ({
+test('overview domains keep identity, finances and the global internal note reachable', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(path());
-  const summary = page.locator('[data-og7="dossier-overview-summary"]');
-  await expect(summary.locator('code')).toHaveText('DEMO-401');
-  await expect(
-    page.locator('[data-og7="dossier-service-summary"]')
-  ).toBeVisible();
-  await expect(summary.locator('dl > div')).toHaveCount(1);
-  await expect(
-    summary.getByRole('button', { name: 'Copier', exact: true })
-  ).toBeEnabled();
-
-  await summary.locator('[data-og7="overview-open-profile"]').focus();
+  const domain = (id: string) =>
+    page
+      .locator(`[data-og7="overview-domain"][data-og7-id="${id}"]`)
+      .getByRole('button');
+  await domain('identity').focus();
   await page.keyboard.press('Enter');
-  await expect(
-    tabs(page).getByRole('button', { name: 'Identité', exact: true })
-  ).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('#dossier-identity')).toBeFocused();
   await expect(page.locator('[data-og7="identity-coordinates"]')).toHaveCount(
     1
   );
-
   await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
-  await summary.locator('[data-og7="overview-open-finances"]').click();
-  await expect(
-    tabs(page).getByRole('button', { name: 'Finances', exact: true })
-  ).toHaveAttribute('aria-current', 'page');
+  await domain('finance').click();
   await expect(page.locator('#dossier-billing')).toBeFocused();
-  const noteAccess = page.locator('.dossier-toolbar').getByRole('button', {
-    name: 'Note interne',
-    exact: true
-  });
+  const noteAccess = page.locator('[data-og7="dossier-note"]');
   await noteAccess.click();
   const drawer = page.getByRole('dialog', {
     name: 'Note interne',
@@ -2981,11 +3170,15 @@ test('overview shortcuts keep profile, finances and internal notes reachable', a
     .fill('Précision conservée pendant la navigation.');
   await page.keyboard.press('Escape');
   await expect(noteAccess).toBeFocused();
-  await summary.locator('[data-og7="overview-open-profile"]').click();
+  await expect(page).toHaveURL(/tab=billing/);
+  await tabs(page)
+    .getByRole('button', { name: 'Identité', exact: true })
+    .click();
   await noteAccess.click();
   await expect(drawer.getByRole('textbox')).toHaveValue(
     'Précision conservée pendant la navigation.'
   );
+  await expect(page).toHaveURL(/tab=identity/);
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
@@ -3003,12 +3196,7 @@ test('note drawer retains the draft after failure, blocks duplicate save and res
     release = resolve;
   });
   await page.goto(path());
-  const opener = page.getByRole('button', { name: 'Modifier la note' });
-  const noteCard = page.getByRole('article', {
-    name: 'Note interne',
-    exact: true
-  });
-  await expect(noteCard).toContainText('Aucune note pour le moment.');
+  const opener = page.locator('[data-og7="dossier-note"]');
   await opener.click();
   const drawer = page.locator('dialog[open]');
   await expect(drawer.getByRole('status')).toHaveText(
@@ -3041,12 +3229,7 @@ test('note drawer retains the draft after failure, blocks duplicate save and res
   await drawer.getByRole('button', { name: 'Enregistrer la note' }).click();
   await expect(drawer.getByRole('status')).toHaveText('Note enregistrée.');
   await page.keyboard.press('Escape');
-  await expect(noteCard.locator(':scope > p')).toHaveText(
-    'Note de test conservée'
-  );
-  await expect(
-    noteCard.getByText('Modifications non enregistrées', { exact: true })
-  ).toHaveCount(0);
+  await expect(opener).toBeFocused();
   expect(
     calls.filter((c) => c.url.pathname.endsWith('/review'))[1]?.body?.[
       'reviewNote'
@@ -3065,21 +3248,29 @@ test('note drawer retains the draft after failure, blocks duplicate save and res
   );
   await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
   await expect(opener).toBeFocused();
-  await expect(noteCard).toContainText('Nouvelle précision à conserver');
-  await expect(
-    noteCard
-      .getByText('Modifications non enregistrées', { exact: true })
-      .first()
-  ).toBeVisible();
+  await opener.click();
+  await expect(drawer.getByRole('textbox')).toHaveValue(
+    'Nouvelle précision à conserver'
+  );
+  await expect(drawer.getByRole('status')).toHaveText(
+    'Modifications non enregistrées'
+  );
   expect(calls.filter((c) => c.url.pathname.endsWith('/review'))).toHaveLength(
     2
   );
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.locator('openg7-admin-sponsor-detail-overview').screenshot({
+    await drawer.screenshot({
       path: `test-results/dossier-notes-${width}.png`
     });
   }
+  await page.keyboard.press('Escape');
+  await tabs(page)
+    .getByRole('button', { name: 'Identité', exact: true })
+    .click();
+  await expect(
+    page.locator('[data-og7="identity-sponsor-message"]')
+  ).toContainText('Message de démonstration du commanditaire.');
 });
 
 for (const [language, width] of [
@@ -3099,10 +3290,7 @@ for (const [language, width] of [
           name: 'Switch administration language to English'
         })
         .click();
-    const opener = page.getByRole('button', {
-      name: english ? 'Edit note' : 'Modifier la note',
-      exact: true
-    });
+    const opener = page.locator('[data-og7="dossier-note"]');
     await opener.click();
     const drawer = page.getByRole('dialog', {
       name: english ? 'Internal note' : 'Note interne',
@@ -3139,12 +3327,6 @@ for (const [language, width] of [
       .getByRole('button', { name: english ? 'Close' : 'Fermer', exact: true })
       .click();
     await expect(opener).toBeFocused();
-    await expect(
-      page.getByRole('article', {
-        name: english ? 'Internal note' : 'Note interne',
-        exact: true
-      })
-    ).toContainText('a'.repeat(999) + 'b');
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth
@@ -3183,11 +3365,8 @@ test('six dossier workspaces use direct URLs; invoice is complete before review;
   await page.goto(path('billing'));
   await expect(tabs(page).getByRole('button')).toHaveCount(6);
   await expect(
-    progress(page).locator('[data-og7-id="billing"]')
-  ).toHaveAttribute('data-state', 'complete');
-  await expect(
-    progress(page).locator('[data-og7-id="review"]')
-  ).toHaveAttribute('data-state', 'pending');
+    page.getByRole('group', { name: 'Revue', exact: true })
+  ).toHaveAttribute('data-review-state', 'pending_review');
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
   await tabs(page)
     .getByRole('button', { name: 'Identité', exact: true })
@@ -3326,55 +3505,36 @@ for (const width of [1280, 390]) {
 }
 
 for (const width of [1280, 390]) {
-  test(`dossier states stay collapsed and leave navigation to the tabs at ${width}px`, async ({
+  test(`overview replaces detailed states and leaves work to the responsible tabs at ${width}px`, async ({
     page
   }, testInfo) => {
     const { calls } = await fixtures(page);
     await page.setViewportSize({ width, height: 844 });
-    const returnTo =
-      '/admin/fundraiser/assistant?type=sponsorship_needs_review';
-    const query = '&returnTo=' + encodeURIComponent(returnTo);
+    const query =
+      '&returnTo=' +
+      encodeURIComponent(
+        '/admin/fundraiser/assistant?type=sponsorship_needs_review'
+      );
     await page.goto(path() + query);
-    const details = page.locator('[data-og7="dossier-progress-details"]');
-    const summary = details.locator('summary');
-    await expect(summary).toContainText('État du dossier');
-    await expect(summary).toContainText('4 sur 6 étapes réglées');
-    await expect(details).not.toHaveAttribute('open', '');
-    await expect(details.locator('[data-og7-id="payment"]')).toBeHidden();
-    await expect(details.getByRole('link')).toHaveCount(0);
-    await expect(progress(page).getByRole('button')).toHaveCount(0);
-    const refresh = page.locator('[data-og7="dossier-refresh"]');
-    await expect(refresh).toHaveAccessibleName('Actualiser le dossier');
-    await expect(refresh).toBeVisible();
-    await tabs(page).evaluate((element) =>
-      element.scrollIntoView({ block: 'start', behavior: 'instant' })
+    const overview = page.locator('openg7-admin-sponsor-detail-overview');
+    await expect(overview.locator('[data-og7="overview-stat"]')).toHaveCount(6);
+    await expect(
+      overview.locator('[data-og7="overview-stat"][data-og7-id="steps"]')
+    ).toContainText(/4\s*\/\s*6/);
+    await expect(overview.locator('[data-og7="overview-domain"]')).toHaveCount(
+      5
     );
+    await expect(overview.locator('details, textarea, input')).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="dossier-progress-details"]:visible')
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="dossier-service-summary"]')
+    ).toHaveCount(0);
     await page.screenshot({
       path: testInfo.outputPath(`dossier-overview-${width}.png`),
       animations: 'disabled'
     });
-
-    await summary.focus();
-    await page.keyboard.press('Enter');
-    await expect(details).toHaveAttribute('open', '');
-    for (const [step, state] of [
-      ['payment', 'complete'],
-      ['identity', 'complete'],
-      ['media', 'complete'],
-      ['review', 'pending'],
-      ['billing', 'complete'],
-      ['publication', 'cancelled']
-    ]) {
-      const status = details.locator(`[data-og7-id="${step}"]`);
-      await expect(status).toBeVisible();
-      await expect(status).toHaveAttribute('data-state', state);
-    }
-    await expect(details.getByRole('link')).toHaveCount(0);
-    await expect(page).toHaveURL(path() + query);
-    await page.keyboard.press('Enter');
-    await expect(details).not.toHaveAttribute('open', '');
-    await expect(summary).toBeFocused();
-
     for (const [tab, label] of [
       ['identity', 'Identité'],
       ['media', 'Fiche et médias'],
@@ -3387,23 +3547,15 @@ for (const width of [1280, 390]) {
         exact: true
       });
       await button.focus();
-      await page.keyboard.press('Enter');
+      await button.press('Enter');
       await expect(page).toHaveURL(path(tab) + query);
       await expect(button).toBeFocused();
-      await expect(progress(page)).toBeHidden();
-      if (tab === 'media') {
-        const tools = page.locator('[data-og7="dossier-global-tools"]');
-        if ((await tools.getAttribute('open')) === null) {
-          await tools.locator(':scope > summary').press('Enter');
-        }
-      }
-      await expect(refresh).toBeVisible();
+      await expect(overview).toHaveCount(0);
     }
     await tabs(page)
       .getByRole('button', { name: 'Aperçu', exact: true })
       .click();
-    await expect(summary).toBeVisible();
-    await expect(details).not.toHaveAttribute('open', '');
+    await expect(overview).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -3427,15 +3579,21 @@ for (const width of [1280, 390]) {
     await expect(next).toHaveText('Voir les actions de validation');
     await expect(next).toHaveAttribute(
       'href',
-      path() + query + '#dossier-review'
+      path('publication') + query + '#dossier-review'
     );
     const target = page.locator('#dossier-review');
     for (const keyboard of [false, true]) {
+      await tabs(page)
+        .getByRole('button', { name: 'Finances', exact: true })
+        .click();
+      await expect(next).toBeVisible();
       await next.scrollIntoViewIfNeeded();
       await next.focus();
       if (keyboard) await next.press('Enter');
       else await next.click();
-      await expect(page).toHaveURL(path() + query + '#dossier-review');
+      await expect(page).toHaveURL(
+        path('publication') + query + '#dossier-review'
+      );
       await expect(target).toBeFocused();
       await expect(target).toBeInViewport({ ratio: 1 });
       await page.keyboard.press('Tab');
@@ -3474,19 +3632,21 @@ for (const width of [1280, 390]) {
 }
 
 const nextDestinations = [
-  ['payment_unconfirmed', 'overview', 'payment', 'Voir le paiement'],
-  ['stripe_failed', 'overview', 'stripe', 'Voir les erreurs Stripe'],
-  ['identity_missing', 'identity', 'identity', 'Voir l’identité'],
-  ['media_review', 'media', 'media', 'Voir les médias'],
-  ['credit_missing', 'billing', 'billing', 'Voir la facturation'],
-  ['publication_pending', 'publication', 'publication', 'Voir la publication'],
-  ['refund_check', 'refund', 'refund', 'Voir le remboursement']
+  ['payment_unconfirmed', 'overview', 'billing', 'billing'],
+  ['stripe_failed', 'overview', 'billing', 'stripe'],
+  ['identity_missing', 'identity', 'identity', 'identity'],
+  ['media_review', 'media', 'media', 'media'],
+  ['credit_missing', 'billing', 'billing', 'billing'],
+  ['publication_pending', 'publication', 'publication', 'publication'],
+  ['refund_check', 'refund', 'billing', 'billing']
 ] as const;
 
-for (const [reason, tab, section, label] of nextDestinations) {
-  test(`next step reaches its named section: ${reason}`, async ({ page }) => {
+for (const [reason, sourceTab, tab, section] of nextDestinations) {
+  test(`overview priority reaches its responsible section: ${reason}`, async ({
+    page
+  }) => {
     const { calls, options } = await fixtures(page);
-    options.next = { reason, tab, adminUrl: path(tab) };
+    options.next = { reason, tab: sourceTab, adminUrl: path(sourceTab) };
     if (reason === 'stripe_failed')
       options.progressOverrides = {
         failedStripeEvents: [
@@ -3495,9 +3655,10 @@ for (const [reason, tab, section, label] of nextDestinations) {
       };
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path());
-    const link = dossierNext(page);
-    await expect(link).toHaveText(label);
-    await link.click();
+    const action = page.locator('[data-og7="overview-priority-action"]');
+    await expect(action).toHaveCount(1);
+    await action.focus();
+    await action.press('Enter');
     await expect(page).toHaveURL(path(tab) + '#dossier-' + section);
     await expect(page.locator('#dossier-' + section)).toBeFocused();
     await expect(page.locator('#dossier-' + section)).toBeInViewport();
@@ -3517,8 +3678,8 @@ test('a direct next-step section waits for dossier data before receiving focus',
   options.progressGate = new Promise((resolve) => {
     releaseProgress = resolve;
   });
-  await page.goto(path() + '#dossier-review');
-  await expect(page).toHaveURL(path() + '#dossier-review');
+  await page.goto(path('publication') + '#dossier-review');
+  await expect(page).toHaveURL(path('publication') + '#dossier-review');
   await expect(page.locator('#dossier-review')).toHaveCount(0);
   releaseList();
   await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
@@ -3532,7 +3693,7 @@ test('a direct section link works for a reader after reload without enabling mut
   page
 }) => {
   const { calls } = await fixtures(page, 'reader');
-  await page.goto(path() + '#dossier-review');
+  await page.goto(path('publication') + '#dossier-review');
   await expect(page.locator('#dossier-review')).toBeFocused();
   await expect(page.locator('#dossier-review')).toContainText('À réviser');
   await expect(actions(page).getByRole('button')).toHaveCount(0);
@@ -3550,7 +3711,7 @@ test('leaving a pending section cancels its delayed focus request', async ({
   options.progressGate = new Promise((resolve) => {
     release = resolve;
   });
-  await page.goto(path() + '#dossier-review');
+  await page.goto(path('publication') + '#dossier-review');
   await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
   const identity = tabs(page).getByRole('button', {
     name: 'Identité',
@@ -3574,11 +3735,9 @@ test('a delayed section response cannot move focus into a newly selected dossier
   });
   try {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(path() + '#dossier-review');
+    await page.goto(path('publication') + '#dossier-review');
     await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
-    await expect(
-      page.locator('[data-og7="dossier-recommendation"]')
-    ).toHaveCount(0);
+    await expect(page.locator('[data-og7="overview-priority"]')).toHaveCount(0);
     await page.locator('[data-og7="dossier-back"]').click();
     await page
       .locator('[data-og7="sponsors-list"]')
@@ -3591,13 +3750,10 @@ test('a delayed section response cannot move focus into a newly selected dossier
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Atelier Rivage'
     );
+    await expect(page.locator('[data-og7="overview-priority"]')).toHaveCount(1);
     await expect(
-      page.locator('[data-og7="dossier-recommendation"]')
-    ).toHaveCount(1);
-    await expect(dossierNext(page)).toHaveAttribute(
-      'href',
-      path('overview', secondId) + '#dossier-review'
-    );
+      page.locator('[data-og7="overview-priority-action"]')
+    ).toHaveCount(0);
     // The new dossier uses normal router scrolling; wait for its smooth return to the top.
     await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
     const before = await page.evaluate(() => scrollY);
@@ -3618,15 +3774,12 @@ test('a delayed section response cannot move focus into a newly selected dossier
         )
     );
     await expect(detail).toBeFocused();
-    await expect(page.locator('#dossier-review')).not.toBeFocused();
+    await expect(page.locator('#dossier-review')).toHaveCount(0);
     await expect(page).toHaveURL(path('overview', secondId));
+    await expect(page.locator('[data-og7="overview-priority"]')).toHaveCount(1);
     await expect(
-      page.locator('[data-og7="dossier-recommendation"]')
-    ).toHaveCount(1);
-    await expect(dossierNext(page)).toHaveAttribute(
-      'href',
-      path('overview', secondId) + '#dossier-review'
-    );
+      page.locator('[data-og7="overview-priority-action"]')
+    ).toHaveCount(0);
     await expect
       .poll(() => page.evaluate(() => scrollY))
       .toBeCloseTo(before, 0);
@@ -3670,36 +3823,65 @@ test('browser history restores the viewport after visiting a next-step section',
   await expect(page.locator('#dossier-review')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(before, 0);
   await page.goForward();
-  await expect(page).toHaveURL(path() + '#dossier-review');
+  await expect(page).toHaveURL(path('publication') + '#dossier-review');
   await expect(
-    tabs(page).getByRole('button', { name: 'Aperçu', exact: true })
+    tabs(page).getByRole('button', { name: 'Publication', exact: true })
   ).toHaveAttribute('aria-current', 'page');
   await expect
     .poll(() => page.evaluate(() => scrollY))
     .toBeCloseTo(destination, 0);
 });
 
-test('completed dossiers explain completion without a next-step link in both languages', async ({
+test('completed dossiers show a discreet confirmation with no current action in both languages', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
   options.next = { reason: 'complete', tab: 'overview', adminUrl: path() };
+  options.milestones = dossier().milestones.map((step) => ({
+    ...step,
+    state: 'complete'
+  }));
+  options.progressOverrides = {
+    publicationBlockers: [],
+    publicationWorkflow: {
+      state: 'complete',
+      reason: 'publication_done',
+      responsibility: 'none',
+      obligations: []
+    },
+    website: {
+      visible: true,
+      held: false,
+      canPublish: false,
+      version: 'complete-fixture',
+      blockers: []
+    },
+    failedEmails: [],
+    failedStripeEvents: [],
+    refund: {
+      workflow: 'none',
+      state: 'not_required',
+      confirmedAmountMinor: 0,
+      creditMissing: false,
+      hasError: false
+    }
+  };
   await page.goto(path());
+  const priority = page.locator('[data-og7="overview-priority"]');
+  await expect(priority).toHaveAttribute('data-state', 'complete');
   await expect(
-    page.getByText('Dossier terminé', { exact: true })
-  ).toBeVisible();
-  await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
-  const details = page.locator('[data-og7="dossier-progress-details"]');
-  await expect(details.getByRole('link')).toHaveCount(0);
-  await details.locator('summary').click();
-  await expect(details.locator('[data-og7-id]')).toHaveCount(6);
+    page.locator('[data-og7="overview-priority-action"]')
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="overview-stat"][data-og7-id="steps"]')
+  ).toContainText(/6\s*\/\s*6/);
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
+  await expect(priority).not.toContainText('admin.dossier.');
   await expect(
-    page.getByText('Dossier complete', { exact: true })
-  ).toBeVisible();
-  await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
+    page.locator('[data-og7="overview-priority-action"]')
+  ).toHaveCount(0);
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
@@ -3748,7 +3930,9 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
     page.locator('[data-og7="return-to-attention"]')
   ).toHaveAttribute('href', destination);
   options.reviewStatus = 200;
-  await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
   await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(postsTo(calls, '/review')).toHaveLength(0);
@@ -3794,7 +3978,7 @@ test('version conflict offers reload; pending action is disabled and retry uses 
   options.reviewGate = new Promise((resolve) => {
     release = resolve;
   });
-  await page.goto(path());
+  await page.goto(path('publication'));
   const approve = page.getByRole('button', { name: 'Accepter', exact: true });
   await approve.click();
   await completeModeration(page);
@@ -3946,11 +4130,11 @@ test('English dossier next step supports keyboard at mobile width without horizo
   await expect(next).toHaveAccessibleName('View review actions');
   await next.focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/tab=overview/);
+  await expect(page).toHaveURL(/tab=publication/);
   await expect(page.locator('#dossier-review')).toBeFocused();
   await expect(page.locator('#dossier-review')).toBeInViewport();
   await expect(
-    tabs(page).getByRole('button', { name: 'Overview', exact: true })
+    tabs(page).getByRole('button', { name: 'Publication', exact: true })
   ).toHaveAttribute('aria-current', 'page');
   expect(
     await page.evaluate(
@@ -4114,7 +4298,13 @@ test('intervention journal keeps older notes readable for a reader and renders n
       nextReviewOn: null
     }))
   );
+  const ready = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/admin/sponsorships/progress' &&
+      response.status() === 200
+  );
   await page.goto(path('refund'));
+  await (await ready).finished();
   const journal = page.locator('[data-og7="dossier-interventions"]');
   const journalToggle = journal.locator('[data-og7="interventions-toggle"]');
   await expect(journalToggle).toHaveAttribute('aria-expanded', 'false');
@@ -4243,10 +4433,12 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
-  await expect(dossierNext(page)).toHaveAttribute(
-    'href',
-    new RegExp(`sponsorshipId=${secondId}`)
-  );
+  await expect(
+    page.locator('[data-og7="sponsorship-dossier"]')
+  ).toHaveAttribute('data-og7-id', secondId);
+  await expect(
+    page.locator('[data-og7="overview-priority-action"]')
+  ).toHaveCount(1);
   release();
   await tabs(page)
     .getByRole('button', { name: 'Finances', exact: true })
@@ -4395,8 +4587,26 @@ for (const width of [1280, 390]) {
     const blockers = view.locator('[data-og7="publication-monitor-blockers"]');
     await expect(blockers).toBeVisible();
     const media = blockers.getByRole('link').first();
-    await expect(media).toHaveAttribute('href', path('media'));
+    await expect(media).toHaveAttribute(
+      'href',
+      path('media') + '#dossier-media'
+    );
     await expect(view.locator('input, textarea, select')).toHaveCount(0);
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
+    const mediaDomain = page.locator(
+      '[data-og7="overview-domain"][data-og7-id="media"]'
+    );
+    await expect(mediaDomain.getByRole('button')).toBeEnabled();
+    await expect(page.locator('[data-og7="publication-blockers"]')).toHaveCount(
+      0
+    );
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+    await expect(mediaDomain).toHaveCount(0);
+
     expect(
       (
         await new AxeBuilder({ page })
@@ -4411,7 +4621,8 @@ for (const width of [1280, 390]) {
     ).toBe(true);
     await media.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(path('media'));
+    await expect(page).toHaveURL(path('media') + '#dossier-media');
+    await expect(page.locator('#dossier-media')).toBeFocused();
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
@@ -4535,7 +4746,7 @@ for (const [currency, language] of [
       .getByRole('link');
     await expect(agreement).toHaveAttribute(
       'href',
-      path('overview') + '#dossier-agreement'
+      path('publication') + '#dossier-agreement'
     );
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
@@ -4717,7 +4928,13 @@ for (const width of [1920, 1280, 390]) {
     async ({ page }) => {
       const { calls } = await fixtures(page, 'owner');
       await page.setViewportSize({ width, height: 1000 });
+      const loaded = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/sponsorships' &&
+          response.status() === 200
+      );
       await page.goto('/admin/fundraiser/sponsors');
+      await (await loaded).finished();
       const list = page.locator('[data-og7="sponsors-list"]');
       const detail = page.locator('[data-og7="sponsorship-dossier"]');
       await expect(list).toBeVisible();
@@ -4751,7 +4968,10 @@ for (const width of [1920, 1280, 390]) {
       await tabs(page)
         .getByRole('button', { name: 'Publication', exact: true })
         .click();
-      await expect(page.locator('[data-og7="dossier-actions"]')).toHaveCount(0);
+      await expect(page.locator('[data-og7="dossier-actions"]')).toHaveCount(1);
+      await expect(
+        page.locator('[data-og7="dossier-actions"]')
+      ).toHaveAccessibleName('Actions de validation');
       await expect(
         page.locator('[data-og7="publication-monitor"]')
       ).toBeVisible();
@@ -4832,6 +5052,9 @@ test('workspace English mobile opens shared assistance and optional access with 
   await expect(guide(page)).toHaveAttribute('open', '');
   await guide(page).locator('[data-og7="guide-open-section"]').click();
   await expect(page).toHaveURL(/tab=overview#dossier-review$/);
+  await expect(
+    tabs(page).getByRole('button', { name: 'Publication', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
   const review = page.locator('#dossier-review');
   await expect(review).toBeFocused();
   await expect(review).toBeInViewport();

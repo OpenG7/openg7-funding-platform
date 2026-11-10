@@ -462,6 +462,19 @@
                   </p>
                   @if (check.state !== 'not_required') {
                     @if (guidedCheckKey(check.code) === 'consent') {
+                      @if (check.state !== 'complete' && !readOnly()) {
+                        <button
+                          type="button"
+                          class="admin-button"
+                          data-og7="examination-consent-request-open"
+                          [disabled]="
+                            !consentRequestOpened() && !canRequestConsent()
+                          "
+                          (click)="openConsentRequest()"
+                        >
+                          {{ t('guided.actions.requestConsent') }}
+                        </button>
+                      }
                       <span
                         data-og7="examination-check-action"
                         [attr.data-og7-id]="check.code"
@@ -1487,6 +1500,26 @@
       }
     </dialog>
   }
+  <openg7-admin-drawer
+    [opened]="consentRequestOpened()"
+    [title]="t('consentRequest.title')"
+    [closeLabel]="t('close')"
+    [busy]="consentRequestBusy()"
+    (closed)="closeConsentRequest()"
+  >
+    @if (consentRequestOpened()) {
+      <section data-og7="examination-consent-request">
+        <p>{{ t('consentRequest.intro') }}</p>
+        <p>{{ t('consentRequest.noAgreement') }}</p>
+        <openg7-admin-assistant-context
+          [sponsorshipId]="contributionId()"
+          [requestType]="'sponsorship_consent_request'"
+          [showWorkspaceLink]="false"
+          (busyChanged)="consentRequestBusy.set($event)"
+        />
+      </section>
+    }
+  </openg7-admin-drawer>
   <openg7-admin-drawer
     [opened]="consentOpened()"
     [title]="t('consent.title')"

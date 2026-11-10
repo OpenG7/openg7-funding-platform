@@ -167,7 +167,11 @@ export interface AdminAssistantQueryResponse {
 // ============================================================================
 
 export type AdminAssistantDraftType =
-  'sponsorship_reminder' | 'publication_draft' | 'admin_note' | 'slot_proposal';
+  | 'sponsorship_reminder'
+  | 'sponsorship_consent_request'
+  | 'publication_draft'
+  | 'admin_note'
+  | 'slot_proposal';
 
 export interface AdminAssistantDraftField {
   readonly label: string;

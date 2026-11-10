@@ -322,3 +322,9 @@ h3 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+
+.sponsor-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

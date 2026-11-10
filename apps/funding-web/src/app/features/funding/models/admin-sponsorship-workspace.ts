@@ -37,29 +37,30 @@ export function dossierTabState(
   );
 }
 
-export function publicationBlockerTab(reason: string): SponsorshipDossierTab {
+export function publicationBlockerTab(
+  reason: string
+): Exclude<SponsorshipDossierTab, 'overview'> {
   return reason === 'media'
     ? 'media'
-    : reason === 'identity'
+    : reason === 'identity' || reason === 'consent'
       ? 'identity'
       : [
             'hidden',
+            'review',
             'commitment_needs_confirmation',
             'commitment_blocked'
           ].includes(reason)
         ? 'publication'
         : reason === 'refund'
           ? 'refund'
-          : 'overview';
+          : 'billing';
 }
 
 export function publicationBlockerSection(reason: string): DossierSection {
+  if (reason === 'review') return 'review';
+  if (reason.startsWith('commitment_')) return 'agreement';
   const tab = publicationBlockerTab(reason);
-  return tab === 'overview'
-    ? reason === 'review'
-      ? 'review'
-      : 'payment'
-    : tab;
+  return tab === 'billing' ? 'payment' : tab;
 }
 
 /** Evidence remains qualified by the server and bound to the exact obligation. */

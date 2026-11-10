@@ -1590,20 +1590,15 @@ for (const width of [1920, 1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const url = `/admin/fundraiser/sponsors?sponsorshipId=${id}`;
     await page.goto(url);
-    const details = page.getByRole('region', {
-      name: "Vue d'ensemble",
-      exact: true
-    });
-    const summary = details.locator('[data-og7="dossier-overview-summary"]');
+    const details = page.locator('[data-og7="dossier-overview"]');
+    await expect(details.locator('[data-og7="overview-stat"]')).toHaveCount(6);
     await expect(
-      summary.getByRole('heading', { name: 'Commandite', exact: true })
+      page.locator('[data-og7="dossier-copy-reference"]')
     ).toBeVisible();
-    await expect(summary.locator('code')).toHaveText('DEMO-301');
     await expect(
-      summary.getByRole('button', {
-        name: 'Consulter la fiche et les médias',
-        exact: true
-      })
+      details
+        .locator('[data-og7="overview-domain"][data-og7-id="media"]')
+        .getByRole('button')
     ).toBeVisible();
     await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(0);
     await expect(page.locator('[data-og7="assistant-next-step"]')).toHaveCount(
@@ -1626,9 +1621,7 @@ test('selected sponsorship opens its exact Assistant context', async ({
   const { calls } = await fixtures(page);
   await sponsorshipFixture(page);
   await page.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
-  await expect(
-    page.locator('[data-og7="dossier-overview-summary"]')
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-overview"]')).toBeVisible();
   const assistant = page.locator('[data-og7="dossier-assistant"]');
   await expectAssistantLinkOrigin(assistant, dossierPath());
   await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(0);
@@ -1663,9 +1656,7 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
     const context = page.locator('[data-og7="assistant-context"]');
-    await expect(
-      page.locator('[data-og7="dossier-overview-summary"]')
-    ).toBeVisible();
+    await expect(page.locator('[data-og7="dossier-overview"]')).toBeVisible();
     await expect(context).toHaveCount(0);
     const refresh = page.locator('[data-og7="dossier-refresh"]');
     await expect(refresh).toHaveAccessibleName('Actualiser le dossier');
@@ -1827,9 +1818,7 @@ test('returning from a dossier prepares a fresh Assistant draft against its curr
   await page
     .getByRole('link', { name: 'Ouvrir le dossier', exact: true })
     .click();
-  await expect(
-    page.locator('[data-og7="dossier-overview-summary"]')
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-overview"]')).toBeVisible();
   options.contextVersion = 'b'.repeat(64);
   await page.locator('[data-og7="dossier-assistant"]').click();
   await expectAssistantPageOrigin(page, dossierPath());
@@ -2000,9 +1989,7 @@ test('navigation cannot restore private edits for a different administrator', as
   await page
     .getByRole('link', { name: 'Ouvrir le dossier', exact: true })
     .click();
-  await expect(
-    page.locator('[data-og7="dossier-overview-summary"]')
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-overview"]')).toBeVisible();
   options.identityId = 'another-admin';
   await page.locator('[data-og7="dossier-assistant"]').click();
   await expectAssistantPageOrigin(page, dossierPath());

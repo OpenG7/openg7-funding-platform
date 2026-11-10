@@ -36,12 +36,12 @@ export function preparationIssueDestination(
     issue.actionKind === 'agreement' ||
     has(['commitment_needs_confirmation', 'offer_unverified'])
   )
-    destination = ['overview', 'dossier-agreement'];
+    destination = ['publication', 'dossier-agreement'];
   else if (
     issue.actionKind === 'moderation' ||
     has(['sponsor_review_required', 'moderation_review_required'])
   )
-    destination = ['overview', 'dossier-review'];
+    destination = ['publication', 'dossier-review'];
   else if (has(['website_draft_missing', 'website_draft_outdated']))
     destination = ['media', 'dossier-website-settings'];
   else if (has(['presentation_missing']))
@@ -65,7 +65,7 @@ export function preparationAssistanceDestination(
     '/admin/fundraiser/sponsors?' +
       new URLSearchParams({
         sponsorshipId: contributionId,
-        tab: 'overview'
+        tab: 'publication'
       }) +
       '#dossier-assistance-' +
       section

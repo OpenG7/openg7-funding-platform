@@ -1,35 +1,5 @@
 @reference '../../../../../styles/tailwind.css';
 
-:host .note-open {
-  justify-self: start;
-}
-
-.note-card-heading {
-  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between;
-  gap: 0.5rem 0.75rem;
-}
-
-.note-draft {
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--admin-warning-border);
-  border-radius: 999px;
-  background: var(--admin-warning-bg);
-  @apply tw:text-admin-warning tw:text-admin-caption;
-}
-
-.note-preview {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  @apply tw:overflow-hidden tw:text-admin-text;
-  font-size: 0.9rem;
-}
-
-.note-empty {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-}
-
 .note-editor {
   @apply tw:grid tw:gap-5 tw:min-w-0;
 }
@@ -184,4 +154,9 @@
     @apply tw:grid;
     grid-template-columns: 1fr;
   }
+}
+
+:host .note-field textarea {
+  border: 1px solid var(--admin-border);
+  resize: vertical;
 }
