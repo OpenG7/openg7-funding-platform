@@ -39,6 +39,43 @@ test('a guide return keeps its exact frozen run position independently of progre
   });
 });
 
+test('a dossier return preserves its Preflight publication owner without unrelated query or fragments', () => {
+  const origin = preparationReturnOrigin(
+    `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}&search=private-example#private-detail`,
+    { contributionId },
+    issueId
+  );
+  assert.deepEqual(origin, {
+    url: `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}`,
+    contributionId,
+    issueId,
+    kind: 'dossier',
+    runId: null,
+    position: null
+  });
+});
+
+test('a dossier return rejects other Preflight views and mismatched publication selectors', () => {
+  for (const query of [
+    '',
+    `view=proposals&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}`,
+    `view=publication&workshopSponsorshipId=${runId}&publicationReturn=${contributionId}`,
+    `view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${runId}`,
+    `view=publication&workshopSponsorshipId=${contributionId}`,
+    `view=publication&publicationReturn=${contributionId}`,
+    'view=publication&workshopSponsorshipId=private-example&publicationReturn=private-example'
+  ])
+    assert.equal(
+      preparationReturnOrigin(
+        '/admin/fundraiser/preflight?' + query,
+        { contributionId },
+        issueId
+      ),
+      null,
+      query
+    );
+});
+
 test('a guide over another dossier preserves only its declared dossier selector and tab', () => {
   const origin = preparationReturnOrigin(
     `/admin/fundraiser/sponsors?sponsorshipId=${runId}&tab=overview&search=private-example`,
@@ -57,7 +94,11 @@ test('return bookmarks reject outside routes and malformed identifiers or positi
     '//example.invalid/admin/fundraiser/sponsors',
     '/admin/../fundraiser/sponsors',
     '/admin/undeclared',
-    '/admin/fundraiser/sponsors%5cprivate'
+    '/admin/fundraiser/sponsors%5cprivate',
+    `https://example.invalid/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}`,
+    `/admin/fundraiser/preflight/../preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}`,
+    `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}&extra=\\private`,
+    `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${contributionId}&publicationReturn=${contributionId}&extra=\tprivate`
   ])
     assert.equal(
       preparationReturnOrigin(url, { contributionId }, issueId),

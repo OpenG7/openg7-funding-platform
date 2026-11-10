@@ -366,10 +366,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       )!;
       selectedMediaId = originalAsset.id;
       // Media selection requires an approved dossier; website visibility remains separate.
-      await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
-      await admin
-        .getByRole('button', { name: 'Accepter', exact: true })
-        .click();
+      await admin.goto(
+        '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
+      );
+      await admin.locator('[data-og7="sponsorship-approve"]').click();
       await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
@@ -624,10 +624,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + pending.id)
           ).status()
         ).toBe(404);
-        await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
-        await admin
-          .getByRole('button', { name: 'Accepter', exact: true })
-          .click();
+        await admin.goto(
+          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
+        );
+        await admin.locator('[data-og7="sponsorship-approve"]').click();
         await completeModeration(admin);
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)
@@ -640,6 +640,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           ).status()
         ).toBe(404);
         await admin
+          .locator('[data-og7="dossier-tabs"]')
           .getByRole('button', { name: 'Publication', exact: true })
           .click();
         await approveAcceptanceSubject(request, {

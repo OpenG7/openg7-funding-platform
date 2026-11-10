@@ -23,12 +23,12 @@
     "agreement": {
       "title": "Document the agreed benefits",
       "goal": "Document benefits from the original agreement, then have the owner confirm them.",
-      "location": "Dossier Overview: recorded commitments, original agreement and qualification.",
+      "location": "Dossier Publication: recorded commitments, original agreement and qualification.",
       "proposed": "Bring the source, local proposal, benefits and confirmation into one continuous journey.",
       "steps": {
         "pilot": {
           "title": "Examine promised publications",
-          "action": "Read the recorded agreement and its promised services in Overview, then identify any qualification still required.",
+          "action": "Read the recorded agreement and its promised services in Publication, then identify any qualification still required.",
           "outcome": "The missing check and available actions are identified without validating the agreement."
         },
         "source": {
@@ -61,7 +61,7 @@
       "steps": {
         "obligations": {
           "title": "Read the obligations",
-          "action": "Read each promised passage in the Publication monitor and compare it with the recorded agreement in Overview.",
+          "action": "Read each promised passage in the Publication monitor and compare it with the recorded agreement in Publication.",
           "outcome": "The scope of preparation is established from the documented benefits."
         },
         "prepare": {

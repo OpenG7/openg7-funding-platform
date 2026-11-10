@@ -355,6 +355,14 @@ async function open(page: Page) {
   await expect(hook(page, 'admin-commitments')).toBeVisible();
 }
 
+const pilotPath = () =>
+  `/admin/fundraiser/preflight?view=publication&workshopSponsorshipId=${controllerId}&publicationReturn=${controllerId}`;
+
+async function openPilot(page: Page) {
+  await page.goto(pilotPath());
+  await expect(hook(page, 'preparation-pilot')).toBeVisible();
+}
+
 async function guideFixtures(
   page: Page,
   receipt: () => AdminDossierPreparationReceipt,
@@ -846,7 +854,7 @@ async function openPilotActions(
 
 async function returnToPilot(page: Page, fixture: { receiptReads: number }) {
   const reads = fixture.receiptReads;
-  const destination = new URL(controllerPath('publication'), page.url());
+  const destination = new URL(pilotPath(), page.url());
   await hook(page, 'assistance-return').click();
   await expect(page).toHaveURL(destination.toString());
   await expect(
@@ -857,11 +865,11 @@ async function returnToPilot(page: Page, fixture: { receiptReads: number }) {
   expect(fixture.receiptReads).toBeGreaterThan(reads);
 }
 
-test('the dossier shows compact assistance on the agreement only and its controller owns the read actions', async ({
+test('the publication owner shows compact agreement assistance and its controller opens the source form for read actions', async ({
   page
 }) => {
   const { fixture } = await fixtures(page);
-  await open(page);
+  await openPilot(page);
   await expect(
     hook(page, 'preparation-assistance-summary-state')
   ).toHaveAttribute('data-og7-state', 'succeeded');
@@ -898,6 +906,7 @@ test('the dossier shows compact assistance on the agreement only and its control
       element.contains(document.activeElement)
     )
   ).toBe(true);
+  await returnToPilot(page, fixture);
   await hook(page, 'preparation-pilot-actions').click();
   await expect(pilotAssistanceAction(page, 'review')).toBeEnabled();
   await pilotAssistanceAction(page, 'review').focus();
@@ -932,7 +941,7 @@ test('an indexing revision closes held controller input and a new Xbox Y intent 
       finishedAt: null
     }
   };
-  await open(page);
+  await openPilot(page);
   const pad = adminController(page);
   await pad.ready();
   await expect(
@@ -963,10 +972,7 @@ test('an indexing revision closes held controller input and a new Xbox Y intent 
   await expect(
     hook(page, 'preparation-assistance-summary-state')
   ).toHaveAttribute('data-og7-state', 'succeeded', { timeout: 10000 });
-  await expect(hook(page, 'assistance-run-state')).toHaveAttribute(
-    'data-og7-state',
-    'succeeded'
-  );
+  await expect(hook(page, 'assistance-run-state')).toHaveCount(0);
   await expect(hook(page, 'preparation-pilot')).toHaveAttribute(
     'data-og7-mode',
     'peek'
@@ -983,10 +989,8 @@ test('an indexing revision closes held controller input and a new Xbox Y intent 
   expect(fixture.compactRuns).toBe(1);
   expect(fixture.commands).toHaveLength(1);
   expect(fixture.state.run?.id).toBe('synthetic-local-run-2');
-  await expect(hook(page, 'assistance-run-state')).toHaveAttribute(
-    'data-og7-state',
-    'queued'
-  );
+  await expect(hook(page, 'assistance-run-state')).toHaveCount(0);
+  expect(fixture.reads).toBe(0);
   expect(fixture.commands[0]!.body).toMatchObject({
     contributionId: controllerId,
     sourceVersion: 1,
@@ -1004,7 +1008,7 @@ test('Xbox X opens the stored source and A examines the same result without a wr
 }) => {
   await installAdminController(page);
   const { fixture } = await fixtures(page);
-  await open(page);
+  await openPilot(page);
   const pad = adminController(page);
   await pad.ready();
   await openPilotActions(page, pad);
@@ -1028,7 +1032,7 @@ test('an unavailable compact reread clears controller assistance actions and an 
   page
 }) => {
   const { fixture } = await fixtures(page);
-  await open(page);
+  await openPilot(page);
   await expect(
     hook(page, 'preparation-assistance-summary-state')
   ).toHaveAttribute('data-og7-state', 'succeeded');
@@ -1062,7 +1066,7 @@ test('a non-required agreement control makes no compact assistance request', asy
 }) => {
   const { fixture } = await fixtures(page);
   fixture.personal = true;
-  await open(page);
+  await openPilot(page);
   await expect(
     page.locator(
       '[data-og7="preparation-issue"][data-og7-id="check:accepted_offer"]'
@@ -1231,6 +1235,12 @@ for (const locale of ['fr-CA', 'en']) {
     });
     const { fixture, base } = await fixtures(page, { locale });
     fixture.state = structuredState();
+    await openPilot(page);
+    await expect(hook(page, 'preparation-pilot-progress')).toHaveAttribute(
+      'data-og7-completed',
+      '1'
+    );
+    await expect(hook(page, 'preparation-pilot')).not.toContainText('800–1000');
     await open(page);
     const table = hook(page, 'assistance-proposal-table');
     await expect(table).toBeVisible();
@@ -1281,11 +1291,7 @@ for (const locale of ['fr-CA', 'en']) {
           '[data-og7="assistance-clause-disposition"] option[value="included"]'
         )
     ).toHaveJSProperty('disabled', true);
-    await expect(hook(page, 'preparation-pilot-progress')).toHaveAttribute(
-      'data-og7-completed',
-      '1'
-    );
-    await expect(hook(page, 'preparation-pilot')).not.toContainText('800–1000');
+    await expect(hook(page, 'preparation-pilot')).toHaveCount(0);
     await expect(hook(page, 'commitments-benefit-quantity')).toHaveCount(0);
     await expect(
       rows.nth(1).locator('[data-og7="assistance-proposal-row-state"]')
@@ -1332,6 +1338,7 @@ for (const locale of ['fr-CA', 'en']) {
       }
     });
     expect(base.commitment?.state).toBe('needs_confirmation');
+    await openPilot(page);
     await expect(hook(page, 'preparation-pilot-progress')).toHaveAttribute(
       'data-og7-completed',
       '1'

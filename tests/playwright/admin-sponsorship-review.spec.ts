@@ -21,6 +21,17 @@ import {
 const independentReviewMessage =
   'Cette décision nécessite la confirmation d’une autre personne habilitée. Les restrictions restent en place pendant cette revue indépendante.';
 
+async function openDossierTab(
+  page: Page,
+  name: 'Publication' | 'Finances' | 'Aperçu'
+): Promise<void> {
+  const tab = page
+    .getByRole('navigation', { name: 'Onglets du dossier', exact: true })
+    .getByRole('button', { name, exact: true });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-current', 'page');
+}
+
 const financialState = (record: AdminSponsorshipRecord) => ({
   amount: record.amount,
   currency: record.currency,
@@ -133,7 +144,8 @@ test.describe('Docker admin sponsorship review', () => {
     });
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page.getByRole('button', { name: 'Accepter' }).click();
+    await openDossierTab(page, 'Publication');
+    await page.getByRole('button', { name: 'Accepter', exact: true }).click();
     await completeModeration(page);
 
     await expect(
@@ -151,7 +163,8 @@ test.describe('Docker admin sponsorship review', () => {
     const before = await storedSponsorship(request, fixture.publicReference);
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page.getByRole('button', { name: 'Refuser' }).click();
+    await openDossierTab(page, 'Publication');
+    await page.getByRole('button', { name: 'Refuser', exact: true }).click();
     await page
       .getByLabel(/Justification interne/i)
       .fill('E2E Playwright: refus de test automatise.');
@@ -170,7 +183,10 @@ test.describe('Docker admin sponsorship review', () => {
     await openFixtureSponsorship(page, fixture.companyName);
 
     // Confirm the reviewed administrative action in the shared dialog.
-    await page.getByRole('button', { name: 'Remettre en attente' }).click();
+    await openDossierTab(page, 'Publication');
+    await page
+      .getByRole('button', { name: 'Remettre en attente', exact: true })
+      .click();
     await page.locator('[data-og7="confirm-action"]').click();
     const reviewed = page.waitForResponse(
       (response) =>
@@ -235,7 +251,7 @@ test.describe('Docker admin sponsorship review', () => {
 
     const fixture = SPONSORSHIP_FIXTURES.refund;
     await openFixtureSponsorship(page, fixture.companyName);
-    await page.getByRole('button', { name: 'Finances', exact: true }).click();
+    await openDossierTab(page, 'Finances');
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
@@ -278,7 +294,7 @@ test.describe('Docker admin sponsorship review', () => {
     const before = await storedSponsorship(request, fixture.publicReference);
     expect(before.payment_status).toBe('paid');
     await openFixtureSponsorship(page, fixture.companyName);
-    await page.getByRole('button', { name: 'Finances', exact: true }).click();
+    await openDossierTab(page, 'Finances');
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
@@ -320,7 +336,7 @@ test.describe('Docker admin sponsorship review', () => {
       }).format(partialAmount)
     );
 
-    await page.getByRole('button', { name: 'Aperçu', exact: true }).click();
+    await openDossierTab(page, 'Aperçu');
     // The common header retains the payment status after the overview was
     // simplified. Keep it distinct from refund workflow and filter labels.
     const header = page.locator('openg7-admin-sponsor-detail-header');
@@ -340,7 +356,8 @@ test.describe('Docker admin sponsorship review', () => {
     const before = await storedSponsorship(request, fixture.publicReference);
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page.getByRole('button', { name: 'Refuser' }).click();
+    await openDossierTab(page, 'Publication');
+    await page.getByRole('button', { name: 'Refuser', exact: true }).click();
     await page
       .getByLabel(/Justification interne/i)
       .fill('E2E Playwright: refus avec remboursement deja traite.');

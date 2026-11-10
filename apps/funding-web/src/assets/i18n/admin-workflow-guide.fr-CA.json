@@ -23,12 +23,12 @@
     "agreement": {
       "title": "Établir les prestations de l’accord",
       "goal": "Documenter les prestations à partir de l’accord d’origine, puis les faire confirmer par le propriétaire.",
-      "location": "Aperçu du dossier : engagements enregistrés, accord d’origine et qualification.",
+      "location": "Publication du dossier : engagements enregistrés, accord d’origine et qualification.",
       "proposed": "Rassembler source, proposition locale, prestations et confirmation dans un parcours continu.",
       "steps": {
         "pilot": {
           "title": "Examiner les publications promises",
-          "action": "Lire l’accord enregistré et ses prestations promises dans Aperçu, puis repérer les qualifications encore nécessaires.",
+          "action": "Lire l’accord enregistré et ses prestations promises dans Publication, puis repérer les qualifications encore nécessaires.",
           "outcome": "Le contrôle manquant et les actions disponibles sont identifiés, sans valider l’accord."
         },
         "source": {
@@ -61,7 +61,7 @@
       "steps": {
         "obligations": {
           "title": "Lire les obligations",
-          "action": "Lire chaque passage promis dans le suivi Publication et le comparer à l’accord enregistré dans Aperçu.",
+          "action": "Lire chaque passage promis dans le suivi Publication et le comparer à l’accord enregistré dans Publication.",
           "outcome": "Le périmètre de préparation est établi à partir des prestations documentées."
         },
         "prepare": {

@@ -409,22 +409,28 @@ test('automatic mode remembers a preference without retaining a run or authoriza
   );
 });
 
-test('the workflow catalogue exposes the six existing journeys and their 21 reading steps', () => {
+test('the workflow catalogue exposes the six existing journeys in their owning tabs and their 21 reading steps', () => {
   assert.deepEqual(
     ADMIN_WORKFLOW_GUIDE_JOURNEYS.map((journey) => [
       journey.id,
+      journey.dossierTab,
       journey.steps.map((step) => step.id)
     ]),
     [
       [
         'agreement',
+        'publication',
         ['pilot', 'source', 'proposal', 'qualification', 'confirm']
       ],
-      ['preparation', ['obligations', 'prepare', 'draft']],
-      ['authorization', ['review', 'content', 'schedule', 'authorize']],
-      ['delivery', ['status', 'responsibility', 'evidence']],
-      ['website', ['presentation', 'preview', 'visibility']],
-      ['history', ['tracking', 'declare', 'save']]
+      ['preparation', 'publication', ['obligations', 'prepare', 'draft']],
+      [
+        'authorization',
+        'publication',
+        ['review', 'content', 'schedule', 'authorize']
+      ],
+      ['delivery', 'publication', ['status', 'responsibility', 'evidence']],
+      ['website', 'media', ['presentation', 'preview', 'visibility']],
+      ['history', 'media', ['tracking', 'declare', 'save']]
     ]
   );
   assert.equal(

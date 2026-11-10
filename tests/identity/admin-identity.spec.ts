@@ -274,6 +274,13 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
         (await reader.request.get('/api/admin/auth/current')).status()
       ).toBe(200);
       await reader.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
+      await operator
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: 'Publication', exact: true })
+        .click();
+      await expect(
+        operator.locator('[data-og7="publication-monitor"]')
+      ).toBeVisible();
       await expect(
         operator.getByRole('button', { name: 'Accepter', exact: true })
       ).toBeVisible();

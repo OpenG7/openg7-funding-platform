@@ -227,12 +227,7 @@ async function chooseJourney(page: Page, id: keyof typeof journeys) {
   if (!(await journey(page, id).isVisible()))
     await journeyPicker(page).locator('summary').click();
   await journey(page, id).click();
-  const tab =
-    id === 'agreement'
-      ? 'overview'
-      : ['website', 'history'].includes(id)
-        ? 'media'
-        : 'publication';
+  const tab = ['website', 'history'].includes(id) ? 'media' : 'publication';
   if (new URL(page.url()).searchParams.get('tab') !== tab) {
     await hook(page, 'workflow-guide-open-dossier').click();
     await expect(page).toHaveURL(controllerPath(tab));
@@ -377,7 +372,7 @@ test('pausing, closing and normal dossier navigation remove the workflow highlig
 }) => {
   await installAdminController(page);
   const f = await fixtures(page);
-  await open(page, controllerPath('overview'));
+  await open(page, controllerPath('publication'));
   await journey(page, 'agreement').click();
   await step(page, 'qualification').focus();
   await page.keyboard.press('Enter');
@@ -433,7 +428,7 @@ test('a reader can explore the journeys while private agreement sources remain u
   page
 }) => {
   const f = await fixtures(page, { role: 'reader' });
-  await open(page, controllerPath('overview'));
+  await open(page, controllerPath('publication'));
   await expect(hook(page, 'workflow-guide-journey')).toHaveCount(6);
   await journey(page, 'agreement').click();
   await step(page, 'source').click();
@@ -572,7 +567,7 @@ for (const validContext of [true, false]) {
     expect([...destination.searchParams.keys()].sort()).toEqual(
       validContext ? ['sponsorshipId', 'tab'] : ['tab']
     );
-    expect(destination.searchParams.get('tab')).toBe('overview');
+    expect(destination.searchParams.get('tab')).toBe('publication');
     expect(destination.searchParams.get('sponsorshipId')).toBe(
       validContext ? controllerId : null
     );

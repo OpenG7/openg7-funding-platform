@@ -220,12 +220,12 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     })
       .png()
       .toBuffer();
-    await confirmAcceptanceMediaUsage(company);
     await company.getByLabel('Ajouter des photos').setInputFiles({
       name: 'atelier-demo.png',
       mimeType: 'image/png',
       buffer: image
     });
+    await confirmAcceptanceMediaUsage(company);
     await expect(
       company.locator('[data-og7="media-upload-attempt"]')
     ).toHaveCount(0, { timeout: 15000 });

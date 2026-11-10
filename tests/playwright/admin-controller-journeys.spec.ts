@@ -607,13 +607,15 @@ for (const consent of [false, true]) {
       }
     };
     const pad = adminController(page);
-    await page.goto(path('publication'));
+    await page.goto(path('media'));
     const site = hook(page, 'publication-website');
     const publish = site.locator('[data-og7="website-visibility"]');
-    await expect(site).toHaveAttribute(
-      'data-state',
-      consent ? 'hidden' : 'blocked'
-    );
+    await expect(
+      site.getByText(
+        consent ? 'Profile hidden — ready to publish' : 'Preparation needed',
+        { exact: true }
+      )
+    ).toBeVisible();
     if (consent) {
       await pad.activate(publish);
       await expect(hook(page, 'confirm-action')).toBeVisible();
@@ -629,7 +631,11 @@ for (const consent of [false, true]) {
         expectedVersion: 'site-v1',
         visible: true
       });
-      await expect(site).toHaveAttribute('data-state', 'visible');
+      await expect(
+        site.getByText('Profile visible', {
+          exact: true
+        })
+      ).toBeVisible();
     } else {
       await expect(publish).toBeDisabled();
       await pad.press('Y');

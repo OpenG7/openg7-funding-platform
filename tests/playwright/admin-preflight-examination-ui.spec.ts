@@ -2221,8 +2221,8 @@ for (const [language, width] of [
     for (const [code, tab, fragment] of [
       ['payment_confirmed', 'billing', 'dossier-billing'],
       ['accepted_offer', 'publication', 'dossier-agreement'],
-      ['sponsor_review', 'overview', 'dossier-review'],
-      ['moderation_review', 'overview', 'dossier-review']
+      ['sponsor_review', 'publication', 'dossier-review'],
+      ['moderation_review', 'publication', 'dossier-review']
     ]) {
       const action = guided.locator(
         `[data-og7="examination-check-action"][data-og7-id="${code}"]`

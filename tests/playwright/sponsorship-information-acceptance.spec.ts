@@ -505,10 +505,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await company
         .getByLabel('Description des images à téléverser')
         .fill('Présentation synthétique du dossier.');
-      await confirmAcceptanceMediaUsage(company);
       const photoUpload = company.getByLabel('Ajouter des photos');
-      // Confirmation reaches the upload component asynchronously. File selection
-      // can bypass disabled controls, so wait for the actual upload readiness.
       await expect(photoUpload).toBeEnabled();
       const uploaded = company.waitForResponse(
         (response) =>
@@ -520,6 +517,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         mimeType: 'image/png',
         buffer
       });
+      await confirmAcceptanceMediaUsage(company);
       const uploadResponse = await uploaded;
       expect(uploadResponse.ok(), await uploadResponse.text()).toBe(true);
       await expect(
@@ -624,11 +622,9 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         .toBe(true);
       await admin
         .locator('[data-og7="dossier-tabs"]')
-        .getByRole('button', { name: 'Aperçu', exact: true })
+        .getByRole('button', { name: 'Publication', exact: true })
         .click();
-      await admin
-        .getByRole('button', { name: 'Accepter', exact: true })
-        .click();
+      await admin.locator('[data-og7="sponsorship-approve"]').click();
       await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)

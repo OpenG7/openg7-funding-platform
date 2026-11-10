@@ -94,6 +94,11 @@ async function submitRejection(
   await author.goto(
     '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
   );
+  const publicationTab = author
+    .getByRole('navigation', { name: 'Onglets du dossier', exact: true })
+    .getByRole('button', { name: 'Publication', exact: true });
+  await publicationTab.click();
+  await expect(publicationTab).toHaveAttribute('aria-current', 'page');
   const reject = author.getByRole('button', { name: 'Refuser', exact: true });
   await expect(reject).toBeVisible();
   await expect(reject).toBeEnabled();

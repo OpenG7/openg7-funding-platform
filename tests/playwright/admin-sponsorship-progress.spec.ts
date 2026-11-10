@@ -3885,14 +3885,22 @@ test('completed dossiers show a discreet confirmation with no current action in 
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
-test('publication cancellation, partial refund, missing credit and failed email are linked to their dossiers', async ({
+test('a cancelled publication without a qualified agreement remains unresolved while refund, credit and failed email stay linked to the dossier', async ({
   page
 }) => {
   await fixtures(page);
   await page.goto(path('publication'));
-  await expect(page.locator('[data-og7="dossier-facts"]')).toContainText(
-    'Annulé'
+  const monitor = page.locator('[data-og7="publication-monitor"]');
+  await expect(
+    monitor.locator('[data-og7="publication-monitor-summary"]')
+  ).toHaveAttribute('data-state', 'agreement_unknown');
+  await expect(monitor.locator('[data-og7="publication-service"]')).toHaveCount(
+    0
   );
+  await expect(monitor.getByRole('progressbar')).toHaveCount(0);
+  await expect(
+    monitor.getByRole('link', { name: 'Consulter l’historique', exact: true })
+  ).toHaveAttribute('href', path('audit'));
   await tabs(page)
     .getByRole('button', { name: 'Finances', exact: true })
     .click();

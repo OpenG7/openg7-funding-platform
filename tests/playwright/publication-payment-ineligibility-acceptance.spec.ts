@@ -218,7 +218,6 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
-        await confirmAcceptanceMediaUsage(page);
         for (const [label, filename] of [
           ['Ajouter le logo', 'logo.png'],
           ['Ajouter des photos', 'photo.png']
@@ -234,6 +233,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
           await page
             .getByLabel(label!)
             .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+          await confirmAcceptanceMediaUsage(page);
           expect((await uploaded).ok()).toBe(true);
           await expect(
             page.locator('[data-og7="media-upload-attempt"]')

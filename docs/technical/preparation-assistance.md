@@ -159,6 +159,12 @@ changement d’identité/session. Un retour au guide qui quitterait une saisie n
 enregistrée exige de confirmer son abandon. Si le contrôle a disparu, le focus
 revient aux actions disponibles ou à l’actualisation en cas d’erreur de lecture.
 
+Le pilotage du dossier appartient à Preflight, dans la vue `publication`.
+Son retour conserve uniquement cette vue et les sélecteurs
+`workshopSponsorshipId` et `publicationReturn`, tous deux concordants avec le
+dossier du reçu. Les autres paramètres et fragments privés sont écartés.
+Un lien vers `#dossier-preparation` place le focus sur le pilotage après son rendu.
+
 Chaque clause reste à résoudre : rattachement à un bénéfice de l’offre, attente,
 terme non représentable, ou exclusion motivée hors périmètre contractuel. Une
 clause en attente ou non représentable bloque l’application. Un signal local

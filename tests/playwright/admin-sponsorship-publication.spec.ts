@@ -65,6 +65,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     await openFixtureSponsorship(page, fixture.companyName);
 
     await page
+      .getByRole('navigation', { name: 'Onglets du dossier', exact: true })
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
 
@@ -165,6 +166,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
 
     await page.reload();
     await page
+      .getByRole('navigation', { name: 'Onglets du dossier', exact: true })
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await openSponsorshipWebsiteSettings(page);
