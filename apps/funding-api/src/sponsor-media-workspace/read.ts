@@ -49,6 +49,7 @@ export async function readWorkspace(
   >(
     `SELECT a.*,a.updated_at::text AS version,a.created_at::text AS created_at,a.reviewed_at::text AS reviewed_at,
       sponsor_media_effective_usage(a.id) AS usage_rights,sponsor_media_effective_rule(a.id) AS effective_rule,
+      sponsor_media_current_usage_acceptance(a.id) AS usage_acceptance,
       CASE WHEN c.current_fingerprint=encode(digest(moderation_snapshot('media',a.id)::text,'sha256'),'hex') THEN c.state ELSE 'unreviewed' END AS state,
       d.level,c.current_content_version AS content_version,c.current_decision_id,
       encode(digest(moderation_snapshot('media',a.id)::text,'sha256'),'hex') AS fingerprint,

@@ -13,6 +13,7 @@ export async function assertSponsorMediaReadiness(
         ('sponsor_media_rule_versions',false),
         ('sponsor_media_workspace_commands',false),
         ('sponsor_media_batch_plans',false),
+        ('sponsor_media_terms_acceptances',false),
         ('sponsor_media_cleanup_jobs',true)
         ,('sponsor_media_preparation_assignments',true)
       )
@@ -22,12 +23,15 @@ export async function assertSponsorMediaReadiness(
         AND has_table_privilege(current_user,c.oid,'INSERT')
         AND (NOT expected.mutable OR has_table_privilege(current_user,c.oid,'UPDATE')),false))
         AND to_regprocedure('public.sponsor_media_effective_usage(uuid)') IS NOT NULL
-        AND (SELECT count(*)=3 AND bool_and(
+        AND to_regprocedure('public.sponsor_media_current_usage_acceptance(uuid)') IS NOT NULL
+        AND (SELECT count(*)=4 AND bool_and(
           has_column_privilege(current_user,'public.sponsor_media_assets',column_name,'SELECT')
           AND has_column_privilege(current_user,'public.sponsor_media_assets',column_name,'INSERT')
           AND has_column_privilege(current_user,'public.sponsor_media_assets',column_name,'UPDATE'))
           FROM information_schema.columns WHERE table_schema='public' AND table_name='sponsor_media_assets'
-          AND column_name IN ('website_selected','usage_inheritance','media_batch_id'))
+          AND column_name IN ('website_selected','usage_inheritance','media_batch_id','original_checksum_sha256'))
+        AND has_column_privilege(current_user,'public.sponsor_media_usage_history','terms_acceptance_id','SELECT')
+        AND has_column_privilege(current_user,'public.sponsor_media_usage_history','terms_acceptance_id','INSERT')
         AS ready
       FROM expected LEFT JOIN pg_namespace n ON n.nspname='public'
       LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=expected.name AND c.relkind IN ('r','p')

@@ -254,15 +254,26 @@ export class FundingService {
     token: string,
     kind: SponsorMediaKind,
     file: File,
-    altText?: string,
-    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
+    altText: string | undefined,
+    usage: import('@openg7/funding-core').SponsorMediaUsageRights,
+    termsAcceptance: import('@openg7/funding-core').SponsorMediaTermsAcceptance,
+    requestId: string
   ): Promise<SponsorMediaUploadResult> {
     return this.followupClient.uploadSponsorshipMedia(
       token,
       kind,
       file,
       altText,
-      usage
+      usage,
+      termsAcceptance,
+      requestId
+    );
+  }
+
+  getSponsorshipMediaUploadReceipt(token: string, requestId: string) {
+    return this.followupClient.getSponsorshipMediaUploadReceipt(
+      token,
+      requestId
     );
   }
 

@@ -270,7 +270,6 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       })
         .png()
         .toBuffer();
-      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo.png'],
         ['Ajouter des photos', 'photo.png'],
@@ -287,6 +286,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await company
           .getByLabel(label!)
           .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
+        await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
@@ -574,7 +574,6 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await company
           .getByRole('button', { name: 'Modifier mes informations' })
           .click();
-        await confirmAcceptanceMediaUsage(company);
         await company
           .getByLabel('Description des images à téléverser')
           .fill('Nouveau logo synthétique');
@@ -598,6 +597,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           mimeType: 'image/png',
           buffer: replacement
         });
+        await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
         const pending = (await assets()).find((a) => a.kind === 'logo')!;
         selectedMediaId = pending.id;

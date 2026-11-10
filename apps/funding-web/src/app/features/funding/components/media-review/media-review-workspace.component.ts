@@ -7,6 +7,7 @@ import {
   Injector,
   PLATFORM_ID,
   afterNextRender,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -93,6 +94,13 @@ export class MediaReviewWorkspaceComponent {
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
   private readonly inspector = viewChild<ElementRef<HTMLElement>>('inspector');
+  private readonly pendingReviewFocus = signal<{
+    id: string;
+    contributionId: string;
+    version: string;
+    revision: string;
+    session: number;
+  } | null>(null);
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly workspaceVisible = signal(false);
@@ -158,8 +166,10 @@ export class MediaReviewWorkspaceComponent {
     admin: this.admin,
     controller: this.c
   });
-  readonly commands = new MediaReviewCommands(this.c, () =>
-    this.contributionId()
+  readonly commands = new MediaReviewCommands(
+    this.c,
+    () => this.contributionId(),
+    (asset) => this.resumeMediaReview(asset)
   );
   readonly thumbnails = new MediaPreviewCollection((id) =>
     this.admin.mediaThumbnail(id)
@@ -230,9 +240,7 @@ export class MediaReviewWorkspaceComponent {
       selectionCount: this.c.inspected() ? 1 : 0,
       readyCount: this.c.inspected()?.readiness.state === 'ready' ? 1 : 0,
       reviewableCount:
-        this.c.inspected() && this.c.inspected()?.readiness.state !== 'blocked'
-          ? 1
-          : 0,
+        this.c.inspected() && this.canReviewSingle(this.c.inspected()!) ? 1 : 0,
       canReview: this.c.canWrite(),
       busy: this.c.busy() || this.analysis.busy()
     })
@@ -324,6 +332,7 @@ export class MediaReviewWorkspaceComponent {
         this.thumbnails.clear();
         this.fullPreview.clear();
         this.commands.reset();
+        this.pendingReviewFocus.set(null);
         this.analysis.reset();
         this.history.reset();
         this.upload.reset();
@@ -368,6 +377,36 @@ export class MediaReviewWorkspaceComponent {
       const asset = this.c.inspected(),
         run = this.analysis.run();
       if (asset) untracked(() => this.c.restoreSavedAnalysisDraft(asset, run));
+    });
+    afterRenderEffect({
+      read: () => {
+        const target = this.pendingReviewFocus();
+        if (!target) return;
+        const asset = this.c.inspected(),
+          data = this.c.data();
+        if (
+          this.admin.sessionGeneration() !== target.session ||
+          this.commands.form() !== null ||
+          data?.contributionId !== target.contributionId ||
+          data.revision !== target.revision ||
+          asset?.id !== target.id ||
+          asset.version !== target.version
+        ) {
+          this.pendingReviewFocus.set(null);
+          return;
+        }
+        // Saving rights refreshes the parent dossier before it becomes writable again.
+        if (!this.c.canWrite()) return;
+        const field =
+          this.inspector()?.nativeElement.querySelector<HTMLElement>(
+            !this.c.draft(asset).altText.trim()
+              ? '[data-og7="media-inspector-alt"]'
+              : '[data-og7="media-inspector-approve"]'
+          );
+        if (!field || field.matches(':disabled')) return;
+        field.focus();
+        this.pendingReviewFocus.set(null);
+      }
     });
     effect(() => {
       const assets = [...this.c.visible(), ...(this.c.plan()?.assets ?? [])];
@@ -484,6 +523,7 @@ export class MediaReviewWorkspaceComponent {
     const target = this.targetObligation();
     if (!target || !this.c.canWrite() || (!remove && !target.acceptsMedia))
       return;
+    this.commands.reset();
     this.commands.humanReviewed.set(false);
     await this.c.prepare(
       remove ? 'preparation_unassign' : 'preparation_assign',
@@ -600,11 +640,62 @@ export class MediaReviewWorkspaceComponent {
       readyCount: assets.filter((asset) => asset.readiness.state === 'ready')
         .length,
       reviewableCount: assets.filter(
-        (asset) => asset.readiness.state !== 'blocked'
+        (asset) =>
+          asset.readiness.state !== 'blocked' ||
+          (single && this.canGuidePermissions(asset))
       ).length,
       canReview: this.c.canWrite(),
       busy: this.c.busy() || this.analysis.busy() || this.upload.busy()
     }).some((action) => action.id === id && action.enabled);
+  }
+  private canGuidePermissions(asset: SponsorMediaWorkspaceAsset): boolean {
+    return (
+      asset.reviewStatus !== 'rejected' &&
+      asset.usage?.state !== 'withdrawn' &&
+      asset.readiness.state === 'blocked' &&
+      asset.readiness.reasons.length > 0 &&
+      asset.readiness.reasons.every(
+        (reason) => reason === 'MEDIA_USAGE_CONFIRMATION_REQUIRED'
+      )
+    );
+  }
+  private canReviewSingle(asset: SponsorMediaWorkspaceAsset): boolean {
+    return (
+      asset.readiness.state !== 'blocked' || this.canGuidePermissions(asset)
+    );
+  }
+  startMediaReview(asset: SponsorMediaWorkspaceAsset): void {
+    const current = this.c.inspected();
+    if (
+      !this.canAction('approve', true) ||
+      current?.id !== asset.id ||
+      current.version !== asset.version
+    )
+      return;
+    if (this.canGuidePermissions(current))
+      this.commands.openReviewPermissions(current);
+    else if (current.usageAcceptance?.source === 'platform_acceptance')
+      this.commands.openAcceptedReview(current);
+    else void this.commands.prepare('approve', current);
+  }
+  private resumeMediaReview(target: {
+    id: string;
+    contributionId: string;
+  }): void {
+    const current = this.c.inspected(),
+      data = this.c.data();
+    if (
+      !current ||
+      current.id !== target.id ||
+      data?.contributionId !== target.contributionId
+    )
+      return;
+    this.pendingReviewFocus.set({
+      ...target,
+      version: current.version,
+      revision: data.revision,
+      session: this.admin.sessionGeneration()
+    });
   }
   async reconcile(): Promise<void> {
     const exportRequest = this.pendingExport();
@@ -625,7 +716,7 @@ export class MediaReviewWorkspaceComponent {
       return;
     }
     await this.c.reconcile();
-    if (!this.c.uncertain()) this.commands.form.set(null);
+    if (!this.c.uncertain()) this.commands.reset();
   }
   openExport(): void {
     if (this.pendingExport() || this.recoverableExport()) {
@@ -792,8 +883,7 @@ export class MediaReviewWorkspaceComponent {
       context.revision !== request.context.revision
     )
       return;
-    if (request.actionId === 'approve')
-      void this.commands.prepare('approve', asset);
+    if (request.actionId === 'approve') this.startMediaReview(asset);
     else if (request.actionId === 'reject') this.commands.openReject(asset);
     else if (request.actionId === 'permissions')
       this.commands.openRules('media');

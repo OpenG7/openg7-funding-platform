@@ -16,88 +16,163 @@
       {{ 'funding.followup.media.usage.suggestedScope' | translate }}
     </p>
   }
-  <fieldset>
-    <legend>{{ 'funding.followup.media.usage.channels' | translate }}</legend>
-    @for (channel of channels; track channel) {
-      <label
-        ><input
-          type="checkbox"
-          [checked]="selectedChannels().includes(channel)"
-          (change)="toggle('channel', channel, $event)"
-          [attr.data-og7-id]="'channel:' + channel"
-        />{{ 'funding.offer.channels.' + channel | translate }}</label
-      >
-    }
-  </fieldset>
-  <fieldset>
-    <legend>{{ 'funding.followup.media.usage.targets' | translate }}</legend>
-    @for (target of targets; track target) {
-      <label
-        ><input
-          type="checkbox"
-          [checked]="selectedTargets().includes(target)"
-          (change)="toggle('target', target, $event)"
-          [attr.data-og7-id]="'target:' + target"
-        />{{ target.toUpperCase() }}</label
-      >
-    }
-  </fieldset>
-  <fieldset>
-    <legend>
-      {{ 'funding.followup.media.usage.transformations' | translate }}
-    </legend>
-    @for (transform of transformations; track transform) {
-      <label
-        ><input
-          type="checkbox"
-          [checked]="selectedTransforms().includes(transform)"
-          (change)="toggle('transform', transform, $event)"
-          [attr.data-og7-id]="'transform:' + transform"
-        />{{
-          'funding.followup.media.usage.transforms.' + transform | translate
-        }}</label
-      >
-    }
-  </fieldset>
-  <label
-    >{{ 'funding.followup.media.usage.credit' | translate
-    }}<input
-      type="text"
-      maxlength="200"
-      [value]="credit()"
-      (input)="changeText('credit', $event)"
-      data-og7="media-usage-credit"
-  /></label>
-  <label
-    >{{ 'funding.followup.media.usage.restrictions' | translate
-    }}<textarea
-      maxlength="1000"
-      rows="3"
-      [value]="restrictions()"
-      (input)="changeText('restrictions', $event)"
-      data-og7="media-usage-restrictions"
-    ></textarea>
-  </label>
-  @if (requireEvidence()) {
+  @if (compactTerms()) {
+    <div data-og7="media-usage-scope-summary">
+      <p>{{ 'funding.followup.media.usage.scopeSummary' | translate }}</p>
+      <ul>
+        <li>
+          {{ 'funding.followup.media.usage.channels' | translate }} :
+          @for (
+            channel of selectedChannels();
+            track channel;
+            let last = $last
+          ) {
+            {{ 'funding.offer.channels.' + channel | translate
+            }}{{ last ? '' : ', ' }}
+          }
+        </li>
+        <li>
+          {{ 'funding.followup.media.usage.targets' | translate }} :
+          @for (target of selectedTargets(); track target; let last = $last) {
+            {{ target.toUpperCase() }}{{ last ? '' : ', ' }}
+          }
+        </li>
+        <li>
+          {{ 'funding.followup.media.usage.transformations' | translate }} :
+          @for (
+            transform of selectedTransforms();
+            track transform;
+            let last = $last
+          ) {
+            {{
+              'funding.followup.media.usage.transforms.' + transform
+                | translate
+            }}{{ last ? '' : ', ' }}
+          }
+        </li>
+        @if (credit()) {
+          <li>
+            {{ 'funding.followup.media.usage.credit' | translate }} :
+            {{ credit() }}
+          </li>
+        }
+        @if (restrictions()) {
+          <li>
+            {{ 'funding.followup.media.usage.restrictions' | translate }} :
+            {{ restrictions() }}
+          </li>
+        }
+      </ul>
+    </div>
+    <details data-og7="media-usage-customize">
+      <summary>
+        {{ 'funding.followup.media.usage.customize' | translate }}
+      </summary>
+      <ng-container [ngTemplateOutlet]="permissionFields" />
+    </details>
+    <details data-og7="media-usage-terms">
+      <summary>
+        {{ 'funding.followup.media.usage.readTerms' | translate }}
+      </summary>
+      <p>{{ terms().text }}</p>
+      <small>{{
+        'funding.followup.media.usage.termsVersion'
+          | translate: { version: terms().version }
+      }}</small>
+    </details>
+    <p>{{ 'funding.followup.media.usage.automaticEvidence' | translate }}</p>
+  } @else {
+    <ng-container [ngTemplateOutlet]="permissionFields" />
+  }
+  <ng-template #permissionFields>
+    <fieldset>
+      <legend>{{ 'funding.followup.media.usage.channels' | translate }}</legend>
+      @for (channel of channels; track channel) {
+        <label
+          ><input
+            type="checkbox"
+            [checked]="selectedChannels().includes(channel)"
+            (change)="toggle('channel', channel, $event)"
+            [attr.data-og7-id]="'channel:' + channel"
+          />{{ 'funding.offer.channels.' + channel | translate }}</label
+        >
+      }
+    </fieldset>
+    <fieldset>
+      <legend>{{ 'funding.followup.media.usage.targets' | translate }}</legend>
+      @for (target of targets; track target) {
+        <label
+          ><input
+            type="checkbox"
+            [checked]="selectedTargets().includes(target)"
+            (change)="toggle('target', target, $event)"
+            [attr.data-og7-id]="'target:' + target"
+          />{{ target.toUpperCase() }}</label
+        >
+      }
+    </fieldset>
+    <fieldset>
+      <legend>
+        {{ 'funding.followup.media.usage.transformations' | translate }}
+      </legend>
+      @for (transform of transformations; track transform) {
+        <label
+          ><input
+            type="checkbox"
+            [checked]="selectedTransforms().includes(transform)"
+            (change)="toggle('transform', transform, $event)"
+            [attr.data-og7-id]="'transform:' + transform"
+          />{{
+            'funding.followup.media.usage.transforms.' + transform | translate
+          }}</label
+        >
+      }
+    </fieldset>
     <label
-      >{{ 'funding.followup.media.usage.evidence' | translate
+      >{{ 'funding.followup.media.usage.credit' | translate
+      }}<input
+        type="text"
+        maxlength="200"
+        [value]="credit()"
+        (input)="changeText('credit', $event)"
+        data-og7="media-usage-credit"
+    /></label>
+    <label
+      >{{ 'funding.followup.media.usage.restrictions' | translate
       }}<textarea
-        rows="2"
-        minlength="10"
         maxlength="1000"
-        [value]="evidence()"
-        (input)="changeText('evidence', $event)"
-        data-og7="media-usage-evidence"
+        rows="3"
+        [value]="restrictions()"
+        (input)="changeText('restrictions', $event)"
+        data-og7="media-usage-restrictions"
       ></textarea>
     </label>
-  }
+    @if (requireEvidence()) {
+      <label
+        >{{ 'funding.followup.media.usage.evidence' | translate
+        }}<textarea
+          rows="2"
+          minlength="10"
+          maxlength="1000"
+          [value]="evidence()"
+          (input)="changeText('evidence', $event)"
+          data-og7="media-usage-evidence"
+        ></textarea>
+      </label>
+    }
+  </ng-template>
   <label
     ><input
       type="checkbox"
       [checked]="confirmed()"
       (change)="confirm($event)"
       data-og7="media-usage-confirmation"
-    />{{ 'funding.followup.media.usage.confirmation' | translate }}</label
+    />{{
+      (compactTerms()
+        ? 'funding.followup.media.usage.termsConfirmation'
+        : 'funding.followup.media.usage.confirmation'
+      ) | translate
+    }}</label
   >
   @if (confirmed() && !normalized()) {
     <p role="alert">
@@ -111,7 +186,17 @@
       (click)="submit()"
       data-og7="media-usage-save"
     >
-      {{ 'funding.followup.media.usage.save' | translate }}
+      {{
+        (compactTerms()
+          ? 'funding.followup.media.usage.approveContinue'
+          : 'funding.followup.media.usage.save'
+        ) | translate
+      }}
     </button>
+    @if (compactTerms()) {
+      <button type="button" (click)="cancel()" data-og7="media-usage-cancel">
+        {{ 'funding.followup.media.usage.cancel' | translate }}
+      </button>
+    }
   }
 </fieldset>

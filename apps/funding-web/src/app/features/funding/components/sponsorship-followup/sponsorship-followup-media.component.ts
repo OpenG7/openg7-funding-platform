@@ -14,7 +14,11 @@ import {
   computed
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { SponsorMediaAsset, SponsorMediaKind } from '@openg7/funding-core';
+import type {
+  SponsorMediaAsset,
+  SponsorMediaKind,
+  SponsorMediaTermsAcceptance
+} from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingService } from '../../services/funding.service.js';
@@ -44,6 +48,11 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly uploadUsage = signal<
     import('@openg7/funding-core').SponsorMediaUsageRights | null
   >(null);
+  readonly uploadAcceptance = signal<SponsorMediaTermsAcceptance | null>(null);
+  readonly selectedUpload = signal<{
+    kind: SponsorMediaKind;
+    files: readonly File[];
+  } | null>(null);
   private readonly controller = new SponsorshipFollowupMediaController({
     service: this.service,
     token: () => this.token(),
@@ -56,6 +65,7 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   });
   readonly assets = this.controller.assets;
   readonly attempts = this.controller.attempts;
+  readonly hasUnresolvedUpload = this.controller.hasUnresolvedUpload;
   readonly previews = this.controller.previews;
   readonly limits = this.controller.limits;
   readonly usageController = new SponsorshipMediaUsageController({
@@ -96,6 +106,8 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
     if (changes['token'] && !changes['token'].firstChange) {
       this.usageController.reset();
       this.uploadUsage.set(null);
+      this.uploadAcceptance.set(null);
+      this.selectedUpload.set(null);
       void this.refresh();
     }
   }
@@ -104,15 +116,41 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
     return this.controller.refresh();
   }
 
-  async uploadMedia(kind: SponsorMediaKind, event: Event): Promise<void> {
+  selectMedia(kind: SponsorMediaKind, event: Event): void {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length || this.busy() || this.hasUnresolvedUpload()) return;
+    this.uploadUsage.set(null);
+    this.uploadAcceptance.set(null);
+    this.selectedUpload.set({ kind, files });
+  }
+
+  async sendMedia(): Promise<void> {
+    const selected = this.selectedUpload();
     const usage = this.uploadUsage();
+    const acceptance = this.uploadAcceptance();
+    if (!selected || !usage || !acceptance) return;
     try {
-      if (usage) await this.controller.uploadMedia(kind, files, usage);
+      await this.controller.uploadMedia(
+        selected.kind,
+        selected.files,
+        usage,
+        acceptance
+      );
     } finally {
-      input.value = '';
+      this.cancelSelection();
     }
+  }
+
+  cancelSelection(): void {
+    this.selectedUpload.set(null);
+    this.uploadUsage.set(null);
+    this.uploadAcceptance.set(null);
+  }
+
+  retryUpload(attempt: SponsorshipMediaUploadAttempt): Promise<void> {
+    return this.controller.retryUpload(attempt);
   }
 
   deleteMedia(asset: SponsorMediaAsset): Promise<boolean> {

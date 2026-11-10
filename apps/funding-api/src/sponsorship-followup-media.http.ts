@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type {
@@ -11,8 +11,13 @@ import type {
 } from '@openg7/funding-core';
 
 import { isSafeSponsorshipText } from '../../../packages/funding-core/src/index.js';
-import { normalizeSponsorMediaUsage } from '../../../packages/funding-core/src/index.js';
+import {
+  normalizeSponsorMediaUsage,
+  normalizeSponsorMediaTermsAcceptance,
+  type SponsorMediaTermsAcceptance
+} from '../../../packages/funding-core/src/index.js';
 
+import { ModerationError } from './moderation/policy.js';
 import type { AdminAuditLogInput } from './fund-admin.repository.js';
 import type { SponsorshipFollowupLookup } from './fund-contributions.repository.js';
 import {
@@ -58,6 +63,11 @@ const sponsorMediaPrivateBaseKey = (
 
 /** Follow-up media ports retain payment refresh, persistence and storage in composition. */
 export interface SponsorshipFollowupMediaHttpDependencies {
+  readonly readUploadReceipt: (
+    contributionId: string,
+    requestId: string,
+    fingerprint?: string
+  ) => Promise<SponsorMediaUploadResult | null>;
   readonly getSponsorMediaPreference?: (
     contributionId: string
   ) => Promise<import('@openg7/funding-core').SponsorMediaPreference>;
@@ -144,6 +154,7 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
   routeAssetId,
   getFreshSponsorshipFollowupByToken,
   getSponsorMediaPreference,
+  readUploadReceipt,
   listSponsorMediaAssets,
   getSponsorMediaStorageRecord,
   checkSponsorMediaUpload,
@@ -162,6 +173,50 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      request.method === 'GET' &&
+      routeMatches(
+        request.url,
+        '/sponsorship-followup/media/upload-receipt',
+        '/api/sponsorship-followup/media/upload-receipt'
+      )
+    ) {
+      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
+      const token = firstHeaderValue(
+          request.headers['x-sponsorship-followup-token']
+        ),
+        requestId = params.get('requestId');
+      const receiptJson = (status: number, payload: unknown) =>
+        writeJson(request, response, status, payload, {
+          'Cache-Control': 'private, no-store'
+        });
+      if (!isValidFollowupToken(token) || !isValidUuid(requestId)) {
+        receiptJson(400, {
+          code: 'INVALID_MEDIA_RECEIPT',
+          error: 'A private token and request identifier are required.'
+        });
+        return true;
+      }
+      try {
+        if (!databaseAvailable() || !readUploadReceipt)
+          throw new ModerationError('MEDIA_RECEIPT_UNAVAILABLE', 503);
+        const followup = await getFreshSponsorshipFollowupByToken(token);
+        if (!followup) throw new ModerationError('SPONSORSHIP_NOT_FOUND', 404);
+        const result = await readUploadReceipt(
+          followup.contributionId,
+          requestId.toLowerCase()
+        );
+        receiptJson(200, result ? { found: true, result } : { found: false });
+      } catch (error) {
+        const status = error instanceof ModerationError ? error.status : 503;
+        const code =
+          error instanceof ModerationError
+            ? error.code
+            : 'MEDIA_RECEIPT_UNAVAILABLE';
+        receiptJson(status, { code, error: code });
+      }
+      return true;
+    }
     if (
       request.method === 'GET' &&
       routeMatches(
@@ -316,23 +371,42 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           ?.data.toString('utf8')
           .trim() ?? '';
       const token = textPart('token');
+      const requestId = textPart('requestId').toLowerCase();
       const kind = parseSponsorMediaKind(textPart('kind'));
       const altText = textPart('altText') || null;
       const file = parts.find((part) => part.name === 'media');
       let usage: import('@openg7/funding-core').SponsorMediaUsageRights;
+      let termsAcceptance: SponsorMediaTermsAcceptance;
       try {
         usage = normalizeSponsorMediaUsage(
           textPart('usage') ? JSON.parse(textPart('usage')) : null
         );
         if (
-          textPart('usage') &&
-          (usage.state !== 'confirmed' || textPart('usageConfirmed') !== 'true')
+          usage.state !== 'confirmed' ||
+          textPart('usageConfirmed') !== 'true'
         )
           throw new Error('Explicit usage confirmation is required.');
       } catch {
         writeJson(request, response, 400, {
           code: 'INVALID_MEDIA_USAGE_REQUEST',
           error: 'Confirm the image usage permissions before uploading.'
+        });
+        return true;
+      }
+      try {
+        termsAcceptance = normalizeSponsorMediaTermsAcceptance(
+          textPart('termsAcceptance')
+            ? JSON.parse(textPart('termsAcceptance'))
+            : null
+        );
+      } catch (error) {
+        const code =
+          error instanceof Error && !(error instanceof SyntaxError)
+            ? error.message
+            : 'INVALID_MEDIA_TERMS_ACCEPTANCE';
+        writeJson(request, response, 400, {
+          code,
+          error: 'Accept the current image usage terms before uploading.'
         });
         return true;
       }
@@ -352,11 +426,14 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
               'altText',
               'media',
               'usage',
-              'usageConfirmed'
+              'usageConfirmed',
+              'requestId',
+              'termsAcceptance'
             ].includes(part.name)
         ) ||
         new Set(parts.map((part) => part.name)).size !== parts.length ||
         !isValidFollowupToken(token) ||
+        !isValidUuid(requestId) ||
         !kind ||
         !file?.filename ||
         file.data.byteLength === 0 ||
@@ -389,6 +466,32 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           });
           return true;
         }
+        const requestFingerprint = createHash('sha256')
+          .update(
+            JSON.stringify({
+              action: 'followup_upload',
+              contributionId: followup.contributionId,
+              kind,
+              filename: file.filename,
+              contentType: file.contentType ?? null,
+              altText,
+              usage,
+              termsAcceptance,
+              originalChecksum: createHash('sha256')
+                .update(file.data)
+                .digest('hex')
+            })
+          )
+          .digest('hex');
+        const previous = await readUploadReceipt(
+          followup.contributionId,
+          requestId,
+          requestFingerprint
+        );
+        if (previous) {
+          writeJson(request, response, 201, previous);
+          return true;
+        }
 
         const eligibility = await checkSponsorMediaUpload(
           followup.contributionId,
@@ -396,6 +499,17 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           sponsorMediaMaxSupportingImages
         );
         if (eligibility !== 'allowed') {
+          // A concurrent winner may have committed after the first receipt read
+          // and consumed the final quota slot. Reconcile before reporting refusal.
+          const concurrent = await readUploadReceipt(
+            followup.contributionId,
+            requestId,
+            requestFingerprint
+          );
+          if (concurrent) {
+            writeJson(request, response, 201, concurrent);
+            return true;
+          }
           const error =
             eligibility === 'supporting_image_limit_reached'
               ? 'The supporting image limit has been reached.'
@@ -447,6 +561,12 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
         stage = 'persistence';
         persistenceAttempted = true;
         const created = await createSponsorMediaAsset({
+          requestId,
+          requestFingerprint,
+          termsAcceptance,
+          originalChecksumSha256: createHash('sha256')
+            .update(image.originalData)
+            .digest('hex'),
           id: assetId,
           contributionId: followup.contributionId,
           kind,
@@ -488,7 +608,13 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           return true;
         }
         persistedAsset = created.asset;
-        if (created.replaced) {
+        if (created.asset.id !== assetId) {
+          await Promise.allSettled([
+            sponsorMediaStorage.deletePrivateObject(originalStorageKey),
+            sponsorMediaStorage.deletePrivateObject(processedStorageKey)
+          ]);
+        }
+        if (created.replaced && created.asset.id === assetId) {
           await deleteSponsorMediaObjects(created.replaced, {
             includePublic: false
           });
@@ -499,6 +625,13 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
         };
         writeJson(request, response, 201, result);
       } catch (error) {
+        if (!persistenceAttempted && error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         let orphaned = !persistenceAttempted;
         let uploaded: boolean | null = persistedAsset ? true : null;
         if (persistenceAttempted && !persistedAsset && assetId) {
@@ -541,6 +674,17 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           stage === 'image'
             ? 'SPONSOR_MEDIA_INVALID_IMAGE'
             : 'SPONSOR_MEDIA_UPLOAD_UNAVAILABLE';
+        if (
+          error instanceof SponsorMediaPersistenceError &&
+          error.rollbackConfirmed &&
+          error.cause instanceof ModerationError
+        ) {
+          writeJson(request, response, error.cause.status, {
+            code: error.cause.code,
+            error: error.cause.code
+          });
+          return true;
+        }
         reportFailure('Failed to upload sponsorship media.', { code });
         writeJson(request, response, stage === 'image' ? 400 : 503, {
           code,

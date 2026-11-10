@@ -1,8 +1,13 @@
 import { computed, signal } from '@angular/core';
-import type {
-  SponsorMediaAsset,
-  SponsorMediaKind,
-  SponsorMediaLimits
+import {
+  normalizeSponsorMediaTermsAcceptance,
+  normalizeSponsorMediaUsage,
+  type SponsorMediaTermsAcceptance,
+  type SponsorMediaUsageRights,
+  type SponsorMediaUploadResult,
+  type SponsorMediaAsset,
+  type SponsorMediaKind,
+  type SponsorMediaLimits
 } from '@openg7/funding-core';
 
 import { BlobPreviewResource } from './blob-preview-resource.js';
@@ -10,6 +15,7 @@ import type { FundingService } from './funding.service.js';
 import {
   getSponsorMediaFileValidationFeedback,
   getSponsorMediaUploadFailureFeedback,
+  SponsorMediaUploadError,
   type SponsorMediaFeedback
 } from './sponsor-media-upload-feedback.js';
 
@@ -17,7 +23,8 @@ export interface SponsorshipMediaUploadAttempt {
   readonly id: number;
   readonly filename: string;
   readonly previewUrl: string;
-  readonly status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+  readonly status:
+    'queued' | 'uploading' | 'uploaded' | 'failed' | 'uncertain' | 'retryable';
   readonly feedback: SponsorMediaFeedback;
   readonly asset?: SponsorMediaAsset;
 }
@@ -28,6 +35,7 @@ export interface SponsorshipFollowupMediaPorts {
     | 'getSponsorshipMedia'
     | 'getSponsorshipMediaPreview'
     | 'uploadSponsorshipMedia'
+    | 'getSponsorshipMediaUploadReceipt'
     | 'deleteSponsorshipMedia'
   >;
   readonly token: () => string;
@@ -40,6 +48,16 @@ export interface SponsorshipFollowupMediaPorts {
 interface MediaScope {
   readonly token: string;
   readonly generation: number;
+}
+
+interface PendingUpload {
+  readonly token: string;
+  readonly requestId: string;
+  readonly kind: SponsorMediaKind;
+  readonly file: File;
+  readonly altText: string;
+  readonly usage: SponsorMediaUsageRights;
+  readonly termsAcceptance: SponsorMediaTermsAcceptance;
 }
 
 /** One follow-up's media state; API responses remain authoritative. */
@@ -56,6 +74,11 @@ export class SponsorshipFollowupMediaController {
   });
   readonly assets = signal<readonly SponsorMediaAsset[]>([]);
   readonly attempts = signal<readonly SponsorshipMediaUploadAttempt[]>([]);
+  readonly hasUnresolvedUpload = computed(() =>
+    this.attempts().some((attempt) =>
+      ['uncertain', 'retryable'].includes(attempt.status)
+    )
+  );
   readonly previews = signal<Record<string, string>>({});
   readonly limits = signal<SponsorMediaLimits>({
     maxUploadBytes: 8 * 1024 * 1024,
@@ -99,6 +122,7 @@ export class SponsorshipFollowupMediaController {
   private disposed = false;
   private readonly resources = new Set<BlobPreviewResource>();
   private readonly attemptResources = new Map<number, BlobPreviewResource>();
+  private readonly pendingUploads = new Map<number, PendingUpload>();
   private previewResources = new Map<string, BlobPreviewResource>();
 
   constructor(private readonly ports: SponsorshipFollowupMediaPorts) {}
@@ -118,18 +142,31 @@ export class SponsorshipFollowupMediaController {
   async uploadMedia(
     kind: SponsorMediaKind,
     files: readonly File[],
-    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
+    usage: SponsorMediaUsageRights,
+    termsAcceptance: SponsorMediaTermsAcceptance
   ): Promise<void> {
     if (this.disposed) return;
     const scope = this.scope();
     if (
       !files.length ||
       this.busy() ||
+      this.hasUnresolvedUpload() ||
+      !this.ports.isBrowser() ||
       !this.ports.canUploadMedia() ||
       !this.loaded() ||
       this.loadError()
     )
       return;
+    let capturedUsage: SponsorMediaUsageRights;
+    let capturedAcceptance: SponsorMediaTermsAcceptance;
+    try {
+      capturedUsage = normalizeSponsorMediaUsage(usage);
+      if (capturedUsage.state !== 'confirmed') return;
+      capturedAcceptance =
+        normalizeSponsorMediaTermsAcceptance(termsAcceptance);
+    } catch {
+      return;
+    }
     if (kind === 'logo' && this.hasApprovedLogo()) return;
     const available =
       kind === 'logo'
@@ -182,16 +219,21 @@ export class SponsorshipFollowupMediaController {
           feedback: { key: 'uploading' }
         });
         try {
-          const result = await this.ports.service.uploadSponsorshipMedia(
-            scope.token,
+          const payload: PendingUpload = {
+            token: scope.token,
             kind,
             file,
-            this.altText(),
-            usage
-          );
+            altText: this.altText(),
+            usage: structuredClone(capturedUsage),
+            termsAcceptance: structuredClone(capturedAcceptance),
+            requestId: globalThis.crypto.randomUUID()
+          };
+          this.pendingUploads.set(attempt.id, payload);
+          const result = await this.sendUpload(payload);
           if (!this.isCurrent(scope)) return;
           accepted++;
           uploaded.push(attempt.id);
+          this.pendingUploads.delete(attempt.id);
           this.updateAttempt(attempt.id, {
             status: 'uploaded',
             asset: result.asset,
@@ -200,10 +242,37 @@ export class SponsorshipFollowupMediaController {
         } catch (error) {
           if (!this.isCurrent(scope)) return;
           failed++;
-          this.updateAttempt(attempt.id, {
-            status: 'failed',
-            feedback: getSponsorMediaUploadFailureFeedback(error, this.limits())
-          });
+          const feedback = getSponsorMediaUploadFailureFeedback(
+            error,
+            this.limits()
+          );
+          if (
+            (error instanceof SponsorMediaUploadError &&
+              error.status >= 400 &&
+              error.status < 500 &&
+              error.status !== 408) ||
+            feedback.key !== 'uploadError'
+          ) {
+            this.pendingUploads.delete(attempt.id);
+            this.updateAttempt(attempt.id, { status: 'failed', feedback });
+          } else {
+            const recovered = await this.reconcileUpload(attempt.id, scope);
+            if (!this.isCurrent(scope)) return;
+            if (recovered) {
+              failed--;
+              accepted++;
+              uploaded.push(attempt.id);
+            } else {
+              // Stop this selection until the receipt is known; do not create new requests.
+              for (const remaining of attempts.slice(index + 1))
+                this.updateAttempt(remaining.id, {
+                  status: 'failed',
+                  feedback: { key: 'uploadPaused' }
+                });
+              failed += attempts.length - index - 1;
+              break;
+            }
+          }
         }
       }
       if (uploaded.length && (await this.loadMedia(scope))) {
@@ -211,13 +280,135 @@ export class SponsorshipFollowupMediaController {
         this.altText.set('');
       }
       if (this.isCurrent(scope))
-        this.message.set({
-          key: 'result',
-          params: { received: accepted, failed }
-        });
+        this.message.set(
+          this.hasUnresolvedUpload()
+            ? { key: 'uploadUncertain' }
+            : {
+                key: 'result',
+                params: { received: accepted, failed }
+              }
+        );
     } finally {
       if (this.isCurrent(scope)) this.setBusy(false);
     }
+  }
+
+  async retryUpload(attempt: SponsorshipMediaUploadAttempt): Promise<void> {
+    const scope = this.scope();
+    const payload = this.pendingUploads.get(attempt.id);
+    if (
+      this.disposed ||
+      this.busy() ||
+      !payload ||
+      payload.token !== scope.token ||
+      !this.ports.canUploadMedia() ||
+      !this.ports.isBrowser()
+    )
+      return;
+    this.setBusy(true);
+    try {
+      const recovered = await this.reconcileUpload(attempt.id, scope);
+      if (!this.isCurrent(scope)) return;
+      if (
+        !recovered &&
+        this.attempts().find((item) => item.id === attempt.id)?.status ===
+          'retryable'
+      ) {
+        this.updateAttempt(attempt.id, {
+          status: 'uploading',
+          feedback: { key: 'uploading' }
+        });
+        try {
+          const result = await this.sendUpload(payload);
+          if (!this.isCurrent(scope)) return;
+          this.pendingUploads.delete(attempt.id);
+          this.updateAttempt(attempt.id, {
+            status: 'uploaded',
+            asset: result.asset,
+            feedback: { key: 'uploaded' }
+          });
+        } catch (error) {
+          if (!this.isCurrent(scope)) return;
+          if (
+            error instanceof SponsorMediaUploadError &&
+            error.status >= 400 &&
+            error.status < 500 &&
+            error.status !== 408
+          ) {
+            this.pendingUploads.delete(attempt.id);
+            this.updateAttempt(attempt.id, {
+              status: 'failed',
+              feedback: getSponsorMediaUploadFailureFeedback(
+                error,
+                this.limits()
+              )
+            });
+          } else await this.reconcileUpload(attempt.id, scope);
+        }
+      }
+      if (
+        this.isCurrent(scope) &&
+        this.attempts().some(
+          (item) => item.id === attempt.id && item.status === 'uploaded'
+        )
+      ) {
+        this.message.set({ key: 'uploaded' });
+        await this.loadMedia(scope);
+      }
+    } finally {
+      if (this.isCurrent(scope)) this.setBusy(false);
+    }
+  }
+
+  private sendUpload(
+    payload: PendingUpload
+  ): Promise<SponsorMediaUploadResult> {
+    return this.ports.service.uploadSponsorshipMedia(
+      payload.token,
+      payload.kind,
+      payload.file,
+      payload.altText,
+      payload.usage,
+      payload.termsAcceptance,
+      payload.requestId
+    );
+  }
+
+  private async reconcileUpload(
+    id: number,
+    scope: MediaScope
+  ): Promise<boolean> {
+    const payload = this.pendingUploads.get(id);
+    if (!payload) return false;
+    try {
+      const receipt = await this.ports.service.getSponsorshipMediaUploadReceipt(
+        payload.token,
+        payload.requestId
+      );
+      if (!this.isCurrent(scope)) return false;
+      if (receipt.found && receipt.result?.asset) {
+        this.pendingUploads.delete(id);
+        this.updateAttempt(id, {
+          status: 'uploaded',
+          asset: receipt.result.asset,
+          feedback: { key: 'uploaded' }
+        });
+        return true;
+      }
+      if (receipt.found !== false)
+        throw new Error('Upload receipt is incomplete.');
+      this.updateAttempt(id, {
+        status: 'retryable',
+        feedback: { key: 'uploadRetryable' }
+      });
+    } catch {
+      if (this.isCurrent(scope))
+        this.updateAttempt(id, {
+          status: 'uncertain',
+          feedback: { key: 'uploadUncertain' }
+        });
+    }
+    return false;
   }
 
   async deleteMedia(asset: SponsorMediaAsset): Promise<boolean> {
@@ -265,7 +456,8 @@ export class SponsorshipFollowupMediaController {
   async dismiss(attempt: SponsorshipMediaUploadAttempt): Promise<void> {
     if (this.disposed) return;
     const scope = this.scope();
-    if (this.busy()) return;
+    if (this.busy() || ['uncertain', 'retryable'].includes(attempt.status))
+      return;
     if (attempt.asset && !(await this.deleteMedia(attempt.asset))) return;
     if (this.isCurrent(scope)) this.removeAttempts([attempt.id]);
   }
@@ -374,6 +566,7 @@ export class SponsorshipFollowupMediaController {
       const resource = this.attemptResources.get(id);
       if (resource) this.release(resource);
       this.attemptResources.delete(id);
+      this.pendingUploads.delete(id);
       update = { ...update, previewUrl: '' };
     }
     this.attempts.update((attempts) =>
@@ -388,6 +581,7 @@ export class SponsorshipFollowupMediaController {
       const resource = this.attemptResources.get(id);
       if (resource) this.release(resource);
       this.attemptResources.delete(id);
+      this.pendingUploads.delete(id);
     }
     this.attempts.update((attempts) =>
       attempts.filter((attempt) => !ids.includes(attempt.id))
@@ -449,6 +643,7 @@ export class SponsorshipFollowupMediaController {
     for (const resource of this.resources) resource.dispose();
     this.resources.clear();
     this.attemptResources.clear();
+    this.pendingUploads.clear();
     this.previewResources.clear();
   }
 

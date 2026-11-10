@@ -6,6 +6,7 @@ export type SponsorMediaReviewStatus =
 export type SponsorMediaUploader = 'sponsor' | 'admin';
 
 export interface SponsorMediaAsset {
+  readonly usageAcceptance?: import('./sponsor-media-terms.js').SponsorMediaUsageAcceptance;
   readonly usage?: import('./sponsor-media-usage.js').SponsorMediaUsageRights;
   readonly usageRestrictionsReviewed?: boolean;
   readonly id: string;

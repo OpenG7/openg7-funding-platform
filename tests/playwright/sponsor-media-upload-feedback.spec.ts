@@ -97,14 +97,13 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
   );
 
   const photoInput = page.getByLabel('Ajouter des photos');
-  await expect(photoInput).toBeDisabled();
-  await confirmAcceptanceMediaUsage(page);
   await expect(photoInput).toBeEnabled();
   await photoInput.setInputFiles({
     name: 'presentation.png',
     mimeType: 'image/png',
     buffer: onePixelPng
   });
+  await confirmAcceptanceMediaUsage(page);
 
   const attempt = page.locator('[data-og7="media-upload-attempt"]');
   await expect(attempt).toBeVisible();
@@ -242,8 +241,6 @@ for (const english of [false, true])
       const input = page.getByLabel(
         english ? 'Add photos' : 'Ajouter des photos'
       );
-      await expect(input).toBeDisabled();
-      await confirmAcceptanceMediaUsage(page);
       await expect(input).toBeEnabled();
       await input.setInputFiles([
         {
@@ -253,6 +250,7 @@ for (const english of [false, true])
         },
         { name: 'unsupported.gif', mimeType: 'image/gif', buffer: onePixelPng }
       ]);
+      await confirmAcceptanceMediaUsage(page);
       const attempts = page.locator('[data-og7="media-upload-attempt"]');
       await expect(attempts).toHaveCount(2);
       await expect(
@@ -289,13 +287,13 @@ test('uploaded attempt requires explicit deletion confirmation and sends the sav
   const token = 'e2e-delete-media-fixture-local-only-0000000001';
   await page.goto('/fonds-des-batisseurs/suivi-commandite?token=' + token);
   const input = page.getByLabel('Ajouter des photos');
-  await confirmAcceptanceMediaUsage(page);
   await expect(input).toBeEnabled();
   await input.setInputFiles({
     name: 'presentation.png',
     mimeType: 'image/png',
     buffer: onePixelPng
   });
+  await confirmAcceptanceMediaUsage(page);
   const attempt = page.locator('[data-og7="media-upload-attempt"]');
   await expect(attempt).toContainText('Téléversement réussi');
   const remove = attempt.getByRole('button', {

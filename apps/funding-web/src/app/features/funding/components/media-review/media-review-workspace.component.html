@@ -300,7 +300,7 @@
                   type="button"
                   class="admin-button"
                   [disabled]="!c.canWrite()"
-                  (click)="commands.form.set('batch')"
+                  (click)="commands.reset(); commands.form.set('batch')"
                 >
                   {{ t('newBatch') }}
                 </button>
@@ -681,7 +681,7 @@
                   type="button"
                   class="admin-button primary"
                   [disabled]="!canAction('approve', true)"
-                  (click)="commands.prepare('approve', asset)"
+                  (click)="startMediaReview(asset)"
                   data-og7="media-inspector-approve"
                 >
                   {{ t('reviewApprove') }}</button

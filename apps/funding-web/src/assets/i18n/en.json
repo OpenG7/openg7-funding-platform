@@ -335,6 +335,11 @@
       }
     },
     "policyPage": {
+      "mediaTerms": {
+        "title": "Image usage",
+        "version": "Version: {{version}}",
+        "acceptanceHelp": "Permission is collected in your private follow-up for the files and uses you confirm."
+      },
       "hero": {
         "kicker": "Public terms",
         "title": "Usage and refund policy",
@@ -1773,8 +1778,23 @@
         "exactJpeg": "Exact JPEG prepared for this delivery",
         "sourcePreview": "Source file preview. Save to verify the final JPEG before approving.",
         "requiredCredit": "Credit to retain in the final text or image",
+        "selectedFiles": "Files selected for this upload",
+        "sendSelected": "Approve and send these files",
+        "uploadPaused": "This file was not sent. Check the outcome of the previous upload first.",
+        "uploadUncertain": "The outcome of this upload is uncertain. Check its receipt before retrying.",
+        "uploadRetryable": "No receipt was found. You may retry this exact upload without creating a new request.",
+        "verifyUpload": "Check the receipt and resume if needed",
+        "retryExactUpload": "Check and retry this upload",
         "usage": {
           "title": "Image usage permissions",
+          "scopeSummary": "Your agreement covers only the displayed files and these uses:",
+          "customize": "Customize permissions",
+          "readTerms": "Read the image usage terms",
+          "termsVersion": "Terms version: {{version}}",
+          "automaticEvidence": "After your confirmation and successful saving, the platform records the terms version, date and permissions associated with each file.",
+          "termsConfirmation": "I accept the image usage terms for the displayed files and stated uses. I confirm that I hold the rights needed to grant these permissions.",
+          "approveContinue": "Approve and continue",
+          "cancel": "Cancel",
           "separate": "These permissions apply to the selected image. They do not confirm payment, editorial review or publication.",
           "historical": "Permissions for this historical file still need confirmation. No usage is presumed.",
           "suggestedScope": "Channels and destinations were prefilled from this dossier’s services that accept images. Check that the permission evidence covers these choices.",

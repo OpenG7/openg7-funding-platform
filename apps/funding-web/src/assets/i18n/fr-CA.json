@@ -335,6 +335,11 @@
       }
     },
     "policyPage": {
+      "mediaTerms": {
+        "title": "Utilisation des images",
+        "version": "Version : {{version}}",
+        "acceptanceHelp": "L’autorisation est recueillie dans votre suivi privé pour les fichiers et usages que vous confirmez."
+      },
       "hero": {
         "kicker": "Conditions publiques",
         "title": "Politique d’utilisation et de remboursement",
@@ -1773,8 +1778,23 @@
         "exactJpeg": "JPEG exact préparé pour cet envoi",
         "sourcePreview": "Aperçu du fichier source. Enregistrez pour vérifier le JPEG final avant approbation.",
         "requiredCredit": "Crédit à conserver dans le texte ou le visuel final",
+        "selectedFiles": "Fichiers sélectionnés pour cet envoi",
+        "sendSelected": "Approuver et envoyer ces fichiers",
+        "uploadPaused": "Ce fichier n’a pas été envoyé. Vérifiez d’abord le résultat de l’envoi précédent.",
+        "uploadUncertain": "Le résultat de cet envoi est incertain. Vérifiez son reçu avant toute reprise.",
+        "uploadRetryable": "Aucun reçu n’a été trouvé. Vous pouvez reprendre exactement cet envoi sans créer une nouvelle demande.",
+        "verifyUpload": "Vérifier le reçu et reprendre si nécessaire",
+        "retryExactUpload": "Vérifier et reprendre cet envoi",
         "usage": {
           "title": "Autorisations d’usage de l’image",
+          "scopeSummary": "L’accord porte uniquement sur les fichiers affichés et les usages suivants :",
+          "customize": "Personnaliser les autorisations",
+          "readTerms": "Lire les conditions d’utilisation des images",
+          "termsVersion": "Version des conditions : {{version}}",
+          "automaticEvidence": "Après votre confirmation et l’enregistrement réussi, la plateforme conserve la version des conditions, la date et les autorisations associées à chaque fichier.",
+          "termsConfirmation": "J’accepte les conditions d’utilisation des images pour les fichiers affichés et les usages indiqués. Je confirme disposer des droits nécessaires pour accorder ces autorisations.",
+          "approveContinue": "Approuver et continuer",
+          "cancel": "Annuler",
           "separate": "Ces autorisations concernent l’image choisie. Elles ne confirment ni le paiement, ni la revue éditoriale, ni une publication.",
           "historical": "Les autorisations de ce fichier historique restent à confirmer. Aucun usage n’est présumé.",
           "suggestedScope": "Les canaux et destinations sont préremplis à partir des prestations du dossier qui acceptent des images. Vérifiez que la preuve d’autorisation couvre ces choix.",

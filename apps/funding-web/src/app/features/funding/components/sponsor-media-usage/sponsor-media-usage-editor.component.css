@@ -26,6 +26,12 @@ p {
   overflow-wrap: anywhere;
 }
 
+summary {
+  padding-block: 0.5rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
 [role='alert'] {
   color: var(--admin-danger, var(--color-danger));
 }
@@ -119,6 +125,11 @@ button:disabled {
 input:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
+  outline: 3px solid var(--admin-focus, var(--color-primary));
+  outline-offset: 3px;
+}
+
+summary:focus-visible {
   outline: 3px solid var(--admin-focus, var(--color-primary));
   outline-offset: 3px;
 }

@@ -1185,13 +1185,12 @@ test('media uses server limits, preserves uploads after refresh failure and conf
   });
   await visit(page);
   const input = page.getByLabel('Ajouter des photos', { exact: true });
-  await expect(input).toBeDisabled();
-  await confirmAcceptanceMediaUsage(page);
   await expect(input).toBeEnabled();
   await input.setInputFiles([
     { name: 'invalid.gif', mimeType: 'image/gif', buffer: png },
     { name: 'atelier.png', mimeType: 'image/png', buffer: png }
   ]);
+  await confirmAcceptanceMediaUsage(page);
   await expect(
     page.getByRole('alert').filter({ hasText: 'Les médias' })
   ).toBeVisible();
@@ -1283,8 +1282,6 @@ for (const english of [false, true]) {
       english ? 'Add photos' : 'Ajouter des photos',
       { exact: true }
     );
-    await expect(input).toBeDisabled();
-    await confirmAcceptanceMediaUsage(page);
     await expect(input).toBeEnabled();
     const files = [1, 2, 3, 4].map((number) => ({
       name: `photo-${number}.png`,
@@ -1293,10 +1290,12 @@ for (const english of [false, true]) {
     }));
     if (english) {
       await input.setInputFiles(files.slice(0, 2));
+      await confirmAcceptanceMediaUsage(page);
       await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(2);
       await expect(input).toBeEnabled();
     }
     await input.setInputFiles(english ? files.slice(2) : files);
+    await confirmAcceptanceMediaUsage(page);
     await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(3);
     await expect(input).toBeDisabled();
     expect(posts).toBe(3);

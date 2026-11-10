@@ -6,6 +6,9 @@ import type {
 } from '@openg7/funding-core';
 
 export interface SponsorMediaAssetRow {
+  readonly original_checksum_sha256?: string | null;
+  readonly usage_acceptance?:
+    import('@openg7/funding-core').SponsorMediaUsageAcceptance | null;
   readonly usage_rights?: import('@openg7/funding-core').SponsorMediaUsageRights;
   readonly usage_restrictions_reviewed?: boolean;
   readonly id: string;
@@ -40,6 +43,8 @@ export interface SponsorMediaStorageRecord extends SponsorMediaAsset {
 }
 
 export interface CreateSponsorMediaAssetInput {
+  readonly termsAcceptance?: import('@openg7/funding-core').SponsorMediaTermsAcceptance;
+  readonly originalChecksumSha256?: string;
   readonly requestId?: string;
   readonly requestFingerprint?: string;
   readonly usage?: import('@openg7/funding-core').SponsorMediaUsageRights;

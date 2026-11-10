@@ -337,6 +337,7 @@ export * from './sponsorship-obligation-timing.js';
 export * from './publication-reliability.js';
 export * from './sponsorship-publication-formats.js';
 export * from './sponsor-media-usage.js';
+export * from './sponsor-media-terms.js';
 export * from './sponsor-media-review.js';
 export type {
   PublicationObligationSnapshot,

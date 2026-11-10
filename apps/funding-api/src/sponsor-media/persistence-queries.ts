@@ -5,6 +5,7 @@ import { moderationVisibleSql } from '../moderation/policy.js';
 import type { SponsorMediaAssetRow } from './persistence-contracts.js';
 
 export const selectAssetColumns = `
+  original_checksum_sha256,
   usage_rights,
   usage_restrictions_reviewed,
   id,
@@ -34,7 +35,7 @@ export const selectAssetColumns = `
 /** Reads resolve references; RETURNING keeps the immutable uploaded license facts. */
 export const selectEffectiveAssetColumns = selectAssetColumns.replace(
   'usage_rights,',
-  'sponsor_media_effective_usage(id) AS usage_rights,'
+  'sponsor_media_effective_usage(id) AS usage_rights, sponsor_media_current_usage_acceptance(id) AS usage_acceptance,'
 );
 
 export const getAssetForUpdate = async (

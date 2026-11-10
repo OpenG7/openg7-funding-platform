@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import test from 'node:test';
+import { getSponsorMediaUsageTerms } from '../dist/packages/funding-core/src/index.js';
 
 test(
   'follow-up HTTP rejects malformed bodies, oversize uploads and ineligible media before decoding',
@@ -155,8 +156,27 @@ test(
       assert.equal((await post('/details', JSON.stringify(valid))).status, 404);
       const upload = (size, token = 'a'.repeat(43), duplicate = false) => {
         const body = new FormData();
+        const { text: _termsText, ...terms } =
+          getSponsorMediaUsageTerms('fr-CA');
         body.set('token', token);
         body.set('kind', 'supporting_image');
+        body.set('requestId', '10000000-0000-4000-8000-000000000001');
+        body.set(
+          'termsAcceptance',
+          JSON.stringify({ ...terms, accepted: true })
+        );
+        body.set('usageConfirmed', 'true');
+        body.set(
+          'usage',
+          JSON.stringify({
+            state: 'confirmed',
+            channels: ['website'],
+            targets: ['openg7'],
+            transformations: ['technical'],
+            credit: null,
+            restrictions: null
+          })
+        );
         body.set(
           'media',
           new Blob([Buffer.alloc(size)], { type: 'image/png' }),

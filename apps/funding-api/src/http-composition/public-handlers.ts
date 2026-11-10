@@ -70,6 +70,7 @@ import {
   submitSponsorshipDraft
 } from '../sponsorship-access.service.js';
 import { createSponsorshipFollowupMediaHttpHandler } from '../sponsorship-followup-media.http.js';
+import { readSponsorMediaFollowupUploadReceipt } from '../sponsor-media/followup-upload-receipt.js';
 import { createSponsorMediaUsageHttpHandler } from '../sponsor-media-usage.http.js';
 import { getSponsorMediaPreference } from '../sponsor-media-usage.repository.js';
 import { createSponsorshipFollowupHttpHandler } from '../sponsorship-followup.http.js';
@@ -170,6 +171,13 @@ export const createPublicHttpHandlers = ({
     reportFailure: (message, error) => console.error(message, error)
   });
   const handleSponsorshipMedia = createSponsorshipFollowupMediaHttpHandler({
+    readUploadReceipt: (contributionId, requestId, fingerprint) =>
+      readSponsorMediaFollowupUploadReceipt(
+        dbPool,
+        contributionId,
+        requestId,
+        fingerprint
+      ),
     publicBaseOrigin,
     databaseAvailable: () => hasDatabase,
     sponsorMediaMaxBytes,

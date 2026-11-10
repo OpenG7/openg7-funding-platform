@@ -287,6 +287,15 @@ par défaut. `MIGRATIONS_DIR` désigne le répertoire **complet** des migrations
 
 ## Registre et réexécution
 
+La migration `070_sponsor_media_terms_acceptance.sql` ajoute le registre immuable
+des conditions d’usage des images acceptées dans le suivi commanditaire. Elle
+conserve texte, version, langue, usages et empreintes; le rôle API reçoit lecture
+et insertion, sans modification ni suppression. Les historiques existants ne
+sont pas réécrits et aucun accord n’est reconstruit. Appliquer la migration et
+les grants avant de livrer ensemble API et Web : l’envoi public exige désormais
+une acceptation explicite et un UUID stable. Voir le
+[parcours d’acceptation et de reprise](../technical/sponsor-media-usage.md#conditions-dutilisation-et-preuve-automatique).
+
 Les migrations `060_sponsor_media_workspace.sql` et `061_sponsor_media_analysis.sql`
 ajoutent les règles média versionnées, lots, plans/reçus collectifs, sélection Web
 et analyses privées. Elles ne lancent aucun traitement ni publication. Les médias

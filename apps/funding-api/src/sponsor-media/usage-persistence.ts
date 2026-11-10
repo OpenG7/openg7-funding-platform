@@ -7,7 +7,11 @@ import type {
   SponsorMediaUsageRights
 } from '@openg7/funding-core';
 
-import { normalizeSponsorMediaUsage } from '../../../../packages/funding-core/src/index.js';
+import {
+  normalizeSponsorMediaUsage,
+  normalizeSponsorMediaTermsAcceptance,
+  type SponsorMediaTermsAcceptance
+} from '../../../../packages/funding-core/src/index.js';
 import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { lockModerationDependencies } from '../moderation/content.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
@@ -18,6 +22,7 @@ import {
   selectAssetColumns
 } from './persistence-queries.js';
 import type { SponsorMediaAssetRow } from './persistence-contracts.js';
+import { recordSponsorMediaTermsAcceptance } from './terms-acceptance.js';
 
 export class SponsorMediaUsageError extends Error {
   constructor(
@@ -166,6 +171,7 @@ export async function updateSponsorMediaUsage(
     readonly actor: string;
     readonly usage: SponsorMediaUsageRights;
     readonly evidenceReference?: string;
+    readonly termsAcceptance?: SponsorMediaTermsAcceptance;
   }
 ): Promise<{ updated: true; asset: SponsorMediaAsset }> {
   let usage: SponsorMediaUsageRights;
@@ -181,11 +187,36 @@ export async function updateSponsorMediaUsage(
   );
   if (input.evidenceReference !== undefined)
     ensure(text(input.evidenceReference), 'MEDIA_USAGE_EVIDENCE_REQUIRED', 400);
+  let termsAcceptance: SponsorMediaTermsAcceptance | undefined;
+  if (
+    input.termsAcceptance !== undefined ||
+    (input.actor === 'sponsor-followup' && usage.state === 'confirmed')
+  ) {
+    try {
+      termsAcceptance = normalizeSponsorMediaTermsAcceptance(
+        input.termsAcceptance
+      );
+    } catch (error) {
+      throw new SponsorMediaUsageError(
+        error instanceof Error
+          ? error.message
+          : 'INVALID_MEDIA_TERMS_ACCEPTANCE',
+        400
+      );
+    }
+    ensure(
+      input.actor === 'sponsor-followup' && usage.state === 'confirmed',
+      'INVALID_MEDIA_TERMS_ACCEPTANCE',
+      400
+    );
+  }
   const payload = {
     assetId: input.assetId,
     expectedVersion: input.expectedVersion,
     usage,
-    evidenceReference: input.evidenceReference?.trim() ?? null
+    evidenceReference: input.evidenceReference?.trim() ?? null,
+    actor: input.actor,
+    ...(termsAcceptance ? { termsAcceptance } : {})
   };
   return command(
     pool,
@@ -198,6 +229,11 @@ export async function updateSponsorMediaUsage(
         404
       );
       ensure(current!.version === input.expectedVersion, 'VERSION_CONFLICT');
+      ensure(
+        !termsAcceptance || !!current!.original_checksum_sha256,
+        'MEDIA_ORIGINAL_CHECKSUM_REQUIRED',
+        409
+      );
       const row = (
         await db.query<SponsorMediaAssetRow>(
           `UPDATE sponsor_media_assets SET usage_rights=$2::jsonb,usage_inheritance='legacy',
@@ -206,19 +242,37 @@ export async function updateSponsorMediaUsage(
           [input.assetId, JSON.stringify(usage)]
         )
       ).rows[0]!;
+      const usageAcceptance = termsAcceptance
+        ? await recordSponsorMediaTermsAcceptance(db, {
+            assetId: input.assetId,
+            contributionId: input.contributionId,
+            requestId: input.requestId,
+            termsAcceptance,
+            usage,
+            originalChecksumSha256: current!.original_checksum_sha256!,
+            processedChecksumSha256: current!.checksum_sha256
+          })
+        : undefined;
       await db.query(
-        `INSERT INTO sponsor_media_usage_history(asset_id,contribution_id,request_id,usage_rights,evidence_reference,actor)
-      VALUES($1,$2,$3,$4::jsonb,$5,$6)`,
+        `INSERT INTO sponsor_media_usage_history(asset_id,contribution_id,request_id,usage_rights,evidence_reference,actor,terms_acceptance_id)
+      VALUES($1,$2,$3,$4::jsonb,$5,$6,$7)`,
         [
           input.assetId,
           input.contributionId,
           input.requestId,
           JSON.stringify(usage),
           input.evidenceReference?.trim() ?? null,
-          input.actor
+          input.actor,
+          usageAcceptance?.id ?? null
         ]
       );
-      return { updated: true, asset: mapAsset(row) };
+      return {
+        updated: true,
+        asset: {
+          ...mapAsset(row),
+          ...(usageAcceptance ? { usageAcceptance } : {})
+        }
+      };
     }
   );
 }

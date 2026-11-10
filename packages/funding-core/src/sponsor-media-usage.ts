@@ -154,6 +154,7 @@ export function sponsorMediaUsageIssue(
 }
 
 export interface SponsorMediaUsageRequest {
+  readonly termsAcceptance?: import('./sponsor-media-terms.js').SponsorMediaTermsAcceptance;
   readonly token: string;
   readonly requestId: string;
   readonly assetId: string;
