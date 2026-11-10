@@ -1373,14 +1373,33 @@ for (const language of ['fr-CA', 'en'] as const) {
       await hook(page, 'campaigns-search').fill('Atelier');
       await openAdvancedFilters(page);
       await hook(page, 'campaigns-sort').selectOption('paid_at');
-      await hook(page, 'campaigns-apply').click();
-      await expect
-        .poll(() => fixture.queries.at(-1)?.get('sort'))
-        .toBe('paid_at');
+      let releaseFilteredRead!: () => void;
+      fixture.gate = new Promise<void>((resolve) => {
+        releaseFilteredRead = resolve;
+      });
+      try {
+        await hook(page, 'campaigns-apply').click();
+        await expect
+          .poll(() => fixture.queries.at(-1)?.get('sort'))
+          .toBe('paid_at');
+        await expect(hook(page, 'campaigns-refresh')).toBeDisabled();
+        await expect(hook(page, 'campaigns-list')).toHaveAttribute(
+          'aria-busy',
+          'true'
+        );
+      } finally {
+        fixture.gate = null;
+        releaseFilteredRead();
+      }
       await expect(hook(page, 'campaigns-refresh')).toBeEnabled();
+      await expect(hook(page, 'campaigns-list')).toHaveAttribute(
+        'aria-busy',
+        'false'
+      );
       const readsBeforeSelection = fixture.queries.length;
       const selected = hook(page, 'campaign-row').first();
       await selected.focus();
+      await expect(selected).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
       await expect(selected).toHaveAttribute('aria-pressed', 'true');
