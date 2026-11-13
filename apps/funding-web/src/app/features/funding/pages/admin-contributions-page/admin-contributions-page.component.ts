@@ -4,12 +4,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
   OnInit,
+  afterNextRender,
   computed,
   effect,
   inject,
   signal,
-  untracked
+  untracked,
+  viewChild
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,6 +24,7 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
+import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminContributionsSummaryComponent } from './admin-contributions-summary.component.js';
@@ -46,6 +50,7 @@ import type {
     AdminLayoutComponent,
     AdminAutomaticPreparationDirective,
     AdminStripeBackfillComponent,
+    AdminDrawerComponent,
     AdminContributionsSummaryComponent,
     AdminContributionsFiltersComponent,
     AdminContributionsListComponent,
@@ -70,10 +75,35 @@ export class AdminContributionsPageComponent implements OnInit {
   private readonly router = inject(Router);
   private sessionExpired = false;
   private readonly destroy = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly stripeBackfill = viewChild(AdminStripeBackfillComponent);
+  readonly refreshChoicesOpen = signal(false);
   readonly adminToken = signal<string>('');
   readonly canExport = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
+  readonly canOpenStripe = computed(() => {
+    const stripe = this.stripeBackfill();
+    return (
+      !!stripe &&
+      stripe.canRun() &&
+      !stripe.busy() &&
+      !stripe.confirming() &&
+      !this.confirmation.pending()
+    );
+  });
+  readonly stripePreviewScope = computed(() => {
+    const stripe = this.stripeBackfill();
+    return stripe
+      ? { from: stripe.from(), to: stripe.to(), limit: stripe.limit() }
+      : null;
+  });
+  readonly stripeNeedsReceipt = computed(() => {
+    const stripe = this.stripeBackfill();
+    return (
+      !!stripe && (stripe.uncertain() || stripe.run()?.status === 'running')
+    );
+  });
   private readonly controller = new AdminContributionsController({
     admin: this.admin,
     token: () => this.adminToken(),
@@ -130,6 +160,7 @@ export class AdminContributionsPageComponent implements OnInit {
       identity = nextIdentity;
       sessionGeneration = nextGeneration;
       untracked(() => {
+        this.refreshChoicesOpen.set(false);
         this.controller.notifyAccessChanged();
         this.exportWorkflow.clearError();
         if (sessionChanged) this.expireSession();
@@ -147,6 +178,7 @@ export class AdminContributionsPageComponent implements OnInit {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
+        this.refreshChoicesOpen.set(false);
         this.controller.setRouteContribution(params.get('contributionId'));
         void this.loadContributions();
       });
@@ -157,7 +189,40 @@ export class AdminContributionsPageComponent implements OnInit {
     return this.controller.load();
   }
 
+  requestRefresh(): void {
+    if (this.state() === 'loading' || this.refreshChoicesOpen()) return;
+    if (!this.canExport()) {
+      void this.loadContributions();
+      return;
+    }
+    this.refreshChoicesOpen.set(true);
+  }
+
+  reloadLocalContributions(): void {
+    if (!this.refreshChoicesOpen()) return;
+    this.refreshChoicesOpen.set(false);
+    void this.loadContributions();
+  }
+
+  openStripeSynchronization(): void {
+    if (!this.refreshChoicesOpen() || !this.canOpenStripe()) return;
+    const sessionGeneration = this.admin.sessionGeneration();
+    this.refreshChoicesOpen.set(false);
+    afterNextRender(
+      () => {
+        if (
+          !this.destroy.destroyed &&
+          sessionGeneration === this.admin.sessionGeneration() &&
+          this.canOpenStripe()
+        )
+          void this.stripeBackfill()?.previewFromRefresh();
+      },
+      { injector: this.injector }
+    );
+  }
+
   private expireSession(clearSession = false): void {
+    this.refreshChoicesOpen.set(false);
     this.controller.notifyAccessChanged();
     this.exportWorkflow.clearError();
     this.adminToken.set('');

@@ -450,6 +450,15 @@
         "interrupted": "Execution was interrupted and may be partial. Review contributions and the audit log, then prepare a new preview before resuming."
       }
     },
+    "contributionsRefresh": {
+      "title": "Refresh contributions",
+      "description": "Choose which data to refresh.",
+      "local": "Reload local data",
+      "localHelp": "Shows the data already recorded in the platform.",
+      "stripeHelp": "Preview recovery for this period, then confirm the import. Several contributions may be included.",
+      "receiptHelp": "Check the result of the previous synchronization before preparing a new preview.",
+      "cancel": "Cancel"
+    },
     "contributionsExport": {
       "scopeOne": "The CSV contains the contribution displayed after filtering.",
       "confirmOne": "Export the private data of the displayed contribution to a CSV file?",

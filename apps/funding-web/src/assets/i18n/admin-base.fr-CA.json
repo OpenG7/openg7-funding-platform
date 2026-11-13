@@ -450,6 +450,15 @@
         "interrupted": "L’exécution a été interrompue et peut être partielle. Consultez les contributions et le journal, puis préparez un nouvel aperçu avant de reprendre."
       }
     },
+    "contributionsRefresh": {
+      "title": "Actualiser les contributions",
+      "description": "Choisissez les données à actualiser.",
+      "local": "Recharger les données locales",
+      "localHelp": "Affiche les données déjà enregistrées dans la plateforme.",
+      "stripeHelp": "Prévisualisez le rattrapage pour cette période, puis confirmez la récupération. Plusieurs contributions peuvent être concernées.",
+      "receiptHelp": "Vérifiez le résultat de la synchronisation précédente avant de préparer un nouvel aperçu.",
+      "cancel": "Annuler"
+    },
     "contributionsExport": {
       "scopeOne": "Le CSV contient la contribution affichée après filtrage.",
       "confirmOne": "Exporter les données privées de la contribution affichée dans un fichier CSV ?",
