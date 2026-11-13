@@ -31,16 +31,16 @@ Les anciens blocs visuels ont les destinations suivantes. Les composants métier
 et leurs contrats restent réutilisés; les formulaires ne sont pas conservés dans
 des accordéons de Publication.
 
-| Ancienne zone                                                 | Propriétaire dans le nouveau parcours                                            |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Atelier, propositions complètes et adoption                   | Espace de préparation du Comptoir, `AdminPublicationWorkshopComponent`           |
-| Contrôles administratifs et approbation du dossier            | Même espace, `AdminSponsorshipPreparationComponent`                              |
-| Accord, qualification historique et ajustements               | Publication, `AdminSponsorshipCommitmentsComponent`, section `dossier-agreement` |
-| Réglages du profil, visibilité Web et suivi social déclaré    | Fiche et Médias, formulaire et workflow natifs                                   |
-| Édition et revue d’une prestation                             | Examiner sur l’obligation exacte                                                 |
-| Programmation, autorisation et incident de livraison          | Contrôleur et tiroir de livraison existants                                      |
-| Preuves et historique                                         | Détails de la prestation, Suivi des prestations et Historique                    |
-| Grandes synthèses, guide en six étapes et panneaux redondants | Retirés du suivi; aucune seconde procédure de validation                         |
+| Ancienne zone                                                 | Propriétaire dans le nouveau parcours                                                   |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Atelier, propositions complètes et adoption                   | Espace de préparation du Comptoir, `AdminPublicationWorkshopComponent`                  |
+| Contrôles administratifs et approbation du dossier            | Même espace, `AdminSponsorshipPreparationComponent`                                     |
+| Accord, qualification historique et ajustements               | Outils du dossier → Accord, `AdminSponsorshipCommitmentsComponent`, ouvert à la demande |
+| Réglages du profil, visibilité Web et suivi social déclaré    | Fiche et Médias, formulaire et workflow natifs                                          |
+| Édition et revue d’une prestation                             | Examiner sur l’obligation exacte                                                        |
+| Programmation, autorisation et incident de livraison          | Contrôleur et tiroir de livraison existants                                             |
+| Preuves et historique                                         | Détails de la prestation, Suivi des prestations et Historique                           |
+| Grandes synthèses, guide en six étapes et panneaux redondants | Retirés du suivi; aucune seconde procédure de validation                                |
 
 ## Contrats et versions
 
@@ -119,8 +119,14 @@ Les parcours utilisent uniquement des identifiants de navigation :
 - `publicationReturn` conserve l’identifiant UUID du dossier pour le retour au
   suivi. Le Comptoir et Examiner construisent un lien interne fixe; aucune URL
   de retour arbitraire n’est exécutée.
-- Accord : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=publication#dossier-agreement`.
-  Réglages du profil : même route avec `tab=media#dossier-website-settings`.
+- Accord : bouton **Accord** dans la barre d’outils globale du dossier, accessible
+  depuis chaque onglet. Le panneau n’est monté qu’à sa première ouverture; il ne
+  fait plus partie du contenu permanent de Publication. Les liens existants
+  `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=publication#dossier-agreement`
+  et les fragments `dossier-assistance-source` / `dossier-assistance-review`
+  ouvrent cet outil à la demande. Qualification, ajustements et commandes de
+  délai ou de durée conservent leurs contrôles métier.
+- Réglages du profil : même route avec `tab=media#dossier-website-settings`.
 - Revue administrative du commanditaire : même route avec
   `tab=publication#dossier-review`. L’activité de préparation enregistrée, si
   disponible, reste consultable dans son tiroir depuis l’en-tête de Publication.

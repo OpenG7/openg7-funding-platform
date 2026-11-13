@@ -1,5 +1,6 @@
 {
   "assistant": "Ouvrir l’Assistant pour ce dossier",
+  "agreement": "Accord",
   "servicesSummary": {
     "title": "Suivi des prestations du dossier",
     "total": "{{ count }} prestations enregistrées",

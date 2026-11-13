@@ -39,6 +39,7 @@ import {
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorIdentityTests } from './admin-sponsor-identity.ui.js';
 import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
+import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
@@ -346,14 +347,17 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
         tab: 'identity',
         state: !coordinatesPresent
           ? 'blocked'
-          : current.sponsor_details_submitted_at
+          : current.sponsor_details_submitted_at ||
+              current.sponsor_details_admin_completed_at
             ? 'complete'
             : 'pending',
         reason: !coordinatesPresent
           ? 'identity_missing'
           : current.sponsor_details_submitted_at
             ? 'identity_complete'
-            : 'identity_submission_pending'
+            : current.sponsor_details_admin_completed_at
+              ? 'identity_admin_completed'
+              : 'identity_submission_pending'
       };
       return route.fulfill({
         status: options.status,
@@ -728,7 +732,11 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     if (url.pathname === '/api/admin/sponsorships/details') {
       if (options.detailsGate) await options.detailsGate;
       const input = req.postDataJSON();
-      if (options.detailsStatus === 200)
+      if (options.detailsStatus === 200) {
+        const current = {
+          ...record(input.contributionId),
+          ...options.edited.get(input.contributionId)
+        };
         options.edited.set(input.contributionId, {
           ...options.edited.get(input.contributionId),
           sponsor_company_name: input.companyName,
@@ -736,8 +744,15 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
           sponsor_contact_name: input.contactName || null,
           sponsor_contact_email: input.contactEmail || null,
           sponsor_website_url: input.websiteUrl || null,
+          sponsor_details_admin_completed_at:
+            !current.sponsor_details_submitted_at &&
+            input.companyName.trim() &&
+            input.contactEmail.trim()
+              ? current.sponsor_details_admin_completed_at || date
+              : current.sponsor_details_admin_completed_at,
           version: 'v2'
         });
+      }
       return route.fulfill({
         status: options.detailsStatus,
         json:
@@ -834,6 +849,7 @@ registerPublicationMonitorTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
+registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorsQualityTests({ fixtures, path });
 registerDossierServiceSummaryTests({ fixtures, path, recordedCommitment });
 registerContributionActivityOverlayTests({
@@ -1711,7 +1727,7 @@ test('pending sponsor submission is explained from the dossier through identity 
     .click();
   await expect(
     page.locator('[data-og7="dossier-recommendation"]')
-  ).toContainText('Contact details are present. Waiting for the sponsor');
+  ).toContainText('Contact details are present. The sponsor can submit');
   await dossierNext(page).click();
   const identity = page.locator('#dossier-identity');
   await expect(identity).toBeFocused();

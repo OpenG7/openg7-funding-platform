@@ -57,7 +57,11 @@
                 class="identity-state"
                 data-og7="identity-coordinates-state"
                 [attr.data-state]="
-                  identity.coordinatesComplete ? 'complete' : 'missing'
+                  identity.completedByAdmin
+                    ? 'admin-completed'
+                    : identity.coordinatesComplete
+                      ? 'complete'
+                      : 'missing'
                 "
                 role="status"
                 aria-atomic="true"
@@ -67,18 +71,22 @@
                 }
                 {{
                   'admin.dossier.identityHelp.' +
-                    (identity.coordinatesComplete
-                      ? 'completeLabel'
-                      : 'missingLabel') | translate
+                    (identity.completedByAdmin
+                      ? 'adminCompletedLabel'
+                      : identity.coordinatesComplete
+                        ? 'completeLabel'
+                        : 'missingLabel') | translate
                 }}
               </span>
             </div>
             <p data-og7="identity-coordinates-status" class="identity-help">
               {{
                 'admin.dossier.identityHelp.' +
-                  (identity.coordinatesComplete
-                    ? 'coordinatesComplete'
-                    : 'coordinatesMissing') | translate
+                  (identity.completedByAdmin
+                    ? 'adminCompleted'
+                    : identity.coordinatesComplete
+                      ? 'coordinatesComplete'
+                      : 'coordinatesMissing') | translate
               }}
             </p>
           </div>

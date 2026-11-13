@@ -54,8 +54,16 @@ export interface AdminAssistantContextResponse {
 }
 
 /** Private, admin-only preview. Never supplied to a model provider. */
+export interface AdminMediaConsentSnapshotEntry {
+  readonly id: string;
+  readonly version: string;
+}
+
 export interface AdminInformationRequestPreview {
-  readonly purpose?: 'public_consent';
+  readonly purpose?: 'public_consent' | 'media_consent';
+  /** Present only for a media consent request; no private access token is exposed. */
+  readonly language?: 'fr-CA' | 'en';
+  readonly mediaSnapshot?: readonly AdminMediaConsentSnapshotEntry[];
   readonly contributionId: string;
   readonly contextVersion: string;
   readonly recipient: string;

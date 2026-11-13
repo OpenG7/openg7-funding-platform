@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import { getSponsorMediaUsageTerms } from '@openg7/funding-core';
 import type {
@@ -8,8 +8,15 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
-import { json, mock, visit } from './support/sponsorship-followup.js';
+import {
+  json,
+  mock,
+  path,
+  token,
+  visit
+} from './support/sponsorship-followup.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { createMediaWorkspaceFixture } from './media-review-workspace/fixture.js';
 
 const id = '10000000-0000-4000-8000-000000000402';
 const png = Buffer.from(
@@ -152,6 +159,137 @@ export function registerPrivateMediaUsageTests(): void {
       page.setViewportSize(
         english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
       );
+    test(`image usage shared consent link opens the media list after loading without granting rights ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const second = {
+        ...asset(),
+        id: '10000000-0000-4000-8000-000000000403',
+        originalFilename: 'second-synthetic.png',
+        usage: unknown
+      };
+      const state = await privateMedia(page, [asset(), second]);
+      const posts: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST')
+          posts.push(new URL(request.url()).pathname);
+      });
+      let releaseMedia!: () => void;
+      const mediaGate = new Promise<void>((resolve) => {
+        releaseMedia = resolve;
+      });
+      await page.route(
+        '**/api/sponsorship-followup/media?**',
+        async (route) => {
+          await mediaGate;
+          return route.fallback();
+        }
+      );
+      await page.goto(
+        (english ? '/en' : '') +
+          path +
+          '?token=' +
+          token +
+          '&section=media-consent'
+      );
+      const section = page.locator('[data-og7="followup-media-consent"]');
+      await expect(section).toHaveAttribute('aria-busy', 'true');
+      await expect(section).not.toBeFocused();
+      releaseMedia();
+      await expect(section).toBeFocused();
+      const disclosures = section.locator('[data-og7="followup-media-rights"]');
+      await expect(disclosures).toHaveCount(2);
+      for (const disclosure of await disclosures.all()) {
+        await expect(disclosure).toHaveJSProperty('open', true);
+        await expect(
+          disclosure.locator('[data-og7="media-usage-confirmation"]')
+        ).not.toBeChecked();
+        await expect(
+          disclosure.locator('[data-og7="media-usage-save"]')
+        ).toBeDisabled();
+      }
+      await expect(section).toContainText('synthetic.png');
+      await expect(section).toContainText('second-synthetic.png');
+      const url = new URL(page.url());
+      expect(url.searchParams.has('token')).toBe(false);
+      expect(url.searchParams.get('section')).toBe('media-consent');
+      expect(posts).toEqual([]);
+      expect(state.commands).toEqual([]);
+      expect(state.uploads).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+
+      // A subsequent explicit decision must not reopen other files or steal focus.
+      await disclosures.nth(1).locator(':scope > summary').click();
+      const editor = disclosures
+        .first()
+        .locator('[data-og7="media-usage-editor"]');
+      await editor.locator('[data-og7="media-usage-confirmation"]').check();
+      let releaseSave!: () => void;
+      const saveGate = new Promise<void>((resolve) => {
+        releaseSave = resolve;
+      });
+      await page.route(
+        '**/api/sponsorship-followup/media/usage',
+        async (route) => {
+          await saveGate;
+          return route.fallback();
+        }
+      );
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      await expect(section).toHaveAttribute('aria-busy', 'true');
+      const otherControl = page.locator('[data-og7="followup-open-review"]');
+      await otherControl.focus();
+      releaseSave();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
+      await expect(otherControl).toBeFocused();
+      await expect(disclosures.nth(1)).toHaveJSProperty('open', false);
+      expect(posts).toEqual(['/api/sponsorship-followup/media/usage']);
+      expect(state.commands).toHaveLength(1);
+      expect(state.commands[0]).toMatchObject({
+        assetId: id,
+        expectedVersion: 'v1',
+        confirmed: true,
+        termsAcceptance: { accepted: true, locale: english ? 'en' : 'fr-CA' }
+      });
+      expect(state.assets[1]!.usage).toEqual(unknown);
+    });
+    test(`image usage ignores unknown link sections and keeps consent unchecked ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page, [asset()]);
+      const posts: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST') posts.push(request.url());
+      });
+      await page.goto(
+        (english ? '/en' : '') +
+          path +
+          '?token=' +
+          token +
+          '&section=unknown-section'
+      );
+      const section = page.locator('[data-og7="followup-media-consent"]');
+      await expect(
+        section.locator('[data-og7="followup-media-rights"]')
+      ).toHaveCount(1);
+      await expect(section).toHaveAttribute('aria-busy', 'false');
+      await expect(section).not.toBeFocused();
+      await expect(
+        section.locator('[data-og7="followup-media-rights"]')
+      ).toHaveJSProperty('open', false);
+      await expect(
+        section.locator('[data-og7="media-usage-confirmation"]')
+      ).not.toBeChecked();
+      expect(posts).toEqual([]);
+      expect(state.commands).toEqual([]);
+      expect(state.uploads).toEqual([]);
+    });
     test(`image usage disclosure preserves edits without confirming rights ${suffix}`, async ({
       page
     }) => {
@@ -451,54 +589,22 @@ export function registerPrivateMediaUsageTests(): void {
     });
   }
 }
-function adminWorkspace(media: SponsorMediaAsset[]) {
-  return {
-    contributionId: media[0].contributionId,
-    revision: 'workspace:' + media.map((asset) => asset.version).join(':'),
-    writable: true,
-    rules: [],
-    batches: [],
-    assets: media.map((asset) => ({
-      ...asset,
-      batchId: null,
-      ruleId: null,
-      usageSource: 'media',
-      readiness: {
-        state: asset.usage?.state === 'confirmed' ? 'ready' : 'blocked',
-        reasons: []
-      },
-      moderation: {
-        state: null,
-        level: null,
-        contentVersion: 1,
-        fingerprint: asset.id,
-        currentDecisionId: null
-      },
-      websiteSelected: false
-    }))
-  };
-}
 async function openAdminRights(page: Page): Promise<void> {
   await page
     .locator('[data-og7="media-tile"]')
     .first()
     .getByRole('button')
     .click();
-  const inspector = page.locator('[data-og7="media-inspector"]');
-  const summary = inspector.getByText(/^(Plus d’options|More options)$/);
-  await summary.focus();
-  await page.keyboard.press('Enter');
-  await expect(summary.locator('..')).toHaveJSProperty('open', true);
-  const customize = inspector.getByRole('button', {
-    name: /^(Personnaliser les autorisations|Customize permissions)$/
-  });
-  // Native keyboard activation avoids moving pointer coordinates during mobile scrolling.
-  await expect(customize).toBeVisible();
-  await customize.focus();
-  await expect(customize).toBeFocused();
-  await page.keyboard.press('Enter');
+  const permissions = page
+    .locator('[data-og7="media-inspector"] [data-og7="context-controller"]')
+    .getByRole('button', {
+      name: /^(Autorisations|Permissions)$/,
+      exact: true
+    });
+  await permissions.focus();
+  await permissions.press('Enter');
   await expect(
-    page.locator('dialog[open] [data-og7="media-usage-editor"]')
+    page.locator('dialog[open] [data-og7="media-acceptance-review"]')
   ).toBeVisible();
 }
 interface AdminContext {
@@ -508,15 +614,6 @@ interface AdminContext {
   ): Promise<{ options: { media: SponsorMediaAsset[] } }>;
   path(tab?: string): string;
   asset(): SponsorMediaAsset;
-}
-async function qualifyRights(editor: Locator): Promise<void> {
-  await editor.locator('[data-og7-id="channel:website"]').check();
-  await editor.locator('[data-og7-id="target:openg7"]').check();
-  await editor.locator('[data-og7-id="transform:technical"]').check();
-  await editor
-    .locator('[data-og7="media-usage-evidence"]')
-    .fill('Synthetic private permission record');
-  await editor.locator('[data-og7="media-usage-confirmation"]').check();
 }
 async function adminMediaPage(
   page: Page,
@@ -535,79 +632,65 @@ async function adminMediaPage(
       .click();
 }
 export function registerAdminMediaUsageTests(context: AdminContext): void {
+  const mediaFixture = createMediaWorkspaceFixture(context);
   for (const english of [false, true]) {
     const suffix = english ? 'EN mobile' : 'FR desktop';
-    test(`image usage admin stale qualification refreshes the version before a new confirmed command ${suffix}`, async ({
+    test(`image usage admin stale approval refreshes the file before a new explicit decision ${suffix}`, async ({
       page
     }) => {
-      const { options } = await context.fixtures(page, 'operator');
-      options.media = [{ ...context.asset(), usage: unknown }];
-      const commands: Record<string, unknown>[] = [];
+      const { state, calls } = await mediaFixture(page);
+      const selected = state.assets[0]!;
       await page.route(
-        '**/api/admin/sponsorships/media/rules',
+        '**/api/admin/sponsorships/media/batch/plan',
         async (route) => {
-          const payload = route.request().postDataJSON();
-          commands.push(payload);
-          if (commands.length === 1) {
-            options.media = options.media.map((item) => ({
-              ...item,
-              version: 'v2'
-            }));
-            return json(route, { code: 'VERSION_CONFLICT' }, 409);
-          }
-          options.media = options.media.map((item) => ({
-            ...item,
-            version: 'v3',
-            usage: payload.usage
-          }));
-          return json(route, adminWorkspace(options.media));
+          if (calls.plans.length) return route.fallback();
+          calls.plans.push(route.request().postDataJSON());
+          Object.assign(selected, { version: 'asset-v2' });
+          Object.assign(state, { revision: 'workspace-v2' });
+          return json(route, { code: 'VERSION_CONFLICT' }, 409);
         }
       );
       await adminMediaPage(page, context, english);
       await openAdminRights(page);
-      const card = page.locator('[data-og7="media-inspector"]'),
-        editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
-      await qualifyRights(editor);
-      await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(page.locator('dialog[open]')).toContainText(
-        english ? 'The dossier changed' : 'Le dossier a changé'
+      await page.locator('[data-og7="media-acceptance-approve"]').click();
+      const dialog = page.locator('dialog[open]');
+      await expect(dialog).toContainText(
+        english
+          ? 'The decision could not be prepared. Refresh the media before trying again.'
+          : 'La décision n’a pas pu être préparée. Actualisez les médias avant de réessayer.'
       );
+      expect(calls.executes).toEqual([]);
+      await page.locator('[data-og7="media-acceptance-cancel"]').click();
+      await page.locator('[data-og7="media-refresh"]').click();
       await expect(
-        card.locator('[data-og7="admin-media-usage-retry"]')
-      ).toHaveCount(0);
+        page.locator('[data-og7="media-review-workspace"]')
+      ).toHaveAttribute('aria-busy', 'false');
+      await openAdminRights(page);
+      await page.locator('[data-og7="media-acceptance-approve"]').click();
       await expect(
-        editor.locator('[data-og7="media-usage-confirmation"]')
-      ).not.toBeChecked();
-      await qualifyRights(editor);
-      await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(
-        card.locator('[data-og7="media-inspector-approve"]')
-      ).toBeEnabled();
-      expect(commands).toHaveLength(2);
-      expect(commands.map((command) => command.expectedRevision)).toEqual([
-        'workspace:v1',
-        'workspace:v2'
+        page.locator('[data-og7="media-batch-receipt"]')
+      ).toBeVisible();
+      expect(calls.plans).toHaveLength(2);
+      expect(calls.plans.map((command) => command.expectedRevision)).toEqual([
+        'workspace-v1',
+        'workspace-v2'
       ]);
-      expect(commands[1].requestId).not.toBe(commands[0].requestId);
-      expect(options.media[0].reviewStatus).toBe('pending_review');
+      expect(calls.plans.map((command) => command.assets[0]!.version)).toEqual([
+        'asset-v1',
+        'asset-v2'
+      ]);
+      expect(calls.executes).toHaveLength(1);
+      expect(calls.rules).toEqual([]);
     });
-    test(`image usage admin lost response freezes qualification until its read-only receipt is verified ${suffix}`, async ({
+    test(`image usage admin lost approval response freezes writes until the read-only receipt is verified ${suffix}`, async ({
       page
     }) => {
-      const { options } = await context.fixtures(page, 'operator');
-      options.media = [{ ...context.asset(), usage: unknown }];
-      const commands: Record<string, unknown>[] = [],
-        receipts: string[] = [];
+      const { calls } = await mediaFixture(page);
+      const receipts: string[] = [];
       await page.route(
-        '**/api/admin/sponsorships/media/rules',
+        '**/api/admin/sponsorships/media/batch/execute',
         async (route) => {
-          const payload = route.request().postDataJSON();
-          commands.push(payload);
-          options.media = options.media.map((item) => ({
-            ...item,
-            version: 'v2',
-            usage: payload.usage
-          }));
+          calls.executes.push(route.request().postDataJSON());
           return route.abort('failed');
         }
       );
@@ -619,194 +702,84 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
           );
           return json(route, {
             found: true,
-            result: adminWorkspace(options.media)
+            result: {
+              requestId: calls.executes[0]!.requestId,
+              planId: 'synthetic-plan',
+              status: 'completed',
+              action: 'approve',
+              items: []
+            }
           });
         }
       );
       await adminMediaPage(page, context, english);
       await openAdminRights(page);
-      const editor = page.locator(
-        'dialog[open] [data-og7="media-usage-editor"]'
-      );
-      await qualifyRights(editor);
-      await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(editor.getByRole('button')).toBeDisabled();
-      await page
-        .locator('dialog[open]')
-        .getByRole('button', {
-          name: english ? 'Close' : 'Fermer',
-          exact: true
-        })
-        .click();
+      const approve = page.locator('[data-og7="media-acceptance-approve"]');
+      await approve.click();
+      await expect(page.locator('dialog[open] [role="alert"]')).toBeVisible();
+      await expect(approve).toBeDisabled();
+      await page.locator('[data-og7="media-acceptance-cancel"]').click();
+      await expect(
+        page.locator('[data-og7="media-inspector-approve"]')
+      ).toBeDisabled();
       await page.locator('[data-og7="media-reconcile"]').click();
       await expect(
         page.locator('[data-og7="media-inspector-approve"]')
       ).toBeEnabled();
-      expect(commands).toHaveLength(1);
-      expect(receipts).toEqual([commands[0].requestId]);
-      expect(options.media[0].reviewStatus).toBe('pending_review');
+      expect(calls.plans).toHaveLength(1);
+      expect(calls.executes).toHaveLength(1);
+      expect(receipts).toEqual([calls.executes[0]!.requestId]);
+      expect(calls.rules).toEqual([]);
     });
-    for (const uncertain of [false, true])
-      test(`image usage admin preference ${uncertain ? 'lost response replays the exact decision' : 'stale decision refreshes before a new confirmation'} ${suffix}`, async ({
-        page
-      }) => {
-        const { options } = await context.fixtures(page, 'operator');
-        options.media = [context.asset()];
-        let preference: SponsorMediaPreference = {
-          revision: 7,
-          preferredAssetId: options.media[0].id,
-          correction: 'Please use this owned photograph.',
-          state: 'pending',
-          sponsorExplanation: null,
-          available: true
-        };
-        const commands: Record<string, unknown>[] = [];
-        await page.route('**/api/admin/sponsorships/media**', async (route) => {
-          const req = route.request(),
-            url = new URL(req.url());
-          if (url.pathname.endsWith('/media') && req.method() === 'GET')
-            return json(route, { assets: options.media, preference });
-          if (!url.pathname.endsWith('/preference-review'))
-            return route.fallback();
-          const payload = req.postDataJSON();
-          commands.push(payload);
-          if (commands.length === 1) {
-            preference = {
-              ...preference,
-              revision: 8,
-              ...(uncertain
-                ? {
-                    state: 'accepted',
-                    sponsorExplanation: payload.sponsorExplanation
-                  }
-                : {})
-            };
-            return uncertain
-              ? route.abort('failed')
-              : json(route, { code: 'VERSION_CONFLICT' }, 409);
-          }
-          if (!uncertain)
-            preference = {
-              ...preference,
-              revision: 9,
-              state: 'accepted',
-              sponsorExplanation: payload.sponsorExplanation
-            };
-          return json(route, { updated: true, preference });
-        });
-        await adminMediaPage(page, context, english);
-        const panel = page.locator('[data-og7="admin-media-preference"]'),
-          confirmation = panel.locator(
-            '[data-og7="admin-media-preference-confirmation"]'
-          ),
-          accept = panel.locator('[data-og7="admin-media-preference-accept"]');
-        await panel
-          .getByRole('textbox')
-          .fill('The requested photo is suitable for preparation.');
-        await confirmation.check();
-        await accept.click();
-        const retry = panel.locator(
-          '[data-og7="admin-media-preference-retry"]'
-        );
-        if (uncertain) {
-          await expect(retry).toBeVisible();
-          await retry.click();
-        } else {
-          await expect(panel).toContainText(
-            english
-              ? 'Review the refreshed information'
-              : 'Vérifiez les informations actualisées'
-          );
-          await expect(retry).toHaveCount(0);
-          await expect(confirmation).not.toBeChecked();
-          await confirmation.check();
-          await accept.click();
-        }
-        await expect(panel).toContainText(
-          english ? 'Preference accepted' : 'Préférence acceptée'
-        );
-        expect(commands).toHaveLength(2);
-        if (uncertain) expect(commands[1]).toEqual(commands[0]);
-        else {
-          expect(commands.map((command) => command.expectedRevision)).toEqual([
-            7, 8
-          ]);
-          expect(commands[1].requestId).not.toBe(commands[0].requestId);
-        }
-        expect(options.media[0].reviewStatus).toBe('pending_review');
-      });
   }
   for (const english of [false, true])
-    test(`image usage admin qualifies historical rights from private evidence without auto approval ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    test(`image usage admin awaits sponsor consent without entering private evidence or granting rights ${english ? 'EN mobile' : 'FR desktop'}`, async ({
       page
     }) => {
-      await page.setViewportSize(
-        english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
-      );
       const { options } = await context.fixtures(page, 'operator');
       options.media = [{ ...context.asset(), usage: unknown }];
       const commands: Record<string, unknown>[] = [];
       await page.route(
         '**/api/admin/sponsorships/media/rules',
         async (route) => {
-          const payload = route.request().postDataJSON();
-          commands.push(payload);
-          options.media = options.media.map((item) => ({
-            ...item,
-            version: 'v2',
-            usage: payload.usage,
-            usageRestrictionsReviewed: false
-          }));
-          return json(route, adminWorkspace(options.media));
+          commands.push(route.request().postDataJSON());
+          return json(
+            route,
+            { code: 'UNEXPECTED_MANUAL_RIGHTS_MUTATION' },
+            400
+          );
         }
       );
-      await page.goto(context.path('media'));
-      if (english)
-        await page
-          .getByRole('button', {
-            name: 'Switch administration language to English'
-          })
-          .click();
+      await adminMediaPage(page, context, english);
       await openAdminRights(page);
-      const card = page.locator('[data-og7="media-inspector"]'),
-        editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
+      const review = page.locator('[data-og7="media-acceptance-review"]');
       await expect(
-        card.locator('[data-og7="media-inspector-approve"]')
+        review.locator('[data-og7="media-acceptance-pending"]')
+      ).toBeVisible();
+      await expect(
+        review.locator('[data-og7="media-acceptance-approve"]')
       ).toBeDisabled();
-      await editor.locator('[data-og7-id="channel:website"]').check();
-      await editor.locator('[data-og7-id="target:openg7"]').check();
-      await editor.locator('[data-og7-id="transform:technical"]').check();
-      await editor
-        .locator('[data-og7="media-usage-evidence"]')
-        .fill('Synthetic private permission record');
-      await editor.locator('[data-og7="media-usage-confirmation"]').check();
-      await editor.locator('[data-og7="media-usage-save"]').click();
       await expect(
-        card.locator('[data-og7="media-inspector-approve"]')
+        review.locator('[data-og7="media-acceptance-reject"]')
       ).toBeEnabled();
-      expect(commands).toHaveLength(1);
-      expect(commands[0]).toMatchObject({
-        scope: 'media',
-        scopeId: options.media[0].id,
-        expectedRevision: 'workspace:v1',
-        confirmation: options.media[0].id,
-        coveredAssetIds: [options.media[0].id],
-        evidenceReference: 'Synthetic private permission record',
-        usage: {
-          state: 'confirmed',
-          channels: ['website'],
-          targets: ['openg7'],
-          transformations: ['technical']
-        }
-      });
-      expect(options.media[0].reviewStatus).toBe('pending_review');
+      await expect(
+        review.locator('[data-og7="media-acceptance-proof"]')
+      ).toHaveCount(0);
+      await expect(
+        review.locator('[data-og7="media-usage-editor"]')
+      ).toHaveCount(0);
+      await expect(
+        review.locator('[data-og7="media-usage-evidence"]')
+      ).toHaveCount(0);
+      await expect(review.getByRole('combobox')).toHaveCount(0);
       expect(
-        (
-          await new AxeBuilder({ page })
-            .include('[data-og7="media-inspector"]')
-            .analyze()
-        ).violations
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
       ).toEqual([]);
+      await review.locator('[data-og7="media-acceptance-cancel"]').click();
+      expect(commands).toEqual([]);
+      expect(options.media[0]!.usage).toEqual(unknown);
+      expect(options.media[0]!.reviewStatus).toBe('pending_review');
     });
   test('image usage reader sees no private qualification or preference mutation control', async ({
     page
@@ -837,71 +810,4 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       page.locator('[data-og7="admin-media-preference-accept"]')
     ).toHaveCount(0);
   });
-  for (const english of [false, true])
-    test(`image usage admin preference decision confirms current revision and external explanation ${english ? 'EN mobile' : 'FR desktop'}`, async ({
-      page
-    }) => {
-      await page.setViewportSize(
-        english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
-      );
-      const { options } = await context.fixtures(page, 'operator');
-      options.media = [context.asset()];
-      let preference: SponsorMediaPreference = {
-        revision: 7,
-        preferredAssetId: options.media[0].id,
-        correction: 'Please use this owned photograph.',
-        state: 'pending',
-        sponsorExplanation: null,
-        available: true
-      };
-      const commands: Record<string, unknown>[] = [];
-      await page.route('**/api/admin/sponsorships/media**', (route) => {
-        const req = route.request(),
-          url = new URL(req.url());
-        if (url.pathname.endsWith('/media') && req.method() === 'GET')
-          return json(route, { assets: options.media, preference });
-        if (url.pathname.endsWith('/preference-review')) {
-          const payload = req.postDataJSON();
-          commands.push(payload);
-          preference = {
-            ...preference,
-            revision: 8,
-            state: payload.state,
-            sponsorExplanation: payload.sponsorExplanation
-          };
-          return json(route, { updated: true, preference });
-        }
-        return route.fallback();
-      });
-      await page.goto(context.path('media'));
-      if (english)
-        await page
-          .getByRole('button', {
-            name: 'Switch administration language to English'
-          })
-          .click();
-      const panel = page.locator('[data-og7="admin-media-preference"]'),
-        accept = panel.locator('[data-og7="admin-media-preference-accept"]');
-      await expect(accept).toBeDisabled();
-      await panel
-        .getByRole('textbox')
-        .fill('The requested photo is suitable for preparation.');
-      await panel
-        .locator('[data-og7="admin-media-preference-confirmation"]')
-        .check();
-      await accept.click();
-      await expect(panel).toContainText(
-        english ? 'Preference accepted' : 'Préférence acceptée'
-      );
-      expect(commands).toHaveLength(1);
-      expect(commands[0]).toMatchObject({
-        contributionId: options.media[0].contributionId,
-        confirmation: options.media[0].contributionId,
-        expectedRevision: 7,
-        state: 'accepted',
-        sponsorExplanation: 'The requested photo is suitable for preparation.'
-      });
-      expect(commands[0].requestId).toMatch(/^[a-f0-9-]{36}$/i);
-      expect(options.media[0].reviewStatus).toBe('pending_review');
-    });
 }

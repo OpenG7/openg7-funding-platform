@@ -295,10 +295,19 @@ export const renderSponsorshipAccessEmail = (
 
 export const renderSponsorshipInformationRequestEmail = (
   input: SponsorshipInformationRequestEmailInput
-): RenderedEmail => ({
-  templateKey: 'sponsorship_information_request',
-  subject: input.subject,
-  text: input.body,
-  html: '<p>' + escapeHtml(input.body).replace(/\n/g, '<br>') + '</p>',
-  metadata: { contributionId: input.contributionId }
-});
+): RenderedEmail => {
+  let bodyHtml = escapeHtml(input.body).replace(/\n/g, '<br>');
+  if (input.privateLink) {
+    const safeUrl = escapeHtml(input.privateLink.url);
+    bodyHtml = bodyHtml
+      .split(safeUrl)
+      .join(`<a href="${safeUrl}">${escapeHtml(input.privateLink.label)}</a>`);
+  }
+  return {
+    templateKey: 'sponsorship_information_request',
+    subject: input.subject,
+    text: input.body,
+    html: '<p>' + bodyHtml + '</p>',
+    metadata: { contributionId: input.contributionId }
+  };
+};

@@ -24,6 +24,10 @@ import type {
   SponsorMediaBatchExecuteRequest
 } from '@openg7/funding-core';
 import type {
+  SponsorMediaApproveAllPlanRequest,
+  SponsorMediaApproveAllExecuteRequest
+} from '@openg7/funding-core';
+import type {
   AdminSearchRequest,
   SponsorshipWebsiteVisibilityRequest,
   SponsorshipIntervention,
@@ -1053,6 +1057,17 @@ export class FundingAdminService {
   }
   mediaBatchExecute(request: SponsorMediaBatchExecuteRequest) {
     return this.mediaMutation(() => this.mediaReviewClient.execute(request));
+  }
+  mediaApproveAllPlan(request: SponsorMediaApproveAllPlanRequest) {
+    return this.mediaReviewClient.approveAllPlan(request);
+  }
+  mediaApproveAllExecute(request: SponsorMediaApproveAllExecuteRequest) {
+    return this.mediaMutation(() =>
+      this.mediaReviewClient.approveAllExecute(request)
+    );
+  }
+  mediaApproveAllReceipt(contributionId: string, requestId: string) {
+    return this.mediaReviewClient.approveAllReceipt(contributionId, requestId);
   }
   mediaThumbnail(assetId: string) {
     return this.mediaReviewClient.thumbnail(assetId);

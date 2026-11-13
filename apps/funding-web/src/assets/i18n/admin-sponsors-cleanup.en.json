@@ -1,5 +1,6 @@
 {
   "assistant": "Open the Assistant for this dossier",
+  "agreement": "Agreement",
   "servicesSummary": {
     "title": "Dossier service fulfilment",
     "total": "{{ count }} recorded services",

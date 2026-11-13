@@ -5,7 +5,9 @@ import type {
   SponsorMediaBatchExecuteRequest,
   SponsorMediaBatchPlanRequest,
   SponsorMediaBatchRequest,
-  SponsorMediaRuleRequest
+  SponsorMediaRuleRequest,
+  SponsorMediaApproveAllPlanRequest,
+  SponsorMediaApproveAllExecuteRequest
 } from '@openg7/funding-core';
 
 import { isJsonContentType } from '../http-routing.js';
@@ -64,7 +66,14 @@ const allowed: Record<string, readonly string[]> = {
     'internalReason',
     'sponsorExplanation'
   ],
-  'batch/execute': ['requestId', 'planId', 'confirmation', 'humanReviewed']
+  'batch/execute': ['requestId', 'planId', 'confirmation', 'humanReviewed'],
+  'approve-all/plan': ['requestId', 'contributionId', 'expectedRevision'],
+  'approve-all/execute': [
+    'requestId',
+    'planId',
+    'confirmation',
+    'humanReviewed'
+  ]
 };
 export function createSponsorMediaWorkspaceHttpHandler(deps: Dependencies) {
   return async (
@@ -81,6 +90,7 @@ export function createSponsorMediaWorkspaceHttpHandler(deps: Dependencies) {
         'workspace',
         'workspace/history',
         'receipt',
+        'approve-all/receipt',
         ...Object.keys(allowed)
       ].includes(action)
     )
@@ -103,6 +113,14 @@ export function createSponsorMediaWorkspaceHttpHandler(deps: Dependencies) {
         result = await deps.service.receipt(
           url.searchParams.get('contributionId') ?? '',
           url.searchParams.get('requestId') ?? '',
+          deps.getAdminAuditActor(request)
+        );
+      else if (request.method === 'GET' && action === 'approve-all/receipt')
+        result = await deps.service.approveAllReceipt(
+          {
+            contributionId: url.searchParams.get('contributionId') ?? '',
+            requestId: url.searchParams.get('requestId') ?? ''
+          },
           deps.getAdminAuditActor(request)
         );
       else if (request.method === 'GET' && action === 'workspace/history')
@@ -139,6 +157,16 @@ export function createSponsorMediaWorkspaceHttpHandler(deps: Dependencies) {
         else if (action === 'batch/plan')
           result = await deps.service.plan(
             parsed as SponsorMediaBatchPlanRequest,
+            actor
+          );
+        else if (action === 'approve-all/plan')
+          result = await deps.service.planApproveAll(
+            parsed as SponsorMediaApproveAllPlanRequest,
+            actor
+          );
+        else if (action === 'approve-all/execute')
+          result = await deps.service.executeApproveAll(
+            parsed as SponsorMediaApproveAllExecuteRequest,
             actor
           );
         else

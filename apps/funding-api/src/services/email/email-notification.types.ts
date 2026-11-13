@@ -157,4 +157,6 @@ export interface SponsorshipInformationRequestEmailInput {
   subject: string;
   body: string;
   idempotencyKey: string;
+  /** Generated on the server only after confirmation; omitted from message metadata. */
+  readonly privateLink?: { readonly url: string; readonly label: string };
 }

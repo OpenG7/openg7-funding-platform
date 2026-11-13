@@ -21,6 +21,10 @@ import {
 } from '../sponsorship-admin-presentation.js';
 import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
 import {
+  prepareSponsorshipMediaConsentRequest,
+  readSponsorshipMediaConsentAssets
+} from '../sponsorship-media-consent.js';
+import {
   canRequestSponsorshipConsent,
   canRequestSponsorshipInformation,
   hasCompleteFiche,
@@ -363,6 +367,12 @@ export const prepareAdminAssistantDraft = async (
       request.language === 'en'
         ? 'Sponsorship not found.'
         : 'Commandite introuvable.'
+    );
+  if (request.type === 'sponsorship_media_consent_request')
+    return prepareSponsorshipMediaConsentRequest(
+      source,
+      await readSponsorshipMediaConsentAssets(pool, source),
+      request.language ?? 'fr-CA'
     );
   if (
     request.type === 'sponsorship_consent_request' &&

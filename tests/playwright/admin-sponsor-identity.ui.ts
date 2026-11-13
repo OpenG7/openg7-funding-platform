@@ -22,6 +22,7 @@ interface IdentityTestContext {
     readonly options: {
       readonly edited: Map<string, Partial<AdminSponsorshipRecord>>;
       detailsStatus: number;
+      detailsGate: Promise<void> | null;
       listGate: Promise<void> | null;
       listStatus: number;
     };
@@ -203,6 +204,161 @@ export function registerSponsorIdentityTests({
       }
     }
 
+    for (const language of ['fr-CA', 'en'] as const) {
+      test(`admin completion finishes Identity while sponsor submission stays pending in ${language}`, async ({
+        page
+      }, testInfo) => {
+        const { calls, options } = await fixtures(page, 'reader');
+        options.edited.set(id, {
+          sponsor_company_name: 'Organisation complétée',
+          sponsor_contact_email: 'admin.completed@example.invalid',
+          sponsor_details_submitted_at: null,
+          sponsor_details_admin_completed_at: date
+        });
+        await appearance(page, language);
+        await page.setViewportSize({
+          width: language === 'en' ? 390 : 1920,
+          height: 900
+        });
+        await page.goto(path('identity'));
+        const state = hook(page, 'identity-coordinates-state');
+        await expect(state).toHaveAttribute('data-state', 'admin-completed');
+        await expect(state).toHaveText(
+          language === 'fr-CA' ? 'Complété par l’admin' : 'Completed by admin'
+        );
+        await expect(hook(page, 'identity-submission-state')).toHaveAttribute(
+          'data-state',
+          'pending'
+        );
+        await expect(hook(page, 'identity-submission-state')).toHaveText(
+          language === 'fr-CA' ? 'En attente' : 'Pending'
+        );
+        await expect(tabState(page)).toHaveCount(0);
+        await expect(identity(page)).not.toContainText('admin.dossier.');
+        await expectNoOverflow(page);
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[data-og7="dossier-identity"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        await identity(page).screenshot({
+          path: testInfo.outputPath(`identity-admin-completed-${language}.png`),
+          animations: 'disabled'
+        });
+        expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      });
+    }
+
+    test('an admin completion marker cannot complete missing coordinates', async ({
+      page
+    }) => {
+      const { options } = await fixtures(page, 'reader');
+      options.edited.set(id, {
+        sponsor_contact_email: null,
+        sponsor_details_submitted_at: null,
+        sponsor_details_admin_completed_at: date
+      });
+      await page.goto(path('identity'));
+      await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
+        'data-state',
+        'missing'
+      );
+      await expect(hook(page, 'identity-submission-state')).toHaveAttribute(
+        'data-state',
+        'pending'
+      );
+      await expect(tabState(page)).toHaveAttribute('data-state', 'blocked');
+      await expect(hook(page, 'identity-coordinates-state')).not.toContainText(
+        'Complété par l’admin'
+      );
+    });
+
+    test('a real sponsor submission takes precedence over prior admin completion', async ({
+      page
+    }) => {
+      const { options } = await fixtures(page, 'reader');
+      options.edited.set(id, {
+        sponsor_details_submitted_at: date,
+        sponsor_details_admin_completed_at: date
+      });
+      await page.goto(path('identity'));
+      await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
+        'data-state',
+        'complete'
+      );
+      await expect(hook(page, 'identity-submission-state')).toHaveAttribute(
+        'data-state',
+        'submitted'
+      );
+      await expect(tabState(page)).toHaveCount(0);
+      await expect(hook(page, 'identity-coordinates-state')).not.toContainText(
+        'Complété par l’admin'
+      );
+    });
+
+    test('admin completion without field changes waits for the server and survives reload', async ({
+      page
+    }) => {
+      const { calls, options } = await fixtures(page, 'operator');
+      options.edited.set(id, {
+        sponsor_details_submitted_at: null,
+        sponsor_details_admin_completed_at: null
+      });
+      await page.goto(path('identity'));
+      await hook(page, 'identity-edit').click();
+      const form = hook(page, 'edit-dossier-form');
+      const save = form.getByRole('button', {
+        name: 'Enregistrer les modifications'
+      });
+      await expect(save).toBeEnabled();
+      let release!: () => void;
+      options.detailsGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      try {
+        await save.click();
+        await hook(page, 'confirm-action').click();
+        await expect
+          .poll(() => calls.filter((call) => call.method === 'POST').length)
+          .toBe(1);
+        await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
+          'data-state',
+          'complete'
+        );
+        await expect(tabState(page)).toHaveAttribute('data-state', 'pending');
+        expect(
+          options.edited.get(id)?.sponsor_details_admin_completed_at
+        ).toBeNull();
+      } finally {
+        release();
+      }
+      await expect(form).toBeHidden();
+      await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
+        'data-state',
+        'admin-completed'
+      );
+      await expect(tabState(page)).toHaveCount(0);
+      expect(options.edited.get(id)?.sponsor_details_submitted_at).toBeNull();
+      const writes = calls.filter((call) => call.method === 'POST');
+      expect(writes).toHaveLength(1);
+      expect(writes[0]?.body).not.toHaveProperty(
+        'sponsor_details_submitted_at'
+      );
+      expect(writes[0]?.body).not.toHaveProperty('public_display_consent');
+      await page.reload();
+      await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
+        'data-state',
+        'admin-completed'
+      );
+      await expect(hook(page, 'identity-submission-state')).toHaveAttribute(
+        'data-state',
+        'pending'
+      );
+      await expect(tabState(page)).toHaveCount(0);
+    });
+
     for (const role of ['reader', 'operator', 'owner'] as const) {
       test(`identity correction and private access retain the ${role} permissions`, async ({
         page
@@ -258,7 +414,7 @@ export function registerSponsorIdentityTests({
         );
         await expect(hook(page, 'identity-coordinates-state')).toHaveAttribute(
           'data-state',
-          'complete'
+          submitted ? 'complete' : 'admin-completed'
         );
         await expect(hook(page, 'identity-submission-state')).toHaveAttribute(
           'data-state',
@@ -299,9 +455,7 @@ export function registerSponsorIdentityTests({
               ).length
           )
           .toBeGreaterThan(1);
-        if (submitted) await expect(tabState(page)).toHaveCount(0);
-        else
-          await expect(tabState(page)).toHaveAttribute('data-state', 'pending');
+        await expect(tabState(page)).toHaveCount(0);
         await edit.click();
         await expect(
           form.getByLabel('Courriel du contact', { exact: true })

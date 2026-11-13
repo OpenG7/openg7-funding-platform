@@ -86,7 +86,11 @@ export const updateAdminSponsorshipDetails = async (
     .digest('hex');
   return withPostgresTransaction(pool, async (client) => {
     const { rows } = await client.query<
-      AdminSponsorshipDetails & { version: string }
+      AdminSponsorshipDetails & {
+        version: string;
+        detailsSubmittedAt: string | null;
+        identityCompletedByAdmin: boolean;
+      }
     >(
       `
       SELECT updated_at::text AS version,
@@ -94,7 +98,15 @@ export const updateAdminSponsorshipDetails = async (
         COALESCE(public_name, '') AS "publicName",
         COALESCE(sponsor_contact_name, '') AS "contactName",
         COALESCE(sponsor_contact_email, '') AS "contactEmail",
-        COALESCE(sponsor_website_url, '') AS "websiteUrl"
+        COALESCE(sponsor_website_url, '') AS "websiteUrl",
+        sponsor_details_submitted_at::text AS "detailsSubmittedAt",
+        EXISTS (
+          SELECT 1 FROM admin_audit_log
+          WHERE entity_type = 'sponsorship'
+            AND entity_id = fund_contributions.id::text
+            AND action = 'sponsorship.details.update'
+            AND metadata @> '{"identityCompletedByAdmin":true}'::jsonb
+        ) AS "identityCompletedByAdmin"
       FROM fund_contributions
       WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest'
       FOR UPDATE`,
@@ -120,7 +132,13 @@ export const updateAdminSponsorshipDetails = async (
     const changedFields = fields.filter(
       (field) => current[field] !== input[field]
     );
-    if (!changedFields.length) {
+    const recordIdentityCompletion = Boolean(
+      !current.detailsSubmittedAt &&
+      !current.identityCompletedByAdmin &&
+      input.companyName &&
+      input.contactEmail
+    );
+    if (!changedFields.length && !recordIdentityCompletion) {
       return { updated: false, version: current.version };
     }
     const updated = await client.query<{ version: string }>(
@@ -145,6 +163,7 @@ export const updateAdminSponsorshipDetails = async (
         requestHash,
         reason: input.reason,
         changedFields,
+        ...(recordIdentityCompletion ? { identityCompletedByAdmin: true } : {}),
         result
       }
     });

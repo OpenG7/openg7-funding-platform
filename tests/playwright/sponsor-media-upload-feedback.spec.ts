@@ -161,6 +161,7 @@ async function mockConfirmedUpload(page: Page) {
   };
   const state = {
     failReads: true,
+    reviewStatus: 'pending_review' as 'pending_review' | 'approved',
     posts: 0,
     deletions: [] as unknown[],
     assets: [] as SponsorMediaAsset[]
@@ -207,7 +208,7 @@ async function mockConfirmedUpload(page: Page) {
           found: true,
           publicReference: 'CMD-SYNTHETIC-UPLOAD',
           paymentStatus: 'paid',
-          reviewStatus: 'pending_review',
+          reviewStatus: state.reviewStatus,
           amount: 250,
           currency: 'CAD',
           paidAt: '2026-09-18T12:00:00Z',
@@ -227,6 +228,103 @@ async function mockConfirmedUpload(page: Page) {
   });
   return { state, uploaded };
 }
+
+test('selected files and consent survive refresh when upload permission becomes unavailable', async ({
+  page
+}) => {
+  const { state } = await mockConfirmedUpload(page);
+  await page.goto(
+    '/fonds-des-batisseurs/suivi-commandite?token=e2e-media-permission-fixture-local-only-000001'
+  );
+  const input = page.getByLabel('Ajouter des photos');
+  await expect(input).toBeEnabled();
+  await input.setInputFiles({
+    name: 'presentation.png',
+    mimeType: 'image/png',
+    buffer: onePixelPng
+  });
+  const selection = page.locator('[data-og7="media-upload-selection"]');
+  const acceptance = selection.locator('[data-og7="media-usage-confirmation"]');
+  await acceptance.check();
+  const send = selection.locator('[data-og7="media-upload-send"]');
+  await expect(send).toBeEnabled();
+
+  state.reviewStatus = 'approved';
+  await page
+    .getByRole('button', { name: 'Actualiser le statut', exact: true })
+    .click();
+  await expect(input).toBeDisabled();
+  await expect(send).toBeDisabled();
+  // A dispatched click also exercises the handler's permission guard.
+  await send.dispatchEvent('click');
+  await expect(selection).toContainText('presentation.png');
+  await expect(acceptance).toBeChecked();
+  expect(state.posts).toBe(0);
+
+  state.reviewStatus = 'pending_review';
+  await page
+    .getByRole('button', { name: 'Actualiser le statut', exact: true })
+    .click();
+  await expect(input).toBeEnabled();
+  await expect(send).toBeEnabled();
+  await expect(acceptance).toBeChecked();
+  await send.click();
+  await expect(page.locator('[data-og7="media-upload-attempt"]')).toContainText(
+    'Téléversement réussi'
+  );
+  expect(state.posts).toBe(1);
+});
+
+test('selected logo and consent survive refresh when the existing logo becomes approved', async ({
+  page
+}) => {
+  const { state, uploaded } = await mockConfirmedUpload(page);
+  const logo: SponsorMediaAsset = {
+    ...uploaded,
+    id: 'synthetic-existing-logo',
+    kind: 'logo',
+    originalFilename: 'existing-logo.png'
+  };
+  state.assets = [logo];
+  await page.goto(
+    '/fonds-des-batisseurs/suivi-commandite?token=e2e-logo-approval-fixture-local-only-0000001'
+  );
+  const input = page.getByLabel('Remplacer le logo');
+  await expect(input).toBeEnabled();
+  await input.setInputFiles({
+    name: 'replacement-logo.png',
+    mimeType: 'image/png',
+    buffer: onePixelPng
+  });
+  const selection = page.locator('[data-og7="media-upload-selection"]');
+  const acceptance = selection.locator('[data-og7="media-usage-confirmation"]');
+  await acceptance.check();
+  const send = selection.locator('[data-og7="media-upload-send"]');
+  await expect(send).toBeEnabled();
+
+  state.assets = [
+    { ...logo, reviewStatus: 'approved', version: 'synthetic-approved-logo-v2' }
+  ];
+  await page
+    .getByRole('button', { name: 'Actualiser le statut', exact: true })
+    .click();
+  await expect(
+    page.getByText('Le logo approuvé doit être remplacé par l’administrateur.')
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-og7="followup-media-consent"]')
+  ).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByLabel('Ajouter des photos')).toBeEnabled();
+  await expect(input).toBeDisabled();
+  await expect(send).toBeDisabled();
+  await send.dispatchEvent('click');
+  await expect(selection).toContainText('replacement-logo.png');
+  await expect(acceptance).toBeChecked();
+  await expect(page.locator('[data-og7="media-upload-attempt"]')).toHaveCount(
+    0
+  );
+  expect(state.posts).toBe(0);
+});
 
 for (const english of [false, true])
   test(

@@ -1,5 +1,8 @@
 <section
+  #mediaSection
   class="media-manager"
+  tabindex="-1"
+  data-og7="followup-media-consent"
   aria-labelledby="media-title"
   [attr.aria-busy]="busy()"
 >
@@ -107,8 +110,12 @@
           type="button"
           [disabled]="
             busy() ||
+            !canUploadMedia() ||
+            !loaded() ||
+            loadError() ||
             !uploadUsage() ||
             !uploadAcceptance() ||
+            (selected.kind === 'logo' && hasApprovedLogo()) ||
             hasUnresolvedUpload()
           "
           (click)="sendMedia()"
@@ -295,6 +302,7 @@
         <small>{{ asset.width }} × {{ asset.height }} px</small>
         <p data-og7="media-usage-filename">{{ asset.originalFilename }}</p>
         <details
+          #mediaRights
           class="media-rights"
           data-og7="followup-media-rights"
           [attr.data-og7-id]="asset.id"

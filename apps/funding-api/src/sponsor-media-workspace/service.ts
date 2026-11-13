@@ -3,7 +3,10 @@ import type {
   SponsorMediaBatchExecuteRequest,
   SponsorMediaBatchPlanRequest,
   SponsorMediaBatchRequest,
-  SponsorMediaRuleRequest
+  SponsorMediaRuleRequest,
+  SponsorMediaApproveAllPlanRequest,
+  SponsorMediaApproveAllExecuteRequest,
+  SponsorMediaApproveAllReceiptRequest
 } from '@openg7/funding-core';
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
@@ -15,17 +18,43 @@ import { readWorkspace } from './read.js';
 import { createBatch, setRules } from './rules.js';
 import { executeBatch, planBatch } from './plans.js';
 import { attestMediaSources } from './source-attestation.js';
+import {
+  SponsorMediaApproveAllService,
+  type SponsorMediaApproveAllOptions
+} from './approve-all.js';
 
 export class SponsorMediaWorkspaceService {
   private readonly cleanup: SponsorMediaCleanupWorker;
+  private readonly dossierApproval: SponsorMediaApproveAllService;
   constructor(
     private readonly pool: Pool,
     private readonly storage: Pick<
       SponsorMediaStorage,
       'deletePrivateObject' | 'deletePublicObject' | 'readPrivateObject'
-    >
+    >,
+    options: { readonly approveAll?: SponsorMediaApproveAllOptions } = {}
   ) {
     this.cleanup = new SponsorMediaCleanupWorker(pool, storage);
+    this.dossierApproval = new SponsorMediaApproveAllService(
+      pool,
+      storage,
+      options.approveAll
+    );
+  }
+  planApproveAll(input: SponsorMediaApproveAllPlanRequest, actor: string) {
+    return this.dossierApproval.plan(input, actor);
+  }
+  executeApproveAll(
+    input: SponsorMediaApproveAllExecuteRequest,
+    actor: string
+  ) {
+    return this.dossierApproval.execute(input, actor);
+  }
+  approveAllReceipt(
+    input: SponsorMediaApproveAllReceiptRequest,
+    actor: string
+  ) {
+    return this.dossierApproval.receipt(input, actor);
   }
   workspace(contributionId: string, writable = true) {
     ensure(validId(contributionId), 'INVALID_SPONSORSHIP_ID', 400);
@@ -75,6 +104,7 @@ export class SponsorMediaWorkspaceService {
     ).rows[0];
     ensure(row, 'MEDIA_PLAN_NOT_FOUND', 404);
     ensure(row.actor === actor, 'MEDIA_PLAN_ACTOR_MISMATCH', 403);
+    ensure(row.plan.kind !== 'approve_all', 'MEDIA_PLAN_KIND_MISMATCH');
     // A completed receipt remains authoritative after subsequent file removal.
     if ((await this.receipt(row.contribution_id, input.requestId, actor)).found)
       return executeBatch(this.pool, input, actor);
@@ -111,6 +141,7 @@ export class SponsorMediaWorkspaceService {
     ).rows[0];
     if (!row) return { found: false };
     ensure(row.actor === actor, 'MEDIA_RECEIPT_ACTOR_MISMATCH', 403);
+    ensure(row.result?.kind !== 'approve_all', 'MEDIA_RECEIPT_KIND_MISMATCH');
     return { found: true, result: row.result };
   }
   tick(limit = 10): Promise<void> {

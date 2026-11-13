@@ -74,6 +74,20 @@ export class AdminSponsorEditController {
       )
     );
   });
+  readonly canSave = computed(() => {
+    const initial = this.initial();
+    const draft = this.draft();
+    return (
+      this.changed() ||
+      Boolean(
+        initial &&
+        !initial.sponsor_details_submitted_at &&
+        !initial.sponsor_details_admin_completed_at &&
+        draft.companyName.trim() &&
+        draft.contactEmail.trim()
+      )
+    );
+  });
   private generation = 0;
   private pendingRequest: {
     signature: string;
@@ -144,7 +158,7 @@ export class AdminSponsorEditController {
     )
       return;
     this.attempted.set(true);
-    if (Object.keys(this.errors()).length || !this.changed()) return;
+    if (Object.keys(this.errors()).length || !this.canSave()) return;
     const generation = this.generation;
     const current = () =>
       !this.ports.isDestroyed() &&

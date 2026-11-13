@@ -51,8 +51,11 @@ rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
 ## Outils du dossier à la demande
 
 L’en-tête du dossier propose **Modération éditoriale** pour l’opérateur ou le
-propriétaire. La barre conserve **Accès au suivi** pour le propriétaire. Un
-panneau non modal affiche un seul de ces outils à la fois. La modération
+propriétaire. La barre conserve **Accès au suivi** pour le propriétaire et propose
+**Accord** depuis chaque onglet. Un panneau non modal affiche un seul de ces
+outils à la fois. **Accord** ouvre les engagements enregistrés à la demande, avec
+les mêmes commandes de qualification, d’ajustement et de délai ou de durée;
+leurs mutations restent réservées au propriétaire. La modération
 réutilise le composant de décisions existant et sa confirmation du contenu exact.
 
 À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
@@ -65,8 +68,15 @@ de session, même avec le même rôle, réinitialise les outils visités et effa
 le contexte de modération précédent. Dans la nouvelle session, la modération repart au niveau
 **Demander une correction (N1)** ; le niveau choisi reste conservé pour la même
 session et le même dossier. Leur fermeture est bloquée pendant une
-opération de modération ou d’accès en cours.
+opération de modération, d’accès, de qualification ou d’ajustement en cours,
+ainsi que lorsqu’une commande d’accord reste à réconcilier.
 Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
+
+Le panneau Accord n’est pas monté pendant la simple consultation de Publication.
+Les liens existants `tab=publication#dossier-agreement` et les fragments
+`dossier-assistance-source` / `dossier-assistance-review` l’ouvrent automatiquement
+pour le dossier exact. Les commandes d’accord conservent versions, confirmations
+et reprise d’un résultat incertain; aucune donnée, API ou règle métier n’est supprimée.
 
 **Note interne** ouvre le même tiroir depuis chaque onglet, sans quitter celui-ci.
 Les brouillons, la limite de 1 000 caractères, la lecture seule, la sauvegarde
@@ -107,7 +117,10 @@ L’onglet **Identité** présente deux étapes, **Coordonnées du commanditaire
 **Transmission par le commanditaire**, avec un seul encadré expliquant le rôle de
 l’administration. Leurs états restent indépendants : des coordonnées complètes
 ne prouvent aucune transmission, et une transmission existante ne complète pas
-les coordonnées manquantes.
+les coordonnées manquantes. Lorsque l’administration enregistre des coordonnées
+complètes sans transmission du commanditaire, la mention **Complété par l’admin**
+termine le jalon Identité. La transmission reste **En attente**, sans bloquer ce
+jalon.
 
 Les cinq tuiles affichent l’organisation, le courriel, la personne-ressource, le
 site web et le nom public. Seuls le nom de l’organisation et le courriel de contact
@@ -122,7 +135,18 @@ existant pour les opérateurs et propriétaires; les lecteurs conservent la lect
 seule. Après confirmation de l’enregistrement, le dossier est relu depuis le
 serveur. Corriger les coordonnées conserve les consentements et la revue, ne
 soumet pas le formulaire au nom du commanditaire et ne crée aucune date de
-transmission.
+transmission. Une sauvegarde confirmée avec organisation et courriel renseignés
+enregistre explicitement la complétude administrative, même sans modification des
+valeurs. Les coordonnées devenues incomplètes rebloquent le jalon; une véritable
+transmission ultérieure prend priorité dans l’affichage de provenance.
+
+Le contrat admin expose `sponsor_details_admin_completed_at`, facultatif pour les
+anciens consommateurs et nul sans preuve explicite. Ce fait est la date d’un audit
+atomique `sponsorship.details.update` portant
+`metadata.identityCompletedByAdmin: true`; sa lecture interroge les audits du
+dossier sans dépendre des vingt entrées affichées. Aucune migration ni déduction
+des corrections historiques n’est nécessaire. Un dossier ancien aux coordonnées
+complètes peut être enregistré à nouveau pour attester cette complétude.
 
 L’étape de transmission affiche **En attente** ou **Transmis**, avec la date
 réellement enregistrée lorsqu’elle existe. **Voir l’accès au suivi commanditaire**
@@ -131,7 +155,14 @@ aucun courriel. Les autres rôles disposent de l’explication pour solliciter u
 propriétaire. Les deux étapes s’empilent sur mobile et conservent l’ordre de
 lecture et l’accès clavier.
 
-La progression expose `identity_missing` / `blocked` lorsque le nom ou le courriel manque, `identity_submission_pending` / `pending` lorsque seules les informations transmises sont attendues, et `identity_complete` / `complete` lorsque les deux conditions sont satisfaites. Le nouveau motif s’applique au jalon et à la prochaine étape du dossier/cockpit. Le format de la réponse est conservé ; déployer les traductions Web avant ou avec l’API qui émet ce motif. Les dossiers existants ne sont pas marqués comme transmis automatiquement.
+La progression expose `identity_missing` / `blocked` lorsque le nom ou le courriel
+manque, `identity_submission_pending` / `pending` sans transmission ni complétude
+administrative explicite, `identity_admin_completed` / `complete` pour la
+complétude administrative seule, et `identity_complete` / `complete` lorsque les
+coordonnées et la transmission du commanditaire sont présentes. Ces motifs
+s’appliquent au jalon et à la prochaine étape du dossier/cockpit. Déployer les
+traductions Web avant ou avec l’API qui émet le nouveau motif. Aucun consentement,
+accord, statut de revue ou droit de publication n’est accordé par cette complétude.
 
 Les cinq champs sont préremplis avec les informations du dossier sélectionné dès l’ouverture du formulaire. Un champ non renseigné reste vide. Après une annulation, rouvrir le formulaire reprend les informations enregistrées ; le brouillon annulé n’est pas conservé.
 
@@ -285,9 +316,10 @@ mêmes sections et la même commande de suivi.
 Dans **Publication**, chaque prestation donne accès à son état courant, aux détails
 disponibles et au parcours propriétaire : Comptoir collectif, espace de préparation,
 Examiner, planification ou preuve. Le suivi distingue les propositions des
-livraisons et conserve les erreurs de lecture explicites. **Voir la préparation**,+lorsqu’une activité enregistrée existe, ouvre son tiroir transversal depuis
-l’en-tête du suivi. Les engagements restent accessibles dans ce même onglet à
-`dossier-agreement` ; leurs formulaires existants conservent versions et confirmations.
+livraisons et conserve les erreurs de lecture explicites. **Voir la préparation**,
+lorsqu’une activité enregistrée existe, ouvre son tiroir transversal depuis
+l’en-tête du suivi. Les engagements ne sont plus affichés dans ce contenu :
+**Outils du dossier → Accord** ouvre leur panneau depuis la barre globale.
 L’autorisation reste celle du contenu et de la livraison exacts dans le tiroir
 partagé. Le suivi Web et les canaux sociaux gardent leurs décisions indépendantes ;
 un canal non promis n’est pas un prérequis de livraison. Les références de preuve

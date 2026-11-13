@@ -23,6 +23,25 @@ deduplication and private audit metadata. Omitting it preserves the existing
 information-request behavior and hashes. Neither purpose records consent or
 authorizes publication; see [documented consent](sponsorship-public-consent.md).
 
+Photo requests use `purpose: "media_consent"`, prepared through the same endpoint
+with type `sponsorship_media_consent_request` and the dossier reference. The private
+delivery preview adds `language` (`fr-CA|en`) and `mediaSnapshot`, a canonical list
+of photo `{id, version}` entries. These fields are mandatory for this purpose and
+rejected for the other purposes. Eligible photos are current supporting images
+awaiting permission, without rejection or withdrawal, and with an original file
+fingerprint. The request does not depend on public profile consent.
+
+The recipient is the current payment email that owns the existing private dossier
+access, rather than an independently supplied contact address. The administrator
+can edit the subject and body without inserting or preserving a technical marker.
+The preview explains that one private link will be added automatically. After explicit confirmation, the
+server revalidates the exact recipient, source version and photo snapshot. It then
+appends one FR/EN private follow-up link with `section=media-consent`. The
+message, hashed access token, audit and receipt share one transaction; preparation
+issues none of them. No private URL or raw token enters the preview, receipt or
+audit. A queued message records neither image consent nor approval. See the
+[photo consent flow](sponsor-media-usage.md#demander-le-consentement-pour-les-photos-ajoutées-par-ladministration).
+
 An exact replay by the same actor with the same request and payload returns the
 original acceptance and message with its current delivery state. Reusing the UUID
 with another actor, dossier or payload returns 409
@@ -32,6 +51,11 @@ fresh preparation. A new UUID revalidates the current dossier before reusing an
 existing email deduplication hash. Identical content can therefore have a new
 receipt without another email or send audit. Queue, send audit and receipt are
 transactional; a replay creates none of them again.
+
+For photo requests, a new UUID reuses the existing message while its private link
+is valid. Once the link expires, a new confirmed request creates one renewed link
+and message; concurrent confirmations reuse that renewal. Replaying an older UUID
+always returns its original receipt, even after expiration or a source change.
 
 `GET /api/admin/sponsorships/information-request-receipt` accepts exactly one UUID
 `requestId` and one UUID `contributionId`. The alias without `/api` is retained.

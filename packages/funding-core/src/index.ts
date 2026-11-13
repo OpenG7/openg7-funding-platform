@@ -55,6 +55,7 @@ export type {
   AdminAssistantContext,
   AdminAssistantContextResponse,
   AdminAssistantNextStep,
+  AdminMediaConsentSnapshotEntry,
   AdminInformationRequestPreview,
   AdminInformationRequest,
   AdminInformationRequestResult,
@@ -339,6 +340,7 @@ export * from './sponsorship-publication-formats.js';
 export * from './sponsor-media-usage.js';
 export * from './sponsor-media-terms.js';
 export * from './sponsor-media-review.js';
+export * from './sponsor-media-approve-all.js';
 export type {
   PublicationObligationSnapshot,
   SponsorshipFulfilmentEvidence
