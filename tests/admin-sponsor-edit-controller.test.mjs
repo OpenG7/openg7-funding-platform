@@ -39,6 +39,7 @@ const sponsor = (changes = {}) => ({
   sponsor_contact_name: 'Synthetic contact',
   sponsor_contact_email: 'contact@example.test',
   sponsor_website_url: 'https://example.test',
+  sponsor_details_submitted_at: '2026-09-03T12:00:00.000Z',
   ...changes
 });
 
@@ -125,6 +126,33 @@ test('opening initializes an independent draft, normalized unchanged fields do n
   assert.deepEqual(f.requests, []);
   assert.equal(f.requestIds(), 0);
   assert.equal(fixture().controller.draft().companyName, '');
+});
+
+test('confirming unchanged complete contact details records admin completion without submitting for the sponsor', async () => {
+  const f = fixture();
+  f.selected.set(sponsor({ sponsor_details_submitted_at: null }));
+  f.controller.open();
+  assert.equal(f.controller.changed(), false);
+  assert.equal(f.controller.canSave(), true);
+  await f.controller.save();
+  assert.equal(f.confirmations.length, 1);
+  assert.equal(f.requests.length, 1);
+  assert.equal('sponsor_details_submitted_at' in f.requests[0].request, false);
+  assert.equal(f.events[0].event, 'saved');
+});
+
+test('unchanged incomplete or already admin-completed details do not create another completion request', async () => {
+  for (const changes of [
+    { sponsor_contact_email: null },
+    { sponsor_details_admin_completed_at: '2026-09-03T12:00:00.000Z' }
+  ]) {
+    const f = fixture();
+    f.selected.set(sponsor({ sponsor_details_submitted_at: null, ...changes }));
+    f.controller.open();
+    assert.equal(f.controller.canSave(), false);
+    await f.controller.save();
+    assert.deepEqual(f.requests, []);
+  }
 });
 
 for (const permission of ['disabled', 'readonly', 'destroyed'])

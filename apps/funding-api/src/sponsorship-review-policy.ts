@@ -73,6 +73,24 @@ export const canRequestSponsorshipConsent = (
     source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
   );
 
+/** The private dossier link goes only to the payment address, independently of profile consent. */
+export const canRequestSponsorshipMediaConsent = (
+  source: {
+    readonly record: SponsorshipAttentionRecord;
+    readonly accessRecipient: string | null;
+  },
+  mediaCount: number
+): boolean =>
+  mediaCount > 0 &&
+  mediaCount <= 100 &&
+  isActionableSponsorship(source.record) &&
+  source.record.reviewStatus !== 'rejected' &&
+  Boolean(
+    source.accessRecipient &&
+    source.accessRecipient.length <= 254 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.accessRecipient)
+  );
+
 export const isSponsorshipAwaitingReview = (
   record: SponsorshipAttentionRecord
 ): boolean =>

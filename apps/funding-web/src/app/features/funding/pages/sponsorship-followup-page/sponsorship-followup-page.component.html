@@ -104,6 +104,8 @@
         <openg7-sponsorship-followup-form
           [followup]="current"
           [token]="token()"
+          [refreshKey]="mediaRefresh()"
+          [mediaConsentRequested]="mediaConsentRequested"
           [correctionAllowed]="!!correctionDecisionId()"
           [busy]="busy()"
           [draftBlocked]="!drafts.ready()"

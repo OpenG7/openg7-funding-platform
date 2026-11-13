@@ -231,6 +231,7 @@ export const createAdminAssistantHttpHandler = ({
       const allowedDraftTypes: readonly AdminAssistantDraftType[] = [
         'sponsorship_reminder',
         'sponsorship_consent_request',
+        'sponsorship_media_consent_request',
         'publication_draft',
         'admin_note',
         'slot_proposal'

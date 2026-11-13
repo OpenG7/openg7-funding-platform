@@ -99,7 +99,16 @@ const routes = [
   ['context', 'GET', '', 'authorization'],
   ['summary', 'GET', '', 'access'],
   ['query', 'POST', '{"message":"  Question synthétique  "}', 'authorization'],
-  ['prepare', 'POST', '{"type":"admin_note","language":"en"}', 'access']
+  [
+    'prepare',
+    'POST',
+    JSON.stringify({
+      type: 'sponsorship_media_consent_request',
+      language: 'en',
+      reference: sponsorshipId
+    }),
+    'access'
+  ]
 ];
 
 test('assistant routes preserve both aliases, access checks and consultation-only ports', async (t) => {
@@ -148,7 +157,10 @@ test('assistant routes preserve both aliases, access checks and consultation-onl
                 model: null,
                 toolCalls: 0
               },
-              prepare: { draftType: 'admin_note', status: 'ok' }
+              prepare: {
+                draftType: 'sponsorship_media_consent_request',
+                status: 'ok'
+              }
             }[path]
           );
           assert.ok(
@@ -195,6 +207,17 @@ test('absent, expired and forbidden sessions stop before parsing bodies, private
     200
   );
   assert.equal((await f.run('/admin/assistant/summary')).status, 503);
+  const reader = fixture({ accessDenied: 403 });
+  const preparation = routes.find(([path]) => path === 'prepare');
+  const readerResult = await reader.run('/api/admin/assistant/prepare', {
+    method: preparation[1],
+    body: preparation[2]
+  });
+  assert.equal(readerResult.status, 403);
+  assert.deepEqual(
+    reader.calls.map((call) => call.name),
+    ['access', 'respond']
+  );
 });
 
 test('context validates selection and passes only the requested sponsorship ID', async () => {
@@ -300,6 +323,7 @@ test('preparation accepts only known types and locales and bounds the reference 
   for (const type of [
     'sponsorship_reminder',
     'sponsorship_consent_request',
+    'sponsorship_media_consent_request',
     'publication_draft',
     'admin_note',
     'slot_proposal'

@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 
 import type {
   AdminInformationRequest,
-  AdminInformationRequestResult
+  AdminInformationRequestResult,
+  AdminMediaConsentSnapshotEntry
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
@@ -20,6 +21,13 @@ import {
 } from './sponsorship-review-policy.js';
 import { readSponsorshipInformationRequestReceipt } from './sponsorship-information-receipts.repository.js';
 import { isValidUuid } from './business-helpers/request-validation.js';
+import {
+  prepareSponsorshipMediaConsentRequest,
+  queueSponsorshipMediaConsentRequest,
+  readSponsorshipMediaConsentAssets,
+  validSponsorshipMediaConsentAccessOptions,
+  type SponsorshipMediaConsentAccessOptions
+} from './sponsorship-media-consent.js';
 
 export class InformationRequestError extends Error {
   constructor(
@@ -34,18 +42,49 @@ export class InformationRequestError extends Error {
   }
 }
 
+const normalizeMediaConsentSnapshot = (
+  value: unknown
+): readonly AdminMediaConsentSnapshotEntry[] => {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100)
+    throw new InformationRequestError(400);
+  const entries = value.map((entry: unknown) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      throw new InformationRequestError(400);
+    const item = entry as Record<string, unknown>;
+    if (
+      Object.keys(item).some((key) => !['id', 'version'].includes(key)) ||
+      !isValidUuid(item.id) ||
+      typeof item.version !== 'string' ||
+      !item.version.trim() ||
+      item.version.length > 128 ||
+      /[\u0000-\u001f\u007f<>]/.test(item.version)
+    )
+      throw new InformationRequestError(400);
+    return { id: item.id.toLowerCase(), version: item.version };
+  });
+  if (new Set(entries.map((entry) => entry.id)).size !== entries.length)
+    throw new InformationRequestError(400);
+  return entries.sort((first, second) => first.id.localeCompare(second.id));
+};
+
 export const validateInformationRequest = (
   input: unknown
 ): AdminInformationRequest => {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new InformationRequestError(400);
   const raw = input as Partial<AdminInformationRequest>;
+  const mediaConsent = raw.purpose === 'media_consent';
+  const mediaSnapshot = mediaConsent
+    ? normalizeMediaConsentSnapshot(raw.mediaSnapshot)
+    : undefined;
   if (
     Object.keys(raw).some(
       (key) =>
         ![
           'requestId',
           'purpose',
+          'language',
+          'mediaSnapshot',
           'contributionId',
           'contextVersion',
           'recipient',
@@ -54,7 +93,12 @@ export const validateInformationRequest = (
           'confirmed'
         ].includes(key)
     ) ||
-    (raw.purpose !== undefined && raw.purpose !== 'public_consent') ||
+    (raw.purpose !== undefined &&
+      raw.purpose !== 'public_consent' &&
+      raw.purpose !== 'media_consent') ||
+    (mediaConsent
+      ? raw.language !== 'fr-CA' && raw.language !== 'en'
+      : raw.language !== undefined || raw.mediaSnapshot !== undefined) ||
     raw.confirmed !== true ||
     !isValidUuid(raw.requestId) ||
     typeof raw.contributionId !== 'string' ||
@@ -77,7 +121,8 @@ export const validateInformationRequest = (
   )
     throw new InformationRequestError(400);
   return {
-    ...(raw.purpose === 'public_consent' ? { purpose: raw.purpose } : {}),
+    ...(raw.purpose ? { purpose: raw.purpose } : {}),
+    ...(mediaConsent ? { language: raw.language, mediaSnapshot } : {}),
     requestId: raw.requestId.toLowerCase(),
     contributionId: raw.contributionId.toLowerCase(),
     contextVersion: raw.contextVersion,
@@ -92,7 +137,8 @@ export const validateInformationRequest = (
 export const requestSponsorshipInformation = async (
   pool: Pool,
   input: AdminInformationRequest,
-  actor: string
+  actor: string,
+  options?: SponsorshipMediaConsentAccessOptions
 ): Promise<AdminInformationRequestResult> => {
   input = validateInformationRequest(input);
   const requestHash = createHash('sha256')
@@ -104,7 +150,10 @@ export const requestSponsorshipInformation = async (
         input.subject,
         input.body,
         input.confirmed,
-        ...(input.purpose ? [input.purpose] : [])
+        ...(input.purpose ? [input.purpose] : []),
+        ...(input.purpose === 'media_consent'
+          ? [input.language, input.mediaSnapshot]
+          : [])
       ])
     )
     .digest('hex');
@@ -117,7 +166,10 @@ export const requestSponsorshipInformation = async (
           input.recipient,
           input.subject,
           input.body,
-          ...(input.purpose ? [input.purpose] : [])
+          ...(input.purpose ? [input.purpose] : []),
+          ...(input.purpose === 'media_consent'
+            ? [input.language, input.mediaSnapshot]
+            : [])
         ])
       )
       .digest('hex');
@@ -167,27 +219,88 @@ export const requestSponsorshipInformation = async (
       client,
       input.contributionId
     );
-    if (
-      !source ||
-      source.version !== input.contextVersion ||
+    if (!source || source.version !== input.contextVersion)
+      throw new InformationRequestError(409);
+    if (input.purpose === 'media_consent') {
+      const preview = prepareSponsorshipMediaConsentRequest(
+        source,
+        await readSponsorshipMediaConsentAssets(client, source),
+        input.language!
+      ).delivery;
+      if (
+        !preview ||
+        preview.recipient !== input.recipient ||
+        JSON.stringify(preview.mediaSnapshot) !==
+          JSON.stringify(input.mediaSnapshot)
+      )
+        throw new InformationRequestError(409);
+      if (!validSponsorshipMediaConsentAccessOptions(options))
+        throw new InformationRequestError(503);
+    } else if (
       source.recipient !== input.recipient ||
       !(input.purpose === 'public_consent'
         ? canRequestSponsorshipConsent(source)
         : canRequestSponsorshipInformation(source))
     )
       throw new InformationRequestError(409);
-    const existing = (
-      await client.query<{ id: string; status: string }>(
-        'SELECT id::text AS id, status FROM email_messages WHERE idempotency_key = $1',
-        [key]
-      )
-    ).rows[0];
+    // A new confirmed request may renew an expired private link, while UUID replay
+    // above remains attached to its original historical receipt.
+    const priorMessage =
+      input.purpose === 'media_consent'
+        ? (
+            await client.query<{
+              id: string;
+              status: string;
+              accessValid?: boolean;
+            }>(
+              `SELECT message.id::text AS id,message.status,
+              COALESCE(access.expires_at > clock_timestamp(),FALSE) AS "accessValid"
+            FROM email_messages message
+            LEFT JOIN sponsorship_access_tokens access ON access.email_message_id=message.id
+              AND access.contribution_id=$2::uuid
+            WHERE message.template_key='sponsorship_information_request'
+              AND message.metadata->>'contributionId'=$2::text
+              AND (message.idempotency_key=$1 OR message.idempotency_key LIKE $1 || ':renewal:%')
+            ORDER BY "accessValid" DESC,access.created_at DESC NULLS LAST,
+              message.created_at DESC,message.id DESC LIMIT 1`,
+              [key, input.contributionId]
+            )
+          ).rows[0]
+        : (
+            await client.query<{
+              id: string;
+              status: string;
+              accessValid?: boolean;
+            }>(
+              'SELECT id::text AS id, status FROM email_messages WHERE idempotency_key = $1',
+              [key]
+            )
+          ).rows[0];
+    const existing =
+      priorMessage &&
+      (input.purpose !== 'media_consent' || priorMessage.accessValid)
+        ? priorMessage
+        : undefined;
+    const deliveryKey =
+      input.purpose === 'media_consent' &&
+      priorMessage &&
+      !priorMessage.accessValid
+        ? `${key}:renewal:${priorMessage.id}`
+        : key;
     let messageId = existing?.id;
     if (!messageId) {
-      const queued = await queueSponsorshipInformationRequest(client, {
-        ...input,
-        idempotencyKey: key
-      });
+      const queued =
+        input.purpose === 'media_consent'
+          ? await queueSponsorshipMediaConsentRequest(
+              client,
+              input,
+              deliveryKey,
+              options!
+            )
+          : await queueSponsorshipInformationRequest(client, {
+              ...input,
+              idempotencyKey: key
+            });
       if (!queued.messageId || queued.error)
         throw new InformationRequestError(503);
       messageId = queued.messageId;
@@ -201,7 +314,10 @@ export const requestSponsorshipInformation = async (
         metadata: {
           requestId: input.requestId,
           messageId,
-          ...(input.purpose ? { purpose: input.purpose } : {})
+          ...(input.purpose ? { purpose: input.purpose } : {}),
+          ...(input.purpose === 'media_consent'
+            ? { language: input.language, mediaSnapshot: input.mediaSnapshot }
+            : {})
         }
       });
       if (!audited) throw new InformationRequestError(503);

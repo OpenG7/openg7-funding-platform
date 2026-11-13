@@ -72,6 +72,8 @@ export interface AdminSponsorshipRecord {
   readonly sponsor_logo_url: string | null;
   readonly sponsor_message: string | null;
   readonly sponsor_details_submitted_at: string | null;
+  /** Explicit administrative completion, independently of sponsor submission. */
+  readonly sponsor_details_admin_completed_at?: string | null;
   readonly sponsor_review_status: SponsorshipReviewStatus;
   readonly sponsor_review_note: string | null;
   readonly sponsor_reviewed_at: string | null;

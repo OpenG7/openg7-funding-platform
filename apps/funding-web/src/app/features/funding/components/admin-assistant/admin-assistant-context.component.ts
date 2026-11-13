@@ -61,7 +61,9 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly dossierOpen = output<void>();
   readonly sponsorshipId = input<string>();
   readonly refreshKey = input<unknown>(0);
-  readonly requestType = input<'sponsorship_consent_request' | null>(null);
+  readonly requestType = input<
+    'sponsorship_consent_request' | 'sponsorship_media_consent_request' | null
+  >(null);
   readonly busyChanged = output<boolean>();
   readonly dialog =
     viewChild<ElementRef<HTMLDialogElement>>('confirmationDialog');

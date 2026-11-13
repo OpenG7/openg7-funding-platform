@@ -5,6 +5,11 @@ import { once } from 'node:events';
 import test from 'node:test';
 import { updateAdminSponsorshipDetails } from '../../dist/apps/funding-api/src/admin-sponsorship-details.service.js';
 import { recordSponsorshipIntervention } from '../../dist/apps/funding-api/src/sponsorship-interventions.service.js';
+import {
+  getAdminSponsorshipById,
+  listAdminSponsorships,
+  listSponsorshipsForAttention
+} from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 test(
@@ -89,6 +94,7 @@ test(
     assert.equal(audits[0].actor, 'fixture-admin');
     assert.equal(audits[0].metadata.requestId, input.requestId);
     assert.equal(audits[0].metadata.reason, 'correction');
+    assert.equal(audits[0].metadata.identityCompletedByAdmin, true);
     assert.deepEqual(audits[0].metadata.changedFields, [
       'companyName',
       'publicName',
@@ -276,6 +282,155 @@ test(
         .rows[0].count,
       1
     );
+  }
+);
+
+test(
+  'confirmed administrative completion is explicit, survives audit pagination and never impersonates sponsor submission',
+  { timeout: 90000 },
+  async (t) => {
+    const { pool, stop } = await startDisposablePostgres();
+    t.after(stop);
+    const seed = async (contactEmail, submittedAt = null) =>
+      (
+        await pool.query(
+          `INSERT INTO fund_contributions (
+            contribution_type, amount_cents, currency, status,
+            sponsor_company_name, sponsor_contact_email,
+            sponsor_details_submitted_at, public_display_consent,
+            sponsor_review_status, sponsor_reviewed_at)
+           VALUES ('sponsorship_interest', 25000, 'cad', 'paid',
+             'Synthetic complete identity', $1, $2::timestamptz, false,
+             'approved', '2026-09-01'::timestamptz)
+           RETURNING id, updated_at::text AS version`,
+          [contactEmail, submittedAt]
+        )
+      ).rows[0];
+    const correction = (dossier, contactEmail) => ({
+      contributionId: dossier.id,
+      expectedVersion: dossier.version,
+      requestId: randomUUID(),
+      confirmed: true,
+      reason: 'correction',
+      companyName: 'Synthetic complete identity',
+      publicName: '',
+      contactName: '',
+      contactEmail,
+      websiteUrl: ''
+    });
+    const dossier = await seed('complete@example.invalid');
+    await pool.query(
+      `INSERT INTO admin_audit_log (actor, action, entity_type, entity_id, metadata)
+       VALUES ('synthetic-admin', 'sponsorship.details.update', 'sponsorship', $1,
+         '{"changedFields":["websiteUrl"]}'::jsonb)`,
+      [dossier.id]
+    );
+    assert.equal(
+      (await getAdminSponsorshipById(pool, dossier.id))
+        .sponsor_details_admin_completed_at,
+      null,
+      'legacy corrections do not establish administrative completion'
+    );
+    const input = correction(dossier, 'complete@example.invalid');
+    const [first, replay] = await Promise.all([
+      updateAdminSponsorshipDetails(pool, input, 'synthetic-admin'),
+      updateAdminSponsorshipDetails(pool, input, 'synthetic-admin')
+    ]);
+    assert.deepEqual(replay, first);
+    assert.equal(first.updated, true);
+    assert.notEqual(first.version, dossier.version);
+    const completionAudits = (
+      await pool.query(
+        `SELECT metadata, created_at::text AS recorded_at FROM admin_audit_log
+         WHERE entity_type = 'sponsorship' AND entity_id = $1
+           AND metadata @> '{"identityCompletedByAdmin":true}'::jsonb`,
+        [dossier.id]
+      )
+    ).rows;
+    assert.equal(completionAudits.length, 1);
+    assert.deepEqual(completionAudits[0].metadata.changedFields, []);
+    const completedAt = completionAudits[0].recorded_at;
+    await pool.query(
+      `INSERT INTO admin_audit_log (actor, action, entity_type, entity_id, created_at)
+       SELECT 'synthetic-admin', 'sponsorship.synthetic_followup', 'sponsorship',
+         $1, clock_timestamp() + n * interval '1 second'
+       FROM generate_series(1, 25) AS n`,
+      [dossier.id]
+    );
+    const detail = await getAdminSponsorshipById(pool, dossier.id);
+    const listed = await listAdminSponsorships(pool, {
+      page: 1,
+      pageSize: 12,
+      search: dossier.id
+    });
+    const attention = await listSponsorshipsForAttention(
+      pool,
+      null,
+      dossier.id
+    );
+    for (const record of [detail, listed.items[0]]) {
+      assert.equal(record.sponsor_details_admin_completed_at, completedAt);
+      assert.equal(record.sponsor_details_submitted_at, null);
+      assert.equal(record.public_display_consent, false);
+      assert.equal(record.sponsor_review_status, 'approved');
+      assert.equal(record.admin_audit_entries.length, 20);
+      assert.ok(
+        record.admin_audit_entries.every(
+          (audit) => audit.metadata.identityCompletedByAdmin !== true
+        ),
+        'completion remains available after its audit leaves the displayed history'
+      );
+    }
+    assert.equal(attention.items[0].detailsAdminCompletedAt, completedAt);
+    assert.equal(attention.items[0].detailsSubmittedAt, null);
+    assert.deepEqual(
+      await updateAdminSponsorshipDetails(
+        pool,
+        { ...input, expectedVersion: first.version, requestId: randomUUID() },
+        'synthetic-admin'
+      ),
+      { updated: false, version: first.version },
+      'an already recorded completion does not generate another mutation'
+    );
+
+    for (const [email, submittedAt] of [
+      ['', null],
+      ['sponsor@example.invalid', '2026-09-20']
+    ]) {
+      const other = await seed(email, submittedAt);
+      const result = await updateAdminSponsorshipDetails(
+        pool,
+        {
+          ...correction(other, email),
+          contactName: 'Updated synthetic contact'
+        },
+        'synthetic-admin'
+      );
+      assert.equal(result.updated, true);
+      const record = await getAdminSponsorshipById(pool, other.id);
+      assert.equal(record.sponsor_details_admin_completed_at, null);
+      assert.equal(
+        Boolean(record.sponsor_details_submitted_at),
+        Boolean(submittedAt)
+      );
+    }
+
+    const rollback = await seed('rollback@example.invalid');
+    await pool.query(`CREATE FUNCTION reject_completion_audit() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic audit failure'; END $$;
+      CREATE TRIGGER reject_completion_audit BEFORE INSERT ON admin_audit_log
+      FOR EACH ROW EXECUTE FUNCTION reject_completion_audit()`);
+    await assert.rejects(
+      updateAdminSponsorshipDetails(
+        pool,
+        correction(rollback, 'rollback@example.invalid'),
+        'synthetic-admin'
+      )
+    );
+    const unchanged = await getAdminSponsorshipById(pool, rollback.id);
+    assert.equal(unchanged.version, rollback.version);
+    assert.equal(unchanged.sponsor_details_admin_completed_at, null);
+    assert.equal(unchanged.sponsor_details_submitted_at, null);
   }
 );
 

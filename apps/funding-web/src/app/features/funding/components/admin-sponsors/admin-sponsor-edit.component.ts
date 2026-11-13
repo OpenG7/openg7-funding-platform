@@ -88,6 +88,7 @@ export class AdminSponsorEditComponent {
   readonly fields = this.controller.fields;
   readonly errors = this.controller.errors;
   readonly changed = this.controller.changed;
+  readonly canSave = this.controller.canSave;
 
   constructor() {
     let previousId: string | undefined;

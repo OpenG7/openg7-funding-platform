@@ -181,6 +181,101 @@ function assertPrivateCleared(c) {
   assert.equal(c.snapshot(), null);
 }
 
+test('one media consent draft retains its server photo snapshot through explicit delivery confirmation', async () => {
+  const { controller: c, ports, calls, options } = fixture();
+  const mediaPreview = {
+    ...proposal.delivery,
+    purpose: 'media_consent',
+    language: 'en',
+    body: 'Please review the two photographs in your private follow-up. A private link will be added automatically after delivery is confirmed.',
+    mediaSnapshot: [
+      { id: 'synthetic-photo-a', version: 'photo-a-v1' },
+      { id: 'synthetic-photo-b', version: 'photo-b-v1' }
+    ]
+  };
+  ports.prepareAssistantDraft = async (token, input) => {
+    calls.prepare.push({ token, input });
+    return { ...proposal, delivery: mediaPreview };
+  };
+  options.language = 'en';
+  await c.load();
+  await c.prepare('sponsorship_media_consent_request');
+  assert.deepEqual(calls.prepare, [
+    {
+      token: 'synthetic-session',
+      input: {
+        type: 'sponsorship_media_consent_request',
+        reference: id,
+        language: 'en'
+      }
+    }
+  ]);
+  assert.deepEqual(calls.send, []);
+  c.reviewSend();
+  assert.deepEqual(c.confirmation(), {
+    ...mediaPreview,
+    requestId: commandId,
+    confirmed: true
+  });
+  assert.deepEqual(calls.send, []);
+  c.cancelSend();
+  await c.send();
+  assert.deepEqual(calls.send, []);
+  c.reviewSend();
+  await c.send();
+  assert.equal(calls.send.length, 1);
+  assert.deepEqual(calls.send[0].input, {
+    ...mediaPreview,
+    requestId: commandId,
+    confirmed: true
+  });
+  assert.equal(c.informationReceipt().deliveryStatus, 'queued');
+});
+
+test('an uncertain media consent delivery keeps its exact photo snapshot and reconciles without another send', async () => {
+  const { controller: c, ports, calls } = fixture();
+  const mediaPreview = {
+    ...proposal.delivery,
+    purpose: 'media_consent',
+    language: 'fr-CA',
+    body: 'Veuillez examiner les deux photos dans votre suivi privé. Un lien privé sera ajouté automatiquement après confirmation de l’envoi.',
+    mediaSnapshot: [
+      { id: 'synthetic-photo-a', version: 'photo-a-v1' },
+      { id: 'synthetic-photo-b', version: 'photo-b-v1' }
+    ]
+  };
+  ports.prepareAssistantDraft = async () => ({
+    ...proposal,
+    delivery: mediaPreview
+  });
+  ports.requestSponsorshipInformation = async (token, input) => {
+    calls.send.push({ token, input });
+    throw new Error('Synthetic media consent receipt lost');
+  };
+  await c.load();
+  await c.prepare('sponsorship_media_consent_request');
+  c.reviewSend();
+  await c.send();
+  assert.equal(c.informationUncertain(), true);
+  assert.equal(
+    c.uncertainInformation().mediaSnapshot,
+    mediaPreview.mediaSnapshot
+  );
+  assert.equal(c.uncertainInformation().purpose, 'media_consent');
+  await c.prepare('sponsorship_media_consent_request');
+  c.reviewSend();
+  await c.send();
+  assert.equal(calls.send.length, 1);
+  ports.getInformationRequestReceipt = async (_token, input) => ({
+    ...delivery,
+    ...input,
+    found: true
+  });
+  assert.equal(await c.verifyInformationReceipt(), true);
+  assert.equal(c.informationUncertain(), false);
+  assert.equal(calls.send.length, 1);
+});
+
 async function uncertainRequest(f) {
   await populate(f.controller);
   const send = f.ports.requestSponsorshipInformation;

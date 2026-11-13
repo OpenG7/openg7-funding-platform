@@ -104,7 +104,7 @@
         <button
           type="submit"
           class="admin-button admin-button--primary"
-          [disabled]="saving() || !changed() || error() === 'conflict'"
+          [disabled]="saving() || !canSave() || error() === 'conflict'"
           [attr.aria-disabled]="busy() ? 'true' : null"
         >
           {{

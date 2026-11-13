@@ -46,6 +46,7 @@ export async function planBatch(
       )
     ).rows[0];
     if (prior) {
+      ensure(prior.plan.kind !== 'approve_all', 'MEDIA_PLAN_KIND_MISMATCH');
       ensure(
         prior.payload_fingerprint === hash && prior.actor === actor,
         'IDEMPOTENCY_CONFLICT'
@@ -147,6 +148,7 @@ export async function executeBatch(
     ).rows[0];
     ensure(row, 'MEDIA_PLAN_NOT_FOUND', 404);
     ensure(row.actor === actor, 'MEDIA_PLAN_ACTOR_MISMATCH', 403);
+    ensure(row.plan.kind !== 'approve_all', 'MEDIA_PLAN_KIND_MISMATCH');
     const revision = await lockWorkspace(db, row.contribution_id);
     const previous = await replay(
       db,

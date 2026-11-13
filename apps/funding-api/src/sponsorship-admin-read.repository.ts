@@ -101,11 +101,13 @@ interface SponsorshipAuditLogRow {
   readonly summary: string | null;
   readonly metadata: unknown;
   readonly created_at: string;
+  readonly identity_admin_completed_at: string | null;
 }
 
 const mapAdminSponsorshipRow = (
   row: AdminSponsorshipRow,
-  adminAuditEntries: readonly AdminAuditLogEntry[] = []
+  adminAuditEntries: readonly AdminAuditLogEntry[] = [],
+  detailsAdminCompletedAt: string | null = null
 ): AdminSponsorshipRecord => ({
   commitment: row.commitment ?? null,
   id: row.id,
@@ -126,6 +128,7 @@ const mapAdminSponsorshipRow = (
   sponsor_logo_url: row.sponsor_logo_url,
   sponsor_message: row.sponsor_message,
   sponsor_details_submitted_at: row.sponsor_details_submitted_at,
+  sponsor_details_admin_completed_at: detailsAdminCompletedAt,
   sponsor_review_status: row.sponsor_review_status,
   sponsor_review_note: row.sponsor_review_note,
   sponsor_reviewed_at: row.sponsor_reviewed_at,
@@ -185,9 +188,17 @@ const hasAdminAuditLog = async (pool: Pool): Promise<boolean> => {
 const listAdminSponsorshipAuditEntries = async (
   pool: Pool,
   contributionIds: readonly string[]
-): Promise<Map<string, readonly AdminAuditLogEntry[]>> => {
+): Promise<{
+  entriesByContribution: Map<string, readonly AdminAuditLogEntry[]>;
+  detailsAdminCompletedAtByContribution: Map<string, string>;
+}> => {
+  const grouped = new Map<string, AdminAuditLogEntry[]>();
+  const detailsAdminCompletedAtByContribution = new Map<string, string>();
   if (contributionIds.length === 0 || !(await hasAdminAuditLog(pool))) {
-    return new Map();
+    return {
+      entriesByContribution: grouped,
+      detailsAdminCompletedAtByContribution
+    };
   }
 
   const query = await pool.query<SponsorshipAuditLogRow>(
@@ -202,6 +213,10 @@ const listAdminSponsorshipAuditEntries = async (
           summary,
           metadata,
           created_at::text AS created_at,
+          (MIN(created_at) FILTER (
+            WHERE action = 'sponsorship.details.update'
+              AND metadata @> '{"identityCompletedByAdmin":true}'::jsonb
+          ) OVER (PARTITION BY entity_id))::text AS identity_admin_completed_at,
           ROW_NUMBER() OVER (
             PARTITION BY entity_id
             ORDER BY created_at DESC
@@ -218,7 +233,8 @@ const listAdminSponsorshipAuditEntries = async (
         entity_id,
         summary,
         metadata,
-        created_at
+        created_at,
+        identity_admin_completed_at
       FROM ranked_audit
       WHERE audit_rank <= 20
       ORDER BY created_at DESC
@@ -226,8 +242,13 @@ const listAdminSponsorshipAuditEntries = async (
     [contributionIds]
   );
 
-  const grouped = new Map<string, AdminAuditLogEntry[]>();
   for (const row of query.rows) {
+    if (row.entity_id && row.identity_admin_completed_at) {
+      detailsAdminCompletedAtByContribution.set(
+        row.entity_id,
+        row.identity_admin_completed_at
+      );
+    }
     if (!row.entity_id) {
       continue;
     }
@@ -237,7 +258,10 @@ const listAdminSponsorshipAuditEntries = async (
     grouped.set(row.entity_id, entries);
   }
 
-  return grouped;
+  return {
+    entriesByContribution: grouped,
+    detailsAdminCompletedAtByContribution
+  };
 };
 
 const adminSponsorshipListOrderBy = (
@@ -421,14 +445,18 @@ export const listAdminSponsorships = async (
   `,
     params
   );
-  const auditEntriesByContribution = await listAdminSponsorshipAuditEntries(
+  const auditFacts = await listAdminSponsorshipAuditEntries(
     pool,
     query.rows.map((row) => row.id)
   );
 
   return {
     items: query.rows.map((row) =>
-      mapAdminSponsorshipRow(row, auditEntriesByContribution.get(row.id) ?? [])
+      mapAdminSponsorshipRow(
+        row,
+        auditFacts.entriesByContribution.get(row.id) ?? [],
+        auditFacts.detailsAdminCompletedAtByContribution.get(row.id) ?? null
+      )
     ),
     pagination: {
       page: normalizedPage,
@@ -460,6 +488,7 @@ export interface SponsorshipAttentionRecord {
   readonly paidAt: string | null;
   readonly updatedAt: string;
   readonly detailsSubmittedAt: string | null;
+  readonly detailsAdminCompletedAt?: string | null;
   readonly hasCompanyName: boolean;
   readonly hasContactEmail: boolean;
   readonly hasWebsite: boolean;
@@ -488,6 +517,7 @@ interface SponsorshipAttentionRow {
   readonly paid_at: string | null;
   readonly updated_at: string;
   readonly sponsor_details_submitted_at: string | null;
+  readonly sponsor_details_admin_completed_at: string | null;
   readonly has_company_name: boolean;
   readonly has_contact_email: boolean;
   readonly has_website: boolean;
@@ -521,8 +551,12 @@ export const listSponsorshipsForAttention = async (
     maxRows === null
       ? null
       : Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
-  const mediaPresence = await pool.query<{ readonly exists: boolean }>(
-    `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists`
+  const mediaPresence = await pool.query<{
+    readonly exists: boolean;
+    readonly has_admin_audit_log: boolean;
+  }>(
+    `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists,
+      to_regclass('public.admin_audit_log') IS NOT NULL AS has_admin_audit_log`
   );
   const supportingImageProjection = mediaPresence.rows[0]?.exists
     ? `EXISTS (
@@ -533,6 +567,13 @@ export const listSponsorshipsForAttention = async (
            AND media.deleted_at IS NULL
        )`
     : 'FALSE';
+  const adminCompletionProjection = mediaPresence.rows[0]?.has_admin_audit_log
+    ? `(SELECT MIN(audit.created_at)::text FROM admin_audit_log AS audit
+        WHERE audit.entity_type = 'sponsorship'
+          AND audit.entity_id = fund_contributions.id::text
+          AND audit.action = 'sponsorship.details.update'
+          AND audit.metadata @> '{"identityCompletedByAdmin":true}'::jsonb)`
+    : 'NULL';
   const query = await pool.query<SponsorshipAttentionRow>(
     `
     SELECT
@@ -544,6 +585,7 @@ export const listSponsorshipsForAttention = async (
       paid_at::text AS paid_at,
       updated_at::text AS updated_at,
       sponsor_details_submitted_at::text AS sponsor_details_submitted_at,
+      ${adminCompletionProjection} AS sponsor_details_admin_completed_at,
       (COALESCE(TRIM(sponsor_company_name), '') <> '') AS has_company_name,
       (COALESCE(TRIM(sponsor_contact_email), '') <> '') AS has_contact_email,
       (COALESCE(TRIM(sponsor_website_url), '') <> '') AS has_website,
@@ -577,6 +619,7 @@ export const listSponsorshipsForAttention = async (
     paidAt: row.paid_at,
     updatedAt: row.updated_at,
     detailsSubmittedAt: row.sponsor_details_submitted_at,
+    detailsAdminCompletedAt: row.sponsor_details_admin_completed_at ?? null,
     hasCompanyName: row.has_company_name,
     hasContactEmail: row.has_contact_email,
     hasWebsite: row.has_website,
@@ -664,14 +707,12 @@ export const getAdminSponsorshipById = async (
     return null;
   }
 
-  const auditEntriesByContribution = await listAdminSponsorshipAuditEntries(
-    pool,
-    [row.id]
-  );
+  const auditFacts = await listAdminSponsorshipAuditEntries(pool, [row.id]);
 
   return mapAdminSponsorshipRow(
     row,
-    auditEntriesByContribution.get(row.id) ?? []
+    auditFacts.entriesByContribution.get(row.id) ?? [],
+    auditFacts.detailsAdminCompletedAtByContribution.get(row.id) ?? null
   );
 };
 

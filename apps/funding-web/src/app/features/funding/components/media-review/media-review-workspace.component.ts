@@ -7,7 +7,6 @@ import {
   Injector,
   PLATFORM_ID,
   afterNextRender,
-  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -32,6 +31,7 @@ import { adminDocumentDeliveryBrowser } from '../../services/admin-document-deli
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import { AdminAssistantContextComponent } from '../admin-assistant/admin-assistant-context.component.js';
 import { FundingModerationActionsComponent } from '../admin-moderation/funding-moderation-actions.component.js';
 import { ContextControllerComponent } from '../admin-context-controller/context-controller.component.js';
 import { ContextControllerActionComponent } from '../admin-context-controller/context-controller-action.component.js';
@@ -54,6 +54,7 @@ import { MediaReviewCommands } from './media-review-commands.js';
 import { MediaReviewCommandsComponent } from './media-review-commands.component.js';
 import { MediaReviewAnalysisComponent } from './media-review-analysis.component.js';
 import { MediaReviewHistoryComponent } from './media-review-history.component.js';
+import { MediaReviewApproveAll } from './media-review-approve-all.js';
 
 /** Funding organism: paged gallery, one inspector and server-planned, explicitly confirmed commands. */
 @Component({
@@ -68,6 +69,7 @@ import { MediaReviewHistoryComponent } from './media-review-history.component.js
     ContextControllerComponent,
     ContextControllerActionComponent,
     AdminDrawerComponent,
+    AdminAssistantContextComponent,
     AdminIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -89,24 +91,25 @@ export class MediaReviewWorkspaceComponent {
   readonly inspectRequested = output<void>();
   readonly i18n = inject(FundingI18nService);
   readonly admin = inject(FundingAdminService);
+  private readonly scopeIdentity = computed(
+    () => this.admin.identity()?.id ?? ''
+  );
   private readonly router = inject(Router);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
   private readonly inspector = viewChild<ElementRef<HTMLElement>>('inspector');
-  private readonly pendingReviewFocus = signal<{
-    id: string;
-    contributionId: string;
-    version: string;
-    revision: string;
-    session: number;
-  } | null>(null);
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly workspaceVisible = signal(false);
   readonly documentVisible = signal(true);
   readonly layout = signal<'grid' | 'list'>('grid');
   readonly targetObligationId = signal('');
+  readonly consentRequestOpened = signal(false);
+  readonly consentRequestBusy = signal(false);
+  private consentRequestOpener: HTMLElement | null = null;
+  private approveAllOpener: HTMLElement | null = null;
+  private approveAllPreviewOpener: HTMLElement | null = null;
   readonly exportOpen = signal(false);
   readonly exportConfirmed = signal(false);
   readonly exportBusy = signal(false);
@@ -139,6 +142,9 @@ export class MediaReviewWorkspaceComponent {
         !this.analysis.busy() &&
         !this.upload.busy() &&
         !this.exportBusy() &&
+        !this.consentRequestBusy() &&
+        !this.approveAll.busy() &&
+        !this.approveAll.unresolved() &&
         this.admin.identity()?.role !== 'reader',
       changed: () => this.changed.emit(),
       unauthorized: () => {
@@ -166,10 +172,67 @@ export class MediaReviewWorkspaceComponent {
     admin: this.admin,
     controller: this.c
   });
-  readonly commands = new MediaReviewCommands(
-    this.c,
-    () => this.contributionId(),
-    (asset) => this.resumeMediaReview(asset)
+  readonly commands = new MediaReviewCommands(this.c, () =>
+    this.contributionId()
+  );
+  readonly approveAll = new MediaReviewApproveAll({
+    admin: this.admin,
+    controller: this.c,
+    permitted: () =>
+      this.browser &&
+      this.admin.hasValidAdminSession() &&
+      this.c.data()?.writable === true &&
+      this.admin.identity()?.role !== 'reader' &&
+      !this.disabled() &&
+      !this.c.busy() &&
+      !this.c.uncertain() &&
+      !this.analysis.busy() &&
+      !this.upload.busy() &&
+      !this.exportBusy() &&
+      !this.consentRequestBusy() &&
+      !this.commands.reviewSubmitting(),
+    refresh: () => this.refresh(),
+    changed: () => this.changed.emit(),
+    unauthorized: () => {
+      this.admin.clearAdminSession();
+      void this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+      });
+    },
+    storage: () => adminDocumentDeliveryBrowser()?.storage() ?? null
+  });
+  readonly mediaHeroCounts = computed(() => {
+    const assets = this.c.assets();
+    return {
+      total: assets.length,
+      toReview: assets.filter(
+        (asset) => asset.reviewStatus === 'pending_review'
+      ).length,
+      approved: assets.filter((asset) => asset.reviewStatus === 'approved')
+        .length,
+      authorizationRequired: assets.filter(
+        (asset) =>
+          asset.reviewStatus !== 'rejected' &&
+          asset.usage?.state !== 'confirmed'
+      ).length
+    };
+  });
+  readonly hasPendingMediaConsent = computed(() =>
+    this.c
+      .assets()
+      .some(
+        (asset) =>
+          asset.kind === 'supporting_image' &&
+          asset.reviewStatus !== 'rejected' &&
+          (!asset.usage || asset.usage.state === 'needs_confirmation')
+      )
+  );
+  readonly canRequestMediaConsent = computed(
+    () =>
+      this.hasPendingMediaConsent() &&
+      this.c.canWrite() &&
+      !this.commands.reviewSubmitting() &&
+      !this.consentRequestBusy()
   );
   readonly thumbnails = new MediaPreviewCollection((id) =>
     this.admin.mediaThumbnail(id)
@@ -323,16 +386,25 @@ export class MediaReviewWorkspaceComponent {
     });
     effect(() => {
       const id = this.contributionId(),
-        session = this.admin.sessionGeneration();
+        session = this.admin.sessionGeneration(),
+        identity = this.scopeIdentity();
       untracked(() => {
         void session;
         const authenticated = this.browser && this.admin.hasValidAdminSession();
         this.c.setScope('');
         if (authenticated) this.c.setScope(id);
+        this.approveAll.setScope(
+          authenticated ? id : '',
+          identity + ':' + session
+        );
+        this.approveAllOpener = null;
+        this.approveAllPreviewOpener = null;
         this.thumbnails.clear();
         this.fullPreview.clear();
         this.commands.reset();
-        this.pendingReviewFocus.set(null);
+        this.consentRequestOpened.set(false);
+        this.consentRequestBusy.set(false);
+        this.consentRequestOpener = null;
         this.analysis.reset();
         this.history.reset();
         this.upload.reset();
@@ -378,36 +450,6 @@ export class MediaReviewWorkspaceComponent {
         run = this.analysis.run();
       if (asset) untracked(() => this.c.restoreSavedAnalysisDraft(asset, run));
     });
-    afterRenderEffect({
-      read: () => {
-        const target = this.pendingReviewFocus();
-        if (!target) return;
-        const asset = this.c.inspected(),
-          data = this.c.data();
-        if (
-          this.admin.sessionGeneration() !== target.session ||
-          this.commands.form() !== null ||
-          data?.contributionId !== target.contributionId ||
-          data.revision !== target.revision ||
-          asset?.id !== target.id ||
-          asset.version !== target.version
-        ) {
-          this.pendingReviewFocus.set(null);
-          return;
-        }
-        // Saving rights refreshes the parent dossier before it becomes writable again.
-        if (!this.c.canWrite()) return;
-        const field =
-          this.inspector()?.nativeElement.querySelector<HTMLElement>(
-            !this.c.draft(asset).altText.trim()
-              ? '[data-og7="media-inspector-alt"]'
-              : '[data-og7="media-inspector-approve"]'
-          );
-        if (!field || field.matches(':disabled')) return;
-        field.focus();
-        this.pendingReviewFocus.set(null);
-      }
-    });
     effect(() => {
       const assets = [...this.c.visible(), ...(this.c.plan()?.assets ?? [])];
       untracked(() =>
@@ -421,7 +463,9 @@ export class MediaReviewWorkspaceComponent {
         this.c.busy() ||
           this.analysis.busy() ||
           this.upload.busy() ||
-          this.exportBusy()
+          this.exportBusy() ||
+          this.consentRequestBusy() ||
+          this.approveAll.busy()
       )
     );
     effect((cleanup) => {
@@ -467,6 +511,7 @@ export class MediaReviewWorkspaceComponent {
       this.c.dispose();
       this.thumbnails.dispose();
       this.fullPreview.dispose();
+      this.approveAll.dispose();
       observer?.disconnect();
       this.document.removeEventListener('visibilitychange', visibility);
     });
@@ -573,6 +618,16 @@ export class MediaReviewWorkspaceComponent {
       'MEDIA_ALT_TEXT_REQUIRED',
       'MEDIA_ANALYSIS_FAILED',
       'MEDIA_HUMAN_REVIEW_REQUIRED',
+      'MEDIA_ALREADY_APPROVED',
+      'MEDIA_WEBSITE_SELECTION_REVIEW_REQUIRED',
+      'MEDIA_CONTENT_UNAVAILABLE',
+      'MEDIA_NOT_FOUND',
+      'MEDIA_KIND_UNSUPPORTED',
+      'MEDIA_PLAN_STALE',
+      'MEDIA_VERSION_CONFLICT',
+      'MODERATION_CONTENT_CHANGED',
+      'MODERATION_DECISION_CONFLICT',
+      'MODERATION_RECONSIDERATION_OPEN',
       'MEDIA_PREPARATION_DOSSIER_INELIGIBLE',
       'MEDIA_PREPARATION_FORMAT_UNSUPPORTED',
       'MEDIA_PREPARATION_KIND_UNSUPPORTED',
@@ -623,12 +678,6 @@ export class MediaReviewWorkspaceComponent {
       )
     ].join(' · ');
   }
-  rulesSummary(): string {
-    const rule = this.c.data()?.rules.find((rule) => rule.scope === 'dossier');
-    return rule
-      ? this.usageSummary({ usage: rule.usage })
-      : this.t('noDefaults');
-  }
   canAction(id: string, single = false): boolean {
     const assets = single
       ? this.c.inspected()
@@ -639,30 +688,17 @@ export class MediaReviewWorkspaceComponent {
       selectionCount: assets.length,
       readyCount: assets.filter((asset) => asset.readiness.state === 'ready')
         .length,
-      reviewableCount: assets.filter(
-        (asset) =>
-          asset.readiness.state !== 'blocked' ||
-          (single && this.canGuidePermissions(asset))
+      reviewableCount: assets.filter((asset) =>
+        single
+          ? this.canReviewSingle(asset)
+          : asset.readiness.state !== 'blocked'
       ).length,
       canReview: this.c.canWrite(),
       busy: this.c.busy() || this.analysis.busy() || this.upload.busy()
     }).some((action) => action.id === id && action.enabled);
   }
-  private canGuidePermissions(asset: SponsorMediaWorkspaceAsset): boolean {
-    return (
-      asset.reviewStatus !== 'rejected' &&
-      asset.usage?.state !== 'withdrawn' &&
-      asset.readiness.state === 'blocked' &&
-      asset.readiness.reasons.length > 0 &&
-      asset.readiness.reasons.every(
-        (reason) => reason === 'MEDIA_USAGE_CONFIRMATION_REQUIRED'
-      )
-    );
-  }
   private canReviewSingle(asset: SponsorMediaWorkspaceAsset): boolean {
-    return (
-      asset.readiness.state !== 'blocked' || this.canGuidePermissions(asset)
-    );
+    return asset.reviewStatus !== 'rejected';
   }
   startMediaReview(asset: SponsorMediaWorkspaceAsset): void {
     const current = this.c.inspected();
@@ -672,30 +708,101 @@ export class MediaReviewWorkspaceComponent {
       current.version !== asset.version
     )
       return;
-    if (this.canGuidePermissions(current))
-      this.commands.openReviewPermissions(current);
-    else if (current.usageAcceptance?.source === 'platform_acceptance')
-      this.commands.openAcceptedReview(current);
-    else void this.commands.prepare('approve', current);
+    this.commands.openAcceptedReview(current);
   }
-  private resumeMediaReview(target: {
-    id: string;
-    contributionId: string;
-  }): void {
-    const current = this.c.inspected(),
-      data = this.c.data();
-    if (
-      !current ||
-      current.id !== target.id ||
-      data?.contributionId !== target.contributionId
-    )
-      return;
-    this.pendingReviewFocus.set({
-      ...target,
-      version: current.version,
-      revision: data.revision,
-      session: this.admin.sessionGeneration()
-    });
+  async openApproveAll(): Promise<void> {
+    if (!this.approveAll.canOpen()) return;
+    this.approveAllOpener = this.document.activeElement as HTMLElement | null;
+    await this.approveAll.prepare();
+  }
+  closeApproveAll(): void {
+    if (this.approveAll.busy()) return;
+    const opener = this.approveAllOpener,
+      id = this.contributionId(),
+      session = this.admin.sessionGeneration();
+    this.approveAllOpener = null;
+    this.approveAll.close();
+    if (!this.browser || !opener) return;
+    afterNextRender(
+      {
+        read: () => {
+          if (
+            !this.destroyed &&
+            !this.approveAll.opened() &&
+            this.contributionId() === id &&
+            this.admin.sessionGeneration() === session &&
+            opener.isConnected &&
+            !opener.matches(':disabled')
+          )
+            opener.focus();
+        }
+      },
+      { injector: this.injector }
+    );
+  }
+  openApproveAllPreview(asset: SponsorMediaWorkspaceAsset): void {
+    this.approveAllPreviewOpener = this.document
+      .activeElement as HTMLElement | null;
+    this.approveAll.openPreview(asset);
+    afterNextRender(
+      () => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>('[data-og7="media-approve-all-preview"]')
+          ?.focus();
+      },
+      { injector: this.injector }
+    );
+  }
+  closeApproveAllPreview(): void {
+    const opener = this.approveAllPreviewOpener;
+    this.approveAllPreviewOpener = null;
+    this.approveAll.closePreview();
+    afterNextRender(
+      () => {
+        if (
+          !this.destroyed &&
+          opener?.isConnected &&
+          !opener.matches(':disabled')
+        )
+          opener.focus();
+      },
+      { injector: this.injector }
+    );
+  }
+  openMediaConsentRequest(): void {
+    if (!this.canRequestMediaConsent()) return;
+    // Preparing the message disables its opener before the drawer captures focus.
+    this.consentRequestOpener = this.browser
+      ? (this.document.activeElement as HTMLElement | null)
+      : null;
+    this.consentRequestOpened.set(true);
+  }
+  closeMediaConsentRequest(): void {
+    if (this.consentRequestBusy()) return;
+    const opener = this.consentRequestOpener,
+      contributionId = this.contributionId(),
+      session = this.admin.sessionGeneration();
+    this.consentRequestOpener = null;
+    this.consentRequestOpened.set(false);
+    if (!this.browser || !opener) return;
+    afterNextRender(
+      {
+        read: () => {
+          if (
+            !this.destroyed &&
+            !this.consentRequestOpened() &&
+            this.contributionId() === contributionId &&
+            this.admin.sessionGeneration() === session &&
+            opener.isConnected &&
+            !opener.matches(':disabled') &&
+            !opener.closest('[hidden],[inert],[aria-hidden="true"]') &&
+            opener.getClientRects().length > 0
+          )
+            opener.focus();
+        }
+      },
+      { injector: this.injector }
+    );
   }
   async reconcile(): Promise<void> {
     const exportRequest = this.pendingExport();
@@ -886,7 +993,7 @@ export class MediaReviewWorkspaceComponent {
     if (request.actionId === 'approve') this.startMediaReview(asset);
     else if (request.actionId === 'reject') this.commands.openReject(asset);
     else if (request.actionId === 'permissions')
-      this.commands.openRules('media');
+      this.commands.openAcceptedReview(asset);
     else if (request.actionId === 'preview')
       this.inspector()
         ?.nativeElement.querySelector<HTMLElement>(
