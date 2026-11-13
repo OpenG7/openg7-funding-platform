@@ -22,6 +22,8 @@ async function setup(page: Page, role = 'owner', authMode = 'oidc') {
     current: null as AdminStripeBackfillRun | null,
     posts: [] as Record<string, unknown>[],
     contributionReads: 0,
+    receiptReads: 0,
+    previewGate: null as Promise<void> | null,
     failExecute: false,
     signedIn: true,
     executeStatus: 200,
@@ -70,13 +72,19 @@ async function setup(page: Page, role = 'owner', authMode = 'oidc') {
         const input = request.postDataJSON();
         state.posts.push(input);
         if (input.action === 'preview') {
+          if (state.previewGate) await state.previewGate;
           if (state.previewStatus !== 200)
             return route.fulfill({
               status: state.previewStatus,
               json: { code: state.previewCode }
             });
           state.current = {
-            id: '10000000-0000-4000-8000-000000000805',
+            id:
+              '10000000-0000-4000-8000-' +
+              String(
+                804 +
+                  state.posts.filter((post) => post.action === 'preview').length
+              ).padStart(12, '0'),
             status: 'preview',
             mode: state.mode,
             accountId: 'acct_synthetic',
@@ -103,13 +111,18 @@ async function setup(page: Page, role = 'owner', authMode = 'oidc') {
           state.current = { ...state.current!, status: 'completed' };
           if (state.failExecute) return route.abort('failed');
         }
-      }
+      } else state.receiptReads++;
       return route.fulfill({ json: { run: state.current } });
     }
     return route.fulfill({ status: 503, json: {} });
   });
   await page.goto('/admin/fundraiser/contributions');
   return state;
+}
+
+async function previewFromRefresh(page: Page) {
+  await page.locator('[data-og7="contributions-refresh"]').click();
+  await page.locator('[data-og7="contributions-refresh-stripe"]').click();
 }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
@@ -257,6 +270,24 @@ for (const locale of ['fr', 'en']) {
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
       await expect(preview).toBeVisible();
       expect(state.posts).toHaveLength(1);
+      await toggle.click();
+      await expect(preview).toBeHidden();
+      const prepared = structuredClone(state.current);
+      const contributionReads = state.contributionReads;
+      const receiptReads = state.receiptReads;
+      await page.locator('[data-og7="contributions-refresh"]').click();
+      await page.locator('[data-og7="contributions-refresh-stripe"]').click();
+      await expect(result).toBeFocused();
+      await expect(preview).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(state.current?.id).not.toBe(prepared?.id);
+      expect(state.current?.scope).toEqual(prepared?.scope);
+      expect(state.posts).toEqual([
+        { action: 'preview', scope: prepared!.scope },
+        { action: 'preview', scope: prepared!.scope }
+      ]);
+      expect(state.contributionReads).toBe(contributionReads);
+      expect(state.receiptReads).toBe(receiptReads);
       const accessibility = await new AxeBuilder({ page })
         .include('[data-og7="stripe-backfill"]')
         .analyze();
@@ -265,12 +296,19 @@ for (const locale of ['fr', 'en']) {
       await expect(page.locator('dialog[open]')).toContainText('openg7');
       await page.keyboard.press('Escape');
       await expect(execute).toBeFocused();
-      expect(state.posts).toHaveLength(1);
+      expect(state.posts).toHaveLength(2);
       await page
         .locator('[data-og7="stripe-backfill"] input[type=number]')
         .fill('50');
       await expect(result).toHaveCount(0);
       await preview.click();
+      await expect
+        .poll(
+          () => state.posts.filter((post) => post.action === 'preview').length
+        )
+        .toBe(3);
+      await expect(execute).toBeEnabled();
+      const latestPreviewId = state.current!.id;
       await execute.click();
       const accept = page.locator('[data-og7="confirm-action"]');
       await accept.focus();
@@ -281,8 +319,8 @@ for (const locale of ['fr', 'en']) {
       expect(state.posts.filter((post) => post.action === 'execute')).toEqual([
         {
           action: 'execute',
-          id: state.current!.id,
-          confirmation: 'test:' + state.current!.id
+          id: latestPreviewId,
+          confirmation: 'test:' + latestPreviewId
         }
       ]);
       await expect.poll(() => state.contributionReads).toBeGreaterThan(1);
@@ -314,6 +352,27 @@ test('Stripe recovery reconciles a lost response without sending another mutatio
   await expect(
     page.locator('[data-og7="stripe-backfill-preview"]')
   ).toBeDisabled();
+  const uncertainRun = structuredClone(state.current);
+  const contributionReads = state.contributionReads;
+  const receiptReads = state.receiptReads;
+  await page.locator('[data-og7="contributions-refresh"]').click();
+  await expect(
+    page.locator('[data-og7="contributions-refresh-stripe"]')
+  ).toBeEnabled();
+  await page.locator('[data-og7="contributions-refresh-stripe"]').click();
+  await expect(
+    page.locator('[data-og7="stripe-backfill-result"]')
+  ).toContainText('Synchronisation terminée');
+  await expect(
+    page.locator('[data-og7="stripe-backfill-preview"]')
+  ).toBeEnabled();
+  expect(state.current).toEqual(uncertainRun);
+  await expect.poll(() => state.contributionReads).toBe(contributionReads + 1);
+  expect(state.receiptReads).toBe(receiptReads + 1);
+  expect(state.posts.map((post) => post.action)).toEqual([
+    'preview',
+    'execute'
+  ]);
   await page.locator('[data-og7="stripe-backfill-refresh"]').click();
   await expect(
     page.locator('[data-og7="stripe-backfill-result"]')
@@ -321,6 +380,231 @@ test('Stripe recovery reconciles a lost response without sending another mutatio
   expect(state.posts.filter((post) => post.action === 'execute')).toHaveLength(
     1
   );
+  expect(state.posts.filter((post) => post.action === 'preview')).toHaveLength(
+    1
+  );
+});
+
+test('refresh keeps Stripe preparation and an active confirmation guarded', async ({
+  page
+}) => {
+  const state = await setup(page);
+  const refresh = page.locator('[data-og7="contributions-refresh"]');
+  const stripe = page.locator('[data-og7="contributions-refresh-stripe"]');
+  const choices = page
+    .locator('[data-og7="contributions-refresh-choices"]')
+    .getByRole('dialog');
+  const preview = page.locator('[data-og7="stripe-backfill-preview"]');
+  await expect(preview).toBeEnabled();
+  let release!: () => void;
+  state.previewGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await preview.click();
+    await expect.poll(() => state.posts.length).toBe(1);
+    await expect(preview).toBeDisabled();
+    const contributionReads = state.contributionReads;
+    const receiptReads = state.receiptReads;
+    await refresh.click();
+    await expect(choices).toBeVisible();
+    await expect(stripe).toBeDisabled();
+    await stripe.dispatchEvent('click');
+    await expect(choices).toBeVisible();
+    expect(state.posts.map((post) => post.action)).toEqual(['preview']);
+    expect(state.contributionReads).toBe(contributionReads);
+    expect(state.receiptReads).toBe(receiptReads);
+    await page.keyboard.press('Escape');
+    await expect(choices).toBeHidden();
+    await expect(refresh).toBeFocused();
+  } finally {
+    state.previewGate = null;
+    release();
+  }
+  const execute = page.locator('[data-og7="stripe-backfill-execute"]');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await refresh.dispatchEvent('click');
+  await expect(choices).toBeVisible();
+  await expect(stripe).toBeDisabled();
+  await page.locator('[data-og7="contributions-refresh-cancel"]').click();
+  await expect(choices).toBeHidden();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  expect(state.posts.map((post) => post.action)).toEqual(['preview']);
+});
+
+test('refresh previews the custom scope once and confirms only its newest preview', async ({
+  page
+}) => {
+  await page.clock.install({ time: new Date('2026-09-29T12:00:00Z') });
+  const state = await setup(page);
+  const panel = page.locator('[data-og7="stripe-backfill"]');
+  const dates = panel.locator('input[type=date]');
+  const limit = panel.locator('input[type=number]');
+  const preview = page.locator('[data-og7="stripe-backfill-preview"]');
+  const execute = page.locator('[data-og7="stripe-backfill-execute"]');
+  const result = page.locator('[data-og7="stripe-backfill-result"]');
+  await expect(preview).toBeEnabled();
+  const scope = { from: '2026-09-24', to: '2026-09-27', limit: 37 };
+  await dates.nth(0).fill(scope.from);
+  await dates.nth(1).fill(scope.to);
+  await limit.fill(String(scope.limit));
+  await preview.click();
+  await expect(execute).toBeEnabled();
+  const firstPreviewId = state.current!.id;
+  const receiptReads = state.receiptReads;
+  const contributionReads = state.contributionReads;
+  let release!: () => void;
+  state.previewGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await page.locator('[data-og7="contributions-refresh"]').click();
+    const shortcut = page.locator('[data-og7="contributions-refresh-stripe"]');
+    await expect(shortcut).toContainText(scope.from);
+    await expect(shortcut).toContainText(scope.to);
+    await expect(shortcut).toContainText(String(scope.limit));
+    await page
+      .locator('[data-og7="contributions-refresh-stripe"]')
+      .evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+    await expect.poll(() => state.posts.length).toBe(2);
+    await expect(preview).toBeDisabled();
+    await expect(execute).toHaveCount(0);
+    await page.locator('[data-og7="contributions-refresh"]').click();
+    await expect(
+      page.locator('[data-og7="contributions-refresh-stripe"]')
+    ).toBeDisabled();
+    await page.keyboard.press('Escape');
+    expect(state.posts).toEqual([
+      { action: 'preview', scope },
+      { action: 'preview', scope }
+    ]);
+  } finally {
+    state.previewGate = null;
+    release();
+  }
+  await expect(result).toBeFocused();
+  await expect(execute).toBeEnabled();
+  const newestPreviewId = state.current!.id;
+  expect(newestPreviewId).not.toBe(firstPreviewId);
+  expect(state.current!.scope).toEqual(scope);
+  expect(state.receiptReads).toBe(receiptReads);
+  expect(state.contributionReads).toBe(contributionReads);
+  await expect(dates.nth(0)).toHaveValue(scope.from);
+  await expect(dates.nth(1)).toHaveValue(scope.to);
+  await expect(limit).toHaveValue(String(scope.limit));
+  await execute.click();
+  expect(state.posts.filter((post) => post.action === 'execute')).toEqual([]);
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(result).toContainText('Synchronisation terminée');
+  expect(state.posts.filter((post) => post.action === 'execute')).toEqual([
+    {
+      action: 'execute',
+      id: newestPreviewId,
+      confirmation: 'test:' + newestPreviewId
+    }
+  ]);
+});
+
+test('a preview failure from refresh stays retryable without automatic execution', async ({
+  page
+}) => {
+  const state = await setup(page);
+  const preview = page.locator('[data-og7="stripe-backfill-preview"]');
+  await expect(preview).toBeEnabled();
+  state.previewStatus = 503;
+  state.previewCode = 'BACKFILL_UNAVAILABLE';
+  await previewFromRefresh(page);
+  await expect(
+    page.locator('[data-og7="stripe-backfill-error"]')
+  ).toBeVisible();
+  await expect(preview).toBeEnabled();
+  await expect(
+    page.locator('[data-og7="stripe-backfill-execute"]')
+  ).toHaveCount(0);
+  expect(state.posts.map((post) => post.action)).toEqual(['preview']);
+  const scope = state.posts[0]!.scope;
+  state.previewStatus = 200;
+  await previewFromRefresh(page);
+  await expect(
+    page.locator('[data-og7="stripe-backfill-result"]')
+  ).toBeFocused();
+  await expect(
+    page.locator('[data-og7="stripe-backfill-execute"]')
+  ).toBeEnabled();
+  expect(state.posts).toEqual([
+    { action: 'preview', scope },
+    { action: 'preview', scope }
+  ]);
+});
+
+test('refresh opens invalid scope fields without posting a preview', async ({
+  page
+}) => {
+  await page.clock.install({ time: new Date('2026-09-29T12:00:00Z') });
+  const state = await setup(page);
+  const panel = page.locator('[data-og7="stripe-backfill"]');
+  const dates = panel.locator('input[type=date]');
+  const limit = panel.locator('input[type=number]');
+  const preview = page.locator('[data-og7="stripe-backfill-preview"]');
+  await expect(preview).toBeEnabled();
+  await dates.nth(0).fill('2026-08-01');
+  const receiptReads = state.receiptReads;
+  await previewFromRefresh(page);
+  await expect(
+    page.locator('[data-og7="stripe-backfill-heading"]')
+  ).toBeFocused();
+  await expect(
+    page.locator('[data-og7="stripe-backfill-date-error"]')
+  ).toBeVisible();
+  await expect(preview).toBeDisabled();
+  expect(state.posts).toEqual([]);
+  await dates.nth(0).fill('2026-09-29');
+  await limit.fill('0');
+  await previewFromRefresh(page);
+  await expect(page.locator('#stripe-backfill-limit-error')).toBeVisible();
+  await expect(limit).toHaveValue('0');
+  await expect(preview).toBeDisabled();
+  expect(state.posts).toEqual([]);
+  expect(state.receiptReads).toBe(receiptReads);
+});
+
+test('refresh reconciles a running receipt and returns after its terminal response without a preview', async ({
+  page
+}) => {
+  const state = await setup(page);
+  const preview = page.locator('[data-og7="stripe-backfill-preview"]');
+  await preview.click();
+  await expect(
+    page.locator('[data-og7="stripe-backfill-execute"]')
+  ).toBeEnabled();
+  state.current = { ...state.current!, status: 'running' };
+  await page.locator('[data-og7="stripe-backfill-refresh"]').click();
+  const result = page.locator('[data-og7="stripe-backfill-result"]');
+  await expect(result).toContainText('Synchronisation en cours');
+  await expect(preview).toBeDisabled();
+  const contributionReads = state.contributionReads;
+  let receiptReads = state.receiptReads;
+  await previewFromRefresh(page);
+  await expect.poll(() => state.receiptReads).toBe(receiptReads + 1);
+  await expect(result).toContainText('Synchronisation en cours');
+  await expect(preview).toBeDisabled();
+  expect(state.posts.map((post) => post.action)).toEqual(['preview']);
+  expect(state.contributionReads).toBe(contributionReads);
+  state.current = { ...state.current!, status: 'completed' };
+  receiptReads = state.receiptReads;
+  await previewFromRefresh(page);
+  await expect.poll(() => state.receiptReads).toBe(receiptReads + 1);
+  await expect(result).toContainText('Synchronisation terminée');
+  await expect(preview).toBeEnabled();
+  await expect.poll(() => state.contributionReads).toBe(contributionReads + 1);
+  expect(state.posts.map((post) => post.action)).toEqual(['preview']);
 });
 
 for (const locale of ['fr', 'en']) {

@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
 
+import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import type {
   AdminContributionRecord,
   AdminContributionsExportRequest,
-  AdminContributionsResponse
+  AdminContributionsResponse,
+  AdminStripeBackfillRun
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -88,18 +90,64 @@ function seedSession(language: string): void {
   );
 }
 
-async function fixtures(page: Page, language: string) {
+async function fixtures(
+  page: Page,
+  language: string,
+  role?: 'owner' | 'reader' | 'operator'
+) {
   await page.addInitScript(seedSession, language);
   const options = {
     status: 200,
     listStatus: 200,
     listing,
     gate: null as Promise<void> | null,
-    listLoads: 0
+    listGate: null as Promise<void> | null,
+    listLoads: 0,
+    stripeReads: 0,
+    stripePosts: [] as Record<string, unknown>[],
+    stripeRun: null as AdminStripeBackfillRun | null
   };
   const exports: AdminContributionsExportRequest[] = [];
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (role && path.endsWith('/auth/config'))
+      return route.fulfill({ json: { mode: 'oidc' } });
+    if (role && path.endsWith('/auth/current'))
+      return route.fulfill({
+        json: {
+          id: 'synthetic-contributions-account',
+          sessionId: 'synthetic-contributions-session',
+          displayName: 'Synthetic contributions account',
+          role,
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
+    if (role && path.endsWith('/stripe-backfill')) {
+      if (route.request().method() === 'GET') options.stripeReads++;
+      else {
+        const input = route.request().postDataJSON();
+        options.stripePosts.push(input);
+        if (input.action === 'preview')
+          options.stripeRun = {
+            id: '10000000-0000-4000-8000-000000000806',
+            status: 'preview',
+            mode: 'test',
+            accountId: 'acct_synthetic',
+            projectId: 'openg7',
+            scope: input.scope,
+            expiresAt: '2099-01-01T00:00:00Z',
+            counts: {
+              scanned: 1,
+              matched: 1,
+              payments: 1,
+              refunds: 0,
+              disputes: 0,
+              missingFees: 0
+            }
+          };
+      }
+      return route.fulfill({ json: { run: options.stripeRun } });
+    }
     if (path.endsWith('/contributions.csv')) {
       expect(route.request().method()).toBe('POST');
       exports.push(route.request().postDataJSON());
@@ -112,6 +160,7 @@ async function fixtures(page: Page, language: string) {
     }
     if (path.endsWith('/contributions')) {
       options.listLoads++;
+      if (options.listGate) await options.listGate;
       return route.fulfill({
         status: options.listStatus,
         json: options.listStatus === 200 ? options.listing : {}
@@ -120,6 +169,11 @@ async function fixtures(page: Page, language: string) {
     return route.fulfill({ status: 503, json: {} });
   });
   return { options, exports };
+}
+
+async function reloadLocalContributions(page: Page, refreshLabel: string) {
+  await page.getByRole('button', { name: refreshLabel, exact: true }).click();
+  await page.locator('[data-og7="contributions-refresh-local"]').click();
 }
 
 const contributionPalettes = {
@@ -378,6 +432,7 @@ for (const source of ['contributions', 'export', 'activity']) {
       await page
         .getByRole('button', { name: 'Actualiser', exact: true })
         .click();
+      await page.locator('[data-og7="contributions-refresh-local"]').click();
     } else if (source === 'export') {
       options.status = 401;
       await page.locator('[data-og7="contribution-export"]').click();
@@ -510,9 +565,7 @@ for (const language of ['fr-CA', 'en']) {
       await expect(detail).toContainText('Personne synthétique');
       const updated = { ...personal, public_name: 'Personne actualisée' };
       options.listing = { ...listing, contributions: [updated, sponsor] };
-      await page
-        .getByRole('button', { name: refreshLabel, exact: true })
-        .click();
+      await reloadLocalContributions(page, refreshLabel);
       await expect(detail).toContainText('Personne actualisée');
       expect(options.listLoads).toBe(2);
       expect(
@@ -566,9 +619,7 @@ for (const language of ['fr-CA', 'en']) {
       expect(downloads).toEqual([]);
 
       options.listStatus = 503;
-      await page
-        .getByRole('button', { name: refreshLabel, exact: true })
-        .click();
+      await reloadLocalContributions(page, refreshLabel);
       await expect(exportButton).toBeDisabled();
       await expect(
         page.getByText(
@@ -578,9 +629,7 @@ for (const language of ['fr-CA', 'en']) {
         )
       ).toBeVisible();
       options.listStatus = 200;
-      await page
-        .getByRole('button', { name: refreshLabel, exact: true })
-        .click();
+      await reloadLocalContributions(page, refreshLabel);
       await expect(exportButton).toBeEnabled();
       await expect(
         page.locator('[data-og7="contribution-export-error"]')
@@ -662,6 +711,10 @@ for (const language of ['fr-CA', 'en']) {
         exact: true
       });
       await refresh.dispatchEvent('click');
+      await expect(
+        page.locator('[data-og7="contributions-refresh-stripe"]')
+      ).toBeDisabled();
+      await page.locator('[data-og7="contributions-refresh-local"]').click();
       await expect.poll(() => options.listLoads).toBe(2);
       await page.locator('[data-og7="confirm-action"]').click();
       await expect(dialog).toHaveCount(0);
@@ -678,8 +731,12 @@ for (const language of ['fr-CA', 'en']) {
       }, language);
       let role = 'reader';
       let exports = 0;
+      let listLoads = 0;
+      let stripePosts = 0;
       await page.route('**/api/**', (route) => {
         const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/auth/config'))
+          return route.fulfill({ json: { mode: 'oidc' } });
         if (path.endsWith('/auth/current'))
           return route.fulfill({
             json: {
@@ -690,8 +747,15 @@ for (const language of ['fr-CA', 'en']) {
               expiresAt: '2099-01-01T00:00:00Z'
             }
           });
-        if (path.endsWith('/contributions'))
+        if (path.endsWith('/contributions')) {
+          listLoads++;
           return route.fulfill({ json: listing });
+        }
+        if (
+          path.endsWith('/stripe-backfill') &&
+          route.request().method() === 'POST'
+        )
+          stripePosts++;
         if (path.endsWith('/contributions.csv')) {
           exports++;
           return route.fulfill({ contentType: 'text/csv', body: csv });
@@ -716,8 +780,177 @@ for (const language of ['fr-CA', 'en']) {
         ).toBeVisible();
         await exportButton.dispatchEvent('click');
         await expect(page.getByRole('dialog')).toHaveCount(0);
+        const previousLoads = listLoads;
+        await page.locator('[data-og7="contributions-refresh"]').click();
+        await expect.poll(() => listLoads).toBe(previousLoads + 1);
+        await expect(page.locator('dialog[open]')).toHaveCount(0);
+        await expect(
+          page.locator('[data-og7="contributions-refresh-stripe"]')
+        ).toBeHidden();
+        await expect(exportButton).toBeDisabled();
       }
       expect(exports).toBe(0);
+      expect(stripePosts).toBe(0);
+    });
+  }
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`owner refresh offers an explicit local read or Stripe preview in ${language} at ${width}px`, async ({
+      page
+    }, info) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const { options, exports } = await fixtures(page, language, 'owner');
+      await page.goto(
+        `/admin/fundraiser/contributions?contributionId=${personal.id}`
+      );
+      const refresh = page.locator('[data-og7="contributions-refresh"]');
+      const choices = page
+        .locator('[data-og7="contributions-refresh-choices"]')
+        .getByRole('dialog');
+      const local = page.locator('[data-og7="contributions-refresh-local"]');
+      const stripe = page.locator('[data-og7="contributions-refresh-stripe"]');
+      const cancel = page.locator('[data-og7="contributions-refresh-cancel"]');
+      const detail = page.locator('[data-og7="contribution-detail"]');
+      await expect(detail).toContainText(personal.public_reference!);
+      await expect(
+        page.locator('[data-og7="stripe-backfill-preview"]')
+      ).toBeEnabled();
+      await expect(refresh).toBeEnabled();
+      await expect(refresh).toHaveAccessibleName(
+        language === 'en' ? 'Refresh' : 'Actualiser'
+      );
+      const initialReads = options.listLoads;
+      const initialStripeReads = options.stripeReads;
+      const expectNoRequests = () => {
+        expect(options.listLoads).toBe(initialReads);
+        expect(options.stripeReads).toBe(initialStripeReads);
+        expect(options.stripePosts).toEqual([]);
+        expect(exports).toEqual([]);
+      };
+
+      await refresh.focus();
+      await page.keyboard.press('Enter');
+      await expect(choices).toHaveAccessibleName(
+        language === 'en'
+          ? 'Refresh contributions'
+          : 'Actualiser les contributions'
+      );
+      await expect(
+        local.getByText(
+          language === 'en'
+            ? 'Reload local data'
+            : 'Recharger les données locales',
+          { exact: true }
+        )
+      ).toBeVisible();
+      await expect(
+        stripe.getByText(
+          language === 'en' ? 'Sync with Stripe' : 'Synchroniser avec Stripe',
+          { exact: true }
+        )
+      ).toBeVisible();
+      await expect(choices).toContainText(
+        language === 'en' ? /period/i : /période/i
+      );
+      await expect(choices).toContainText(
+        language === 'en'
+          ? /several contributions/i
+          : /plusieurs contributions/i
+      );
+      await expect(stripe).toBeEnabled();
+      await refresh.dispatchEvent('click');
+      await expect(page.locator('dialog[open]')).toHaveCount(1);
+      const close = choices.getByRole('button').first();
+      await expect(close).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(cancel).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(close).toBeFocused();
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="contributions-refresh-choices"]')
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      await choices.screenshot({
+        path: info.outputPath(`contributions-refresh-${language}-${width}.png`),
+        animations: 'disabled'
+      });
+      expectNoRequests();
+
+      for (const dismissal of ['cancel', 'escape', 'close']) {
+        if (dismissal !== 'cancel') await refresh.click();
+        await expect(choices).toBeVisible();
+        if (dismissal === 'cancel') await cancel.click();
+        else if (dismissal === 'escape') await page.keyboard.press('Escape');
+        else await close.click();
+        await expect(choices).toBeHidden();
+        await expect(refresh).toBeFocused();
+        expectNoRequests();
+      }
+
+      let release!: () => void;
+      options.listGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      try {
+        await refresh.click();
+        await local.evaluate((button: HTMLButtonElement) => {
+          button.click();
+          button.click();
+        });
+        await expect.poll(() => options.listLoads).toBe(initialReads + 1);
+        await expect(refresh).toBeDisabled();
+        await refresh.dispatchEvent('click');
+        await expect(choices).toBeHidden();
+        expect(options.listLoads).toBe(initialReads + 1);
+        expect(options.stripePosts).toEqual([]);
+      } finally {
+        options.listGate = null;
+        release();
+      }
+      await expect(refresh).toBeEnabled();
+      await expect(detail).toContainText(personal.public_reference!);
+      await expect(page).toHaveURL(new RegExp(`contributionId=${personal.id}`));
+
+      const stripePanel = page.locator('[data-og7="stripe-backfill"]');
+      const dates = stripePanel.locator('input[type=date]');
+      const expectedScope = {
+        from: await dates.nth(0).inputValue(),
+        to: await dates.nth(1).inputValue(),
+        limit: Number(
+          await stripePanel.locator('input[type=number]').inputValue()
+        )
+      };
+      await refresh.click();
+      await expect(stripe).toContainText(expectedScope.from);
+      await expect(stripe).toContainText(expectedScope.to);
+      await expect(stripe).toContainText(String(expectedScope.limit));
+      await stripe.click();
+      await expect(choices).toBeHidden();
+      const result = page.locator('[data-og7="stripe-backfill-result"]');
+      await expect(result).toBeFocused();
+      await expect(result).toBeInViewport();
+      await expect(result).toContainText('acct_synthetic');
+      await expect(
+        page.locator('[data-og7="stripe-backfill-preview"]')
+      ).toBeVisible();
+      expect(options.listLoads).toBe(initialReads + 1);
+      expect(options.stripeReads).toBe(initialStripeReads);
+      expect(options.stripePosts).toEqual([
+        { action: 'preview', scope: expectedScope }
+      ]);
+      expect(options.stripeRun?.scope).toEqual(expectedScope);
+      expect(exports).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
     });
   }
 }

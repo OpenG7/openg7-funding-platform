@@ -39,6 +39,27 @@ openg7-admin-stripe-backfill {
   padding-top: 0.5rem;
   border-top: 1px solid var(--admin-border);
 }
+.refresh-options {
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+}
+.refresh-description {
+  @apply tw:m-0 tw:text-admin-muted;
+  line-height: 1.5;
+}
+.refresh-option {
+  @apply tw:grid tw:gap-1 tw:justify-items-start tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  text-align: start;
+  white-space: normal;
+}
+.refresh-option small {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.refresh-cancel {
+  justify-self: end;
+}
 .state {
   @apply tw:text-admin-muted;
   line-height: 1.5;

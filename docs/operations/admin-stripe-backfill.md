@@ -5,6 +5,19 @@ Stripe**. Preview, receipts and execution require owner access (or the existing
 authenticated token mode); anonymous local development access is refused. No
 Stripe key, database URL or project override is accepted from the browser.
 
+For owners, **Refresh** opens a choice between **Reload local data**, **Sync with
+Stripe** and **Cancel**. Local reload reads the existing contribution list. The
+Stripe choice shows the current UTC period and limit, opens the existing recovery
+panel and requests a preview with that scope. It replaces an earlier preview,
+then focuses the new result. Dates and limits remain editable in the panel;
+invalid settings open the panel without a request. Execution still requires the
+normal explicit confirmation. When the previous result is uncertain or running,
+the choice instead offers to check that receipt: it performs only a receipt read,
+without automatically preparing or executing another recovery. Busy operations
+and active confirmations remain guarded. Cancel, closing the choice or Escape
+performs no request. Other roles retain a direct local refresh. Opening the
+choices or previewing does not recover a payment or change its status.
+
 `POST /api/admin/stripe-backfill` accepts one of:
 
 ```json

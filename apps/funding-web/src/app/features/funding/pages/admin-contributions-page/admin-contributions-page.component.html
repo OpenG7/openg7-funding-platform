@@ -8,7 +8,14 @@
         <button
           type="button"
           class="admin-button"
-          (click)="loadContributions()"
+          data-og7="contributions-refresh"
+          [disabled]="state() === 'loading'"
+          [attr.aria-haspopup]="canExport() ? 'dialog' : null"
+          [attr.aria-expanded]="canExport() ? refreshChoicesOpen() : null"
+          [attr.aria-controls]="
+            canExport() ? 'contributions-refresh-choices' : null
+          "
+          (click)="requestRefresh()"
         >
           {{ 'admin.legacy.actualiser' | translate }}
         </button>
@@ -31,6 +38,67 @@
         </button>
       </nav>
     </header>
+
+    <openg7-admin-drawer
+      id="contributions-refresh-choices"
+      data-og7="contributions-refresh-choices"
+      [opened]="refreshChoicesOpen()"
+      [title]="'admin.contributionsRefresh.title' | translate"
+      [closeLabel]="'admin.contributionsRefresh.cancel' | translate"
+      (closed)="refreshChoicesOpen.set(false)"
+    >
+      <div class="refresh-options">
+        <p class="refresh-description">
+          {{ 'admin.contributionsRefresh.description' | translate }}
+        </p>
+        <button
+          type="button"
+          class="admin-button admin-button--primary refresh-option"
+          data-og7="contributions-refresh-local"
+          (click)="reloadLocalContributions()"
+        >
+          <span>{{ 'admin.contributionsRefresh.local' | translate }}</span>
+          <small>{{
+            'admin.contributionsRefresh.localHelp' | translate
+          }}</small>
+        </button>
+        @if (canExport()) {
+          <button
+            type="button"
+            class="admin-button refresh-option"
+            data-og7="contributions-refresh-stripe"
+            [disabled]="!canOpenStripe()"
+            (click)="openStripeSynchronization()"
+          >
+            <span>{{
+              (stripeNeedsReceipt()
+                ? 'admin.stripeBackfill.refresh'
+                : 'admin.stripeBackfill.title'
+              ) | translate
+            }}</span>
+            <small>{{
+              (stripeNeedsReceipt()
+                ? 'admin.contributionsRefresh.receiptHelp'
+                : 'admin.contributionsRefresh.stripeHelp'
+              ) | translate
+            }}</small>
+            @if (stripePreviewScope(); as scope) {
+              <small>{{
+                'admin.stripeBackfill.scopeSummary' | translate: scope
+              }}</small>
+            }
+          </button>
+        }
+        <button
+          type="button"
+          class="admin-button refresh-cancel"
+          data-og7="contributions-refresh-cancel"
+          (click)="refreshChoicesOpen.set(false)"
+        >
+          {{ 'admin.contributionsRefresh.cancel' | translate }}
+        </button>
+      </div>
+    </openg7-admin-drawer>
 
     <p class="state" *ngIf="state() === 'loading'">
       {{ 'admin.legacy.chargement_des_contributions' | translate }}

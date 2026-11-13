@@ -54,6 +54,8 @@ export class AdminStripeBackfillComponent implements OnInit {
     viewChild<ElementRef<HTMLElement>>('resultPanel');
   private readonly executeButton =
     viewChild<ElementRef<HTMLButtonElement>>('executeButton');
+  private readonly heading =
+    viewChild<ElementRef<HTMLHeadingElement>>('heading');
   readonly canRun = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
@@ -163,6 +165,25 @@ export class AdminStripeBackfillComponent implements OnInit {
     this.error.set('');
     this.scopeExpanded.set(true);
   }
+  openForReview(): void {
+    if (!this.canRun() || this.busy() || this.confirming()) return;
+    this.scopeExpanded.set(true);
+    const heading = this.heading()?.nativeElement;
+    heading?.scrollIntoView({ block: 'start' });
+    heading?.focus({ preventScroll: true });
+  }
+
+  async previewFromRefresh(): Promise<void> {
+    if (!this.active() || !this.canRun() || this.busy() || this.confirming())
+      return;
+    this.openForReview();
+    if (this.uncertain() || this.run()?.status === 'running') {
+      await this.refresh();
+      return;
+    }
+    await this.preview();
+  }
+
   change(field: 'from' | 'to' | 'limit', event: Event): void {
     if (this.scopeLocked()) return;
     const value = (event.target as HTMLInputElement).value;
