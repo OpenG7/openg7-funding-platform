@@ -1,5 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmdirSync,
+  unlinkSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { localDevWebConfiguration } from '../scripts/lib/dev-web-docker.mjs';
@@ -8,6 +19,64 @@ import { localTraefikConfiguration } from '../scripts/lib/local-identity.mjs';
 const source = localTraefikConfiguration(
   readFileSync(new URL('../traefik/dynamic.yml', import.meta.url), 'utf8')
 );
+
+test('help and recovery remain available without Stripe credentials, CLI or Docker', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'og7-web-gateway-cli-'));
+  mkdirSync(join(directory, 'scripts/lib'), { recursive: true });
+  const files = [
+    'dev-web-docker.mjs',
+    'lib/dev-web-docker.mjs',
+    'lib/dev-web-stripe.mjs',
+    'lib/dev-web-gateway-control.mjs',
+    'lib/docker-environment.mjs',
+    'lib/local-identity.mjs',
+    'lib/keycloak-config.mjs',
+    'lib/local-password-policy.mjs',
+    'lib/stripe-cli.mjs'
+  ];
+  t.after(() => {
+    for (const file of files) {
+      const path = join(directory, 'scripts', file);
+      if (existsSync(path)) unlinkSync(path);
+    }
+    rmdirSync(join(directory, 'scripts/lib'));
+    rmdirSync(join(directory, 'scripts'));
+    rmdirSync(directory);
+  });
+  for (const file of files)
+    copyFileSync(
+      new URL(`../scripts/${file}`, import.meta.url),
+      join(directory, 'scripts', file)
+    );
+  for (const [args, status, message] of [
+    [['--help'], 0, /managed Stripe test relay/],
+    [['--stop'], 0, /already stopped/],
+    [['--restore'], 0, /^$/],
+    [['--stop', '--no-stripe-webhook'], 1, /Usage:/],
+    [['--live'], 1, /Usage:/]
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      [join(directory, 'scripts/dev-web-docker.mjs'), ...args],
+      {
+        cwd: directory,
+        env: {
+          ...process.env,
+          PATH: directory,
+          STRIPE_SECRET_KEY: 'sk_live_privatecanary',
+          STRIPE_WEBHOOK_SECRET: ''
+        },
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 10000
+      }
+    );
+    assert.equal(result.status, status, result.stderr);
+    assert.match(result.stdout + result.stderr, message);
+    assert.doesNotMatch(result.stdout + result.stderr, /privatecanary/);
+    assert.equal(existsSync(join(directory, 'traefik')), false);
+  }
+});
 
 const block = (configuration, section, name) => {
   const sectionStart = configuration.indexOf(`\n  ${section}:\n`);

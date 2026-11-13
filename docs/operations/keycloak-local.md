@@ -44,18 +44,32 @@ Le gateway `yarn dev:web:docker` exige le profil local préparé, l'origine exac
 de joindre `host.docker.internal`. Il vérifie cette connexion avant de modifier uniquement
 le fichier ignoré `traefik/local/dynamic.yml`. Un fichier vide temporaire dans le
 répertoire surveillé de Traefik déclenche sa relecture sous Docker Desktop.
-Cette commande démarre seulement Angular, sans redémarrer de conteneur ni modifier
-de schéma, paramètre d'identité ou fichier de production.
+Cette commande démarre Angular et le relais Stripe de test, sans redémarrer de
+conteneur ni modifier de schéma, paramètre d'identité ou fichier de production.
+Le relais réutilise les contrôles de `yarn stripe:webhook:listen` : CLI installée,
+clé de test de `.env` ou du shell, secret de signature correspondant et HTTPS
+local approuvé. La configuration doit correspondre à celle de l'API déjà démarrée.
+Angular ne démarre qu'après le signal de connexion du relais. Un échec initial
+ou un arrêt inattendu du relais arrête le gateway avec une erreur et restaure le
+routage Docker, pour signaler que les paiements de test ne sont plus relayés.
+Si le relais tourne déjà dans un autre terminal, ou si Stripe est simulé,
+utiliser `yarn dev:web:docker --no-stripe-webhook`; cette option laisse ce relais
+indépendant sous son propre contrôle. Le lanceur ne recherche ni n'arrête les
+relais démarrés ailleurs. Sans relais actif, les nouveaux paiements Stripe
+peuvent rester en attente localement.
 Ne pas relancer `docker:up` ou régénérer le profil HTTPS pendant la session.
 
 `Ctrl+C` dans le terminal du gateway, ou `yarn 2`
-(`yarn dev:web:docker:stop`) depuis un autre terminal, arrête Angular et restaure
-le routage du Web Docker. La demande cible uniquement la session du lanceur;
+(`yarn dev:web:docker:stop`) depuis un autre terminal, arrête Angular et son relais
+Stripe, puis restaure le routage du Web Docker. La demande cible uniquement la session du lanceur;
 Preflight reste actif en arrière-plan après cet arrêt.
 Après un arrêt brutal, exécuter `yarn 3` (`yarn dev:web:docker:restore`) avant de
 relancer. La sauvegarde locale est conservée pour revue si les routes ont été
 modifiées entre-temps. Un gateway démarré avant l’ajout de la commande d’arrêt
 doit encore être interrompu avec `Ctrl+C` dans son terminal d’origine.
+
+Le démarrage du relais écoute les nouveaux événements; il ne rejoue pas les
+paiements déjà manqués. Leur récupération reste une opération distincte.
 
 L'adresse directe `http://localhost:4200` dispose aussi d'un proxy `/api` vers
 `http://127.0.0.1:8080`, décrit par

@@ -29,7 +29,7 @@ const commandDefinitions = {
     label: 'Recompiler le Web avec l’API Docker locale',
     confirmation: false,
     continuous: true,
-    note: 'Ouvrir https://localhost. Ctrl+C restaure le Web Docker.'
+    note: 'Ouvrir https://localhost. Relais Stripe de test inclus; Ctrl+C arrête Angular et ce relais, puis restaure le Web Docker.'
   },
   'dev:api': { label: 'Démarrer l’API', confirmation: false, continuous: true },
   'docker:up': {
