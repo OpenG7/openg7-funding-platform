@@ -158,39 +158,50 @@ test('a fulfilled record without qualified evidence is an explicit exception and
   assert.notEqual(result.next.reason, 'complete');
 });
 
-test('identity distinguishes missing contact details from sponsor submission and remains independent of review', () => {
+test('identity distinguishes missing contact details, sponsor submission and administrative completion', () => {
   for (const detailsSubmittedAt of [null, '2026-09-01']) {
-    for (const [hasCompanyName, hasContactEmail] of [
-      [false, true],
-      [true, false],
-      [false, false],
-      [true, true]
-    ]) {
-      const result = buildSponsorshipProgress(
-        source({ detailsSubmittedAt, hasCompanyName, hasContactEmail }),
-        facts()
-      );
-      const completeCoordinates = hasCompanyName && hasContactEmail;
-      const complete = completeCoordinates && Boolean(detailsSubmittedAt);
-      assert.equal(
-        step(result, 'identity').reason,
-        complete
-          ? 'identity_complete'
-          : completeCoordinates
-            ? 'identity_submission_pending'
-            : 'identity_missing'
-      );
-      assert.equal(
-        step(result, 'identity').state,
-        complete ? 'complete' : completeCoordinates ? 'pending' : 'blocked'
-      );
-      assert.equal(
-        result.next.reason,
-        complete ? 'review_pending' : step(result, 'identity').reason
-      );
-      assert.equal(result.next.tab, complete ? 'overview' : 'identity');
-      assert.equal(result.reviewStatus, 'pending_review');
-      assert.equal(result.feedStatus, 'not_planned');
+    for (const detailsAdminCompletedAt of [undefined, null, '2026-09-02']) {
+      for (const [hasCompanyName, hasContactEmail] of [
+        [false, true],
+        [true, false],
+        [false, false],
+        [true, true]
+      ]) {
+        const input = source({
+          detailsSubmittedAt,
+          detailsAdminCompletedAt,
+          hasCompanyName,
+          hasContactEmail
+        });
+        const result = buildSponsorshipProgress(input, facts());
+        const completeCoordinates = hasCompanyName && hasContactEmail;
+        const complete =
+          completeCoordinates &&
+          Boolean(detailsSubmittedAt || detailsAdminCompletedAt);
+        assert.equal(
+          step(result, 'identity').reason,
+          complete
+            ? detailsSubmittedAt
+              ? 'identity_complete'
+              : 'identity_admin_completed'
+            : completeCoordinates
+              ? 'identity_submission_pending'
+              : 'identity_missing'
+        );
+        assert.equal(
+          step(result, 'identity').state,
+          complete ? 'complete' : completeCoordinates ? 'pending' : 'blocked'
+        );
+        assert.equal(
+          result.next.reason,
+          complete ? 'review_pending' : step(result, 'identity').reason
+        );
+        assert.equal(result.next.tab, complete ? 'overview' : 'identity');
+        assert.equal(result.reviewStatus, 'pending_review');
+        assert.equal(result.feedStatus, 'not_planned');
+        assert.equal(input.record.detailsSubmittedAt, detailsSubmittedAt);
+        assert.equal(input.consent, true);
+      }
     }
   }
   const approved = buildSponsorshipProgress(

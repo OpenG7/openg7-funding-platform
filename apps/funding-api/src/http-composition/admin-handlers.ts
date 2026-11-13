@@ -476,7 +476,10 @@ export const createAdminHttpHandlers = ({
       listAdminSponsorships: (query) => listAdminSponsorships(dbPool, query),
       getSponsorshipProgress: (id) => getSponsorshipProgress(dbPool, id),
       requestSponsorshipInformation: (input, actor) =>
-        requestSponsorshipInformation(dbPool!, input, actor),
+        requestSponsorshipInformation(dbPool!, input, actor, {
+          baseUrl: publicBaseOrigin,
+          ttlDays: sponsorshipFollowupTokenTtlDays
+        }),
       readSponsorshipInformationRequestReceipt: (input, actor) =>
         readSponsorshipInformationRequestReceipt(dbPool!, input, actor),
       updateAdminSponsorshipDetails: (input, actor) =>

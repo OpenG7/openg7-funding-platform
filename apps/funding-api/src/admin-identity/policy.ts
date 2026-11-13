@@ -35,6 +35,8 @@ const operatorActions = new Set([
   '/admin/sponsorships/media/batches',
   '/admin/sponsorships/media/batch/plan',
   '/admin/sponsorships/media/batch/execute',
+  '/admin/sponsorships/media/approve-all/plan',
+  '/admin/sponsorships/media/approve-all/execute',
   '/admin/sponsorships/media/analyses',
   '/admin/sponsorships/media/analyses/review',
   '/admin/sponsorships/media/upload',
@@ -93,6 +95,7 @@ export const adminRoleAllows = (
     [
       '/admin/sponsorships/media/workspace/history',
       '/admin/sponsorships/media/receipt',
+      '/admin/sponsorships/media/approve-all/receipt',
       '/admin/sponsorships/media/analyses',
       '/admin/sponsorships/media/analyses/review'
     ].includes(path)

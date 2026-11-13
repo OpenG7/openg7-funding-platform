@@ -1,5 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
+import type { SponsorMediaAsset } from '@openg7/funding-core';
 
 import { registerSponsorshipCommitmentTests } from './sponsorship-offer.ui.js';
 import { expect, test } from './support/test.js';
@@ -32,6 +33,129 @@ const draftValues = (companyName: string) => ({
   websiteUrl: '',
   logoUrl: '',
   message: ''
+});
+
+for (const english of [false, true]) {
+  test(`refresh updates media review and availability without replacing the private draft ${english ? 'EN @mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    const calls = await mock(page);
+    let asset: SponsorMediaAsset = {
+      id: 'synthetic-refresh-logo',
+      contributionId: 'synthetic-sponsorship',
+      kind: 'logo',
+      reviewStatus: 'pending_review',
+      uploadedBy: 'sponsor',
+      originalFilename: 'logo.png',
+      originalMimeType: 'image/png',
+      originalSizeBytes: 68,
+      processedMimeType: 'image/webp',
+      processedSizeBytes: 68,
+      width: 1,
+      height: 1,
+      altText: 'Synthetic logo',
+      sortOrder: 0,
+      publicUrl: null,
+      reviewedAt: null,
+      version: 'synthetic-version-1',
+      createdAt: '2026-09-18T12:00:00Z'
+    };
+    await page.route('**/api/sponsorship-followup/media**', async (route) => {
+      if (new URL(route.request().url()).pathname.includes('/content/'))
+        await route.fulfill({
+          contentType: 'image/png',
+          body: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            'base64'
+          )
+        });
+      else
+        await json(route, {
+          assets: [asset],
+          limits: {
+            maxUploadBytes: 8 * 1024 * 1024,
+            maxSupportingImages: 3,
+            acceptedMimeTypes: ['image/png']
+          }
+        });
+    });
+    await visit(page, english);
+    const logoInput = page.getByLabel(
+      english ? 'Replace logo' : 'Remplacer le logo',
+      { exact: true }
+    );
+    await expect(logoInput).toBeEnabled();
+    const companyInput = page.getByLabel(
+      english ? 'Company name' : "Nom de l'entreprise",
+      { exact: false }
+    );
+    await companyInput.fill('Atelier brouillon conservé');
+    await expect(draftStatus(page)).toContainText(
+      english ? 'Draft saved.' : 'Brouillon enregistré.'
+    );
+    asset = {
+      ...asset,
+      reviewStatus: 'approved',
+      reviewedAt: '2026-11-13T12:00:00Z',
+      version: 'synthetic-version-2'
+    };
+    await page
+      .getByRole('button', {
+        name: english ? 'Refresh status' : 'Actualiser le statut'
+      })
+      .click();
+    await expect(logoInput).toBeDisabled();
+    await expect(page.locator('[data-og7="followup-media"]')).toContainText(
+      english ? 'Approved' : 'Approuvé'
+    );
+    await expect(companyInput).toHaveValue('Atelier brouillon conservé');
+    expect(calls.draft().data?.companyName).toBe('Atelier brouillon conservé');
+    expect(calls.posts()).toBe(0);
+  });
+}
+
+test('refresh waits for an in-flight media read then loads current media limits', async ({
+  page
+}) => {
+  const calls = await mock(page);
+  let reads = 0;
+  let releaseInitialRead!: () => void;
+  const initialRead = new Promise<void>((resolve) => {
+    releaseInitialRead = resolve;
+  });
+  await page.route('**/api/sponsorship-followup/media**', async (route) => {
+    const first = ++reads === 1;
+    if (first) await initialRead;
+    await json(route, {
+      assets: [],
+      limits: {
+        maxUploadBytes: 8 * 1024 * 1024,
+        maxSupportingImages: first ? 3 : 1,
+        acceptedMimeTypes: ['image/png']
+      }
+    });
+  });
+  try {
+    await visit(page);
+    await expect.poll(() => reads).toBe(1);
+    const refresh = page.getByRole('button', { name: 'Actualiser le statut' });
+    await expect(refresh).toBeEnabled();
+    await refresh.click();
+    await expect.poll(() => calls.reads()).toBe(2);
+    await expect(refresh).toBeEnabled();
+    await expect(
+      page.locator('[data-og7="followup-media-consent"]')
+    ).toHaveAttribute('aria-busy', 'true');
+    // The older media response arrives after the newer dossier response.
+    releaseInitialRead();
+    await expect(
+      page.locator('[data-og7="followup-photo-count"]')
+    ).toContainText('0 / 1');
+    expect(reads).toBe(2);
+    expect(calls.posts()).toBe(0);
+  } finally {
+    releaseInitialRead();
+  }
 });
 
 for (const english of [false, true]) {

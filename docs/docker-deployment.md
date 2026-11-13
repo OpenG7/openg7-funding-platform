@@ -412,6 +412,11 @@ PostgreSQL. Pour le demarrage local detache sans relais, utiliser
 et surcharge TLS locale lorsque les certificats sont presents, ou preparation
 automatique de cette surcharge pour Keycloak local.
 
+Pour recompiler le Web avec une pile Docker deja active, le
+[gateway `dev:web:docker`](operations/keycloak-local.md#recompilation-web-avec-api-docker)
+demarre aussi un relais de test et le gere avec Angular. Utiliser son option
+`--no-stripe-webhook` si le relais reste actif dans un autre terminal.
+
 Local/dev ajoute `https://localhost` et `https://127.0.0.1` aux origines
 autorisees de l'API, en conservant celles de `FUNDING_ALLOWED_ORIGINS`.
 Cela permet les actions admin depuis ces adresses locales. Prod et autre

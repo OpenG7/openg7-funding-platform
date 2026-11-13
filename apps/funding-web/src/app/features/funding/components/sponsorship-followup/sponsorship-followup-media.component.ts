@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnChanges,
   OnInit,
   PLATFORM_ID,
@@ -11,7 +12,12 @@ import {
   input,
   output,
   signal,
-  computed
+  computed,
+  effect,
+  untracked,
+  afterRenderEffect,
+  viewChild,
+  viewChildren
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
@@ -40,6 +46,8 @@ import {
 export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly token = input.required<string>();
   readonly canUploadMedia = input(false);
+  readonly mediaConsentRequested = input(false);
+  readonly refreshKey = input(0);
   readonly busyChange = output<boolean>();
   readonly i18n = inject(FundingI18nService);
   private readonly service = inject(FundingService);
@@ -93,6 +101,43 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly hasApprovedLogo = this.controller.hasApprovedLogo;
   readonly photoCount = this.controller.photoCount;
   readonly canAddSupportingImage = this.controller.canAddSupportingImage;
+  private readonly mediaSection =
+    viewChild<ElementRef<HTMLElement>>('mediaSection');
+  private readonly mediaRights =
+    viewChildren<ElementRef<HTMLDetailsElement>>('mediaRights');
+  private focusedMediaConsentToken: string | null = null;
+  private readonly refreshPending = signal(false);
+
+  constructor() {
+    effect(() => {
+      if (!this.refreshPending() || this.busy()) return;
+      this.refreshPending.set(false);
+      untracked(() => void this.refresh());
+    });
+    afterRenderEffect(() => {
+      if (
+        !isPlatformBrowser(this.platformId) ||
+        !this.mediaConsentRequested() ||
+        !this.loaded() ||
+        this.loadError() ||
+        this.busy()
+      )
+        return;
+      const token = this.token();
+      const section = this.mediaSection()?.nativeElement;
+      const rights = this.mediaRights();
+      if (
+        this.focusedMediaConsentToken === token ||
+        !section ||
+        rights.length !== this.assets().length
+      )
+        return;
+      this.focusedMediaConsentToken = token;
+      for (const panel of rights) panel.nativeElement.open = true;
+      section.focus({ preventScroll: true });
+      section.scrollIntoView({ block: 'start' });
+    });
+  }
 
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => {
@@ -103,13 +148,16 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['token'] && !changes['token'].firstChange) {
+    const tokenChanged = changes['token'] && !changes['token'].firstChange;
+    if (tokenChanged) {
+      this.refreshPending.set(false);
       this.usageController.reset();
       this.uploadUsage.set(null);
       this.uploadAcceptance.set(null);
       this.selectedUpload.set(null);
       void this.refresh();
-    }
+    } else if (changes['refreshKey'] && !changes['refreshKey'].firstChange)
+      this.refreshPending.set(true);
   }
 
   refresh(): Promise<void> {
@@ -130,7 +178,18 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
     const selected = this.selectedUpload();
     const usage = this.uploadUsage();
     const acceptance = this.uploadAcceptance();
-    if (!selected || !usage || !acceptance) return;
+    if (
+      !selected ||
+      !usage ||
+      !acceptance ||
+      !this.canUploadMedia() ||
+      this.busy() ||
+      !this.loaded() ||
+      this.loadError() ||
+      (selected.kind === 'logo' && this.hasApprovedLogo()) ||
+      this.hasUnresolvedUpload()
+    )
+      return;
     try {
       await this.controller.uploadMedia(
         selected.kind,

@@ -241,7 +241,31 @@ test('platform review requires a bounded description and explicit review of reco
   assert.equal(f.calls.filter(([name]) => name === 'execute').length, 1);
 });
 
-test('platform review cannot open without active rights, source proof and writing permission', async (t) => {
+test('media review cannot open outside the current dossier and inspected file version', async (t) => {
+  for (const [name, change] of [
+    ['another inspected file', (f) => f.c.inspectedId.set('media-1')],
+    ['another dossier', (f) => f.c.setScope('another-dossier')],
+    [
+      'outdated version',
+      (f) =>
+        f.c.data.update((data) => ({
+          ...data,
+          assets: data.assets.map((item) => ({ ...item, version: 'v2' }))
+        }))
+    ]
+  ]) {
+    await t.test(name, async () => {
+      const f = await acceptedReviewFixture();
+      change(f);
+      f.commands.openAcceptedReview(f.selected);
+      assert.equal(f.commands.form(), null);
+      assert.equal(f.commands.acceptedReview(), null);
+      assert.deepEqual(f.calls, [['read']]);
+    });
+  }
+});
+
+test('read-only media review displays the recorded agreement without permitting a decision', async (t) => {
   for (const [name, change] of [
     [
       'reader',
@@ -254,33 +278,22 @@ test('platform review cannot open without active rights, source proof and writin
       }
     ],
     ['uncertain command', (f) => f.c.uncertain.set(true)],
-    [
-      'blocked media',
-      (f) => {
-        f.selected.readiness.state = 'blocked';
-      }
-    ],
-    [
-      'withdrawn rights',
-      (f) => {
-        f.selected.usage.state = 'withdrawn';
-      }
-    ],
-    [
-      'missing acceptance',
-      (f) => {
-        delete f.selected.usageAcceptance;
-      }
-    ],
-    ['another inspected file', (f) => f.c.inspectedId.set('media-1')]
+    ['busy command', (f) => f.c.busy.set(true)]
   ]) {
     await t.test(name, async () => {
       const f = await acceptedReviewFixture();
+      const original = structuredClone(f.selected);
       change(f);
       f.commands.openAcceptedReview(f.selected);
-      assert.equal(f.commands.form(), null);
-      assert.equal(f.commands.acceptedReview(), null);
+      assert.equal(f.commands.form(), 'review');
+      assert.equal(f.commands.acceptedReviewAsset(), f.selected);
+      assert.equal(f.commands.canApproveAcceptedReview(), false);
+      await f.commands.approveAcceptedReview();
       assert.deepEqual(f.calls, [['read']]);
+      assert.deepEqual(f.selected, original);
+      if (name === 'busy command') f.c.busy.set(false);
+      f.commands.closeForm();
+      assert.equal(f.commands.form(), null);
     });
   }
 });
@@ -497,7 +510,8 @@ test('an uncertain platform approval is reconciled without planning or executing
   await f.commands.approveAcceptedReview();
   f.commands.closeForm();
   f.commands.openAcceptedReview(f.selected);
-  assert.equal(f.commands.form(), null);
+  assert.equal(f.commands.form(), 'review');
+  assert.equal(f.commands.canApproveAcceptedReview(), false);
   assert.equal(f.calls.filter(([command]) => command === 'plan').length, 1);
   assert.equal(f.calls.filter(([command]) => command === 'execute').length, 1);
   f.receiptFound();
@@ -666,388 +680,139 @@ test('private assignment plans carry the exact target version without executing 
   );
 });
 
-test('usage scope suggestions snapshot actual image services without changing existing rights', async () => {
-  const f = fixture();
-  const obligation = {
-    id: 'website-1',
-    version: 1,
-    channel: 'website',
-    target: 'openg7',
-    ordinal: 1,
-    format: null,
-    state: 'pending',
-    acceptsMedia: true
-  };
-  f.data.preparationObligations = [
-    obligation,
-    { ...obligation, id: 'website-2', ordinal: 2 },
-    {
-      ...obligation,
-      id: 'facebook-1',
-      channel: 'facebook',
-      target: 'openg20',
-      format: 'individual_portrait',
-      state: 'blocked'
-    },
-    {
-      ...obligation,
-      id: 'linkedin-text',
-      channel: 'linkedin',
-      format: 'collective_text',
-      acceptsMedia: false
-    },
-    {
-      ...obligation,
-      id: 'linkedin-fulfilled',
-      channel: 'linkedin',
-      state: 'fulfilled',
-      acceptsMedia: false
-    }
-  ];
-  await f.c.load();
-  f.c.inspectedId.set(f.data.assets[0].id);
-  const commands = new MediaReviewCommands(f.c, () => id);
-  commands.openRules('media');
-  assert.deepEqual(commands.rulesSuggestedScope(), {
-    channels: ['website', 'facebook'],
-    targets: ['openg7', 'openg20']
-  });
-  assert.equal(commands.rulesValue(), f.data.assets[0].usage);
-  const suggestion = commands.rulesSuggestedScope();
-  f.c.data.update((data) => ({ ...data, preparationObligations: [] }));
-  assert.equal(commands.rulesSuggestedScope(), suggestion);
-  assert.equal(
-    f.calls.some(([name]) => name !== 'read'),
-    false
-  );
-  commands.openRules('media');
-  assert.equal(commands.rulesSuggestedScope(), null);
-});
-
-test('missing services and restoring inheritance do not propose new usage rights', async () => {
-  const f = fixture();
-  await f.c.load();
-  const commands = new MediaReviewCommands(f.c, () => id);
-  commands.openRules();
-  assert.equal(commands.rulesSuggestedScope(), null);
-  assert.equal(commands.rulesValue(), null);
-  commands.rulesSuggestedScope.set({
-    channels: ['facebook'],
-    targets: ['openg20']
-  });
-  commands.restoreInheritance(f.data.assets[0]);
-  assert.equal(commands.rulesSuggestedScope(), null);
-  assert.equal(commands.inheritRequested(), true);
-});
-
-const unconfirmedMedia = (index = 0) => ({
-  ...asset(index, 'blocked'),
-  usage: {
-    state: 'needs_confirmation',
-    channels: [],
-    targets: [],
-    transformations: [],
-    credit: null,
-    restrictions: null
-  },
-  readiness: {
-    state: 'blocked',
-    reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
-  }
-});
-const documentedUsage = {
-  usage: {
-    state: 'confirmed',
-    channels: ['website'],
-    targets: ['openg7'],
-    transformations: ['technical'],
-    credit: null,
-    restrictions: null
-  },
-  evidenceReference: 'Synthetic private image-usage agreement'
-};
-
-test('guided media review asks for documented rights on the inspected file without planning or approving', async () => {
-  const f = fixture([unconfirmedMedia(), asset(1)]);
-  await f.c.load();
-  f.c.inspectedId.set('media-0');
-  f.c.selectedIds.set(['media-1']);
-  const continued = [];
-  const commands = new MediaReviewCommands(
-    f.c,
-    () => id,
-    (target) => continued.push(target)
-  );
-  commands.openReviewPermissions(f.data.assets[0]);
-  assert.equal(commands.form(), 'rules');
-  assert.equal(commands.rulesScope(), 'media');
-  assert.equal(commands.rulesScopeId(), 'media-0');
-  assert.deepEqual(
-    commands.coveredAssets().map((item) => item.id),
-    ['media-0']
-  );
-  commands.changeScope({ target: { value: 'dossier' } });
-  assert.equal(commands.rulesScope(), 'media');
-  await commands.saveRules({ ...documentedUsage, evidenceReference: '' });
-  assert.deepEqual(f.calls, [['read']]);
-  assert.deepEqual(continued, []);
-
-  f.ports.admin.mediaRules = async (request) => {
-    f.calls.push(['rules', request]);
-    return {
-      ...f.data,
-      revision: 'workspace-v2',
-      assets: f.data.assets.map((item) =>
-        item.id === 'media-0'
-          ? {
-              ...item,
-              version: 'v2',
-              usage: request.usage,
-              readiness: {
-                state: 'needs_review',
-                reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
-              }
-            }
-          : item
-      )
-    };
-  };
-  await commands.saveRules(documentedUsage);
-  const request = f.calls.find(([name]) => name === 'rules')[1];
-  assert.equal(request.contributionId, id);
-  assert.equal(request.expectedRevision, 'workspace-v1');
-  assert.equal(request.scope, 'media');
-  assert.equal(request.scopeId, 'media-0');
-  assert.equal(request.confirmation, 'media-0');
-  assert.deepEqual(request.coveredAssetIds, ['media-0']);
-  assert.equal(request.includesFutureUploads, undefined);
-  assert.equal(request.evidenceReference, documentedUsage.evidenceReference);
-  assert.equal(f.c.inspected().version, 'v2');
-  assert.equal(f.c.inspected().reviewStatus, 'pending_review');
-  assert.equal(commands.form(), null);
-  assert.equal(commands.reviewPermissions(), null);
-  assert.equal(commands.humanReviewed(), false);
-  assert.deepEqual(continued, [{ id: 'media-0', contributionId: id }]);
-  assert.equal(
-    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
-    false
-  );
-});
-
-test('confirmed rights retain the exact review target while parent refresh temporarily disables the surface', async () => {
-  const f = fixture([unconfirmedMedia()]);
-  await f.c.load();
-  f.c.inspectedId.set('media-0');
-  let refreshing = false;
-  f.ports.permitted = () => !refreshing;
-  f.ports.changed = () => {
-    refreshing = true;
-  };
-  f.ports.admin.mediaRules = async (request) => {
-    f.calls.push(['rules', request]);
-    return {
-      ...f.data,
-      revision: 'workspace-v2',
-      assets: [
-        {
-          ...f.data.assets[0],
-          version: 'v2',
-          usage: request.usage,
-          readiness: {
-            state: 'needs_review',
-            reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
-          }
-        }
-      ]
-    };
-  };
-  const targets = [];
-  const commands = new MediaReviewCommands(
-    f.c,
-    () => id,
-    (target) => targets.push(target)
-  );
-  commands.openReviewPermissions(f.data.assets[0]);
-  await commands.saveRules(documentedUsage);
-  assert.equal(f.c.canWrite(), false);
-  assert.deepEqual(targets, [{ id: 'media-0', contributionId: id }]);
-  assert.equal(commands.form(), null);
-  assert.equal(
-    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
-    false
-  );
-});
-
-test('guided rights cannot be saved after their file, version, workspace or scope changes', async (t) => {
-  for (const [name, change] of [
-    ['inspected file', (f) => f.c.inspectedId.set('media-1')],
-    [
-      'asset version',
-      (f) =>
-        f.c.data.update((data) => ({
-          ...data,
-          assets: data.assets.map((item) => ({ ...item, version: 'v2' }))
-        }))
-    ],
-    [
-      'workspace revision',
-      (f) => f.c.data.update((data) => ({ ...data, revision: 'workspace-v2' }))
-    ],
-    ['rules scope', (_f, commands) => commands.rulesScope.set('dossier')],
-    ['inheritance', (_f, commands) => commands.inheritRequested.set(true)],
-    [
-      'future files',
-      (_f, commands) => commands.includesFutureUploads.set(true)
-    ],
-    ['dossier', (f) => f.c.setScope('another-dossier')]
-  ]) {
-    await t.test(name, async () => {
-      const f = fixture([unconfirmedMedia(), asset(1)]);
-      await f.c.load();
-      f.c.inspectedId.set('media-0');
-      const continued = [];
-      const commands = new MediaReviewCommands(
-        f.c,
-        () => id,
-        (target) => continued.push(target)
-      );
-      commands.openReviewPermissions(f.data.assets[0]);
-      change(f, commands);
-      await commands.saveRules(documentedUsage);
-      assert.deepEqual(f.calls, [['read']]);
-      assert.deepEqual(continued, []);
-      assert.equal(f.c.error(), 'changed');
-    });
-  }
-});
-
-test('guided rights do not open for a hard blocker, denied actor or uncertain operation', async (t) => {
+test('media without consent remains inspectable without granting rights or recording administrative proof', async (t) => {
   for (const [name, change] of [
     [
-      'technical failure',
-      (f) => {
-        f.data.assets[0].readiness.reasons.push('MEDIA_INVALID');
+      'unconfirmed rights',
+      (selected) => {
+        selected.usage.state = 'needs_confirmation';
+        selected.readiness = {
+          state: 'blocked',
+          reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+        };
       }
     ],
     [
       'withdrawn rights',
-      (f) => {
-        f.data.assets[0].readiness.reasons = ['MEDIA_USAGE_WITHDRAWN'];
+      (selected) => {
+        selected.usage.state = 'withdrawn';
+        selected.readiness = {
+          state: 'blocked',
+          reasons: ['MEDIA_USAGE_WITHDRAWN']
+        };
       }
     ],
     [
-      'moderation restriction',
-      (f) => {
-        f.data.assets[0].readiness.reasons.push('MODERATION_RESTRICTED');
+      'missing usage',
+      (selected) => {
+        delete selected.usage;
+        selected.readiness = {
+          state: 'blocked',
+          reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+        };
       }
     ],
     [
-      'rejected media with an inconsistent reason',
-      (f) => {
-        f.data.assets[0].reviewStatus = 'rejected';
+      'inconsistent confirmed readiness',
+      (selected) => {
+        selected.usage.state = 'needs_confirmation';
       }
     ],
     [
-      'withdrawn rights with an inconsistent reason',
-      (f) => {
-        f.data.assets[0].usage.state = 'withdrawn';
+      'technical blocker',
+      (selected) => {
+        selected.readiness = { state: 'blocked', reasons: ['MEDIA_INVALID'] };
       }
-    ],
-    ['denied actor', (f) => (f.ports.permitted = () => false)],
-    ['uncertain command', (f) => f.c.uncertain.set(true)],
-    ['busy command', (f) => f.c.busy.set(true)]
+    ]
   ]) {
     await t.test(name, async () => {
-      const f = fixture([unconfirmedMedia()]);
-      change(f);
-      await f.c.load();
-      f.c.inspectedId.set('media-0');
-      const commands = new MediaReviewCommands(f.c, () => id);
-      commands.openReviewPermissions(f.data.assets[0]);
-      assert.equal(commands.form(), null);
-      assert.equal(commands.reviewPermissions(), null);
+      const selected = asset(0);
+      change(selected);
+      const original = structuredClone(selected);
+      const f = await acceptedReviewFixture([selected]);
+      f.commands.openAcceptedReview(selected);
+      assert.equal(f.commands.form(), 'review');
+      assert.equal(f.commands.acceptedReviewAsset(), selected);
+      assert.equal(f.commands.acceptedReview().acceptanceId, null);
+      assert.equal(f.commands.canApproveAcceptedReview(), false);
+      await f.commands.approveAcceptedReview();
+      assert.deepEqual(f.calls, [['read']]);
+      assert.deepEqual(selected, original);
+      assert.equal(Object.hasOwn(selected, 'usageAcceptance'), false);
+      f.commands.closeForm();
+      assert.equal(f.commands.form(), null);
       assert.deepEqual(f.calls, [['read']]);
     });
   }
 });
 
-test('an uncertain rights save keeps the guided form blocked without retrying or continuing acceptance', async () => {
-  const f = fixture([unconfirmedMedia()]);
-  f.ports.admin.mediaRules = async (request) => {
-    f.calls.push(['rules', request]);
-    throw new AdminDashboardRequestError(503);
-  };
-  await f.c.load();
-  f.c.inspectedId.set('media-0');
-  const continued = [];
-  const commands = new MediaReviewCommands(
-    f.c,
-    () => id,
-    (target) => continued.push(target)
-  );
-  commands.openReviewPermissions(f.data.assets[0]);
-  await commands.saveRules(documentedUsage);
-  assert.equal(f.c.uncertain(), true);
-  assert.equal(commands.form(), 'rules');
-  assert.equal(commands.reviewPermissions().id, 'media-0');
-  await commands.saveRules(documentedUsage);
-  assert.equal(f.calls.filter(([name]) => name === 'rules').length, 1);
-  assert.deepEqual(continued, []);
+test('confirmed existing rights can be reviewed without inventing an automatic terms acceptance', async () => {
+  const f = await acceptedReviewFixture([asset(0)]);
+  const originalUsage = structuredClone(f.selected.usage);
+  f.commands.openAcceptedReview(f.selected);
+  assert.equal(f.commands.form(), 'review');
+  assert.equal(f.commands.acceptedReview().acceptanceId, null);
+  assert.equal(f.commands.canApproveAcceptedReview(), true);
+  assert.deepEqual(f.calls, [['read']]);
+  await f.commands.approveAcceptedReview();
+  assert.equal(f.calls.filter(([name]) => name === 'plan').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'execute').length, 1);
   assert.equal(
-    f.calls.some(([name]) => name === 'plan' || name === 'execute'),
+    f.calls.some(([name]) => name === 'rules'),
+    false
+  );
+  assert.equal(Object.hasOwn(f.selected, 'usageAcceptance'), false);
+  assert.deepEqual(f.selected.usage, originalUsage);
+  assert.equal(
+    Object.hasOwn(
+      f.calls.find(([name]) => name === 'plan')[1],
+      'evidenceReference'
+    ),
     false
   );
 });
 
-test('a delayed rights response never continues review for a different inspected file', async () => {
-  const f = fixture([unconfirmedMedia(), asset(1)]);
-  let resolve;
-  f.ports.admin.mediaRules = async () =>
-    new Promise((complete) => {
-      resolve = complete;
-    });
-  await f.c.load();
-  f.c.inspectedId.set('media-0');
-  const continued = [];
-  const commands = new MediaReviewCommands(
-    f.c,
-    () => id,
-    (target) => continued.push(target)
-  );
-  commands.openReviewPermissions(f.data.assets[0]);
-  const saving = commands.saveRules(documentedUsage);
-  f.c.inspectedId.set('media-1');
-  resolve({ ...f.data, revision: 'workspace-v2' });
-  await saving;
-  assert.deepEqual(continued, []);
-  assert.equal(f.c.inspected().id, 'media-1');
-  assert.equal(commands.reviewPermissions(), null);
+test('a newly received or removed acceptance invalidates the displayed review before any decision', async (t) => {
+  for (const initiallyRecorded of [false, true]) {
+    await t.test(
+      initiallyRecorded ? 'removed acceptance' : 'new acceptance',
+      async () => {
+        const selected = initiallyRecorded ? acceptedMedia() : asset(0);
+        const f = await acceptedReviewFixture([selected]);
+        f.commands.openAcceptedReview(selected);
+        const updated = { ...selected };
+        if (initiallyRecorded) delete updated.usageAcceptance;
+        else updated.usageAcceptance = acceptedMedia().usageAcceptance;
+        f.c.data.update((data) => ({ ...data, assets: [updated] }));
+        assert.equal(f.commands.acceptedReviewAsset(), null);
+        assert.equal(f.commands.canApproveAcceptedReview(), false);
+        await f.commands.approveAcceptedReview();
+        assert.deepEqual(f.calls, [['read']]);
+        assert.equal(f.commands.humanReviewed(), false);
+      }
+    );
+  }
 });
 
-test('resetting the review context prevents a late rights response from closing a new form', async () => {
-  const f = fixture([unconfirmedMedia()]);
-  let resolve;
-  f.ports.admin.mediaRules = async () =>
-    new Promise((complete) => {
-      resolve = complete;
-    });
-  await f.c.load();
-  f.c.inspectedId.set('media-0');
-  const continued = [];
-  const commands = new MediaReviewCommands(
-    f.c,
-    () => id,
-    (target) => continued.push(target)
-  );
-  commands.openReviewPermissions(f.data.assets[0]);
-  const saving = commands.saveRules(documentedUsage);
-  commands.reset();
-  commands.form.set('batch');
-  resolve({ ...f.data, revision: 'workspace-v2' });
-  await saving;
-  assert.equal(commands.form(), 'batch');
-  assert.equal(commands.reviewPermissions(), null);
-  assert.deepEqual(continued, []);
+test('missing consent still permits a refusal of the displayed file without changing its rights', async () => {
+  const selected = asset(0);
+  selected.usage.state = 'needs_confirmation';
+  selected.readiness = {
+    state: 'blocked',
+    reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+  };
+  const original = structuredClone(selected);
+  const f = await acceptedReviewFixture([selected, asset(1)]);
+  f.c.selectedIds.set(['media-1']);
+  f.commands.openAcceptedReview(selected);
+  f.commands.openReject(f.commands.acceptedReviewAsset());
+  assert.equal(f.commands.form(), 'reject');
+  assert.equal(f.commands.rejectSingleId(), selected.id);
+  assert.equal(f.commands.acceptedReview(), null);
+  assert.deepEqual(f.calls, [['read']]);
+  assert.deepEqual(selected, original);
+  f.commands.closeForm();
+  assert.deepEqual(f.calls, [['read']]);
 });
 
 test('a correction uses native N1 reasons and requires the editorial provision before preparing its manifest', async () => {

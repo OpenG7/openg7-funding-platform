@@ -4,15 +4,13 @@
     view().t(
       commands().form() === 'review'
         ? 'acceptanceReviewTitle'
-        : commands().form() === 'rules'
-          ? 'rulesTitle'
-          : commands().form() === 'batch'
-            ? 'newBatch'
-            : commands().form() === 'reject'
-              ? commands().decisionAction() === 'request_correction'
-                ? 'library.correctionTitle'
-                : 'rejectTitle'
-              : 'planTitle'
+        : commands().form() === 'batch'
+          ? 'newBatch'
+          : commands().form() === 'reject'
+            ? commands().decisionAction() === 'request_correction'
+              ? 'library.correctionTitle'
+              : 'rejectTitle'
+            : 'planTitle'
     )
   "
   [closeLabel]="view().t('close')"
@@ -69,6 +67,47 @@
               </p>
             </details>
           </section>
+        } @else if (asset.usage?.state === 'confirmed') {
+          <p class="notice" data-og7="media-acceptance-unavailable">
+            {{ view().t('acceptanceUnavailable') }}
+          </p>
+          <p>{{ view().usageSummary(asset) }}</p>
+        }
+        @if (asset.usage?.state !== 'confirmed') {
+          <p role="status" class="notice" data-og7="media-acceptance-pending">
+            {{
+              view().t(
+                asset.usage?.state === 'withdrawn'
+                  ? 'acceptanceWithdrawn'
+                  : 'acceptancePending'
+              )
+            }}
+          </p>
+          @if (
+            hasPendingConsent() &&
+            asset.kind === 'supporting_image' &&
+            asset.reviewStatus !== 'rejected' &&
+            (!asset.usage || asset.usage.state === 'needs_confirmation')
+          ) {
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="!canRequestConsent()"
+              (click)="consentRequested.emit()"
+              data-og7="media-acceptance-request-consent"
+            >
+              {{ view().t('consentRequest.open') }}
+            </button>
+          }
+        }
+        @if (reviewReasons(asset); as reasons) {
+          @if (reasons.length) {
+            <ul>
+              @for (reason of reasons; track reason) {
+                <li>{{ view().reasonLabel(reason) }}</li>
+              }
+            </ul>
+          }
         }
         @if (asset.usage?.credit) {
           <p>{{ view().t('credit') }} : {{ asset.usage?.credit }}</p>
@@ -119,7 +158,10 @@
             }
           </div>
         }
-        <p>{{ view().t('acceptanceReviewConfirm') }}</p>
+        @if (asset.usage?.state === 'confirmed') {
+          <p>{{ view().t('acceptanceReviewConfirm') }}</p>
+        }
+        <p class="muted">{{ view().t('decisionRecordedHelp') }}</p>
         <div class="accepted-review-actions">
           <button
             type="button"
@@ -133,6 +175,17 @@
             data-og7="media-acceptance-approve"
           >
             {{ view().t('acceptanceApproveContinue') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button danger"
+            [disabled]="
+              !commands().c.canWrite() || commands().reviewSubmitting()
+            "
+            (click)="openReviewRejection(asset)"
+            data-og7="media-acceptance-reject"
+          >
+            {{ view().t('actions.reject') }}
           </button>
           <button
             type="button"
@@ -158,92 +211,6 @@
         </button>
       }
     </section>
-  }
-  @if (commands().form() === 'rules') {
-    @if (commands().reviewPermissions(); as target) {
-      <p class="notice" role="status" data-og7="media-review-permissions-help">
-        {{
-          view().t('reviewPermissionsHelp', { name: target.originalFilename })
-        }}
-      </p>
-    }
-    <p>{{ view().t('rulesHelp') }}</p>
-    @if (commands().inheritRequested()) {
-      <p class="notice">{{ view().t('inheritConfirm') }}</p>
-    }
-    <label class="field"
-      >{{ view().t('scope')
-      }}<select
-        [value]="commands().rulesScope()"
-        [disabled]="
-          commands().c.busy() ||
-          commands().inheritRequested() ||
-          !!commands().reviewPermissions()
-        "
-        (change)="commands().changeScope($event)"
-      >
-        <option
-          value="dossier"
-          [selected]="commands().rulesScope() === 'dossier'"
-        >
-          {{ view().t('scopes.dossier') }}
-        </option>
-        <option value="batch" [selected]="commands().rulesScope() === 'batch'">
-          {{ view().t('scopes.batch') }}
-        </option>
-        @if (commands().c.inspected()) {
-          <option
-            value="media"
-            [selected]="commands().rulesScope() === 'media'"
-          >
-            {{ view().t('scopes.media') }}
-          </option>
-        }
-      </select></label
-    >
-    @if (commands().rulesScope() === 'batch') {
-      <label class="field"
-        >{{ view().t('batch')
-        }}<select
-          [value]="commands().rulesBatch()"
-          (change)="commands().rulesBatch.set(view().value($event))"
-        >
-          @for (batch of commands().c.data()?.batches; track batch.id) {
-            <option [value]="batch.id">{{ batch.name }}</option>
-          }
-        </select></label
-      >
-    }
-    <p class="notice">
-      {{ view().t('coverage', { count: commands().coveredAssets().length }) }}
-    </p>
-    @if (
-      commands().rulesScope() !== 'media' && !commands().inheritRequested()
-    ) {
-      <label class="check"
-        ><input
-          type="checkbox"
-          [checked]="commands().includesFutureUploads()"
-          [disabled]="commands().c.busy()"
-          (change)="
-            commands().includesFutureUploads.set(view().checked($event))
-          "
-          data-og7="media-rules-future"
-        />{{ view().t('futureCoverage') }}</label
-      >
-    }
-    <openg7-sponsor-media-usage-editor
-      [value]="commands().rulesValue()"
-      [suggestedScope]="commands().rulesSuggestedScope()"
-      [requireEvidence]="true"
-      [disabled]="
-        !commands().c.canWrite() ||
-        !commands().rulesScopeId() ||
-        (!commands().coveredAssets().length &&
-          !commands().includesFutureUploads())
-      "
-      (saved)="commands().saveRules($event, commands().inheritRequested())"
-    />
   }
   @if (commands().form() === 'batch') {
     <label class="field"
@@ -271,6 +238,7 @@
             : 'rejectReason'
         )
       }}<select
+        #decisionReason
         [value]="commands().rejectReason()"
         (change)="commands().rejectReason.set(view().value($event))"
       >

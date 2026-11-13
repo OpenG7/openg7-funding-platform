@@ -75,6 +75,8 @@ const trimmedRequired: ValidatorFn = (control) =>
 export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly followup = input.required<SponsorshipFollowupResponse>();
   readonly token = input.required<string>();
+  readonly refreshKey = input(0);
+  readonly mediaConsentRequested = input(false);
   readonly busy = input(false);
   readonly correctionAllowed = input(false);
   readonly draftBlocked = input(false);

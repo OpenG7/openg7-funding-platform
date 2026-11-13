@@ -175,6 +175,20 @@
               >
                 {{ 'admin.legacy.note_interne' | translate }}
               </button>
+              <button
+                type="button"
+                data-og7="dossier-tool-toggle"
+                data-og7-id="agreement"
+                [attr.aria-expanded]="dossierTool() === 'agreement'"
+                aria-controls="dossier-tool-panel"
+                [disabled]="
+                  dossierToolBusy() ||
+                  progress()?.contributionId !== selected.id
+                "
+                (click)="openDossierTool('agreement')"
+              >
+                {{ 'admin.sponsorsCleanup.agreement' | translate }}
+              </button>
               <openg7-admin-sponsorship-interventions
                 [contributionId]="selected.id"
                 [refreshKey]="assistantRefresh()"
@@ -334,6 +348,19 @@
                 />
               </div>
             }
+            @if (
+              visitedDossierTools().has('agreement') && progress();
+              as dossier
+            ) {
+              @if (dossier.contributionId === selected.id) {
+                <div [hidden]="tool !== 'agreement'">
+                  <openg7-admin-sponsorship-commitments
+                    [dossier]="dossier"
+                    (changed)="loadSponsorships(true)"
+                  />
+                </div>
+              }
+            }
           </section>
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
@@ -448,14 +475,6 @@
                   [dossier]="progress()"
                   (commitmentChanged)="loadSponsorships(true)"
                 />
-                @if (progress(); as dossier) {
-                  <section class="detail-body">
-                    <openg7-admin-sponsorship-commitments
-                      [dossier]="dossier"
-                      (changed)="loadSponsorships(true)"
-                    />
-                  </section>
-                }
               }
 
               <section

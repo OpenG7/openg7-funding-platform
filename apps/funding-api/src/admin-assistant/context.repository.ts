@@ -37,9 +37,10 @@ export const loadSponsorshipAssistantDataset = async (
   // A PoolClient may belong to the confirmation transaction: sequence its queries.
   const details = await pool.query<{
     recipient: string | null;
+    accessRecipient: string | null;
     consent: boolean;
   }>(
-    'SELECT sponsor_contact_email AS recipient, public_display_consent AS consent FROM fund_contributions WHERE id = $1::uuid',
+    'SELECT sponsor_contact_email AS recipient, email_private AS "accessRecipient", public_display_consent AS consent FROM fund_contributions WHERE id = $1::uuid',
     [record.contributionId]
   );
   const media = await listSponsorMediaAssets(pool, record.contributionId);
@@ -56,12 +57,15 @@ export const loadSponsorshipAssistantDataset = async (
     await loadSponsorshipEvidenceFacts(pool, record.contributionId)
   );
   const recipient = details.rows[0]?.recipient?.trim() || null;
+  const accessRecipient =
+    details.rows[0]?.accessRecipient?.trim().toLowerCase() || null;
   const consent = details.rows[0]?.consent ?? false;
   const version = createHash('sha256')
     .update(
       JSON.stringify({
         record,
         recipient,
+        accessRecipient,
         consent,
         media: media
           .map((asset) => [
@@ -99,6 +103,7 @@ export const loadSponsorshipAssistantDataset = async (
     dataset,
     media,
     recipient,
+    accessRecipient,
     consent,
     version,
     publications,

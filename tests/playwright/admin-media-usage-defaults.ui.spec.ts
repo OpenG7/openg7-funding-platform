@@ -15,34 +15,26 @@ const unknownUsage: SponsorMediaUsageRights = {
   restrictions: null
 };
 
-async function openMediaRules(
+async function openMediaSummary(
   page: Page,
   language: 'fr-CA' | 'en'
 ): Promise<void> {
   await hook(page, 'media-tile').nth(1).getByRole('button').click();
-  const inspector = hook(page, 'media-inspector');
-  await inspector
-    .getByText(language === 'en' ? 'More options' : 'Plus d’options', {
-      exact: true
-    })
-    .click();
-  await inspector
+  await hook(page, 'media-inspector')
+    .locator('[data-og7="context-controller"]')
     .getByRole('button', {
-      name:
-        language === 'en'
-          ? 'Customize permissions'
-          : 'Personnaliser les autorisations',
+      name: language === 'en' ? 'Permissions' : 'Autorisations',
       exact: true
     })
     .click();
-  await expect(hook(page, 'media-usage-editor')).toBeVisible();
+  await expect(hook(page, 'media-acceptance-review')).toBeVisible();
 }
 
 for (const [language, width] of [
   ['fr-CA', 1440],
   ['en', 390]
 ] as const) {
-  test(`media permissions suggest the promised scope and still require evidence and confirmation in ${language}`, async ({
+  test(`promised services never grant media rights and the summary offers three clear choices in ${language}`, async ({
     page
   }, info) => {
     const { state, calls } = await intelligentGalleryFixture(page, {
@@ -68,42 +60,38 @@ for (const [language, width] of [
         }
       ]
     });
-    Object.assign(state.assets[1]!, { usage: unknownUsage });
+    Object.assign(state.assets[1]!, {
+      usage: unknownUsage,
+      readiness: {
+        state: 'blocked',
+        reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+      }
+    });
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(controllerPath('media'));
-    await openMediaRules(page, language);
-    const editor = hook(page, 'media-usage-editor');
-    await expect(hook(page, 'media-usage-suggestion')).toBeVisible();
-    for (const channel of ['website', 'facebook'])
-      await expect(
-        editor.locator(`[data-og7-id="channel:${channel}"]`)
-      ).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="channel:linkedin"]')
-    ).not.toBeChecked();
-    for (const target of ['openg7', 'openg20'])
-      await expect(
-        editor.locator(`[data-og7-id="target:${target}"]`)
-      ).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id^="transform:"]:checked')
-    ).toHaveCount(0);
-    await expect(hook(page, 'media-usage-evidence')).toHaveValue('');
-    await expect(hook(page, 'media-usage-confirmation')).not.toBeChecked();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
-    expect(calls.rules).toEqual([]);
-
-    await editor.locator('[data-og7-id="channel:facebook"]').uncheck();
-    await hook(page, 'media-usage-evidence').fill(
-      'Synthetic authorization covering the selected media and destinations'
+    await openMediaSummary(page, language);
+    const review = hook(page, 'media-acceptance-review');
+    await expect(hook(page, 'media-acceptance-pending')).toBeVisible();
+    await expect(hook(page, 'media-acceptance-approve')).toHaveText(
+      language === 'en' ? 'Approve and continue' : 'Approuver et continuer'
     );
-    await hook(page, 'media-usage-confirmation').check();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
-    await editor.locator('[data-og7-id="transform:technical"]').check();
-    await expect(hook(page, 'media-usage-confirmation')).not.toBeChecked();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
-    await hook(page, 'media-usage-confirmation').check();
-    await expect(hook(page, 'media-usage-save')).toBeEnabled();
+    await expect(hook(page, 'media-acceptance-approve')).toBeDisabled();
+    await expect(hook(page, 'media-acceptance-reject')).toHaveText(
+      language === 'en' ? 'Reject' : 'Refuser'
+    );
+    await expect(hook(page, 'media-acceptance-cancel')).toHaveText(
+      language === 'en' ? 'Cancel' : 'Annuler'
+    );
+    await expect(hook(page, 'media-acceptance-proof')).toHaveCount(0);
+    await expect(hook(page, 'media-acceptance-unavailable')).toHaveCount(0);
+    await expect(review.getByRole('combobox')).toHaveCount(0);
+    for (const name of [
+      'media-usage-editor',
+      'media-usage-evidence',
+      'media-usage-confirmation',
+      'media-rules-future'
+    ])
+      await expect(hook(page, name)).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -111,92 +99,79 @@ for (const [language, width] of [
     ).toBe(true);
     await page.locator('dialog[open]').screenshot({
       path: info.outputPath(
-        `media-permissions-defaults-${language}-${width}.png`
+        `media-permissions-summary-${language}-${width}.png`
       )
     });
-    await hook(page, 'media-usage-save').click();
+    await hook(page, 'media-acceptance-cancel').click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    expect(calls.rules).toHaveLength(1);
-    expect(calls.rules[0]).toMatchObject({
-      scope: 'media',
-      scopeId: state.assets[1]!.id,
-      coveredAssetIds: [state.assets[1]!.id],
-      usage: {
-        state: 'confirmed',
-        channels: ['website'],
-        targets: ['openg7', 'openg20'],
-        transformations: ['technical']
-      }
-    });
+    expect(state.assets[1]!.usage).toEqual(unknownUsage);
+    expect(calls.rules).toEqual([]);
     expect(calls.plans).toEqual([]);
     expect(calls.executes).toEqual([]);
   });
 }
 
-for (const state of ['confirmed', 'withdrawn', 'needs_confirmation'] as const) {
-  test(`media permission suggestions preserve an existing ${state} scope and its metadata`, async ({
+for (const usageState of [
+  'confirmed',
+  'withdrawn',
+  'needs_confirmation'
+] as const) {
+  test(`media summary preserves existing ${usageState} rights and metadata without manual editing`, async ({
     page
   }) => {
-    const fixture = await intelligentGalleryFixture(page);
+    const { state, calls } = await intelligentGalleryFixture(page);
     const usage: SponsorMediaUsageRights = {
-      state,
+      state: usageState,
       channels: ['linkedin'],
       targets: ['openg20'],
       transformations: ['technical', 'crop'],
       credit: 'Synthetic photographer',
       restrictions: 'Synthetic restriction requiring human review.'
     };
-    Object.assign(fixture.state, { rules: [] });
-    Object.assign(fixture.state.assets[1]!, { usage });
+    Object.assign(state, { rules: [] });
+    Object.assign(state.assets[1]!, { usage });
     await page.goto(controllerPath('media'));
-    await openMediaRules(page, 'fr-CA');
-    const editor = hook(page, 'media-usage-editor');
-    await expect(hook(page, 'media-usage-suggestion')).toHaveCount(0);
-    await expect(
-      editor.locator('[data-og7-id="channel:linkedin"]')
-    ).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="channel:website"]')
-    ).not.toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="channel:facebook"]')
-    ).not.toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="target:openg20"]')
-    ).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="target:openg7"]')
-    ).not.toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="transform:crop"]')
-    ).toBeChecked();
-    await expect(hook(page, 'media-usage-credit')).toHaveValue(usage.credit!);
-    await expect(hook(page, 'media-usage-restrictions')).toHaveValue(
-      usage.restrictions!
+    await openMediaSummary(page, 'fr-CA');
+    const review = hook(page, 'media-acceptance-review');
+    await expect(review).toContainText(usage.credit!);
+    await expect(review).toContainText(usage.restrictions!);
+    await expect(hook(page, 'media-acceptance-unavailable')).toHaveCount(
+      usageState === 'confirmed' ? 1 : 0
     );
-    await expect(hook(page, 'media-usage-evidence')).toHaveValue('');
-    await expect(hook(page, 'media-usage-confirmation')).not.toBeChecked();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
-    expect(fixture.calls.rules).toEqual([]);
+    await expect(hook(page, 'media-acceptance-proof')).toHaveCount(0);
+    await expect(hook(page, 'media-acceptance-approve')).toBeDisabled();
+    if (usageState === 'confirmed') {
+      await expect(review).toContainText('LinkedIn');
+      await expect(hook(page, 'media-acceptance-pending')).toHaveCount(0);
+      await hook(page, 'media-acceptance-restrictions').check();
+      await expect(hook(page, 'media-acceptance-approve')).toBeEnabled();
+    } else await expect(hook(page, 'media-acceptance-pending')).toBeVisible();
+    await expect(hook(page, 'media-usage-editor')).toHaveCount(0);
+    await hook(page, 'media-acceptance-cancel').click();
+    expect(state.assets[1]!.usage).toEqual(usage);
+    expect(calls.rules).toEqual([]);
+    expect(calls.plans).toEqual([]);
+    expect(calls.executes).toEqual([]);
   });
 }
 
-test('media permissions remain empty when no promised image service is available', async ({
+test('media consent stays pending when no promised image service is available', async ({
   page
 }) => {
   const { state, calls } = await intelligentGalleryFixture(page);
   Object.assign(state, { rules: [], preparationObligations: [] });
   Object.assign(state.assets[1]!, { usage: unknownUsage });
   await page.goto(controllerPath('media'));
-  await openMediaRules(page, 'fr-CA');
-  const editor = hook(page, 'media-usage-editor');
-  await expect(editor.getByRole('checkbox', { checked: true })).toHaveCount(0);
-  await expect(hook(page, 'media-usage-suggestion')).toHaveCount(0);
-  await expect(hook(page, 'media-usage-save')).toBeDisabled();
+  await openMediaSummary(page, 'fr-CA');
+  await expect(hook(page, 'media-acceptance-pending')).toBeVisible();
+  await expect(hook(page, 'media-acceptance-approve')).toBeDisabled();
+  await expect(hook(page, 'media-usage-editor')).toHaveCount(0);
   expect(calls.rules).toEqual([]);
+  expect(calls.plans).toEqual([]);
+  expect(calls.executes).toEqual([]);
 });
 
-test('new dossier and batch permissions suggest the promised scope without granting rights', async ({
+test('dossier and batch controls cannot grant permission to current or future files', async ({
   page
 }) => {
   const { state, calls } = await intelligentGalleryFixture(page);
@@ -206,24 +181,19 @@ test('new dossier and batch permissions suggest the promised scope without grant
     batchId: state.batches[0]!.id
   });
   await page.goto(controllerPath('media'));
-  await openMediaRules(page, 'fr-CA');
-  const drawer = page.locator('dialog[open]');
-  const editor = hook(page, 'media-usage-editor');
-  for (const scope of ['dossier', 'batch']) {
-    await drawer.getByRole('combobox').first().selectOption(scope);
-    await expect(hook(page, 'media-usage-suggestion')).toBeVisible();
-    for (const channel of ['website', 'facebook'])
-      await expect(
-        editor.locator(`[data-og7-id="channel:${channel}"]`)
-      ).toBeChecked();
-    await expect(editor.locator('[data-og7-id="target:openg7"]')).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id="target:openg20"]')
-    ).not.toBeChecked();
-    await expect(hook(page, 'media-usage-evidence')).toHaveValue('');
-    await expect(hook(page, 'media-usage-confirmation')).not.toBeChecked();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
-  }
+  for (const name of [
+    'media-dossier-rules',
+    'media-batch-rules',
+    'media-rules-future'
+  ])
+    await expect(hook(page, name)).toHaveCount(0);
+  await openMediaSummary(page, 'fr-CA');
+  await expect(hook(page, 'media-acceptance-pending')).toBeVisible();
+  await expect(hook(page, 'media-acceptance-approve')).toBeDisabled();
+  await expect(page.locator('dialog[open]').getByRole('combobox')).toHaveCount(
+    0
+  );
+  expect(state.assets[1]!.usage).toBeNull();
   expect(calls.rules).toEqual([]);
   expect(calls.plans).toEqual([]);
   expect(calls.executes).toEqual([]);
@@ -233,30 +203,22 @@ for (const scenario of [
   { state: 'withdrawn', channels: [] },
   { state: 'needs_confirmation', channels: ['linkedin'] }
 ] as const) {
-  test(`suggestions preserve an empty destination list for ${scenario.state} permissions`, async ({
+  test(`media summary preserves an incomplete destination list for ${scenario.state} permissions`, async ({
     page
   }) => {
     const { state, calls } = await intelligentGalleryFixture(page);
+    const usage = { ...unknownUsage, ...scenario };
     Object.assign(state, { rules: [] });
-    Object.assign(state.assets[1]!, {
-      usage: { ...unknownUsage, ...scenario }
-    });
+    Object.assign(state.assets[1]!, { usage });
     await page.goto(controllerPath('media'));
-    await openMediaRules(page, 'fr-CA');
-    const editor = hook(page, 'media-usage-editor');
-    await expect(hook(page, 'media-usage-suggestion')).toHaveCount(0);
-    await expect(
-      editor.locator('[data-og7-id^="channel:"]:checked')
-    ).toHaveCount(scenario.channels.length);
-    if (scenario.channels.length)
-      await expect(
-        editor.locator('[data-og7-id="channel:linkedin"]')
-      ).toBeChecked();
-    await expect(
-      editor.locator('[data-og7-id^="target:"]:checked')
-    ).toHaveCount(0);
-    await expect(hook(page, 'media-usage-confirmation')).not.toBeChecked();
-    await expect(hook(page, 'media-usage-save')).toBeDisabled();
+    await openMediaSummary(page, 'fr-CA');
+    await expect(hook(page, 'media-acceptance-pending')).toBeVisible();
+    await expect(hook(page, 'media-acceptance-approve')).toBeDisabled();
+    await expect(hook(page, 'media-usage-editor')).toHaveCount(0);
+    await hook(page, 'media-acceptance-cancel').click();
+    expect(state.assets[1]!.usage).toEqual(usage);
     expect(calls.rules).toEqual([]);
+    expect(calls.plans).toEqual([]);
+    expect(calls.executes).toEqual([]);
   });
 }

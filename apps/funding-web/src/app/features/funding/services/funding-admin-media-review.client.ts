@@ -9,6 +9,13 @@ import type {
   SponsorMediaExportRequest
 } from '@openg7/funding-core';
 import type {
+  SponsorMediaApproveAllPlanRequest,
+  SponsorMediaApproveAllPlan,
+  SponsorMediaApproveAllExecuteRequest,
+  SponsorMediaApproveAllReceipt,
+  SponsorMediaApproveAllReceiptResponse
+} from '@openg7/funding-core';
+import type {
   SponsorMediaKind,
   SponsorMediaUploadResult
 } from '@openg7/funding-core';
@@ -54,6 +61,25 @@ export class FundingAdminMediaReviewClient {
     body: SponsorMediaBatchExecuteRequest
   ): Promise<SponsorMediaBatchReceipt> {
     return this.request('/batch/execute', body);
+  }
+  approveAllPlan(
+    body: SponsorMediaApproveAllPlanRequest
+  ): Promise<SponsorMediaApproveAllPlan> {
+    return this.request('/approve-all/plan', body);
+  }
+  approveAllExecute(
+    body: SponsorMediaApproveAllExecuteRequest
+  ): Promise<SponsorMediaApproveAllReceipt> {
+    return this.request('/approve-all/execute', body);
+  }
+  approveAllReceipt(
+    contributionId: string,
+    requestId: string
+  ): Promise<SponsorMediaApproveAllReceiptResponse> {
+    return this.request(
+      '/approve-all/receipt?' +
+        new URLSearchParams({ contributionId, requestId })
+    );
   }
   receipt(
     contributionId: string,

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
+import { updateAdminSponsorshipDetails } from '../../dist/apps/funding-api/src/admin-sponsorship-details.service.js';
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
@@ -15,6 +16,91 @@ import {
 } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
 import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
+
+test(
+  'administrative identity completion advances the dossier while sponsor submission stays pending',
+  { timeout: 90000 },
+  async (t) => {
+    const { pool, stop } = await startDisposablePostgres();
+    t.after(stop);
+    const { rows } = await pool.query(`
+      INSERT INTO fund_contributions
+        (contribution_type,amount_cents,currency,status,paid_at,
+         sponsor_company_name,sponsor_contact_email,public_display_consent,
+         sponsor_review_status)
+      VALUES ('sponsorship_interest',25000,'CAD','paid',NOW(),
+        'Synthetic identity','identity@example.invalid',false,'pending_review')
+      RETURNING id,updated_at::text AS version`);
+    const { id, version } = rows[0];
+    const identity = (result) =>
+      result.dossier.milestones.find(
+        (milestone) => milestone.id === 'identity'
+      );
+    assert.equal(
+      identity(await getSponsorshipProgress(pool, id)).reason,
+      'identity_submission_pending'
+    );
+
+    await updateAdminSponsorshipDetails(
+      pool,
+      {
+        contributionId: id,
+        expectedVersion: version,
+        requestId: randomUUID(),
+        reason: 'correction',
+        confirmed: true,
+        companyName: 'Synthetic identity',
+        contactEmail: 'identity@example.invalid',
+        publicName: '',
+        contactName: '',
+        websiteUrl: ''
+      },
+      'admin-token'
+    );
+    // The authoritative provenance remains available beyond the dossier's
+    // twenty most recent audit entries.
+    await pool.query(
+      `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id)
+       SELECT 'admin-token','synthetic.later.action','sponsorship',$1
+       FROM generate_series(1,25)`,
+      [id]
+    );
+    const completed = await getSponsorshipProgress(pool, id);
+    assert.equal(identity(completed).state, 'complete');
+    assert.equal(identity(completed).reason, 'identity_admin_completed');
+    assert.notEqual(completed.dossier.next.tab, 'identity');
+    assert.equal(completed.dossier.publicConsent, false);
+    assert.equal(completed.dossier.reviewStatus, 'pending_review');
+    const persisted = (
+      await pool.query(
+        `SELECT sponsor_details_submitted_at,public_display_consent,
+          sponsor_review_status FROM fund_contributions WHERE id=$1`,
+        [id]
+      )
+    ).rows[0];
+    assert.equal(persisted.sponsor_details_submitted_at, null);
+    assert.equal(persisted.public_display_consent, false);
+    assert.equal(persisted.sponsor_review_status, 'pending_review');
+
+    await pool.query(
+      'UPDATE fund_contributions SET sponsor_contact_email=NULL WHERE id=$1',
+      [id]
+    );
+    assert.equal(
+      identity(await getSponsorshipProgress(pool, id)).state,
+      'blocked'
+    );
+    await pool.query(
+      `UPDATE fund_contributions SET sponsor_contact_email='identity@example.invalid',
+        sponsor_details_submitted_at=NOW() WHERE id=$1`,
+      [id]
+    );
+    assert.equal(
+      identity(await getSponsorshipProgress(pool, id)).reason,
+      'identity_complete'
+    );
+  }
+);
 
 test(
   'dossier progress reads exact persisted facts and the complete work queue on PostgreSQL',

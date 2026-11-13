@@ -53,6 +53,8 @@ test('dossier correction validates and normalizes only editable identity fields'
     { ...request, amount: 1 },
     { ...request, public_display_consent: true },
     { ...request, sponsor_review_status: 'approved' },
+    { ...request, identityCompletedByAdmin: true },
+    { ...request, sponsor_details_admin_completed_at: '2026-11-10' },
     { ...request, stripe_payment_intent_id: 'pi_fake' }
   ])
     assert.throws(() => parseAdminSponsorshipDetails(invalid), { status: 400 });

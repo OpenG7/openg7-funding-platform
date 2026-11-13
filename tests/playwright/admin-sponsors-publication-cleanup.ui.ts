@@ -6,7 +6,8 @@ import type {
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
+import { openPublicationSection } from './support/sponsorship-dossier.js';
 
 const sponsorshipId = '10000000-0000-4000-8000-000000000401';
 
@@ -30,6 +31,157 @@ interface Context {
 }
 
 export function registerSponsorPublicationCleanupTests(context: Context): void {
+  test('publication agreement tool leaves recorded commitments unmounted in the default monitor', async ({
+    page
+  }) => {
+    const { calls, options } = await context.fixtures(page, 'owner');
+    options.progressOverrides = {
+      commitment: context.recordedCommitment(50000),
+      publications: [],
+      publicationCompletion: { done: 0, total: 3 }
+    };
+    await page.goto(context.path('publication'));
+    const view = page.locator('[data-og7="publication-monitor"]');
+    await expect(view).toBeVisible();
+    await expect(view.locator('[data-og7="publication-service"]')).toHaveCount(
+      3
+    );
+    await expect(page.locator('[data-og7="admin-commitments"]')).toHaveCount(0);
+    await expect(
+      page.locator('openg7-admin-sponsorship-commitments')
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]')
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+
+  for (const [role, language, width] of [
+    ['owner', 'fr-CA', 1280],
+    ['reader', 'en', 390]
+  ] as const) {
+    test(`publication agreement tool preserves ${role} access and restores keyboard focus in ${language}`, async ({
+      page
+    }) => {
+      const { calls, options } = await context.fixtures(page, role);
+      options.progressOverrides = {
+        commitment: context.recordedCommitment(50000),
+        publications: [],
+        publicationCompletion: { done: 0, total: 3 }
+      };
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('publication'));
+      const toggle = page.locator(
+        '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
+      );
+      await expect(page.locator('[data-og7="admin-commitments"]')).toHaveCount(
+        0
+      );
+      await expect(
+        page.locator('[data-og7="publication-monitor"]')
+      ).toBeVisible();
+      await sampledFrames(page);
+      await toggle.focus();
+      await expect(toggle).toBeFocused();
+      await page.keyboard.press('Enter');
+      const panel = page.locator(
+        '[data-og7="dossier-tool-panel"][data-og7-id="agreement"]'
+      );
+      const commitments = panel.locator('[data-og7="admin-commitments"]');
+      await expect(panel).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(commitments).toHaveCount(1);
+      await expect(
+        commitments.locator('[data-og7="commitments-obligations"] > li')
+      ).toHaveCount(3);
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      const adjust = commitments.locator(
+        '[data-og7="commitments-adjust-open"]'
+      );
+      if (role === 'owner') {
+        await expect(adjust).toHaveCount(3);
+        await expect(adjust.first()).toBeEnabled();
+        await adjust.first().click();
+        await expect(
+          commitments.locator('[data-og7="commitments-adjustment"]')
+        ).toBeVisible();
+      } else {
+        await expect(adjust).toHaveCount(0);
+        await expect(
+          commitments.locator('[data-og7="commitments-qualification"]')
+        ).toHaveCount(0);
+        await expect(
+          commitments.locator('[data-og7="commitments-adjustment"]')
+        ).toHaveCount(0);
+      }
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="dossier-tool-panel"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      const close = panel.locator('[data-og7="dossier-tool-close"]');
+      await close.focus();
+      await page.keyboard.press('Enter');
+      await expect(panel).toBeHidden();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(toggle).toBeFocused();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+
+  for (const fragment of [
+    'dossier-agreement',
+    'dossier-assistance-source',
+    'dossier-assistance-review'
+  ]) {
+    test(`publication agreement tool honors the existing ${fragment} deep link without a mutation`, async ({
+      page
+    }) => {
+      const { calls, options } = await context.fixtures(page, 'owner');
+      options.progressOverrides = {
+        commitment: context.recordedCommitment(50000)
+      };
+      const destination = context.path('publication') + '#' + fragment;
+      await page.goto(destination);
+      const toggle = page.locator(
+        '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
+      );
+      const panel = page.locator(
+        '[data-og7="dossier-tool-panel"][data-og7-id="agreement"]'
+      );
+      await expect(page).toHaveURL(destination);
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('[data-og7="admin-commitments"]')).toHaveCount(
+        1
+      );
+      await expect(page.locator('[data-og7="admin-commitments"]')).toHaveCount(
+        1
+      );
+      await panel.locator('[data-og7="dossier-tool-close"]').focus();
+      await page.keyboard.press('Enter');
+      await expect(panel).toBeHidden();
+      await expect(page).toHaveURL(context.path('publication'));
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(toggle).toBeFocused();
+      await openPublicationSection(page, 'contract');
+      await expect(panel).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+
   test('publication monitor leaves profile and historical settings in their media owner', async ({
     page
   }) => {

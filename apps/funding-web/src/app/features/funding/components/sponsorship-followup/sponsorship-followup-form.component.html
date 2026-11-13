@@ -228,6 +228,8 @@
     </p>
     <openg7-sponsorship-followup-media
       [token]="token()"
+      [refreshKey]="refreshKey()"
+      [mediaConsentRequested]="mediaConsentRequested()"
       [canUploadMedia]="allowed() && !readOnly() && !busy()"
       (busyChange)="mediaBusy.set($event)"
     />

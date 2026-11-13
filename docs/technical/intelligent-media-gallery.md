@@ -97,6 +97,14 @@ affectation, lot, tri, grille/liste et pagination 8/16/25 utilisent les données
 du workspace. Les sélections hors page ou filtre sont comptées explicitement.
 Les imports affichent un résultat par fichier, y compris les fichiers non envoyés.
 
+Le bandeau principal propose **Tout approuver**, avec l’aide « Approuve les médias
+admissibles. Les autres restent en attente. ». Ses compteurs portent sur le dossier
+entier : médias, à examiner, approuvés et autorisation requise. Ils ne présentent
+pas un nombre d’admissibles avant les vérifications serveur. Le compteur
+d’autorisation rejoint la demande groupée existante pour les photos en attente
+d’un premier accord ; il ne renouvelle pas un retrait et n’accorde aucun droit aux
+logos. Le panneau Assistant explique les états sans dupliquer l’action principale.
+
 Les contrats `SponsorMediaWorkspace` et `SponsorMediaBatchPlanRequest` sont étendus
 dans `packages/funding-core/src/sponsor-media-review.ts`. La migration additive
 066 crée `sponsor_media_preparation_assignments`, sans recopier de fichiers.
@@ -115,20 +123,38 @@ de contenu privé.
 
 ## D. Traitements par lot
 
-| Action livrée                       | Effet réel et limite                                                                                                              |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Import multiple                     | Requêtes idempotentes natives, résultat par fichier, limites serveur effectives; arrêt sur réception incertaine                   |
-| Sélection                           | Individuelle, page courante, prêts filtrés, désélection; plafond explicite de 100 et portée affichée                              |
-| Analyse                             | Demandes individuelles natives sur une sélection, contrôles techniques réellement exécutés                                        |
-| Revue / droits / classement         | Plans, manifeste exact, confirmations et transitions natives; aucun second système de statuts                                     |
-| Affectation / retrait préparatoires | Références média/version → prestation/version du même dossier; aucun changement de visibilité ou publication                      |
-| Correction collective               | Décisions N1, motif, raison interne, explication et confirmation; demande enregistrée sans courriel                               |
-| Téléchargement                      | Export privé confirmé de copies WebP traitées, reçu et audit par média; arrêt et réconciliation sur incertitude, sans archive ZIP |
-| Suppression                         | Commande native distincte du retrait d’affectation, effets et dépendances explicités avant confirmation                           |
+| Action livrée                       | Effet réel et limite                                                                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Import multiple                     | Requêtes idempotentes natives, résultat par fichier, limites serveur effectives; arrêt sur réception incertaine                                         |
+| Sélection                           | Individuelle, page courante, prêts filtrés, désélection; plafond explicite de 100 et portée affichée                                                    |
+| Tout approuver                      | Inventaire serveur de toutes les photos et de tous les logos du dossier, sans filtre ni plafond de sélection; confirmation unique et résultat par média |
+| Analyse                             | Demandes individuelles natives sur une sélection, contrôles techniques réellement exécutés                                                              |
+| Revue / droits / classement         | Plans, manifeste exact, confirmations et transitions natives; aucun second système de statuts                                                           |
+| Affectation / retrait préparatoires | Références média/version → prestation/version du même dossier; aucun changement de visibilité ou publication                                            |
+| Correction collective               | Décisions N1, motif, raison interne, explication et confirmation; demande enregistrée sans courriel                                                     |
+| Téléchargement                      | Export privé confirmé de copies WebP traitées, reçu et audit par média; arrêt et réconciliation sur incertitude, sans archive ZIP                       |
+| Suppression                         | Commande native distincte du retrait d’affectation, effets et dépendances explicités avant confirmation                                                 |
 
 Une opération confirmée de plan reste atomique : un membre devenu incompatible
 bloque l’exécution et le manifeste explique lequel. L’import et l’export présentent
 leurs résultats par fichier. Un échec réseau ne devient pas un succès métier.
+
+### Approbation du dossier entier
+
+**Tout approuver** prépare un plan dédié `kind: approve_all`. Le résumé affiche les
+nombres réellement vérifiés, les vignettes admissibles, leurs descriptions et les
+restrictions intégrales. Les images doivent être chargées avant confirmation ;
+elles peuvent être agrandies dans la même fenêtre. Les seuls choix de décision
+sont **Annuler** et **Confirmer l’approbation**, sans revue individuelle imposée.
+Avec zéro admissible, aucun bouton de confirmation n’est proposé.
+
+Le résultat distingue les médias approuvés, déjà approuvés, bloqués, non traitables
+et restant à traiter, avec leurs raisons. Un média devenu obsolète ou déjà
+sélectionné pour le site reste inchangé ; cette opération ne modifie pas la
+visibilité et ne publie rien. L’ancien lot sur sélection reste atomique et limité
+à 100 fichiers. Le journal immuable, les routes dédiées et la reprise explicite
+avec le même UUID sont décrits dans le
+[contrat d’approbation du dossier](sponsor-media-usage.md#approbation-du-dossier-entier).
 
 ## E. Intégration Preflight et extensions
 

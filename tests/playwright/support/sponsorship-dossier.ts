@@ -25,11 +25,23 @@ export async function openPublicationSection(
     return;
   }
   if (section === 'contract' || section === 'offer') {
-    await page
+    const tab = page
       .locator('[data-og7="dossier-tabs"]')
-      .getByRole('button', { name: 'Publication', exact: true })
-      .click();
-    await expect(page.locator('#dossier-agreement')).toBeVisible();
+      .getByRole('button', { name: 'Publication', exact: true });
+    await tab.click();
+    await expect(tab).toHaveAttribute('aria-current', 'page');
+    const toggle = page.locator(
+      '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
+    );
+    await expect(toggle).toBeVisible();
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true')
+      await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      page
+        .locator('[data-og7="dossier-tool-panel"][data-og7-id="agreement"]')
+        .locator('#dossier-agreement')
+    ).toBeVisible();
     return;
   }
   if (current.searchParams.get('tab') !== 'publication')

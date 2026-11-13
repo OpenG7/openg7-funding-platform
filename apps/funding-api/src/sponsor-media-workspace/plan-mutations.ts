@@ -22,7 +22,8 @@ export async function applyPlanMutations(
   plan: StoredPlan,
   input: SponsorMediaBatchExecuteRequest,
   actor: string,
-  workspace: SponsorMediaWorkspace
+  workspace: SponsorMediaWorkspace,
+  options: { readonly preserveWebsiteSelection?: boolean } = {}
 ): Promise<SponsorMediaBatchReceipt['items']> {
   const invalidateIds: string[] = [];
   for (const member of plan.manifest) {
@@ -80,7 +81,7 @@ export async function applyPlanMutations(
       if (plan.request.action === 'approve')
         await db.query(
           `UPDATE sponsor_media_assets SET review_status='approved',reviewed_at=clock_timestamp(),reviewed_by=$2,
-          public_url=$3,website_selected=FALSE,usage_restrictions_reviewed=usage_restrictions_reviewed OR $4,updated_at=clock_timestamp() WHERE id=$1`,
+          public_url=$3,website_selected=${options.preserveWebsiteSelection ? 'website_selected' : 'FALSE'},usage_restrictions_reviewed=usage_restrictions_reviewed OR $4,updated_at=clock_timestamp() WHERE id=$1`,
           [
             member.id,
             actor,

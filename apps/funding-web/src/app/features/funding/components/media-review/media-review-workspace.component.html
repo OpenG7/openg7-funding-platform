@@ -12,35 +12,61 @@
     >
       <div class="preparation-copy">
         <span class="preparation-mark" aria-hidden="true"
-          ><openg7-admin-icon name="assistant"
+          ><openg7-admin-icon name="check"
         /></span>
         <div>
           <h3 id="media-preparation-title">
-            {{ t('library.preparationTitle') }}
+            {{ t('approveAll.heroTitle') }}
           </h3>
-          <p id="media-preparation-help" class="visually-hidden">
-            {{ t('library.preparationHelp') }}
+          <p id="media-preparation-help">
+            {{ t('approveAll.help') }}
           </p>
         </div>
+        <button
+          type="button"
+          class="admin-button primary approve-all-primary"
+          [disabled]="!approveAll.canOpen()"
+          (click)="openApproveAll()"
+          data-og7="media-approve-all-open"
+        >
+          {{ t('approveAll.open') }}
+        </button>
       </div>
       <dl class="preparation-counts">
         <div>
-          <dt>{{ t('library.technicalChecks') }}</dt>
-          <dd data-og7="media-analysis-count">
-            {{ analysisSummary().complete }}
+          <dt>{{ t('approveAll.counts.total') }}</dt>
+          <dd data-og7="media-count-total">
+            {{ mediaHeroCounts().total }}
           </dd>
         </div>
         <div>
-          <dt>{{ t('library.logoFiles') }}</dt>
-          <dd>{{ logoCount() }}</dd>
+          <dt>{{ t('approveAll.counts.toReview') }}</dt>
+          <dd data-og7="media-count-review">
+            {{ mediaHeroCounts().toReview }}
+          </dd>
         </div>
         <div>
-          <dt>{{ t('library.privateAssignments') }}</dt>
-          <dd>{{ assignmentCount() }}</dd>
+          <dt>{{ t('approveAll.counts.approved') }}</dt>
+          <dd data-og7="media-count-approved">
+            {{ mediaHeroCounts().approved }}
+          </dd>
         </div>
         <div class="needs-attention">
-          <dt>{{ t('library.toVerify') }}</dt>
-          <dd>{{ issueCount() }}</dd>
+          <dt>
+            <button
+              type="button"
+              class="consent-count-action"
+              [disabled]="!canRequestMediaConsent()"
+              [attr.aria-label]="t('approveAll.consentAction')"
+              (click)="openMediaConsentRequest()"
+              data-og7="media-count-consent-action"
+            >
+              {{ t('approveAll.counts.authorization') }}
+            </button>
+          </dt>
+          <dd data-og7="media-count-consent">
+            {{ mediaHeroCounts().authorizationRequired }}
+          </dd>
         </div>
       </dl>
       <header class="workspace-heading">
@@ -49,7 +75,7 @@
         </h4>
         <div class="upload-actions">
           <label class="upload-kind"
-            ><span class="visually-hidden">{{ t('uploadKind') }}</span
+            ><span>{{ t('uploadKind') }}</span
             ><select
               [value]="upload.kind()"
               [disabled]="!c.canWrite()"
@@ -63,7 +89,7 @@
               <option value="logo">{{ t('logo') }}</option>
             </select></label
           >
-          <label class="admin-button primary upload-button"
+          <label class="admin-button upload-button"
             >{{ t(upload.busy() ? 'uploading' : 'upload')
             }}<input
               type="file"
@@ -82,9 +108,35 @@
           >
             {{ t('refresh') }}
           </button>
+          @if (
+            hasPendingMediaConsent() && admin.identity()?.role !== 'reader'
+          ) {
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="!canRequestMediaConsent()"
+              (click)="openMediaConsentRequest()"
+              data-og7="media-consent-request-open"
+            >
+              {{ t('consentRequest.open') }}
+            </button>
+          }
         </div>
       </header>
     </section>
+    @if (approveAll.unresolved() && !approveAll.opened()) {
+      <p role="status" class="notice" data-og7="media-approve-all-unresolved">
+        {{ t('approveAll.unresolved') }}
+      </p>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="!approveAll.canOpen()"
+        (click)="openApproveAll()"
+      >
+        {{ t('approveAll.reviewReceipt') }}
+      </button>
+    }
     @if (libraryView() === 'documents') {
       <p class="notice" data-og7="media-documents-scope">
         {{ t('library.documentsHelp') }}
@@ -497,12 +549,15 @@
             open
             data-og7="media-recommendations"
           >
-            <summary>{{ t('library.recommendationsTitle') }}</summary>
+            <summary>{{ t('approveAll.assistantTitle') }}</summary>
+            <p class="muted">{{ t('approveAll.assistantHelp') }}</p>
             <p class="muted">{{ t('library.preflightUnavailable') }}</p>
             <dl class="recommendation-counts">
               <div>
                 <dt>{{ t('library.technicalChecks') }}</dt>
-                <dd>{{ analysisSummary().complete }}</dd>
+                <dd data-og7="media-analysis-count">
+                  {{ analysisSummary().complete }}
+                </dd>
               </div>
               <div>
                 <dt>{{ t('library.metadataProposals') }}</dt>
@@ -574,18 +629,9 @@
                 {{ t('library.examineServices') }}
               </button>
             </div>
-            <details class="defaults-panel">
-              <summary>{{ t('defaults') }}</summary>
-              <p class="muted">{{ rulesSummary() }}</p>
-              <button
-                type="button"
-                class="admin-button"
-                [disabled]="!c.canWrite()"
-                (click)="commands.openRules('dossier')"
-                data-og7="media-dossier-rules"
-              >
-                {{ t('editDefaults') }}
-              </button>
+            <details class="defaults-panel" data-og7="media-dossier-consent">
+              <summary>{{ t('dossierConsentTitle') }}</summary>
+              <p class="muted">{{ t('dossierConsentHelp') }}</p>
             </details>
           </details>
           <aside
@@ -705,24 +751,6 @@
               </div>
               <details class="advanced">
                 <summary>{{ t('moreOptions') }}</summary>
-                <button
-                  type="button"
-                  class="admin-button"
-                  [disabled]="!c.canWrite()"
-                  (click)="commands.openRules('media')"
-                >
-                  {{ t('customize') }}
-                </button>
-                @if (asset.ruleId && asset.usageSource === 'media') {
-                  <button
-                    type="button"
-                    class="admin-button"
-                    [disabled]="!c.canWrite()"
-                    (click)="commands.restoreInheritance(asset)"
-                  >
-                    {{ t('restoreInheritance') }}
-                  </button>
-                }
                 <button
                   type="button"
                   class="admin-button"
@@ -932,14 +960,7 @@
             <details>
               <summary>{{ t('moreOptions') }}</summary>
               <div class="bulk-buttons">
-                <button
-                  type="button"
-                  class="admin-button"
-                  [disabled]="!c.canWrite()"
-                  (click)="commands.openRules('dossier')"
-                >
-                  {{ t('actions.permissions') }}</button
-                ><label
+                <label
                   >{{ t('moveTo')
                   }}<select
                     [value]="commands.targetBatch()"
@@ -972,7 +993,341 @@
   [commands]="commands"
   [view]="this"
   [thumbnails]="thumbnails"
+  [hasPendingConsent]="hasPendingMediaConsent()"
+  [canRequestConsent]="canRequestMediaConsent()"
+  (consentRequested)="openMediaConsentRequest()"
 />
+<openg7-admin-drawer
+  [opened]="consentRequestOpened()"
+  [title]="t('consentRequest.title')"
+  [closeLabel]="t('close')"
+  [busy]="consentRequestBusy()"
+  (closed)="closeMediaConsentRequest()"
+>
+  @if (consentRequestOpened()) {
+    <section data-og7="media-consent-request">
+      <p>{{ t('consentRequest.intro') }}</p>
+      <p>{{ t('consentRequest.noAgreement') }}</p>
+      <openg7-admin-assistant-context
+        [sponsorshipId]="contributionId()"
+        [requestType]="'sponsorship_media_consent_request'"
+        [showWorkspaceLink]="false"
+        (busyChanged)="consentRequestBusy.set($event)"
+      />
+    </section>
+  }
+</openg7-admin-drawer>
+<openg7-admin-drawer
+  [opened]="approveAll.opened()"
+  [title]="t('approveAll.title')"
+  [closeLabel]="t('close')"
+  [busy]="approveAll.busy()"
+  [wide]="true"
+  (closed)="closeApproveAll()"
+>
+  <section class="approve-all-panel" data-og7="media-approve-all-panel">
+    @if (approveAll.busy()) {
+      <p role="status">
+        {{
+          t(
+            approveAll.unresolved()
+              ? 'approveAll.executing'
+              : 'approveAll.preparing'
+          )
+        }}
+      </p>
+    }
+    @if (approveAll.error()) {
+      <p role="alert" class="notice error" data-og7="media-approve-all-error">
+        {{ t('approveAll.errors.' + approveAll.error()) }}
+      </p>
+    }
+    @if (approveAll.receipt(); as receipt) {
+      <section role="status" data-og7="media-approve-all-receipt">
+        <p>
+          {{
+            t(
+              receipt.status === 'in_progress' && !receipt.summary.pending
+                ? 'approveAll.finalizationPending'
+                : 'approveAll.receiptStatus.' + receipt.status
+            )
+          }}
+        </p>
+        <p>
+          {{
+            t('approveAll.resultSummary', {
+              approved: receipt.summary.approved,
+              unchanged:
+                receipt.summary.total -
+                receipt.summary.approved -
+                receipt.summary.pending,
+              pending: receipt.summary.pending
+            })
+          }}
+        </p>
+      </section>
+      <ul class="approve-all-results" data-og7="media-approve-all-results">
+        @for (item of receipt.items; track item.id) {
+          <li [attr.data-og7-id]="item.id" [attr.data-state]="item.result">
+            <strong>{{ item.originalFilename }}</strong>
+            <span>{{ t('approveAll.results.' + item.result) }}</span>
+            @for (reason of item.reasons; track reason) {
+              <p>{{ reasonLabel(reason) }}</p>
+            }
+          </li>
+        }
+      </ul>
+      @if (receipt.status === 'in_progress') {
+        <p>
+          {{
+            t(
+              receipt.summary.pending
+                ? 'approveAll.resumeHelp'
+                : 'approveAll.finalizationHelp'
+            )
+          }}
+        </p>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="approveAll.busy()"
+          (click)="approveAll.reconcile()"
+          data-og7="media-approve-all-reconcile"
+        >
+          {{ t('verifyReceipt') }}
+        </button>
+        <button
+          type="button"
+          class="admin-button primary"
+          [disabled]="!approveAll.canResume()"
+          (click)="approveAll.resume()"
+          data-og7="media-approve-all-resume"
+        >
+          {{
+            t(
+              receipt.summary.pending
+                ? 'approveAll.resume'
+                : 'approveAll.finalize'
+            )
+          }}
+        </button>
+      }
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="approveAll.busy()"
+        (click)="closeApproveAll()"
+      >
+        {{ t('close') }}
+      </button>
+    } @else if (approveAll.unresolved()) {
+      <p>{{ t('approveAll.unresolved') }}</p>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="approveAll.busy()"
+        (click)="approveAll.reconcile()"
+        data-og7="media-approve-all-reconcile"
+      >
+        {{ t('verifyReceipt') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="approveAll.busy()"
+        (click)="closeApproveAll()"
+      >
+        {{ t('close') }}
+      </button>
+    } @else if (approveAll.plan(); as plan) {
+      <p class="notice" data-og7="media-approve-all-summary">
+        {{
+          t('approveAll.planSummary', {
+            total: plan.summary.total,
+            eligible: plan.summary.eligible,
+            alreadyApproved: plan.summary.alreadyApproved,
+            blocked: plan.summary.blocked,
+            notProcessable: plan.summary.notProcessable
+          })
+        }}
+      </p>
+      @if (approveAll.previewAsset(); as asset) {
+        <figure
+          class="approve-all-preview"
+          tabindex="-1"
+          data-og7="media-approve-all-preview"
+        >
+          <figcaption>{{ asset.originalFilename }}</figcaption>
+          @if (approveAll.previewFailed()) {
+            <p role="alert">{{ t('previewUnavailable') }}</p>
+          } @else if (approveAll.previewUrl(); as url) {
+            <img
+              [src]="url"
+              [alt]="asset.altText || asset.originalFilename"
+              (error)="approveAll.previewFailed.set(true)"
+            />
+          } @else {
+            <p role="status">
+              {{ t('loading') }}
+            </p>
+          }
+          <button
+            type="button"
+            class="admin-button"
+            (click)="closeApproveAllPreview()"
+          >
+            {{ t('approveAll.closePreview') }}
+          </button>
+        </figure>
+      }
+      @if (plan.summary.eligible) {
+        <p>{{ t('approveAll.scopeHelp') }}</p>
+        <div
+          class="approve-all-candidates"
+          data-og7="media-approve-all-candidates"
+        >
+          @for (item of approveAll.eligible(); track item.asset.id) {
+            <article [attr.data-og7-id]="item.asset.id">
+              <button
+                type="button"
+                class="approve-all-thumbnail"
+                [attr.aria-label]="
+                  t('approveAll.enlarge', { name: item.asset.originalFilename })
+                "
+                (click)="openApproveAllPreview(item.asset)"
+                [disabled]="approveAll.busy()"
+                data-og7="media-approve-all-enlarge"
+              >
+                @if (
+                  approveAll.previews.previews()[
+                    approveAll.previews.key(item.asset.id, item.asset.version)
+                  ];
+                  as preview
+                ) {
+                  @if (preview.url && !preview.failed) {
+                    <img
+                      [src]="preview.url"
+                      [alt]="item.asset.altText || item.asset.originalFilename"
+                      (load)="
+                        approveAll.previewLoaded(
+                          item.asset.id,
+                          item.asset.version
+                        )
+                      "
+                      (error)="
+                        approveAll.markPreviewFailed(
+                          item.asset.id,
+                          item.asset.version
+                        )
+                      "
+                    />
+                  } @else {
+                    <span>{{
+                      t(preview.failed ? 'previewUnavailable' : 'loading')
+                    }}</span>
+                  }
+                } @else {
+                  <span>{{ t('loading') }}</span>
+                }
+              </button>
+              <h3>{{ item.asset.originalFilename }}</h3>
+              <p>{{ item.asset.altText }}</p>
+              <p>{{ usageSummary(item.asset) }}</p>
+              @if (item.asset.usage?.credit) {
+                <p>{{ t('credit') }} : {{ item.asset.usage?.credit }}</p>
+              }
+              @if (item.asset.usage?.restrictions) {
+                <p class="notice approve-all-restrictions">
+                  {{ t('restrictions') }} : {{ item.asset.usage?.restrictions }}
+                </p>
+              }
+            </article>
+          }
+        </div>
+        @if (!approveAll.previewsReady()) {
+          <p role="status">
+            {{
+              t(
+                approveAll.failedPreviews()
+                  ? 'approveAll.previewFailure'
+                  : 'approveAll.previewLoading'
+              )
+            }}
+          </p>
+          @if (approveAll.failedPreviews()) {
+            <button
+              type="button"
+              class="admin-button"
+              (click)="approveAll.retryPreviews()"
+              [disabled]="approveAll.busy()"
+              data-og7="media-approve-all-preview-retry"
+            >
+              {{ t('approveAll.retryPreviews') }}
+            </button>
+          }
+        }
+        <p>
+          {{ t('approveAll.confirmHelp', { count: plan.summary.eligible }) }}
+        </p>
+      } @else {
+        <p role="status" data-og7="media-approve-all-empty">
+          {{ t('approveAll.noneEligible') }}
+        </p>
+      }
+      @if (approveAll.unchanged().length) {
+        <details data-og7="media-approve-all-unchanged">
+          <summary>
+            {{
+              t('approveAll.unchanged', {
+                count: approveAll.unchanged().length
+              })
+            }}
+          </summary>
+          <ul class="approve-all-results">
+            @for (item of approveAll.unchanged(); track item.asset.id) {
+              <li [attr.data-og7-id]="item.asset.id">
+                <strong>{{ item.asset.originalFilename }}</strong>
+                <span>{{
+                  t('approveAll.results.' + item.classification)
+                }}</span>
+                @for (reason of item.reasons; track reason) {
+                  <p>{{ reasonLabel(reason) }}</p>
+                }
+              </li>
+            }
+          </ul>
+        </details>
+      }
+      <p class="muted">{{ t('noPublication') }}</p>
+      <div class="approve-all-actions">
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="approveAll.busy()"
+          (click)="closeApproveAll()"
+          data-og7="media-approve-all-cancel"
+        >
+          {{ t('acceptanceCancel') }}
+        </button>
+        @if (plan.summary.eligible) {
+          <button
+            type="button"
+            class="admin-button primary"
+            [disabled]="!approveAll.canConfirm()"
+            (click)="approveAll.confirm()"
+            data-og7="media-approve-all-confirm"
+          >
+            {{ t('approveAll.confirm') }}
+          </button>
+        }
+      </div>
+    } @else if (!approveAll.busy()) {
+      <button type="button" class="admin-button" (click)="closeApproveAll()">
+        {{ t('close') }}
+      </button>
+    }
+  </section>
+</openg7-admin-drawer>
 <openg7-admin-drawer
   [opened]="exportOpen()"
   [title]="t('library.exportTitle')"

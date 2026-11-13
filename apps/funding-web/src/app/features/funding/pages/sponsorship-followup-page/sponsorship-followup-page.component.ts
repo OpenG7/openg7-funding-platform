@@ -69,8 +69,11 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private reviewSection?: ElementRef<HTMLElement>;
 
   readonly token = this.controller.token;
+  readonly mediaConsentRequested =
+    this.route.snapshot.queryParamMap.get('section') === 'media-consent';
   readonly correctionDecisionId = this.controller.correctionDecisionId;
   readonly moderationRefresh = signal(0);
+  readonly mediaRefresh = signal(0);
   readonly recoveryEntry = this.controller.recoveryEntry;
   readonly followup = this.controller.followup;
   readonly loading = this.controller.loading;
@@ -100,8 +103,11 @@ export class SponsorshipFollowupPageComponent implements OnInit {
     );
   }
 
-  load(): Promise<boolean> {
-    return this.controller.load();
+  async load(): Promise<boolean> {
+    const hadFollowup = !!this.followup();
+    const loaded = await this.controller.load();
+    if (loaded && hadFollowup) this.mediaRefresh.update((value) => value + 1);
+    return loaded;
   }
 
   submit(value: SponsorshipDetailsDraft): Promise<void> {

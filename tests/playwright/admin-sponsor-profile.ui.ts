@@ -311,33 +311,30 @@ export function registerSponsorProfileTests({
       await approve.focus();
       await approve.press('Enter');
       const dialog = page.locator('dialog[open]');
-      const editor = dialog.locator('[data-og7="media-usage-editor"]');
-      await expect(editor).toBeVisible();
+      const review = dialog.locator('[data-og7="media-acceptance-review"]');
+      await expect(review).toBeVisible();
+      await expect(review).toContainText(options.media[0]!.originalFilename);
       await expect(
-        dialog.locator('[data-og7="media-review-permissions-help"]')
-      ).toContainText(options.media[0]!.originalFilename);
-      const scope = dialog.getByRole('combobox', {
-        name: english ? 'Apply at level' : 'Appliquer au niveau',
-        exact: true
-      });
-      await expect(scope).toHaveValue('media');
-      await expect(scope).toBeDisabled();
+        review.locator('[data-og7="media-acceptance-pending"]')
+      ).toBeVisible();
       await expect(
-        editor.locator('[data-og7="media-usage-confirmation"]')
-      ).not.toBeChecked();
-      await expect(
-        editor.locator('[data-og7="media-usage-evidence"]')
-      ).toHaveValue('');
-      await expect(
-        editor.locator('[data-og7="media-usage-save"]')
+        review.locator('[data-og7="media-acceptance-approve"]')
       ).toBeDisabled();
+      await expect(
+        review.locator('[data-og7="media-acceptance-reject"]')
+      ).toBeEnabled();
+      await expect(
+        review.locator('[data-og7="media-acceptance-proof"]')
+      ).toHaveCount(0);
+      await expect(dialog.getByRole('combobox')).toHaveCount(0);
+      await expect(
+        dialog.locator('[data-og7="media-usage-editor"]')
+      ).toHaveCount(0);
+      await expect(
+        dialog.locator('[data-og7="media-usage-evidence"]')
+      ).toHaveCount(0);
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
-      await dialog
-        .getByRole('button', {
-          name: english ? 'Close' : 'Fermer',
-          exact: true
-        })
-        .click();
+      await review.locator('[data-og7="media-acceptance-cancel"]').click();
       await expect(dialog).toHaveCount(0);
       await expect(approve).toBeFocused();
       await expectResponsiveProfile(page, media(page));

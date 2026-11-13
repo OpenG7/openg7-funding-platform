@@ -24,6 +24,7 @@ type IdentityFacts = Pick<
   | 'public_name'
   | 'public_display_consent'
   | 'sponsor_details_submitted_at'
+  | 'sponsor_details_admin_completed_at'
 > & { readonly sponsor_message?: string | null };
 
 interface IdentityField {
@@ -38,7 +39,7 @@ interface IdentityField {
 const identityText = (value: string | null | undefined): string | null =>
   value?.trim() || null;
 
-/** Two independent server facts; global dossier milestones remain server-owned. */
+/** Contact completion and sponsor submission remain distinct server facts. */
 @Component({
   selector: 'openg7-admin-sponsor-detail-identity',
   standalone: true,
@@ -106,10 +107,17 @@ export class AdminSponsorDetailIdentityComponent {
       }
     ];
     const submittedAt = facts.sponsor_details_submitted_at;
+    const coordinatesComplete = Boolean(organization && email);
+    const completedByAdmin = Boolean(
+      coordinatesComplete &&
+      !submittedAt &&
+      facts.sponsor_details_admin_completed_at
+    );
     const date = submittedAt ? new Date(submittedAt) : null;
     return {
       fields,
-      coordinatesComplete: Boolean(organization && email),
+      coordinatesComplete,
+      completedByAdmin,
       submitted: Boolean(submittedAt),
       submittedAt,
       submittedAtLabel:

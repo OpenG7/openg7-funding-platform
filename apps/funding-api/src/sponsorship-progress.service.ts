@@ -44,7 +44,8 @@ export const buildSponsorshipProgress = (
     confirmedAmountMinor >= facts.amountMinor || refundInProgress;
   const coordinatesComplete = record.hasCompanyName && record.hasContactEmail;
   const identityComplete = Boolean(
-    record.detailsSubmittedAt && coordinatesComplete
+    coordinatesComplete &&
+    (record.detailsSubmittedAt || record.detailsAdminCompletedAt)
   );
   const { hasApprovedPresentation: imageApproved, pending: pendingMedia } =
     summarizeSponsorshipMedia(source.media);
@@ -162,7 +163,9 @@ export const buildSponsorshipProgress = (
           ? 'pending'
           : 'blocked',
       reason: identityComplete
-        ? 'identity_complete'
+        ? record.detailsSubmittedAt
+          ? 'identity_complete'
+          : 'identity_admin_completed'
         : coordinatesComplete
           ? 'identity_submission_pending'
           : 'identity_missing',

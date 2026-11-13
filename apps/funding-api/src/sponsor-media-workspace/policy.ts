@@ -242,6 +242,7 @@ export async function record(
   result: object
 ): Promise<void> {
   const outcome = result as {
+    status?: string;
     planId?: string;
     assetId?: string;
     items?: readonly { id: string; result: string }[];
@@ -263,7 +264,7 @@ export async function record(
         ...(outcome.planId
           ? {
               planId: outcome.planId,
-              status: 'completed',
+              status: outcome.status ?? 'completed',
               items: outcome.items
             }
           : {})

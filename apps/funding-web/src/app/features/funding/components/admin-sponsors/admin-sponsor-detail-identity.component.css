@@ -189,6 +189,7 @@ h3 {
   max-inline-size: 100%;
 }
 .identity-state[data-state='complete'],
+.identity-state[data-state='admin-completed'],
 .identity-state[data-state='submitted'] {
   background: var(--admin-success-bg);
   color: var(--admin-success);

@@ -2,42 +2,23 @@ import { computed, signal } from '@angular/core';
 import {
   MODERATION_REASONS,
   MODERATION_EDITORIAL_PROVISIONS,
-  SPONSOR_MEDIA_USAGE_CHANNELS,
-  SPONSOR_MEDIA_USAGE_TARGETS,
-  type MediaRuleScope,
   type SponsorMediaBatchAction,
   type SponsorMediaWorkspaceAsset
 } from '@openg7/funding-core';
 
-import type {
-  SponsorMediaUsageScope,
-  SponsorMediaUsageSubmission
-} from '../sponsor-media-usage/sponsor-media-usage-editor.component.js';
-
 import type { MediaReviewWorkspaceController } from './media-review-workspace.controller.js';
-
-interface MediaReviewPermissions {
-  readonly id: string;
-  readonly contributionId: string;
-  readonly version: string;
-  readonly revision: string;
-  readonly originalFilename: string;
-}
 
 interface MediaAcceptanceReviewContext {
   readonly id: string;
   readonly contributionId: string;
   readonly version: string;
   readonly revision: string;
-  readonly acceptanceId: string;
+  readonly acceptanceId: string | null;
 }
 
 /** Form state and exact-manifest confirmation for this workspace's existing commands. */
 export class MediaReviewCommands {
-  readonly form = signal<
-    'plan' | 'rules' | 'batch' | 'reject' | 'review' | null
-  >(null);
-  readonly reviewPermissions = signal<MediaReviewPermissions | null>(null);
+  readonly form = signal<'plan' | 'batch' | 'reject' | 'review' | null>(null);
   readonly acceptedReview = signal<MediaAcceptanceReviewContext | null>(null);
   readonly reviewSubmitting = signal(false);
   private reviewSerial = 0;
@@ -52,8 +33,7 @@ export class MediaReviewCommands {
           (asset) =>
             asset.id === target.id &&
             asset.version === target.version &&
-            asset.usageAcceptance?.id === target.acceptanceId &&
-            asset.usage?.state === 'confirmed'
+            (asset.usageAcceptance?.id ?? null) === target.acceptanceId
         ) ?? null)
       : null;
   });
@@ -68,6 +48,7 @@ export class MediaReviewCommands {
       return false;
     const draft = this.c.draft(asset);
     return (
+      asset.usage?.state === 'confirmed' &&
       asset.readiness.state !== 'blocked' &&
       !!draft.altText.trim() &&
       draft.altText.trim().length <= 300 &&
@@ -77,11 +58,6 @@ export class MediaReviewCommands {
     );
   });
   readonly humanReviewed = signal(false);
-  readonly inheritRequested = signal(false);
-  readonly includesFutureUploads = signal(false);
-  readonly rulesScope = signal<MediaRuleScope>('dossier');
-  readonly rulesSuggestedScope = signal<SponsorMediaUsageScope | null>(null);
-  readonly rulesBatch = signal('');
   readonly targetBatch = signal('');
   readonly batchName = signal('');
   readonly rejectReason = signal('');
@@ -100,20 +76,10 @@ export class MediaReviewCommands {
   );
   constructor(
     readonly c: MediaReviewWorkspaceController,
-    private readonly contributionId: () => string,
-    private readonly reviewReady?: (
-      asset: Pick<SponsorMediaWorkspaceAsset, 'id' | 'contributionId'>
-    ) => void
+    private readonly contributionId: () => string
   ) {}
-  changeScope(event: Event): void {
-    if (this.reviewPermissions()) return;
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'dossier' || value === 'batch' || value === 'media')
-      this.rulesScope.set(value);
-  }
   reset(): void {
     this.form.set(null);
-    this.reviewPermissions.set(null);
     this.clearAcceptedReview();
   }
   private clearAcceptedReview(): void {
@@ -122,18 +88,15 @@ export class MediaReviewCommands {
     this.reviewSubmitting.set(false);
   }
   openAcceptedReview(asset: SponsorMediaWorkspaceAsset): void {
+    if (this.reviewSubmitting()) return;
     const data = this.c.data(),
       current = this.c.inspected();
     if (
       !data ||
-      !this.c.canWrite() ||
       current?.id !== asset.id ||
       current.version !== asset.version ||
       asset.contributionId !== data.contributionId ||
-      data.contributionId !== this.contributionId() ||
-      asset.usage?.state !== 'confirmed' ||
-      asset.usageAcceptance?.source !== 'platform_acceptance' ||
-      asset.readiness.state === 'blocked'
+      data.contributionId !== this.contributionId()
     )
       return;
     this.reset();
@@ -144,7 +107,7 @@ export class MediaReviewCommands {
       contributionId: data.contributionId,
       version: asset.version,
       revision: data.revision,
-      acceptanceId: asset.usageAcceptance.id
+      acceptanceId: asset.usageAcceptance?.id ?? null
     });
     this.form.set('review');
   }
@@ -177,7 +140,7 @@ export class MediaReviewCommands {
         candidate?.id !== target.id ||
         candidate.version !== target.version ||
         candidate.altText !== altText ||
-        candidate.usageAcceptance?.id !== target.acceptanceId ||
+        (candidate.usageAcceptance?.id ?? null) !== target.acceptanceId ||
         this.c.draft(asset).altText.trim() !== altText ||
         JSON.stringify(candidate.usage) !== JSON.stringify(asset.usage) ||
         this.c.draft(asset).restrictions !== restrictions
@@ -205,7 +168,6 @@ export class MediaReviewCommands {
     single?: SponsorMediaWorkspaceAsset
   ): Promise<void> {
     this.clearAcceptedReview();
-    this.reviewPermissions.set(null);
     this.humanReviewed.set(false);
     await this.c.prepare(
       action,
@@ -225,7 +187,6 @@ export class MediaReviewCommands {
     single?: SponsorMediaWorkspaceAsset
   ): void {
     this.clearAcceptedReview();
-    this.reviewPermissions.set(null);
     this.decisionAction.set(action);
     this.rejectSingleId.set(single?.id ?? null);
     this.rejectReason.set('');
@@ -279,187 +240,11 @@ export class MediaReviewCommands {
     if (this.c.busy() || this.reviewSubmitting()) return;
     this.clearAcceptedReview();
     this.form.set(null);
-    this.reviewPermissions.set(null);
     this.c.plan.set(null);
     this.humanReviewed.set(false);
   }
-  openRules(scope: MediaRuleScope = 'dossier'): void {
-    this.clearAcceptedReview();
-    this.reviewPermissions.set(null);
-    this.inheritRequested.set(false);
-    this.includesFutureUploads.set(false);
-    this.rulesScope.set(scope);
-    // Keep suggestions stable if the service projection refreshes while editing.
-    const obligations = (this.c.data()?.preparationObligations ?? []).filter(
-      (obligation) => obligation.acceptsMedia
-    );
-    this.rulesSuggestedScope.set(
-      obligations.length
-        ? {
-            channels: SPONSOR_MEDIA_USAGE_CHANNELS.filter((channel) =>
-              obligations.some((obligation) => obligation.channel === channel)
-            ),
-            targets: SPONSOR_MEDIA_USAGE_TARGETS.filter((target) =>
-              obligations.some((obligation) => obligation.target === target)
-            )
-          }
-        : null
-    );
-    this.rulesBatch.set(
-      this.c.inspected()?.batchId ?? this.c.data()?.batches[0]?.id ?? ''
-    );
-    this.form.set('rules');
-  }
-  openReviewPermissions(asset: SponsorMediaWorkspaceAsset): void {
-    const data = this.c.data(),
-      current = this.c.inspected();
-    if (
-      !data ||
-      !this.c.canWrite() ||
-      data.contributionId !== this.contributionId() ||
-      current?.id !== asset.id ||
-      current.contributionId !== data.contributionId ||
-      current.version !== asset.version ||
-      current.reviewStatus === 'rejected' ||
-      current.usage?.state === 'withdrawn' ||
-      current.readiness.state !== 'blocked' ||
-      !current.readiness.reasons.length ||
-      !current.readiness.reasons.every(
-        (reason) => reason === 'MEDIA_USAGE_CONFIRMATION_REQUIRED'
-      )
-    )
-      return;
-    this.openRules('media');
-    this.humanReviewed.set(false);
-    this.reviewPermissions.set({
-      id: current.id,
-      contributionId: current.contributionId,
-      version: current.version,
-      revision: data.revision,
-      originalFilename: current.originalFilename
-    });
-  }
-  restoreInheritance(asset: SponsorMediaWorkspaceAsset): void {
-    this.c.inspectedId.set(asset.id);
-    this.openRules('media');
-    this.rulesSuggestedScope.set(null);
-    this.inheritRequested.set(true);
-  }
-  readonly rulesScopeId = computed(
-    () =>
-      this.reviewPermissions()?.id ??
-      (this.rulesScope() === 'dossier'
-        ? this.contributionId()
-        : this.rulesScope() === 'batch'
-          ? this.rulesBatch()
-          : (this.c.inspectedId() ?? ''))
-  );
-  readonly existingRule = computed(
-    () =>
-      this.c
-        .data()
-        ?.rules.find(
-          (rule) =>
-            rule.scope === this.rulesScope() &&
-            rule.scopeId === this.rulesScopeId()
-        ) ?? null
-  );
-  readonly rulesValue = computed(
-    () =>
-      this.existingRule()?.usage ??
-      (this.reviewPermissions()
-        ? (this.coveredAssets()[0]?.usage ?? null)
-        : this.rulesScope() === 'media'
-          ? (this.c.inspected()?.usage ?? null)
-          : null)
-  );
-  readonly coveredAssets = computed(() => {
-    const review = this.reviewPermissions();
-    if (review)
-      return this.c
-        .assets()
-        .filter(
-          (asset) =>
-            asset.id === review.id &&
-            asset.contributionId === review.contributionId
-        );
-    if (this.rulesScope() === 'media')
-      return this.c.inspected() ? [this.c.inspected()!] : [];
-    const assets = this.c.selected().length
-      ? this.c.selected()
-      : this.c.assets();
-    return this.rulesScope() === 'batch'
-      ? assets.filter((asset) => asset.batchId === this.rulesBatch())
-      : assets;
-  });
-  async saveRules(
-    submission: SponsorMediaUsageSubmission,
-    inherit = false
-  ): Promise<void> {
-    const data = this.c.data(),
-      scopeId = this.rulesScopeId(),
-      review = this.reviewPermissions();
-    if (
-      review &&
-      (!this.currentReviewPermissions(review) ||
-        data?.revision !== review.revision ||
-        this.c.inspected()?.version !== review.version ||
-        inherit)
-    ) {
-      this.c.error.set('changed');
-      return;
-    }
-    if (
-      !data ||
-      !scopeId ||
-      !submission.evidenceReference ||
-      (!this.coveredAssets().length && !this.includesFutureUploads())
-    )
-      return;
-    const saved = await this.c.saveRules({
-      requestId: crypto.randomUUID(),
-      contributionId: data.contributionId,
-      expectedRevision: data.revision,
-      scope: this.rulesScope(),
-      scopeId,
-      usage: inherit ? null : submission.usage,
-      evidenceReference: submission.evidenceReference,
-      coveredAssetIds: this.coveredAssets().map((asset) => asset.id),
-      ...(this.includesFutureUploads() && this.rulesScope() !== 'media'
-        ? { includesFutureUploads: true }
-        : {}),
-      confirmation: scopeId
-    });
-    if (!saved) return;
-    const continueReview =
-      review !== null && this.currentReviewPermissions(review);
-    if (review && this.reviewPermissions() !== review) return;
-    this.form.set(null);
-    this.reviewPermissions.set(null);
-    // The view waits for the parent refresh to finish before restoring focus.
-    if (continueReview)
-      this.reviewReady?.({
-        id: review.id,
-        contributionId: review.contributionId
-      });
-  }
-  private currentReviewPermissions(review: MediaReviewPermissions): boolean {
-    const asset = this.c.inspected();
-    return (
-      this.reviewPermissions() === review &&
-      this.form() === 'rules' &&
-      this.rulesScope() === 'media' &&
-      !this.inheritRequested() &&
-      !this.includesFutureUploads() &&
-      this.contributionId() === review.contributionId &&
-      this.c.data()?.contributionId === review.contributionId &&
-      asset?.id === review.id &&
-      asset.contributionId === review.contributionId
-    );
-  }
   async createBatch(): Promise<void> {
     this.clearAcceptedReview();
-    this.reviewPermissions.set(null);
     const data = this.c.data();
     if (!data || !this.batchName().trim()) return;
     if (
