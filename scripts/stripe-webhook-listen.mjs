@@ -10,6 +10,18 @@ import {
   verifyStripeSigningSecret
 } from './lib/stripe-listener.mjs';
 
+// A managed relay must not survive its gateway. Emitting the registered handler
+// also works on Windows, where sending SIGTERM to ourselves kills Node outright.
+let disconnectHandled = false;
+const parentDisconnected = () => {
+  if (disconnectHandled) return;
+  disconnectHandled = true;
+  if (process.listenerCount('SIGTERM') > 0) process.emit('SIGTERM');
+  else process.exit(130);
+};
+if (typeof process.send === 'function')
+  process.once('disconnect', parentDisconnected);
+
 try {
   const args = process.argv.slice(2);
   if (args.some((arg) => !['--check', '--help'].includes(arg)))
@@ -41,10 +53,23 @@ Garder ce terminal ouvert; Ctrl+C arrete uniquement le relais.`);
       console.log(
         'Relais Stripe vers https://localhost/api/stripe/webhook. Garder ce terminal ouvert (Ctrl+C pour arreter).'
       );
-      await runStripeListener(listenerArgs, { env });
+      await runStripeListener(listenerArgs, {
+        env,
+        ...(typeof process.send === 'function'
+          ? {
+              onReady: () =>
+                process.send({ type: 'stripe-ready' }, (error) => {
+                  if (error) parentDisconnected();
+                })
+            }
+          : {})
+      });
     }
   }
 } catch (error) {
   console.error(error.message);
   process.exitCode = error.exitCode ?? 1;
+} finally {
+  process.off('disconnect', parentDisconnected);
+  if (process.connected) process.disconnect();
 }

@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { localDevWebConfiguration } from './lib/dev-web-docker.mjs';
+import { startDevWebStripe } from './lib/dev-web-stripe.mjs';
 import {
   requestGatewayStop,
   watchGatewayStop
@@ -25,7 +26,7 @@ const routePath = join(root, 'traefik/local/dynamic.yml');
 const backupPath = join(root, 'traefik/local/dev-web-backup.json');
 const stopRequestPath = join(root, 'traefik/local/dev-web-stop.json');
 const usage =
-  'Usage: yarn dev:web:docker [--stop | --restore]\nServe live Angular at https://localhost with the existing local Docker API/Keycloak. Requires the prepared local HTTPS stack and free port 4200. Ctrl+C or yarn dev:web:docker:stop restores Docker Web routing; yarn dev:web:docker:restore recovers an interrupted launcher. Shortcuts: yarn 1 starts, yarn 2 stops, yarn 3 restores. No container restart, database or identity changes.';
+  'Usage: yarn dev:web:docker [--no-stripe-webhook | --stop | --restore]\nServe live Angular at https://localhost with the existing local Docker API/Keycloak and a managed Stripe test relay. Requires the prepared local HTTPS stack, Stripe CLI, matching test credentials and free port 4200. --no-stripe-webhook starts only Angular when the relay is managed separately or Stripe is simulated. Ctrl+C or yarn dev:web:docker:stop stops both owned processes and restores Docker Web routing; yarn dev:web:docker:restore recovers an interrupted launcher. Shortcuts: yarn 1 starts, yarn 2 stops, yarn 3 restores. No container restart, database or identity changes.';
 
 function dockerOutput(args) {
   const result = spawnSync('docker', args, {
@@ -225,7 +226,8 @@ async function main() {
   }
   if (
     args.length > 1 ||
-    (args.length === 1 && !['--stop', '--restore'].includes(args[0]))
+    (args.length === 1 &&
+      !['--stop', '--restore', '--no-stripe-webhook'].includes(args[0]))
   )
     throw new Error(usage);
 
@@ -319,11 +321,12 @@ async function main() {
   );
   let finished = false;
   let child;
+  let stripe;
   let stopWatching = () => {};
   const onInput = (chunk) => {
     if (chunk.includes(3)) finish(0);
   };
-  function finish(code) {
+  async function finish(code) {
     if (finished) return;
     finished = true;
     stopWatching();
@@ -341,6 +344,12 @@ async function main() {
           windowsHide: true
         });
       else child.kill('SIGTERM');
+    }
+    try {
+      await stripe?.stop();
+    } catch (error) {
+      console.error(error.message);
+      code = 1;
     }
     try {
       restoreRouting();
@@ -364,6 +373,26 @@ async function main() {
     process.stdin.resume();
   }
   try {
+    if (!args.includes('--no-stripe-webhook')) {
+      console.log(
+        'Starting the Stripe test relay; waiting for its connection.'
+      );
+      stripe = startDevWebStripe({ root, env: process.env });
+      stripe.closed.then(() => {
+        if (finished) return;
+        console.error(
+          'The Stripe test relay stopped unexpectedly; stopping the Web gateway. Restart it before making test payments.'
+        );
+        finish(1);
+      });
+      await stripe.ready;
+      if (finished) return;
+      console.log('Stripe test relay ready.');
+    } else {
+      console.log(
+        'Stripe relay disabled explicitly. Test payments need a separately managed relay.'
+      );
+    }
     child = spawn(
       process.execPath,
       [
@@ -461,9 +490,10 @@ async function main() {
         'The HTTPS Angular route did not become ready; restoring Docker Web.'
       );
     console.log(
-      'Web gateway active: open https://localhost (Angular watch + Docker API/Keycloak). Ctrl+C or yarn 2 restores Docker Web.'
+      `Web gateway active: open https://localhost (Angular watch + Docker API/Keycloak${stripe ? ' + Stripe test relay' : ''}). Ctrl+C or yarn 2 stops the owned processes and restores Docker Web.`
     );
   } catch (error) {
+    if (finished) return;
     console.error(error.message);
     finish(1);
   }

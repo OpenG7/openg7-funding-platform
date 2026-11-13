@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import * as tls from 'node:tls';
+import { stripVTControlCharacters } from 'node:util';
 import { redactStripeOutput, resolveStripeExecutable } from './stripe-cli.mjs';
 
 export { redactStripeOutput };
@@ -79,8 +80,23 @@ export function verifyLocalStripeTls({ connect = tls.connect } = {}) {
 
 export function runStripeListener(
   args,
-  { env, capture = false, executable = resolveStripeExecutable(env) }
+  {
+    env,
+    capture = false,
+    executable = resolveStripeExecutable(env),
+    onReady,
+    readyTimeoutMs = 30000,
+    stopTimeoutMs = 3000
+  }
 ) {
+  if (
+    (onReady !== undefined && (typeof onReady !== 'function' || capture)) ||
+    !Number.isFinite(readyTimeoutMs) ||
+    readyTimeoutMs <= 0 ||
+    !Number.isFinite(stopTimeoutMs) ||
+    stopTimeoutMs <= 0
+  )
+    throw new Error('Invalid Stripe listener lifecycle options.');
   return new Promise((resolveRun, reject) => {
     const child = spawn(executable, args, {
       env,
@@ -91,6 +107,10 @@ export function runStripeListener(
     let output = '';
     let interrupted = false;
     let timedOut = false;
+    let ready = false;
+    let readyTimedOut = false;
+    let readyCallbackFailed = false;
+    let forceTimer;
     const stop = (signal) => {
       if (!child.pid) return;
       try {
@@ -99,6 +119,8 @@ export function runStripeListener(
       } catch {
         /* The process may already have exited. */
       }
+      if (signal !== 'SIGKILL' && !forceTimer)
+        forceTimer = setTimeout(() => stop('SIGKILL'), stopTimeoutMs);
     };
     const interrupt = () => {
       interrupted = true;
@@ -108,13 +130,19 @@ export function runStripeListener(
       interrupted = true;
       stop('SIGTERM');
     };
-    process.once('SIGINT', interrupt);
-    process.once('SIGTERM', terminate);
+    process.on('SIGINT', interrupt);
+    process.on('SIGTERM', terminate);
     const timer = capture
       ? setTimeout(() => {
           timedOut = true;
           stop('SIGTERM');
         }, 20000)
+      : null;
+    const readyTimer = onReady
+      ? setTimeout(() => {
+          readyTimedOut = true;
+          stop('SIGTERM');
+        }, readyTimeoutMs)
       : null;
     if (capture) {
       child.stdout.setEncoding('utf8');
@@ -130,11 +158,32 @@ export function runStripeListener(
     } else {
       for (const stream of [child.stdout, child.stderr]) {
         const lines = createInterface({ input: stream, crlfDelay: Infinity });
-        lines.on('line', (line) => console.log(redactStripeOutput(line)));
+        lines.on('line', (line) => {
+          const plain = stripVTControlCharacters(line);
+          console.log(redactStripeOutput(plain));
+          if (
+            onReady &&
+            !ready &&
+            !readyTimedOut &&
+            !interrupted &&
+            /^(?:>\s*)?Ready!(?:\s|$)/.test(plain.trim())
+          ) {
+            ready = true;
+            clearTimeout(readyTimer);
+            try {
+              onReady();
+            } catch {
+              readyCallbackFailed = true;
+              stop('SIGTERM');
+            }
+          }
+        });
       }
     }
     const cleanup = () => {
       clearTimeout(timer);
+      clearTimeout(readyTimer);
+      clearTimeout(forceTimer);
       process.off('SIGINT', interrupt);
       process.off('SIGTERM', terminate);
     };
@@ -154,7 +203,9 @@ export function runStripeListener(
         );
         error.exitCode = 130;
         reject(error);
-      } else if (timedOut || code !== 0)
+      } else if (readyTimedOut || readyCallbackFailed || (onReady && !ready))
+        reject(new Error('Le relais Stripe ne confirme pas sa disponibilite.'));
+      else if (timedOut || code !== 0)
         reject(
           new Error(
             'La commande Stripe a echoue. Verifier la CLI, la cle de test et la connexion reseau.'
