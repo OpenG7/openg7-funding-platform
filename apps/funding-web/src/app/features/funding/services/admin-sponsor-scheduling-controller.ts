@@ -31,7 +31,8 @@ export interface AdminSponsorSchedulingPorts {
   readonly i18n: Pick<FundingI18nService, 't' | 'currentLanguage'>;
   moderate: FundingModerationService['requestDecision'];
   confirm(message: string, title: string): Promise<boolean>;
-  changed(): void;
+  canManageWorker?(): boolean;
+  changed(command: PublicationAutomationCommand): void;
 }
 
 /** Dossier-scoped proposals and exact delivery review, without automatic mutations. */
@@ -39,6 +40,7 @@ export class AdminSponsorSchedulingController {
   readonly state = signal<PublicationAutomationState | null>(null);
   readonly loading = signal(false);
   readonly busy = signal(false);
+  readonly workerChanging = signal(false);
   readonly error = signal('');
   readonly notice = signal('');
   private readonly sponsorshipId = signal('');
@@ -117,7 +119,7 @@ export class AdminSponsorSchedulingController {
           const job = this.findDelivery(command.id);
           if (job && selected?.id === command.id) this.delivery.open(job);
         }
-        this.ports.changed();
+        this.ports.changed(command);
       }
     });
   }
@@ -236,6 +238,41 @@ export class AdminSponsorSchedulingController {
     )
       return;
     await this.workflow.run({ action: 'prepare', feedId });
+  }
+
+  async enableWorker(): Promise<boolean> {
+    const unavailable = () =>
+      this.disposed ||
+      this.busy() ||
+      this.loading() ||
+      !!this.error() ||
+      !this.sponsorshipId() ||
+      !this.ports.canManageWorker?.() ||
+      this.state()?.workerEnabled !== false;
+    if (this.workerChanging() || unavailable()) return false;
+    const state = this.state()!;
+    const revision = this.revision;
+    this.workerChanging.set(true);
+    try {
+      if (
+        !(await this.ports.confirm(
+          this.ports.i18n.t('admin.publicationAutomation.workerConfirm'),
+          this.ports.i18n.t('admin.publicationAutomation.workerTitle')
+        )) ||
+        revision !== this.revision ||
+        this.state() !== state ||
+        unavailable()
+      )
+        return false;
+      return await this.workflow.run({
+        action: 'worker',
+        enabled: true,
+        version: state.workerVersion,
+        confirmation: 'enable-worker'
+      });
+    } finally {
+      this.workerChanging.set(false);
+    }
   }
 
   /** Invalidate in-flight reads when the authenticated dossier context changes. */

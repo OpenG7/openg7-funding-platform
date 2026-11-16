@@ -43,6 +43,11 @@ import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
+import {
+  openOtherPublicationDecisions,
+  openPublicationAnalysis,
+  registerPublicationDecisionTests
+} from './publication-decision.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -846,6 +851,7 @@ registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerPublicationWorkshopTests({ fixtures, path, recordedCommitment });
 registerPublicationMonitorTests({ fixtures, path, recordedCommitment });
+registerPublicationDecisionTests({ fixtures, path, recordedCommitment, id });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorIdentityTests({ fixtures, path, id, date });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
@@ -1779,7 +1785,7 @@ test('pending sponsor submission is explained from the dossier through identity 
 const actions = (page: Page) => page.locator('[data-og7="dossier-actions"]');
 
 for (const width of [1920, 1280, 390]) {
-  test(`review actions float within the selected dossier at ${width}px`, async ({
+  test(`review decision remains central in Publication and keyboard accessible at ${width}px`, async ({
     page
   }) => {
     const { calls } = await fixtures(page);
@@ -1788,10 +1794,14 @@ for (const width of [1920, 1280, 390]) {
     const panel = page.locator('[data-og7="sponsorship-dossier"]');
     const dock = actions(page);
     await expect(dock).toHaveAccessibleName('Actions de validation');
-    await expect(dock).toContainText('Atelier Boréal');
-    await expect(dock).toContainText('DEMO-401');
+    await expect(
+      page.locator('[data-og7="publication-monitor"]')
+    ).toContainText('Atelier Boréal');
+    await expect(
+      page.locator('[data-og7="publication-monitor"]')
+    ).toContainText('DEMO-401');
 
-    // Bring the dossier into view without scrolling to its action footer.
+    // The decision follows the prestation summary instead of a floating action dock.
     await panel.evaluate((element) => {
       element.scrollTop = 0;
       window.scrollTo({
@@ -1799,13 +1809,16 @@ for (const width of [1920, 1280, 390]) {
         behavior: 'instant'
       });
     });
-    for (const label of ['Remettre en attente', 'Refuser', 'Accepter']) {
+    await dock.scrollIntoViewIfNeeded();
+    for (const label of ['Refuser', 'Accepter']) {
       await expect(
         dock.getByRole('button', { name: label, exact: true })
       ).toBeInViewport({ ratio: 1 });
     }
-    const initialDock = await dock.boundingBox();
-    expect(initialDock!.y + initialDock!.height).toBeLessThanOrEqual(844);
+    await expect(
+      dock.getByRole('button', { name: 'Remettre en attente', exact: true })
+    ).toHaveCount(0);
+    await expect(dock.getByRole('button')).toHaveCount(2);
 
     await tabs(page)
       .getByRole('button', { name: 'Fiche et médias', exact: true })
@@ -1814,14 +1827,9 @@ for (const width of [1920, 1280, 390]) {
     await tabs(page)
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
-    await panel.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: 'instant'
-      });
-    });
     const review = page.locator('#dossier-review');
+    await review.getByRole('button', { name: 'Accepter', exact: true }).focus();
+    await review.scrollIntoViewIfNeeded();
     await expect(review).toBeInViewport({ ratio: 1 });
     await expect(
       review.getByRole('button', { name: 'Accepter', exact: true })
@@ -1831,7 +1839,7 @@ for (const width of [1920, 1280, 390]) {
     ).toBeLessThanOrEqual(width);
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
     await page.screenshot({
-      path: `test-results/dossier-floating-actions-${width}.png`
+      path: `test-results/dossier-publication-decision-${width}.png`
     });
   });
 }
@@ -1926,6 +1934,7 @@ test('preparation activity stays accessible from Publication without adding a da
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
   const open = page.locator('[data-og7="publication-preparation-activity"]');
+  await openPublicationAnalysis(page);
   await open.focus();
   await open.press('Enter');
   const history = page.getByRole('dialog', {
@@ -2139,7 +2148,7 @@ test('operator can review but owner controls are absent', async ({ page }) => {
 });
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-  test(`approval effect waits for confirmation and respects ${reducedMotion}`, async ({
+  test(`approval decision waits for confirmation and respects ${reducedMotion}`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
@@ -2176,7 +2185,6 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
           )
       );
     if (reducedMotion === 'reduce') expect(await moving()).toEqual([]);
-    else expect((await moving()).length).toBeGreaterThan(0);
     await page.keyboard.press('Enter');
     expect(postsTo(calls, '/review')).toHaveLength(1);
 
@@ -2185,25 +2193,15 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       version: 'v2'
     });
     release();
-    await expect(approve).toHaveAttribute('data-state', 'success');
-    await expect(approve).toHaveAttribute('aria-busy', 'false');
-    await expect(approve).toBeDisabled();
+    await expect(approve).toHaveCount(0);
     await expect(actions(page)).toHaveAttribute(
       'data-approval-state',
       'success'
     );
     await expect(reviewBadge).toContainText('Approuvé');
-    if (reducedMotion === 'reduce') expect(await moving()).toEqual([]);
-    else {
-      expect((await moving()).length).toBeGreaterThan(0);
-      // Capture the actual CSS celebration at its peak for visual review.
-      await approve.evaluate((element) => {
-        for (const animation of element.getAnimations({ subtree: true })) {
-          animation.pause();
-          animation.currentTime = 280;
-        }
-      });
-    }
+    await expect(
+      page.locator('[data-og7="publication-decision-status"]')
+    ).toHaveAttribute('data-review-state', 'approved');
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth)
     ).toBeLessThanOrEqual(390);
@@ -2211,14 +2209,12 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       path: `test-results/dossier-approval-${reducedMotion}.png`,
       fullPage: true
     });
-    await expect(approve).toHaveAttribute('data-state', 'idle');
-    await expect(approve).toBeDisabled();
     expect(postsTo(calls, '/review')).toHaveLength(1);
   });
 }
 
 for (const failure of ['http', 'not_updated'] as const) {
-  test(`approval effect reports ${failure} failure without celebrating and allows retry`, async ({
+  test(`approval decision reports ${failure} failure without premature success and allows retry`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
@@ -2237,12 +2233,15 @@ for (const failure of ['http', 'not_updated'] as const) {
     options.edited.set(id, { sponsor_review_status: 'approved' });
     await approve.click();
     await completeModeration(page);
-    await expect(approve).toHaveAttribute('data-state', 'success');
+    await expect(approve).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="publication-decision-status"]')
+    ).toHaveAttribute('data-review-state', 'approved');
     expect(postsTo(calls, '/review')).toHaveLength(2);
   });
 }
 
-test('late approval never celebrates on another dossier or after returning to its source', async ({
+test('late approval feedback stays bound to its dossier after navigation and return', async ({
   page
 }) => {
   const { options } = await fixtures(page);
@@ -2263,7 +2262,9 @@ test('late approval never celebrates on another dossier or after returning to it
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
-  await expect(actions(page)).toContainText('DEMO-402');
+  await expect(page.locator('[data-og7="publication-monitor"]')).toContainText(
+    'DEMO-402'
+  );
   await expect(approve).toHaveAttribute('data-state', 'idle');
   release();
   await expect(approve).toBeEnabled();
@@ -2271,7 +2272,9 @@ test('late approval never celebrates on another dossier or after returning to it
   await page
     .getByRole('button', { name: 'Dossier précédent', exact: true })
     .click();
-  await expect(actions(page)).toContainText('DEMO-401');
+  await expect(page.locator('[data-og7="publication-monitor"]')).toContainText(
+    'DEMO-401'
+  );
   await expect(approve).toHaveAttribute('data-state', 'idle');
 });
 
@@ -2283,7 +2286,7 @@ test('review controls disable redundant decisions and retain mandatory refusal c
   await page.goto(path('publication'));
   await expect(
     actions(page).getByRole('button', { name: 'Remettre en attente' })
-  ).toBeDisabled();
+  ).toHaveCount(0);
   const reject = actions(page).getByRole('button', {
     name: 'Refuser',
     exact: true
@@ -2316,7 +2319,8 @@ test('review controls disable redundant decisions and retain mandatory refusal c
     .click();
   await expect(
     actions(page).getByRole('button', { name: 'Accepter', exact: true })
-  ).toBeDisabled();
+  ).toHaveCount(0);
+  await openOtherPublicationDecisions(page);
   await actions(page)
     .getByRole('button', { name: 'Remettre en attente' })
     .click();
@@ -3908,12 +3912,15 @@ test('a cancelled publication without a qualified agreement remains unresolved w
   await page.goto(path('publication'));
   const monitor = page.locator('[data-og7="publication-monitor"]');
   await expect(
-    monitor.locator('[data-og7="publication-monitor-summary"]')
-  ).toHaveAttribute('data-state', 'agreement_unknown');
+    monitor.locator('[data-og7="publication-monitor-empty"]')
+  ).toContainText(
+    'Les prestations dues ne peuvent pas être déterminées sans accord qualifié.'
+  );
   await expect(monitor.locator('[data-og7="publication-service"]')).toHaveCount(
     0
   );
   await expect(monitor.getByRole('progressbar')).toHaveCount(0);
+  await openPublicationAnalysis(page);
   await expect(
     monitor.getByRole('link', { name: 'Consulter l’historique', exact: true })
   ).toHaveAttribute('href', path('audit'));
@@ -4021,9 +4028,13 @@ test('version conflict offers reload; pending action is disabled and retry uses 
     page.getByRole('alert').filter({ hasText: 'Le dossier a changé' })
   ).toHaveCount(0);
   options.reviewStatus = 200;
+  options.edited.set(id, { sponsor_review_status: 'approved', version: 'v2' });
   await approve.click();
   await completeModeration(page);
-  await expect(approve).toBeEnabled();
+  await expect(approve).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="publication-decision-status"]')
+  ).toHaveAttribute('data-review-state', 'approved');
   expect(
     calls
       .filter((c) => c.url.pathname.endsWith('/review'))
@@ -4603,13 +4614,17 @@ for (const width of [1280, 390]) {
     await expect(view.locator('[data-og7="publication-service"]')).toHaveCount(
       3
     );
+    await openPublicationAnalysis(page);
     await expect(view.getByRole('progressbar')).toHaveAttribute('value', '0');
     await expect(view.getByRole('progressbar')).toHaveAttribute('max', '3');
-    await expect(
-      view.locator('[data-og7="publication-monitor-summary"]')
-    ).toHaveAttribute('data-state', 'exception');
     const blockers = view.locator('[data-og7="publication-monitor-blockers"]');
+    await expect(blockers).toHaveCount(1);
     await expect(blockers).toBeVisible();
+    await expect(
+      view.locator(
+        '[data-og7="publication-service"] [data-og7="publication-service-action"]'
+      )
+    ).toHaveCount(0);
     const media = blockers.getByRole('link').first();
     await expect(media).toHaveAttribute(
       'href',
@@ -4630,6 +4645,7 @@ for (const width of [1280, 390]) {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await expect(mediaDomain).toHaveCount(0);
+    await openPublicationAnalysis(page);
 
     expect(
       (
@@ -4716,13 +4732,14 @@ for (const [deliveryStatus, deliveryMode, expected, qualified] of [
       `[data-og7="publication-service"][data-og7-id="${obligation.id}"]`
     );
     await expect(row).toHaveAttribute('data-state', expected);
+    await openPublicationAnalysis(page);
     await expect(view).not.toContainText('UNKNOWN_PROVIDER_CODE');
     await expect(view.getByRole('progressbar')).toHaveAttribute(
       'value',
       qualified ? '1' : '0'
     );
     if (qualified) {
-      await row.locator('[data-og7="publication-service-action"]').click();
+      await row.locator('[data-og7="publication-service-details"]').click();
       const proof = page.locator('[data-og7="publication-monitor-proof"]');
       await expect(proof).toContainText(evidenceId);
       await expect(proof.getByRole('link')).toHaveAttribute(
@@ -4758,9 +4775,14 @@ for (const [currency, language] of [
     );
     await page.goto(path('publication'));
     const view = page.locator('[data-og7="publication-monitor"]');
+    await openPublicationAnalysis(page);
     await expect(
-      view.locator('[data-og7="publication-monitor-summary"]')
-    ).toHaveAttribute('data-state', 'agreement_unknown');
+      view.locator('[data-og7="publication-monitor-empty"]')
+    ).toContainText(
+      language === 'en'
+        ? 'Services due cannot be determined without a qualified agreement.'
+        : 'Les prestations dues ne peuvent pas être déterminées sans accord qualifié.'
+    );
     await expect(view.locator('[data-og7="publication-service"]')).toHaveCount(
       0
     );
@@ -4832,6 +4854,7 @@ for (const width of [1280, 390]) {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     const view = page.locator('[data-og7="publication-monitor"]');
+    await openPublicationAnalysis(page);
     await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
     await expect(
       view.locator('[data-og7="publication-monitor-next"]').getByRole('button')
@@ -4845,8 +4868,9 @@ for (const width of [1280, 390]) {
     await tabs(page)
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
+    await openPublicationAnalysis(page);
     await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
-    await view.locator('[data-og7="publication-service-action"]').click();
+    await view.locator('[data-og7="publication-service-details"]').click();
     await expect(
       page.locator('[data-og7="publication-monitor-proof"]')
     ).toBeVisible();
@@ -5132,7 +5156,12 @@ for (const english of [false, true]) {
       const section = page.locator('[data-og7="dossier-main"]');
       await expect(
         section.getByRole('heading', {
-          name: title === 'Profile & media' ? 'Profile and media' : title,
+          name:
+            title === 'Publication'
+              ? 'Atelier Boréal'
+              : title === 'Profile & media'
+                ? 'Profile and media'
+                : title,
           level: 2,
           exact: true
         })

@@ -3,14 +3,18 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
   PLATFORM_ID,
   computed,
+  afterNextRender,
   effect,
   inject,
   input,
   output,
   signal,
-  untracked
+  untracked,
+  viewChild
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -30,6 +34,10 @@ import {
   type PublicationMonitorRow
 } from '../../models/admin-sponsorship-publication-monitor.js';
 import { publicationBlockerTab } from '../../models/admin-sponsorship-workspace.js';
+import {
+  publicationWarningCodes,
+  type PublicationWarningContext
+} from '../../models/admin-publication-warning-presentation.js';
 import {
   AdminIconComponent,
   type AdminIconName
@@ -71,6 +79,8 @@ export class AdminSponsorshipPublicationComponent {
   private readonly moderation = inject(FundingModerationService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly tracking = new AdminPublicationMonitorController(this.admin);
   readonly currentDossier = computed(
     () => this.tracking.progress() ?? this.dossier()
@@ -81,7 +91,10 @@ export class AdminSponsorshipPublicationComponent {
     moderate: (subject, level, initial) =>
       this.moderation.requestDecision(subject, level, initial),
     confirm: (message, title) => this.confirmation.confirm(message, title),
-    changed: () => this.commitmentChanged.emit()
+    canManageWorker: (): boolean => this.canConfigurePreparation(),
+    changed: (command): void => {
+      if (command.action !== 'worker') this.commitmentChanged.emit();
+    }
   });
   readonly monitor = computed(() =>
     publicationMonitor(
@@ -92,6 +105,22 @@ export class AdminSponsorshipPublicationComponent {
     )
   );
   readonly selectedId = signal<string | null>(null);
+  readonly analysisOpen = signal(false);
+  private readonly analysisPanel =
+    viewChild<ElementRef<HTMLDetailsElement>>('analysisPanel');
+  readonly reviewPending = computed(() =>
+    ['pending', 'pending_review'].includes(this.currentDossier().reviewStatus)
+  );
+  readonly preflightActivationOpen = signal(false);
+  private readonly preparationStatus =
+    viewChild<ElementRef<HTMLElement>>('preparationStatus');
+  readonly canConfigurePreparation = computed(
+    () =>
+      this.browser &&
+      this.admin.hasValidAdminSession() &&
+      (this.admin.identity()?.role ?? 'owner') === 'owner' &&
+      !this.accessDenied()
+  );
   readonly agreementKnown = computed(() =>
     ['ready', 'empty'].includes(this.monitor().agreementState)
   );
@@ -126,12 +155,55 @@ export class AdminSponsorshipPublicationComponent {
     if (this.contextBlockers().length) return 'exception';
     return this.monitor().state;
   });
+  readonly issueCodes = computed(() => {
+    const codes = this.displayWarningCodes(
+      [
+        ...this.contextBlockers(),
+        ...this.monitor().rows.flatMap((row) => row.warnings)
+      ],
+      {
+        reviewPending: this.reviewPending(),
+        hasIndependentDraft: this.monitor().rows.some(
+          (row) =>
+            row.obligation.channel !== 'website' &&
+            Boolean(row.publication || row.delivery)
+        )
+      }
+    );
+    return codes.filter(
+      (code) => !(this.reviewPending() && /^review(?:_|$)/.test(code))
+    );
+  });
+  readonly attentionCode = computed(
+    () =>
+      this.issueCodes().find(
+        (code) =>
+          !(this.reviewPending() && /^(?:payment|refund)(?:_|$)/.test(code))
+      ) ?? null
+  );
+  readonly additionalIssues = computed(() =>
+    this.issueCodes().filter((code) => code !== this.attentionCode())
+  );
   readonly busy = computed(
     () =>
       this.tracking.loading() ||
       this.scheduling.loading() ||
       this.scheduling.busy()
   );
+  readonly preparationEngineState = computed(() => {
+    if (this.scheduling.workerChanging() && this.scheduling.busy())
+      return 'enabling';
+    if (this.scheduling.loading()) return 'checking';
+    if (this.scheduling.error() || !this.scheduling.state())
+      return 'unavailable';
+    return this.scheduling.state()?.workerEnabled ? 'enabled' : 'stopped';
+  });
+  readonly preparationPreflightState = computed(() => {
+    if (this.tracking.loading()) return 'checking';
+    if (this.tracking.error() || !this.tracking.workshop())
+      return 'unavailable';
+    return this.tracking.workshop()?.enabled ? 'configured' : 'disabled';
+  });
   private context = '';
 
   constructor() {
@@ -152,6 +224,8 @@ export class AdminSponsorshipPublicationComponent {
         if (this.context !== context) {
           this.context = context;
           this.selectedId.set(null);
+          this.analysisOpen.set(false);
+          this.preflightActivationOpen.set(false);
           this.tracking.reset();
           this.scheduling.reset();
         }
@@ -165,6 +239,7 @@ export class AdminSponsorshipPublicationComponent {
       if (this.accessDenied())
         untracked(() => {
           this.selectedId.set(null);
+          this.preflightActivationOpen.set(false);
           this.scheduling.delivery.clear();
         });
     });
@@ -205,6 +280,66 @@ export class AdminSponsorshipPublicationComponent {
     return row.obligation.channel === 'website' ? 'globe' : 'publications';
   }
 
+  preparationStatusIcon(state: string): AdminIconName {
+    if (state === 'checking' || state === 'enabling') return 'clock';
+    if (state === 'unavailable') return 'warning';
+    return ['enabled', 'configured'].includes(state) ? 'check' : 'minimize';
+  }
+
+  openAnalysis(): void {
+    this.analysisOpen.set(true);
+    this.analysisPanel()
+      ?.nativeElement.querySelector<HTMLElement>('summary')
+      ?.focus();
+  }
+
+  isSourceIssue(code: string): boolean {
+    return /^(?:consent|identity|media|presentation|public_name|public_consent|organization|company|contact_email|payment|refund|commitment|review)(?:_|$)/.test(
+      code
+    );
+  }
+
+  detailsForIssue(code: string): void {
+    const row = this.monitor().rows.find((item) =>
+      item.warnings.includes(code)
+    );
+    if (row) this.details(row);
+    else this.openAnalysis();
+  }
+
+  serviceState(row: PublicationMonitorRow): string {
+    if (row.status === 'disabled') return 'awaiting_preparation';
+    const ordinaryPrerequisite = (code: string) =>
+      /^(?:review|media|presentation|identity|consent|payment|refund)(?:_|$)/.test(
+        code
+      ) || ['publication_blocked', 'required_elements_missing'].includes(code);
+    return this.reviewPending() &&
+      row.status === 'exception' &&
+      !row.delivery &&
+      !row.proposal &&
+      !row.evidence &&
+      this.warningCodes(row).every(ordinaryPrerequisite)
+      ? 'awaiting_review'
+      : row.status;
+  }
+
+  async enablePreparationEngine(): Promise<void> {
+    const context = this.context;
+    const enabled = await this.scheduling.enableWorker();
+    if (enabled && context === this.context)
+      await this.tracking.load(
+        this.dossier().contributionId,
+        this.dossier().reference,
+        context
+      );
+    if (
+      context === this.context &&
+      this.canConfigurePreparation() &&
+      (enabled || this.scheduling.error())
+    )
+      this.preparationStatus()?.nativeElement.focus();
+  }
+
   deskParams(row?: PublicationMonitorRow): Record<string, string | null> {
     return publicationDeskParams(
       this.dossier().contributionId,
@@ -221,6 +356,30 @@ export class AdminSponsorshipPublicationComponent {
     return { sponsorshipId: this.dossier().contributionId, tab };
   }
 
+  warningCodes(row: PublicationMonitorRow): readonly string[] {
+    return this.displayWarningCodes(row.warnings, {
+      reviewPending: this.reviewPending(),
+      channel: row.obligation.channel,
+      hasIndependentDraft:
+        row.obligation.channel !== 'website' &&
+        Boolean(row.publication || row.delivery)
+    });
+  }
+
+  private displayWarningCodes(
+    codes: readonly string[],
+    context: PublicationWarningContext
+  ): readonly string[] {
+    this.i18n.currentLanguage();
+    const messages = new Set<string>();
+    return publicationWarningCodes(codes, context).filter((code) => {
+      const message = this.warning(code);
+      if (messages.has(message)) return false;
+      messages.add(message);
+      return true;
+    });
+  }
+
   warning(code: string): string {
     const local = this.t('warning.' + code);
     if (local !== 'admin.publicationMonitor.warning.' + code) return local;
@@ -232,7 +391,7 @@ export class AdminSponsorshipPublicationComponent {
       const message = this.i18n.t(prefix + code);
       if (message !== prefix + code) return message;
     }
-    return this.t('warning.other');
+    return this.t('warning.otherWithCode', { code });
   }
 
   blockerParams(code: string): Record<string, string> {
@@ -249,6 +408,8 @@ export class AdminSponsorshipPublicationComponent {
 
   blockerFragment(code: string): string | undefined {
     if (this.blockerPath(code) === this.deskPath) return undefined;
+    if (code === 'presentation_missing' || code === 'public_presentation')
+      return 'dossier-website-settings';
     return /commitment/.test(code)
       ? 'dossier-agreement'
       : /^review(?:_|$)/.test(code)
@@ -288,6 +449,28 @@ export class AdminSponsorshipPublicationComponent {
 
   details(row: PublicationMonitorRow): void {
     this.selectedId.set(row.obligation.id);
+  }
+
+  async runServiceAction(row: PublicationMonitorRow): Promise<void> {
+    const context = this.context;
+    this.selectedId.set(null);
+    await new Promise<void>((resolve) =>
+      afterNextRender(() => resolve(), { injector: this.injector })
+    );
+    if (context !== this.context || this.accessDenied()) return;
+    const current = this.monitor().rows.find(
+      (item) => item.obligation.id === row.obligation.id
+    );
+    if (!current) return;
+    const card = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>(
+        '[data-og7="publication-service"]'
+      )
+    ).find((element) => element.dataset['og7Id'] === current.obligation.id);
+    card
+      ?.querySelector<HTMLElement>('[data-og7="publication-service-details"]')
+      ?.focus();
+    await this.act(current);
   }
 
   async act(row: PublicationMonitorRow): Promise<void> {

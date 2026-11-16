@@ -46,7 +46,7 @@ interface AdminSponsorDetailTabItem {
             [id]="'dossier-tab-state-' + tab.id"
             data-og7="dossier-tab-state"
             [attr.data-og7-id]="tab.id"
-            >{{ 'admin.dossier.states.' + state | translate }}</span
+            >{{ stateLabelFor(tab.id, state) | translate }}</span
           >
         }
       </button>
@@ -62,6 +62,7 @@ interface AdminSponsorDetailTabItem {
 export class AdminSponsorDetailTabsComponent {
   readonly activeTab = input.required<SponsorDetailsTab>();
   readonly dossier = input<AdminSponsorshipProgress | null>(null);
+  readonly mediaCount = input<number | null>(null);
   readonly activeTabChange = output<SponsorDetailsTab>();
 
   readonly tabs: readonly AdminSponsorDetailTabItem[] = [
@@ -84,5 +85,11 @@ export class AdminSponsorDetailTabsComponent {
 
   stateFor(tab: SponsorDetailsTab): string | null {
     return dossierTabState(this.dossier(), tab);
+  }
+
+  stateLabelFor(tab: SponsorDetailsTab, state: string): string {
+    return tab === 'media' && state === 'blocked' && this.mediaCount() === 0
+      ? 'admin.dossier.states.media_empty'
+      : 'admin.dossier.states.' + state;
   }
 }

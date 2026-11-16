@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminSponsorshipProgress,
@@ -12,6 +12,7 @@ import type {
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
+import { openPublicationAnalysis } from './publication-decision.ui.js';
 
 interface Context {
   fixtures(
@@ -258,6 +259,29 @@ const channel = (page: Page) =>
     .filter({ hasText: 'Facebook' })
     .first();
 
+async function serviceDetails(
+  page: Page,
+  row: Locator = channel(page)
+): Promise<Locator> {
+  const detail = page.locator('[data-og7="publication-monitor-details"]');
+  if (await detail.isVisible()) {
+    await page.keyboard.press('Escape');
+    await expect(detail).toBeHidden();
+  }
+  await row.locator('[data-og7="publication-service-details"]').click();
+  await expect(detail).toBeVisible();
+  return detail;
+}
+
+async function serviceAction(
+  page: Page,
+  row: Locator = channel(page)
+): Promise<Locator> {
+  return (await serviceDetails(page, row)).locator(
+    '[data-og7="publication-service-action"]'
+  );
+}
+
 export function registerDossierPublicationScheduleTests(
   context: Context
 ): void {
@@ -274,9 +298,7 @@ export function registerDossierPublicationScheduleTests(
           destination === 'media' ? 'MEDIA_CHANGED' : 'SOURCE_CONTENT_MISSING';
       }
       await page.goto(context.path('publication'));
-      await channel(page)
-        .locator('[data-og7="publication-service-action"]')
-        .click();
+      await (await serviceAction(page)).click();
       return controls.commands;
     }
   });
@@ -309,9 +331,7 @@ export function registerDossierPublicationScheduleTests(
           mutations.push(request.url());
       });
       await page.goto(context.path('publication'));
-      await channel(page)
-        .locator('[data-og7="publication-service-action"]')
-        .click();
+      await (await serviceAction(page)).click();
       const english = language === 'en';
       const dialog = page.getByRole('dialog', {
         name: english ? 'Final publication' : 'Publication finale',
@@ -401,9 +421,7 @@ export function registerDossierPublicationScheduleTests(
         });
         try {
           await page.goto(context.path('publication'));
-          await channel(page)
-            .locator('[data-og7="publication-service-action"]')
-            .click();
+          await (await serviceAction(page)).click();
           await mediaRead;
           const english = language === 'en';
           const dialog = page.getByRole('dialog', {
@@ -517,6 +535,7 @@ export function registerDossierPublicationScheduleTests(
       await services.press('Enter');
       const monitor = page.locator('[data-og7="publication-monitor"]');
       await expect(monitor).toBeVisible();
+      await openPublicationAnalysis(page);
       await expect(
         monitor.locator('[data-og7="publication-service"]')
       ).toHaveCount(3);
@@ -546,9 +565,7 @@ export function registerDossierPublicationScheduleTests(
         );
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(context.path('publication'));
-        const action = channel(page).locator(
-          '[data-og7="publication-service-action"]'
-        );
+        const action = await serviceAction(page);
         await expect(action).toBeEnabled();
         expect(controls.commands).toEqual([]);
         expect(
@@ -586,7 +603,9 @@ export function registerDossierPublicationScheduleTests(
         ).toBe(true);
         await page.keyboard.press('Escape');
         await expect(dialog).toBeHidden();
-        await expect(action).toBeFocused();
+        await expect(
+          channel(page).locator('[data-og7="publication-service-details"]')
+        ).toBeFocused();
         expect(controls.commands).toEqual([]);
       });
     }
@@ -599,9 +618,7 @@ export function registerDossierPublicationScheduleTests(
       state.feeds[0]!.mode = 'live';
       state.feeds[0]!.paused = false;
       await page.goto(context.path('publication'));
-      await channel(page)
-        .locator('[data-og7="publication-service-action"]')
-        .click();
+      await (await serviceAction(page)).click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
       const approve = dialog.getByRole('button', {
         name: 'Accepter et programmer'
@@ -629,7 +646,7 @@ export function registerDossierPublicationScheduleTests(
       await expect(
         page
           .locator('[data-og7="publication-monitor"]')
-          .getByRole('progressbar')
+          .getByRole('progressbar', { includeHidden: true })
       ).toHaveAttribute('value', '0');
     });
 
@@ -678,9 +695,7 @@ export function registerDossierPublicationScheduleTests(
       releaseRead();
       controls.gate = null;
       await expect(dialog).toBeHidden();
-      const review = channel(page).locator(
-        '[data-og7="publication-service-action"]'
-      );
+      const review = await serviceAction(page);
       await expect(review).toBeEnabled();
       await review.click();
       await expect(dialog).toBeVisible();
@@ -699,7 +714,7 @@ export function registerDossierPublicationScheduleTests(
       await expect(
         page
           .locator('[data-og7="publication-monitor"]')
-          .getByRole('progressbar')
+          .getByRole('progressbar', { includeHidden: true })
       ).toHaveAttribute('value', '0');
     });
 
@@ -715,9 +730,7 @@ export function registerDossierPublicationScheduleTests(
         publicationWorkflow: undefined
       };
       await page.goto(context.path('publication'));
-      await channel(page)
-        .locator('[data-og7="publication-service-action"]')
-        .click();
+      await serviceDetails(page);
       const detail = page.locator('[data-og7="publication-monitor-details"]');
       const engine = detail.getByRole('link', {
         name: 'Ouvrir le moteur de publication'
@@ -805,7 +818,7 @@ export function registerDossierPublicationScheduleTests(
       await confirmation.locator('[data-og7="confirm-action"]').click();
       await expect(dialog).toBeHidden();
       await expect(
-        channel(page).locator('[data-og7="publication-service-action"]')
+        channel(page).locator('[data-og7="publication-service-details"]')
       ).toBeEnabled();
       expect(controls.commands).toHaveLength(1);
     });
@@ -865,9 +878,7 @@ export function registerDossierPublicationScheduleTests(
       const historicalRow = page.locator(
         `[data-og7="publication-service"][data-og7-id="${historicalObligationId}"]`
       );
-      await historicalRow
-        .locator('[data-og7="publication-service-action"]')
-        .click();
+      await serviceDetails(page, historicalRow);
       await page
         .locator('[data-og7="publication-monitor-details"]')
         .getByRole('button', { name: 'Ouvrir la livraison' })
@@ -885,7 +896,7 @@ export function registerDossierPublicationScheduleTests(
       const current = page.locator(
         `[data-og7="publication-service"][data-og7-id="${facebook.id}"]`
       );
-      await current.locator('[data-og7="publication-service-action"]').click();
+      await (await serviceAction(page, current)).click();
       await expect(dialog).toContainText('Une seconde initiative synthétique.');
       expect(controls.commands).toEqual([]);
     });
@@ -896,6 +907,7 @@ export function registerDossierPublicationScheduleTests(
       const { controls } = await fixtures(page, context);
       controls.status = 503;
       await page.goto(context.path('publication'));
+      await openPublicationAnalysis(page);
       await expect(
         page.locator('[data-og7="publication-monitor-error"]')
       ).toBeVisible();
@@ -905,7 +917,7 @@ export function registerDossierPublicationScheduleTests(
         page.locator('[data-og7="publication-monitor-error"]')
       ).toHaveCount(0);
       await expect(
-        channel(page).locator('[data-og7="publication-service-action"]')
+        channel(page).locator('[data-og7="publication-service-details"]')
       ).toBeEnabled();
       expect(controls.commands).toEqual([]);
     });
@@ -957,9 +969,7 @@ export function registerDossierPublicationScheduleTests(
 }
 
 async function editDelivery(page: Page): Promise<void> {
-  await channel(page)
-    .locator('[data-og7="publication-service-action"]')
-    .click();
+  await (await serviceAction(page)).click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
   await dialog.getByRole('button', { name: 'Modifier', exact: true }).click();
 }
