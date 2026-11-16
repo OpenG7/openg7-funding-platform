@@ -1,12 +1,20 @@
 <section
   class="commitments"
+  [class.embedded]="embedded()"
   data-og7="admin-commitments"
   id="dossier-agreement"
   tabindex="-1"
-  aria-labelledby="commitments-title"
+  [attr.aria-labelledby]="embedded() ? null : 'commitments-title'"
+  [attr.aria-label]="
+    embedded() ? ('admin.sponsorsCleanup.agreedServices' | translate) : null
+  "
 >
   <header>
-    <h3 id="commitments-title">{{ 'admin.commitments.title' | translate }}</h3>
+    @if (!embedded()) {
+      <h3 id="commitments-title">
+        {{ 'admin.commitments.title' | translate }}
+      </h3>
+    }
     <p>{{ 'admin.commitments.separation' | translate }}</p>
     <button
       type="button"
@@ -82,115 +90,437 @@
         {{ 'admin.preparationAssistance.reasonHelp' | translate }}
       </p>
     }
-    <p>
-      {{ 'admin.commitments.provenance.' + m.provenance | translate }} ·
-      {{ 'admin.commitments.version' | translate }} {{ m.version }}
-    </p>
-    @if (m.offer; as offer) {
-      <h4>{{ 'admin.commitments.recordedOffer' | translate }}</h4>
+    @if (!embedded() || !m.offer) {
       <p>
-        {{ offer.version }} · {{ money(offer.amountMinor, offer.currency) }}
+        {{ 'admin.commitments.provenance.' + m.provenance | translate }} ·
+        {{ 'admin.commitments.version' | translate }} {{ m.version }}
       </p>
-      <ul class="terms" data-og7="commitments-accepted-offer">
-        @for (b of offer.benefits; track b.id) {
-          <li>
-            <strong
-              >{{ 'admin.commitments.channels.' + b.channel | translate }} ·
-              {{ b.target }}</strong
-            >
-            — {{ b.quantity }} {{ 'admin.commitments.passage' | translate }}
-            @if (b.channel !== 'website') {
-              <span>{{
-                'admin.commitments.formats.' + (b.format ?? 'unknown')
-                  | translate
-              }}</span>
-            }
-            <span
-              >{{ 'admin.commitments.deadline' | translate }}:
-              {{ period(b.deadlineDays) }} ·
-              {{ 'admin.commitments.duration' | translate }}:
-              {{ period(b.durationDays) }}</span
-            >
-            <span>
-              @for (r of b.requiredElements; track r) {
-                {{ 'admin.commitments.requirements.' + r | translate }};
-              }
-            </span>
-          </li>
+    }
+    @if (m.offer; as offer) {
+      <ng-template #recordedOffer>
+        @if (embedded()) {
+          <div class="offer-sheet-header" data-og7="commitments-offer-header">
+            <div>
+              <p class="offer-sheet-label">
+                {{ 'admin.sponsorsCleanup.offerSheet.amount' | translate }}
+              </p>
+              <p class="offer-sheet-amount">
+                {{ money(offer.amountMinor, offer.currency) }}
+                <span class="offer-currency">{{ offer.currency }}</span>
+              </p>
+            </div>
+            <div>
+              <p class="offer-sheet-label">
+                {{ 'admin.sponsorsCleanup.offerSheet.origin' | translate }}
+              </p>
+              <p class="offer-sheet-origin">
+                {{ 'admin.commitments.provenance.' + m.provenance | translate }}
+              </p>
+            </div>
+          </div>
+          <h4 class="offer-sheet-title">
+            {{
+              (m.provenance === 'accepted_offer'
+                ? 'admin.sponsorsCleanup.offerSheet.initialTerms'
+                : 'admin.sponsorsCleanup.offerSheet.initialRecordedTerms'
+              ) | translate
+            }}
+          </h4>
+          <p class="offer-sheet-help">
+            {{
+              'admin.sponsorsCleanup.offerSheet.initialTermsHelp' | translate
+            }}
+          </p>
+        } @else {
+          <h4>{{ 'admin.commitments.recordedOffer' | translate }}</h4>
+          <p>
+            {{ offer.version }} · {{ money(offer.amountMinor, offer.currency) }}
+          </p>
         }
-      </ul>
-      <h4>{{ 'admin.commitments.currentObligations' | translate }}</h4>
-      <p>{{ 'admin.commitments.currentHelp' | translate }}</p>
-      <ul class="obligations" data-og7="commitments-obligations">
-        @for (o of m.obligations; track o.id) {
-          <li [attr.data-og7-id]="o.id">
-            <strong
-              >{{ 'admin.commitments.channels.' + o.channel | translate }} ·
-              {{ o.target }} · #{{ o.ordinal }}</strong
+        <ul
+          class="terms"
+          [class.offer-cards]="embedded()"
+          data-og7="commitments-accepted-offer"
+        >
+          @for (b of offer.benefits; track b.id) {
+            <li
+              [attr.data-og7-id]="b.id"
+              [attr.data-selected]="
+                embedded() ? selectedBenefitId() === b.id : null
+              "
+              [attr.aria-labelledby]="
+                embedded() ? 'offer-benefit-title-' + b.id : null
+              "
+              tabindex="-1"
             >
-            <span
-              >{{ obligationStateLabel(o) | translate }} ·
-              @if (o.channel !== 'website') {
-                {{
-                  'admin.commitments.formats.' + (o.format ?? 'unknown')
-                    | translate
-                }}
-              }
-              · v{{ o.version }}</span
-            >
-            @if (o.fulfilmentEvidenceId) {
-              @if (hasQualifiedEvidence(o)) {
-                <a
-                  routerLink="/admin/fundraiser/campaigns"
-                  [queryParams]="{
-                    sponsorshipId: dossier().contributionId,
-                    obligationId: o.id
-                  }"
-                  data-og7="commitments-evidence"
-                  [attr.data-og7-id]="o.fulfilmentEvidenceId"
-                  >{{ 'admin.commitments.evidenceId' | translate }}:
-                  {{ o.fulfilmentEvidenceId }}</a
+              @if (embedded()) {
+                <div class="offer-card-heading">
+                  <span class="offer-card-channel">
+                    <openg7-admin-icon [name]="channelIcon(b.channel)" />
+                  </span>
+                  <h5 [id]="'offer-benefit-title-' + b.id">
+                    {{ 'admin.commitments.channels.' + b.channel | translate }}
+                    ·
+                    {{ b.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+                  </h5>
+                  <span class="offer-card-quantity">
+                    <span>{{ 'admin.commitments.quantity' | translate }}</span>
+                    <strong>{{ b.quantity }}</strong>
+                  </span>
+                </div>
+                <dl
+                  class="offer-card-fields"
+                  data-og7="commitments-benefit-fields"
                 >
+                  @if (b.channel !== 'website') {
+                    <div>
+                      <dt>
+                        <openg7-admin-icon [name]="formatIcon(b.format)" />
+                        {{ 'admin.commitments.format' | translate }}
+                      </dt>
+                      <dd>
+                        {{
+                          'admin.commitments.formats.' + (b.format ?? 'unknown')
+                            | translate
+                        }}
+                      </dd>
+                    </div>
+                  }
+                  <div>
+                    <dt>
+                      <openg7-admin-icon name="clock" />
+                      {{ 'admin.commitments.deadline' | translate }}
+                    </dt>
+                    <dd>{{ period(b.deadlineDays) }}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      <openg7-admin-icon name="calendar" />
+                      {{ 'admin.commitments.duration' | translate }}
+                    </dt>
+                    <dd>{{ period(b.durationDays) }}</dd>
+                  </div>
+                </dl>
+                <h6 class="offer-requirements-title">
+                  {{
+                    'admin.sponsorsCleanup.offerSheet.requirements' | translate
+                  }}
+                </h6>
+                @if (b.requiredElements.length) {
+                  <ul
+                    class="offer-required-elements"
+                    data-og7="commitments-benefit-requirements"
+                  >
+                    @for (r of b.requiredElements; track r) {
+                      <li>
+                        <openg7-admin-icon [name]="requirementIcon(r)" />
+                        {{ requiredElementLabel(r) }}
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p
+                    class="offer-no-requirements"
+                    data-og7="commitments-benefit-requirements"
+                  >
+                    {{
+                      'admin.sponsorsCleanup.offerSheet.noRequirements'
+                        | translate
+                    }}
+                  </p>
+                }
+                <button
+                  type="button"
+                  class="admin-button offer-return-summary"
+                  data-og7="commitments-return-summary"
+                  [attr.data-og7-id]="b.id"
+                  [attr.aria-label]="returnBenefitLabel(b)"
+                  (click)="returnToBenefitSummary(b.id)"
+                >
+                  {{
+                    'admin.sponsorsCleanup.offerSheet.returnSummary' | translate
+                  }}
+                </button>
               } @else {
-                <span
-                  >{{ 'admin.commitments.evidenceId' | translate }}:
-                  {{ o.fulfilmentEvidenceId }}</span
+                <strong
+                  >{{ 'admin.commitments.channels.' + b.channel | translate }} ·
+                  {{ b.target }}</strong
                 >
+                — {{ b.quantity }} {{ 'admin.commitments.passage' | translate }}
+                @if (b.channel !== 'website') {
+                  <span>{{
+                    'admin.commitments.formats.' + (b.format ?? 'unknown')
+                      | translate
+                  }}</span>
+                }
+                <span
+                  >{{ 'admin.commitments.deadline' | translate }}:
+                  {{ period(b.deadlineDays) }} ·
+                  {{ 'admin.commitments.duration' | translate }}:
+                  {{ period(b.durationDays) }}</span
+                >
+                <span>
+                  @for (r of b.requiredElements; track r) {
+                    {{ 'admin.commitments.requirements.' + r | translate }};
+                  }
+                </span>
               }
-            }
-            @if (
-              o.timing &&
-              (o.timing.deadlineDays !== null || o.timing.durationDays !== null)
-            ) {
-              <openg7-admin-sponsorship-timing
-                [obligation]="o"
-                [canOwn]="canOwn()"
-                (changed)="c.load(); changed.emit()"
-              />
-            }
-            @if (
-              canOwn() && o.state !== 'fulfilled' && o.state !== 'adjusted'
-            ) {
+            </li>
+          }
+        </ul>
+        @if (embedded()) {
+          <details
+            class="offer-traceability"
+            data-og7="commitments-offer-traceability"
+          >
+            <summary>
+              {{ 'admin.sponsorsCleanup.offerSheet.traceability' | translate }}
+            </summary>
+            <dl>
+              <div>
+                <dt>
+                  {{
+                    'admin.sponsorsCleanup.offerSheet.offerVersion' | translate
+                  }}
+                </dt>
+                <dd>
+                  <code>{{ offer.version }}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  {{
+                    'admin.sponsorsCleanup.offerSheet.commitmentVersion'
+                      | translate
+                  }}
+                </dt>
+                <dd>{{ m.version }}</dd>
+              </div>
+              <div>
+                <dt>
+                  {{
+                    'admin.sponsorsCleanup.offerSheet.commitmentReference'
+                      | translate
+                  }}
+                </dt>
+                <dd>
+                  <code>{{ m.id }}</code>
+                </dd>
+              </div>
+              @if (m.offerId) {
+                <div>
+                  <dt>
+                    {{
+                      'admin.sponsorsCleanup.offerSheet.offerReference'
+                        | translate
+                    }}
+                  </dt>
+                  <dd>
+                    <code>{{ m.offerId }}</code>
+                  </dd>
+                </div>
+              }
+            </dl>
+          </details>
+        }
+      </ng-template>
+      @if (embedded()) {
+        <ul class="offer-summary" data-og7="commitments-offer-summary">
+          @for (b of offer.benefits; track b.id) {
+            <li>
               <button
                 type="button"
-                [openg7AutomaticPrepare]="
-                  c.selectedObligation() === o.id
-                    ? ''
-                    : 'sponsor.obligation.adjust:' + o.id
-                "
-                [automaticFor]="dossier().contributionId"
-                automaticExecutionMode="confirmation_required"
-                (automaticPrepare)="c.chooseObligation(o.id)"
-                (click)="c.chooseObligation(o.id)"
-                [disabled]="locked()"
-                data-og7="commitments-adjust-open"
+                class="benefit-summary"
+                data-og7="commitments-benefit-summary"
+                [attr.data-og7-id]="b.id"
+                [attr.aria-label]="benefitSummaryLabel(b)"
+                [attr.aria-expanded]="offerDetailsOpen()"
+                aria-controls="commitments-offer-details"
+                (click)="openBenefitDetails(b.id)"
               >
-                {{ 'admin.commitments.adjust' | translate }}
+                <span class="benefit-destination" aria-hidden="true">
+                  <span
+                    class="benefit-channel"
+                    [title]="
+                      'admin.commitments.channels.' + b.channel | translate
+                    "
+                  >
+                    <openg7-admin-icon [name]="channelIcon(b.channel)" />
+                  </span>
+                  {{ b.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+                </span>
+                <span
+                  class="benefit-quantity"
+                  aria-hidden="true"
+                  [title]="
+                    ('admin.commitments.quantity' | translate) +
+                    ' : ' +
+                    b.quantity
+                  "
+                  >×{{ b.quantity }}</span
+                >
+                <span
+                  class="benefit-term"
+                  aria-hidden="true"
+                  [title]="
+                    ('admin.commitments.deadline' | translate) +
+                    ' : ' +
+                    period(b.deadlineDays)
+                  "
+                >
+                  <openg7-admin-icon name="clock" />
+                  {{ shortPeriod(b.deadlineDays) }}
+                </span>
+                <span
+                  class="benefit-term"
+                  aria-hidden="true"
+                  [title]="
+                    ('admin.commitments.duration' | translate) +
+                    ' : ' +
+                    period(b.durationDays)
+                  "
+                >
+                  <openg7-admin-icon name="calendar" />
+                  {{ shortPeriod(b.durationDays) }}
+                </span>
+                @if (b.channel !== 'website') {
+                  <span
+                    class="benefit-format"
+                    aria-hidden="true"
+                    [title]="
+                      'admin.commitments.formats.' + (b.format ?? 'unknown')
+                        | translate
+                    "
+                  >
+                    <openg7-admin-icon [name]="formatIcon(b.format)" />
+                  </span>
+                }
+                @if (b.requiredElements.length) {
+                  <span class="benefit-requirements" aria-hidden="true">
+                    @for (r of b.requiredElements; track r) {
+                      <span [title]="requiredElementLabel(r)">
+                        <openg7-admin-icon [name]="requirementIcon(r)" />
+                      </span>
+                    }
+                  </span>
+                }
+                <span class="benefit-details-indicator" aria-hidden="true">
+                  <openg7-admin-icon name="arrow" />
+                </span>
               </button>
-            }
-          </li>
+            </li>
+          }
+        </ul>
+        <details
+          #offerDetailsPanel
+          id="commitments-offer-details"
+          data-og7="commitments-offer-details"
+          [open]="offerDetailsOpen()"
+          (toggle)="onOfferDetailsToggle(offerDetailsPanel.open)"
+        >
+          <summary>
+            {{ 'admin.sponsorsCleanup.offerDetails' | translate }}
+          </summary>
+          <ng-container [ngTemplateOutlet]="recordedOffer" />
+        </details>
+      } @else {
+        <ng-container [ngTemplateOutlet]="recordedOffer" />
+      }
+      @if (!embedded() || adjustedObligations().length) {
+        <h4>
+          {{
+            (embedded()
+              ? 'admin.sponsorsCleanup.adjustedServices'
+              : 'admin.commitments.currentObligations'
+            ) | translate
+          }}
+        </h4>
+        @if (!embedded()) {
+          <p>{{ 'admin.commitments.currentHelp' | translate }}</p>
         }
-      </ul>
+        <ul
+          class="obligations"
+          [attr.data-og7]="
+            embedded()
+              ? 'commitments-adjusted-obligations'
+              : 'commitments-obligations'
+          "
+        >
+          @for (
+            o of embedded() ? adjustedObligations() : m.obligations;
+            track o.id
+          ) {
+            <li [attr.data-og7-id]="o.id">
+              <strong
+                >{{ 'admin.commitments.channels.' + o.channel | translate }} ·
+                {{ o.target }} · #{{ o.ordinal }}</strong
+              >
+              <span
+                >{{ obligationStateLabel(o) | translate }} ·
+                @if (o.channel !== 'website') {
+                  {{
+                    'admin.commitments.formats.' + (o.format ?? 'unknown')
+                      | translate
+                  }}
+                }
+                · v{{ o.version }}</span
+              >
+              @if (o.fulfilmentEvidenceId) {
+                @if (hasQualifiedEvidence(o)) {
+                  <a
+                    routerLink="/admin/fundraiser/campaigns"
+                    [queryParams]="{
+                      sponsorshipId: dossier().contributionId,
+                      obligationId: o.id
+                    }"
+                    data-og7="commitments-evidence"
+                    [attr.data-og7-id]="o.fulfilmentEvidenceId"
+                    >{{ 'admin.commitments.evidenceId' | translate }}:
+                    {{ o.fulfilmentEvidenceId }}</a
+                  >
+                } @else {
+                  <span
+                    >{{ 'admin.commitments.evidenceId' | translate }}:
+                    {{ o.fulfilmentEvidenceId }}</span
+                  >
+                }
+              }
+              @if (
+                (!embedded() || selectedService()?.id !== o.id) &&
+                o.timing &&
+                (o.timing.deadlineDays !== null ||
+                  o.timing.durationDays !== null)
+              ) {
+                <openg7-admin-sponsorship-timing
+                  [obligation]="o"
+                  [canOwn]="canOwn()"
+                  (changed)="c.load(); changed.emit()"
+                />
+              }
+              @if (
+                canOwn() && o.state !== 'fulfilled' && o.state !== 'adjusted'
+              ) {
+                <button
+                  type="button"
+                  [openg7AutomaticPrepare]="
+                    c.selectedObligation() === o.id
+                      ? ''
+                      : 'sponsor.obligation.adjust:' + o.id
+                  "
+                  [automaticFor]="dossier().contributionId"
+                  automaticExecutionMode="confirmation_required"
+                  (automaticPrepare)="c.chooseObligation(o.id)"
+                  (click)="c.chooseObligation(o.id)"
+                  [disabled]="locked()"
+                  data-og7="commitments-adjust-open"
+                >
+                  {{ 'admin.commitments.adjust' | translate }}
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
     }
     @if (canOwn() && m.state === 'needs_confirmation') {
       @if (dossier().currency !== 'CAD') {
@@ -476,7 +806,46 @@
         </form>
       }
     }
-    @if (canOwn() && c.selectedObligation()) {
+    @if (embedded() && selectedService(); as o) {
+      <section
+        class="selected-obligation"
+        data-og7="commitments-selected-obligation"
+        [attr.data-og7-id]="o.id"
+        tabindex="-1"
+        aria-labelledby="selected-obligation-title"
+      >
+        <h4 id="selected-obligation-title">
+          {{ 'admin.commitments.channels.' + o.channel | translate }} ·
+          {{ o.target }} · #{{ o.ordinal }}
+        </h4>
+        <p>
+          @if (o.channel !== 'website') {
+            {{
+              'admin.commitments.formats.' + (o.format ?? 'unknown') | translate
+            }}
+            ·
+          }
+          {{ 'admin.commitments.version' | translate }} {{ o.version }}
+        </p>
+        @if (
+          o.timing &&
+          (o.timing.deadlineDays !== null || o.timing.durationDays !== null)
+        ) {
+          <openg7-admin-sponsorship-timing
+            [obligation]="o"
+            [canOwn]="canOwn()"
+            (changed)="c.load(); changed.emit()"
+          />
+        }
+      </section>
+    }
+    @if (
+      canOwn() &&
+      c.selectedObligation() &&
+      obligation() &&
+      obligation()?.state !== 'fulfilled' &&
+      obligation()?.state !== 'adjusted'
+    ) {
       <form
         (submit)="$event.preventDefault(); c.adjust()"
         data-og7="commitments-adjustment"

@@ -149,7 +149,21 @@ export function registerSponsorsQualityTests(context: QualityContext): void {
       await audit.locator('[data-og7-id="historical-audit-load"]').click();
       await expect(
         audit.locator('[data-og7-id="historical-audit-counts"]')
-      ).toContainText('155');
+      ).toContainText('55');
+      await expect(
+        audit.locator('[data-og7-id="historical-audit-counts"]')
+      ).not.toContainText('155');
+      const auditHelp = audit.locator('[data-og7="historical-audit-help"]');
+      await expect(auditHelp).not.toHaveAttribute('open');
+      await auditHelp.locator(':scope > summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(auditHelp).toContainText('155');
+      await expect(auditHelp).toContainText(
+        locale === 'en' ? 'across all dossiers' : 'tous les dossiers'
+      );
+      await page.keyboard.press('Enter');
+      await expect(auditHelp).not.toHaveAttribute('open');
+      expect(state.auditQueries).toHaveLength(1);
       expect(state.auditQueries[0]!.searchParams.has('contributionId')).toBe(
         false
       );
@@ -188,6 +202,11 @@ export function registerSponsorsQualityTests(context: QualityContext): void {
         state.auditQueries.at(-1)!.searchParams.get('contributionId')
       ).toBe(contributionId);
       await expect(localAudit.getByRole('checkbox')).toHaveCount(0);
+      const localHelp = localAudit.locator(
+        '[data-og7="historical-audit-help"]'
+      );
+      if ((await localHelp.getAttribute('open')) === null)
+        await localHelp.locator(':scope > summary').click();
       await localAudit
         .locator('[data-og7="historical-audit-open-quality"]')
         .click();

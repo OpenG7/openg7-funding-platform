@@ -1,5 +1,8 @@
 {
   "title": "Publication",
+  "adjustService": "Ajuster la prestation et ses délais",
+  "viewTiming": "Consulter les délais",
+  "obligationVersion": "Version de l’engagement",
   "unnamedSponsor": "Commanditaire sans nom",
   "dossierType": "Commandite",
   "mediaPreview": "Visuel proposé pour cette prestation",
@@ -97,7 +100,7 @@
     "proposals": "Examiner les propositions",
     "history": "Consulter l’historique",
     "profile": "Gérer la fiche et sa visibilité",
-    "agreement": "Consulter l’accord",
+    "agreement": "Documenter les prestations",
     "evidence": "Consulter le suivi et les preuves"
   },
   "action": {

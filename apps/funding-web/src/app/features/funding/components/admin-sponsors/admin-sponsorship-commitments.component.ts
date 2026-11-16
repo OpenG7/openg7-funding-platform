@@ -1,4 +1,4 @@
-import { isPlatformBrowser } from '@angular/common';
+import { NgTemplateOutlet, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,13 +14,15 @@ import {
   output,
   signal,
   viewChild,
+  viewChildren,
   untracked
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipProgress,
-  SponsorshipObligation
+  SponsorshipObligation,
+  SponsorshipOfferedBenefit
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -30,6 +32,10 @@ import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-aut
 import { PreparationAssistanceReviewComponent } from '../admin-preparation/preparation-assistance-review.component.js';
 import type { PreparationAssistanceSelection } from '../admin-preparation/preparation-assistance.controller.js';
 import { revealControllerFocus } from '../admin-controller/admin-controller-navigation.js';
+import {
+  AdminIconComponent,
+  type AdminIconName
+} from '../admin-ui/admin-icon.component.js';
 
 import { AdminSponsorshipCommitmentsController } from './admin-sponsorship-commitments-controller.js';
 import { AdminSponsorshipTimingComponent } from './admin-sponsorship-timing.component.js';
@@ -41,7 +47,9 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   standalone: true,
   imports: [
     RouterLink,
+    NgTemplateOutlet,
     TranslatePipe,
+    AdminIconComponent,
     AdminAutomaticPreparationDirective,
     AdminSponsorshipTimingComponent,
     AdminSponsorshipHistoricalAuditComponent,
@@ -58,9 +66,20 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
 })
 export class AdminSponsorshipCommitmentsComponent {
   readonly dossier = input.required<AdminSponsorshipProgress>();
+  readonly embedded = input(false);
   readonly changed = output<void>();
   readonly assistanceReview = viewChild(PreparationAssistanceReviewComponent);
   readonly documentingClauseId = signal('');
+  private readonly selectedServiceId = signal('');
+  readonly selectedBenefitId = signal('');
+  private benefitNavigation = 0;
+  readonly offerDetailsOpen = signal(false);
+  private readonly offerDetailsPanel =
+    viewChild<ElementRef<HTMLDetailsElement>>('offerDetailsPanel');
+  private readonly timingPanels = viewChildren(AdminSponsorshipTimingComponent);
+  private readonly historicalAudits = viewChildren(
+    AdminSponsorshipHistoricalAuditComponent
+  );
   readonly hasSharedReason = computed(
     () => !!this.assistanceReview()?.c.data()?.run?.suggestion
   );
@@ -99,17 +118,38 @@ export class AdminSponsorshipCommitmentsComponent {
     }
   });
   readonly locked = computed(
+    () => this.c.loading() || this.busy() || !this.canOwn()
+  );
+  readonly busy = computed(
     () =>
-      this.c.loading() ||
       this.c.saving() ||
       Boolean(this.c.pending()) ||
-      !this.canOwn()
+      this.timingPanels().some(
+        (panel) => panel.c.busy() || !!panel.c.pending()
+      ) ||
+      this.historicalAudits().some((panel) => panel.busy())
   );
   readonly obligation = computed(
     () =>
       this.c
         .data()
         ?.obligations.find((o) => o.id === this.c.selectedObligation()) ?? null
+  );
+  readonly selectedService = computed(() => {
+    const commitment = this.c.data();
+    if (commitment?.contributionId !== this.dossier().contributionId)
+      return null;
+    return (
+      commitment.obligations.find(
+        (o) =>
+          o.id === this.selectedServiceId() &&
+          o.contributionId === commitment.contributionId &&
+          o.commitmentId === commitment.id
+      ) ?? null
+    );
+  });
+  readonly adjustedObligations = computed(
+    () => this.c.data()?.obligations.filter((o) => o.state === 'adjusted') ?? []
   );
   readonly formatChoices = [
     'collective_text',
@@ -124,6 +164,9 @@ export class AdminSponsorshipCommitmentsComponent {
         if (assistanceIdentity !== key) {
           this.c.invalidateAssistance();
           this.documentingClauseId.set('');
+          this.selectedBenefitId.set('');
+          this.offerDetailsOpen.set(false);
+          this.benefitNavigation++;
         }
         assistanceIdentity = key;
       });
@@ -135,12 +178,217 @@ export class AdminSponsorshipCommitmentsComponent {
         untracked(() => {
           if (this.clauseDossier !== id) {
             this.documentingClauseId.set('');
+            this.selectedServiceId.set('');
+            this.selectedBenefitId.set('');
+            this.offerDetailsOpen.set(false);
+            this.benefitNavigation++;
             this.clauseDossier = id;
           }
           this.c.select();
           if (owner) void this.c.load();
         });
     });
+  }
+  openBenefitDetails(id: string): void {
+    const dossierId = this.dossier().contributionId;
+    const session = this.assistanceIdentity();
+    if (
+      !isPlatformBrowser(this.platform) ||
+      this.destroy.destroyed ||
+      !this.embedded() ||
+      !this.scopedBenefit(id)
+    )
+      return;
+    const navigation = ++this.benefitNavigation;
+    this.selectedBenefitId.set(id);
+    this.offerDetailsOpen.set(true);
+    afterNextRender(
+      () => {
+        if (
+          this.destroy.destroyed ||
+          navigation !== this.benefitNavigation ||
+          this.dossier().contributionId !== dossierId ||
+          this.assistanceIdentity() !== session ||
+          !this.offerDetailsOpen() ||
+          !this.scopedBenefit(id) ||
+          !this.element.nativeElement.getClientRects().length
+        )
+          return;
+        const target = Array.from(
+          this.offerDetailsPanel()?.nativeElement.querySelectorAll<HTMLElement>(
+            '[data-og7="commitments-accepted-offer"] > li'
+          ) ?? []
+        ).find((row) => row.getAttribute('data-og7-id') === id);
+        if (target) revealControllerFocus(target);
+      },
+      { injector: this.injector }
+    );
+  }
+  returnToBenefitSummary(id: string): void {
+    const dossierId = this.dossier().contributionId;
+    const session = this.assistanceIdentity();
+    if (
+      !isPlatformBrowser(this.platform) ||
+      this.destroy.destroyed ||
+      !this.embedded() ||
+      !this.scopedBenefit(id)
+    )
+      return;
+    const navigation = ++this.benefitNavigation;
+    this.selectedBenefitId.set(id);
+    this.offerDetailsOpen.set(false);
+    afterNextRender(
+      () => {
+        if (
+          this.destroy.destroyed ||
+          navigation !== this.benefitNavigation ||
+          this.dossier().contributionId !== dossierId ||
+          this.assistanceIdentity() !== session ||
+          !this.scopedBenefit(id) ||
+          !this.element.nativeElement.getClientRects().length
+        )
+          return;
+        const target = Array.from(
+          this.element.nativeElement.querySelectorAll<HTMLElement>(
+            '[data-og7="commitments-benefit-summary"]'
+          )
+        ).find((row) => row.getAttribute('data-og7-id') === id);
+        if (target) revealControllerFocus(target);
+      },
+      { injector: this.injector }
+    );
+  }
+  onOfferDetailsToggle(open: boolean): void {
+    this.offerDetailsOpen.set(open);
+    if (open || this.destroy.destroyed) return;
+    const panel = this.offerDetailsPanel()?.nativeElement;
+    const active = panel?.ownerDocument.activeElement;
+    const summary = panel?.querySelector<HTMLElement>('summary');
+    if (!panel || !active || !panel.contains(active) || active === summary)
+      return;
+    const id = this.selectedBenefitId();
+    if (this.scopedBenefit(id)) this.returnToBenefitSummary(id);
+    else summary?.focus({ preventScroll: true });
+  }
+  private scopedBenefit(id: string): SponsorshipOfferedBenefit | null {
+    const commitment = this.c.data();
+    if (
+      !this.admin.hasValidAdminSession() ||
+      commitment?.contributionId !== this.dossier().contributionId
+    )
+      return null;
+    return (
+      commitment.offer?.benefits.find((benefit) => benefit.id === id) ?? null
+    );
+  }
+  returnBenefitLabel(benefit: SponsorshipOfferedBenefit): string {
+    return this.i18n.t('admin.sponsorsCleanup.offerSheet.returnBenefit', {
+      channel: this.i18n.t('admin.commitments.channels.' + benefit.channel),
+      target: benefit.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+    });
+  }
+  benefitSummaryLabel(benefit: SponsorshipOfferedBenefit): string {
+    const prefix = 'admin.commitments.';
+    return [
+      this.i18n.t('admin.sponsorsCleanup.openBenefit', {
+        channel: this.i18n.t(prefix + 'channels.' + benefit.channel),
+        target: benefit.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+      }),
+      `${this.i18n.t(prefix + 'quantity')} : ${benefit.quantity}`,
+      ...(benefit.channel === 'website'
+        ? []
+        : [
+            `${this.i18n.t(prefix + 'format')} : ${this.i18n.t(prefix + 'formats.' + (benefit.format ?? 'unknown'))}`
+          ]),
+      `${this.i18n.t(prefix + 'deadline')} : ${this.period(benefit.deadlineDays)}`,
+      `${this.i18n.t(prefix + 'duration')} : ${this.period(benefit.durationDays)}`,
+      ...benefit.requiredElements.map((element) =>
+        this.requiredElementLabel(element)
+      )
+    ].join('. ');
+  }
+  channelIcon(channel: SponsorshipOfferedBenefit['channel']): AdminIconName {
+    return channel === 'website' ? 'globe' : channel;
+  }
+  formatIcon(format: SponsorshipOfferedBenefit['format']): AdminIconName {
+    switch (format) {
+      case 'collective_text':
+        return 'publications';
+      case 'individual_portrait':
+        return 'person';
+      case 'collective_composite':
+        return 'grid';
+      default:
+        return 'info';
+    }
+  }
+  requirementIcon(
+    element: SponsorshipOfferedBenefit['requiredElements'][number]
+  ): AdminIconName {
+    return element === 'company_name'
+      ? 'building'
+      : element === 'approved_logo'
+        ? 'image'
+        : 'publications';
+  }
+  requiredElementLabel(
+    element: SponsorshipOfferedBenefit['requiredElements'][number]
+  ): string {
+    return this.i18n.t('admin.sponsorsCleanup.requiredElement', {
+      element: this.i18n.t('admin.commitments.requirements.' + element)
+    });
+  }
+  shortPeriod(value: number | null): string {
+    return value === null
+      ? '—'
+      : this.i18n.t('admin.sponsorsCleanup.daysShort', { count: value });
+  }
+  selectObligation(id: string): boolean {
+    if (
+      !this.admin.hasValidAdminSession() ||
+      this.busy() ||
+      this.destroy.destroyed
+    )
+      return false;
+    this.c.select();
+    const commitment = this.c.data();
+    const dossierId = this.dossier().contributionId;
+    if (!commitment || commitment.contributionId !== dossierId) return false;
+    const obligation = commitment.obligations.find(
+      (o) =>
+        o.id === id &&
+        o.contributionId === dossierId &&
+        o.commitmentId === commitment.id
+    );
+    if (!obligation) return false;
+    this.selectedServiceId.set(id);
+    this.c.chooseObligation(
+      this.canOwn() &&
+        obligation.state !== 'fulfilled' &&
+        obligation.state !== 'adjusted'
+        ? id
+        : ''
+    );
+    afterNextRender(
+      () => {
+        if (
+          this.destroy.destroyed ||
+          this.dossier().contributionId !== dossierId ||
+          this.selectedServiceId() !== id
+        )
+          return;
+        const target =
+          this.element.nativeElement.querySelector<HTMLElement>(
+            '[data-og7="commitments-adjust-kind"]'
+          ) ??
+          this.element.nativeElement.querySelector<HTMLElement>(
+            '[data-og7="commitments-selected-obligation"]'
+          );
+        if (target) revealControllerFocus(target);
+      },
+      { injector: this.injector }
+    );
+    return true;
   }
   async useAssistance(
     selection: PreparationAssistanceSelection

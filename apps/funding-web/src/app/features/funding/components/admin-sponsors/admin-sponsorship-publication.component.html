@@ -569,6 +569,23 @@
         }}
         · {{ t('state.' + serviceState(row)) }}
       </p>
+      <dl>
+        <div>
+          <dt>{{ t('obligationVersion') }}</dt>
+          <dd>{{ row.obligation.version }}</dd>
+        </div>
+        @if (row.obligation.channel !== 'website') {
+          <div>
+            <dt>{{ 'admin.commitments.format' | translate }}</dt>
+            <dd>
+              {{
+                'admin.commitments.formats.' +
+                  (row.obligation.format ?? 'unknown') | translate
+              }}
+            </dd>
+          </div>
+        }
+      </dl>
       @for (code of warningCodes(row); track code) {
         <p
           class="detail-warning"
@@ -701,6 +718,26 @@
         >
       }
       <p class="authority-note">{{ t('authority') }}</p>
+      @if (
+        (canConfigurePreparation() && row.obligation.state !== 'fulfilled') ||
+        row.obligation.timing
+      ) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="publication-service-adjust"
+          [disabled]="busy() || obligationActionsDisabled()"
+          (click)="manageObligation(row)"
+        >
+          {{
+            t(
+              canConfigurePreparation() && row.obligation.state !== 'fulfilled'
+                ? 'adjustService'
+                : 'viewTiming'
+            )
+          }}
+        </button>
+      }
     </section>
   }
 </openg7-admin-drawer>

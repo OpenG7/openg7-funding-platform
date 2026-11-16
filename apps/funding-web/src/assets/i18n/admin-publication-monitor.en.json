@@ -1,5 +1,8 @@
 {
   "title": "Publication",
+  "adjustService": "Adjust the service and its timing",
+  "viewTiming": "View timing",
+  "obligationVersion": "Commitment version",
   "unnamedSponsor": "Unnamed sponsor",
   "dossierType": "Sponsorship",
   "mediaPreview": "Proposed visual for this service",
@@ -97,7 +100,7 @@
     "proposals": "Examine proposals",
     "history": "View history",
     "profile": "Manage profile and visibility",
-    "agreement": "View agreement",
+    "agreement": "Document the services",
     "evidence": "View fulfilment and evidence"
   },
   "action": {

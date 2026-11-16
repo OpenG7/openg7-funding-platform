@@ -106,6 +106,31 @@
   padding: 0.375rem var(--admin-card-padding);
   border-bottom: 1px solid var(--admin-border);
 }
+.publication-terms {
+  margin: 0 var(--admin-card-padding) var(--admin-card-gap);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+  overflow-wrap: anywhere;
+}
+.publication-terms > summary {
+  padding: 1rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-weight: var(--admin-label-weight);
+}
+.publication-terms > summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.publication-terms > summary h3 {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+}
+.publication-terms > summary[aria-disabled='true'] {
+  cursor: wait;
+}
 .dossier-main {
   @apply tw:min-w-0;
   padding-block: 1rem 2rem;

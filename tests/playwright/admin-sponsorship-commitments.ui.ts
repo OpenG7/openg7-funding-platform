@@ -7,7 +7,10 @@ import type {
   SponsorshipCommitmentQualificationRequest
 } from '@openg7/funding-core';
 
-import { openPublicationSection } from './support/sponsorship-dossier.js';
+import {
+  openPublicationObligation,
+  openPublicationSection
+} from './support/sponsorship-dossier.js';
 import { expect, test } from './support/test.js';
 const id = '10000000-0000-4000-8000-000000000401',
   obId = '10000000-0000-4000-8000-000000000451';
@@ -171,14 +174,10 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
           .click();
       const panel = page.locator('[data-og7="admin-commitments"]');
       await expect(
-        panel.getByRole('heading', {
-          name:
-            locale === 'en'
-              ? 'Recorded commitments'
-              : 'Engagements enregistrés',
-          exact: true
-        })
-      ).toBeVisible();
+        page.locator('[data-og7="publication-terms-toggle"]')
+      ).toHaveText(
+        locale === 'en' ? 'Services to document' : 'Prestations à documenter'
+      );
       await expect(
         panel.locator('[data-og7="commitments-benefit-channel"]')
       ).toHaveCount(0);
@@ -201,7 +200,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       await panel.locator('[data-og7="commitments-duration"]').fill('');
       await panel.locator('[data-og7="commitments-qualify"]').click();
       await expect(
-        panel.locator('[data-og7="commitments-accepted-offer"]')
+        panel.locator('[data-og7="commitments-offer-summary"]')
       ).toBeVisible();
       expect(state.commands).toHaveLength(1);
       const payload = state
@@ -226,8 +225,16 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
         ]
       });
       await expect(
-        panel.locator('[data-og7="commitments-obligations"] > li')
+        page.locator('[data-og7="publication-service"]')
       ).toHaveCount(2);
+      await expect(
+        panel.locator('[data-og7="commitments-obligations"]')
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="publication-terms-toggle"]')
+      ).toHaveText(
+        locale === 'en' ? 'Agreed services' : 'Prestations convenues'
+      );
       expect(
         base.calls.filter(
           (c) =>
@@ -258,10 +265,17 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       panel.locator('[data-og7="commitments-reason"]')
     ).toBeDisabled();
     const original = structuredClone(state.commands[0]);
+    const terms = page.locator('[data-og7="publication-terms"]');
+    const toggle = terms.locator('[data-og7="publication-terms-toggle"]');
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(terms).toHaveAttribute('open', '');
+    await expect(panel).toBeVisible();
+    expect(state.commands).toHaveLength(1);
     state.failure = false;
     await panel.locator('[data-og7="commitments-retry"]').click();
     await expect(
-      panel.locator('[data-og7="commitments-accepted-offer"]')
+      panel.locator('[data-og7="commitments-offer-summary"]')
     ).toBeVisible();
     expect(state.commands).toHaveLength(2);
     expect(state.commands[1]).toEqual(original);
@@ -275,20 +289,49 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     const panel = await fill(page);
     await panel.locator('[data-og7="commitments-qualify"]').click();
     await expect(
-      panel.locator('[data-og7="commitments-accepted-offer"]')
+      panel.locator('[data-og7="commitments-offer-summary"]')
     ).toBeVisible();
     const original = structuredClone(
       (state.commands[0] as SponsorshipCommitmentQualificationRequest).offer
     );
+    const originalSummary = panel.locator(
+      '[data-og7="commitments-benefit-summary"][data-og7-id="facebook_batch"]'
+    );
+    let initialCardText: string | null = null;
+    const inspectOriginalTerms = async () => {
+      await originalSummary.click();
+      const card = panel.locator(
+        '[data-og7="commitments-accepted-offer"] > [data-og7-id="facebook_batch"]'
+      );
+      await expect(card).toBeFocused();
+      await expect(card).toContainText('OpenG20');
+      await expect(card).toContainText('Format non établi — texte seulement');
+      await expect(
+        panel.getByRole('heading', {
+          name: 'Conditions initialement documentées',
+          exact: true
+        })
+      ).toBeVisible();
+      if (initialCardText === null) initialCardText = await card.innerText();
+      else
+        await expect(card).toHaveText(initialCardText, { useInnerText: true });
+      await card.locator('[data-og7="commitments-return-summary"]').click();
+      await expect(originalSummary).toBeFocused();
+      await expect(
+        page.locator('[data-og7="publication-terms"]')
+      ).toHaveAttribute('open', '');
+    };
+    await inspectOriginalTerms();
+    let confirmedVersion = 1;
     for (const [kind, field, value] of [
       ['destination', 'commitments-adjust-target', 'openg7'],
       ['format', 'commitments-adjust-format', 'individual_portrait'],
       ['waiver', 'commitments-waiver-confirm', '']
     ] as const) {
-      const row = panel.locator(
-        `[data-og7="commitments-obligations"] [data-og7-id="${obId}"]`
+      await openPublicationObligation(page, obId);
+      const selected = panel.locator(
+        `[data-og7="commitments-selected-obligation"][data-og7-id="${obId}"]`
       );
-      await row.locator('[data-og7="commitments-adjust-open"]').click();
       await panel
         .locator('[data-og7="commitments-adjust-kind"]')
         .selectOption(kind);
@@ -301,25 +344,48 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       await panel
         .locator('[data-og7="commitments-adjust-confirmation"]')
         .fill(obId);
+      if (kind === 'format') state.failure = true;
       await panel.locator('[data-og7="commitments-adjust-save"]').click();
-      await expect(row).toContainText(`v${state.commands.length}`);
-      if (kind === 'destination') await expect(row).toContainText('openg7');
+      if (kind === 'format') {
+        await expect(
+          panel.locator('[data-og7="commitments-retry"]')
+        ).toBeVisible();
+        const pending = structuredClone(state.commands.at(-1));
+        const commandCount = state.commands.length;
+        await inspectOriginalTerms();
+        await expect(
+          panel.locator('[data-og7="commitments-retry"]')
+        ).toBeVisible();
+        expect(state.commands).toHaveLength(commandCount);
+        state.failure = false;
+        await panel.locator('[data-og7="commitments-retry"]').click();
+        await expect.poll(() => state.commands.length).toBe(commandCount + 1);
+        expect(state.commands.at(-1)).toEqual(pending);
+      }
+      confirmedVersion++;
+      await expect(selected).toContainText(`Version ${confirmedVersion}`);
+      if (kind === 'destination')
+        await expect(selected).toContainText('openg7');
       if (kind === 'format')
-        await expect(row).toContainText('Portrait individuel');
+        await expect(selected).toContainText('Portrait individuel');
+      await inspectOriginalTerms();
     }
     expect(
       state.commands
         .slice(1)
         .map((input) => (input as { expectedVersion: number }).expectedVersion)
-    ).toEqual([1, 2, 3]);
+    ).toEqual([1, 2, 2, 3]);
     expect(
       (state.commands[0] as SponsorshipCommitmentQualificationRequest).offer
     ).toEqual(original);
     await expect(
-      panel.locator(
-        `[data-og7="commitments-obligations"] [data-og7-id="${obId}"] [data-og7="commitments-adjust-open"]`
-      )
+      page.locator(`[data-og7="publication-service"][data-og7-id="${obId}"]`)
     ).toHaveCount(0);
+    await expect(
+      panel.locator(
+        `[data-og7="commitments-adjusted-obligations"] [data-og7-id="${obId}"]`
+      )
+    ).toHaveCount(1);
   });
   for (const role of ['operator', 'reader'] as const) {
     test(`recorded commitments exposes no owner mutation or adoption controls to ${role}`, async ({

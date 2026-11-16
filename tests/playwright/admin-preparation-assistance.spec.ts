@@ -356,13 +356,11 @@ async function open(page: Page) {
 }
 
 async function openAgreement(page: Page) {
-  const toggle = page.locator(
-    '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
-  );
+  const terms = page.locator('[data-og7="publication-terms"]');
+  const toggle = terms.locator('[data-og7="publication-terms-toggle"]');
   await expect(toggle).toBeVisible();
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true')
-    await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  if ((await terms.getAttribute('open')) === null) await toggle.click();
+  await expect(terms).toHaveAttribute('open', '');
   await expect(hook(page, 'admin-commitments')).toBeVisible();
 }
 

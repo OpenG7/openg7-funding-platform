@@ -10,6 +10,10 @@ const paths = {
   building: 'M4 21V3h12v18M2 21h20M8 7h4M8 11h4M8 15h4M16 9h4v12M8 21v-2h4v2',
   globe:
     'M21 12a9 9 0 1 0-18 0 9 9 0 0 0 18 0ZM3 12h18M12 3a18 18 0 0 1 0 18 18 18 0 0 1 0-18Z',
+  facebook:
+    'M14 21v-8h3l.5-4H14V7c0-1 .5-1.5 1.5-1.5H18V2h-3c-4 0-6 2-6 6v1H6v4h3v8h5Z',
+  linkedin:
+    'M4 9h4v12H4V9ZM6 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM12 9h4v2c1-2 6-3 6 3v7h-4v-7c0-2-2-2-2 0v7h-4V9Z',
   tag: 'M20 3h-9L2 12l10 10 9-9V4a1 1 0 0 0-1-1ZM16 7h.01',
   info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM12 11v6M12 7h.01',
   edit: 'm16 3 5 5-12 12-6 1 1-6L16 3ZM14 5l5 5',
@@ -44,6 +48,8 @@ const paths = {
   refresh:
     'M20 10a8 8 0 0 0-14-5L3 8m0-5v5h5m-4 6a8 8 0 0 0 14 5l3-3m0 5v-5h-5',
   clock: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4v6l4 2',
+  calendar:
+    'M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2ZM7 2v6m10-6v6M3 11h18M7 15h2m4 0h2m-8 3h2',
   warning: 'M12 3 1 21h22L12 3Zm0 6v5m0 3v1',
   mountain: 'm2 20 6-9 4 4 6-12 4 17M6 14l2 2 2-2m6-7 2 3 2-1'
 } as const;

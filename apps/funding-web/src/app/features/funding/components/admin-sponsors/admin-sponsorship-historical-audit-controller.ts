@@ -112,7 +112,17 @@ export class AdminSponsorshipHistoricalAuditController {
           throw new Error('HISTORICAL_AUDIT_SCOPE_MISMATCH');
         }
         this.data.set(result);
-        this.selected.set(null);
+        const pending = this.pending();
+        const selected = this.selected();
+        this.selected.set(
+          pending
+            ? selected?.evidenceId === pending.evidenceId
+              ? selected
+              : (result.items.find(
+                  (item) => item.evidenceId === pending.evidenceId
+                ) ?? null)
+            : null
+        );
       }
     } catch (error) {
       if (this.current(generation, id))
@@ -134,6 +144,22 @@ export class AdminSponsorshipHistoricalAuditController {
     this.reason.set('');
     this.confirmation.set(false);
     this.saved.set(false);
+  }
+  close(): boolean {
+    if (
+      this.ports.destroyed() ||
+      !this.ports.canOwn() ||
+      this.scopeKey() !== this.selectedScope ||
+      this.saving() ||
+      this.pending() ||
+      !this.selected()
+    )
+      return false;
+    this.selected.set(null);
+    this.reason.set('');
+    this.confirmation.set(false);
+    this.conclusion.set('inconclusive');
+    return true;
   }
   async submit(): Promise<void> {
     this.select();
