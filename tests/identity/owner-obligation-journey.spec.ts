@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import { captureWebsiteEvidenceSnapshot } from '../../apps/funding-api/src/sponsorship-fulfilment.repository.js';
 import { attestWebsiteMedia } from '../../apps/funding-api/src/sponsorship-website-media.js';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
+import { openPublicationSection } from '../playwright/support/sponsorship-dossier.js';
 
 import { startIdentityStack } from './stack.mjs';
 import { signInAdminIdentity } from './support/admin-browser.js';
@@ -62,6 +63,7 @@ test('owner records historical terms, amends one obligation and attests a docume
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication',
         role
       );
+      await openPublicationSection(page, 'contract');
       await expect(hook(page, 'admin-commitments')).toBeVisible();
       return page;
     };
@@ -271,6 +273,7 @@ test('owner records historical terms, amends one obligation and attests a docume
     ).toEqual(originalOffer);
 
     await owner.reload();
+    await openPublicationSection(owner, 'contract');
     const timing = hook(owner, 'sponsorship-timing').filter({
       has: owner.locator(`[id="timing-title-${website.id}"]`)
     });
@@ -371,6 +374,7 @@ test('owner records historical terms, amends one obligation and attests a docume
       ]
     );
     await owner.reload();
+    await openPublicationSection(owner, 'contract');
     await timing.locator('summary').click();
     await timing
       .locator('[data-og7="timing-reason"]')

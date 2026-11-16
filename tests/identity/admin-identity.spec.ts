@@ -310,6 +310,12 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
     });
 
     await test.step('Withdraw the operator role while its confirmed request is held before reaching the API', async () => {
+      const otherDecisions = operator.locator(
+        '[data-og7="publication-other-decisions"]'
+      );
+      await expect(otherDecisions).not.toHaveAttribute('open', '');
+      await otherDecisions.locator(':scope > summary').click();
+      await expect(otherDecisions).toHaveAttribute('open', '');
       await operator
         .getByRole('button', { name: 'Remettre en attente' })
         .click();

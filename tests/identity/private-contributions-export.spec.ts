@@ -179,6 +179,17 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       await owner
         .getByRole('button', { name: 'Actualiser', exact: true })
         .click();
+      await expect(
+        owner.getByRole('dialog', { name: 'Actualiser les contributions' })
+      ).toBeVisible();
+      const refreshed = owner.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/contributions' &&
+          response.request().method() === 'GET'
+      );
+      await owner.locator('[data-og7="contributions-refresh-local"]').click();
+      expect((await refreshed).status()).toBe(200);
+      await expect(owner.getByRole('dialog')).toHaveCount(0);
       await expect(button).toBeEnabled();
     });
 

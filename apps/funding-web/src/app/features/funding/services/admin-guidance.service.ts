@@ -28,6 +28,11 @@ import { FundingAdminService } from './funding-admin.service.js';
 
 const empty = (): AdminGuidanceSnapshot => ({ enabled: false, bookmark: null });
 
+interface WorkflowAgreementRequest {
+  readonly contributionId: string;
+  readonly sessionGeneration: number;
+}
+
 /** Personal cues and an optional payment UUID; server facts and commands are never saved. */
 @Injectable({ providedIn: 'root' })
 export class AdminGuidanceService {
@@ -86,6 +91,10 @@ export class AdminGuidanceService {
   readonly storageAvailable = signal(true);
   readonly forgetFailed = signal(false);
   readonly resumeTarget = signal<string | null>(null);
+  private readonly agreementRequest = signal<WorkflowAgreementRequest | null>(
+    null
+  );
+  readonly workflowAgreementRequest = this.agreementRequest.asReadonly();
   readonly bookmarkPage = computed(() =>
     ADMIN_GUIDANCE_PAGES.find(
       (page) => page.id === this.snapshot().bookmark?.pageId
@@ -125,6 +134,41 @@ export class AdminGuidanceService {
       this.resumeTarget.set(null);
       this.forgetFailed.set(false);
     });
+    effect(() => {
+      const request = this.agreementRequest();
+      if (
+        request &&
+        (request.contributionId !== this.paymentContext() ||
+          request.sessionGeneration !== this.admin.sessionGeneration() ||
+          !this.available() ||
+          !this.enabled() ||
+          this.mode() !== 'workflows' ||
+          this.workflow().paused ||
+          this.workflow().journeyId !== 'agreement')
+      )
+        this.agreementRequest.set(null);
+    });
+  }
+
+  /** Transient reading request; never stored with the personal workflow bookmark. */
+  requestWorkflowAgreement(contributionId: string): void {
+    if (
+      contributionId !== this.paymentContext() ||
+      !this.available() ||
+      !this.enabled() ||
+      this.mode() !== 'workflows' ||
+      this.workflow().paused ||
+      this.workflow().journeyId !== 'agreement'
+    )
+      return;
+    this.agreementRequest.set({
+      contributionId,
+      sessionGeneration: this.admin.sessionGeneration()
+    });
+  }
+
+  consumeWorkflowAgreement(request: WorkflowAgreementRequest): void {
+    if (this.agreementRequest() === request) this.agreementRequest.set(null);
   }
 
   toggle(): void {

@@ -1209,14 +1209,11 @@ for (const language of ['fr-CA', 'en'] as const)
         await page.goto(path('publication'));
         await revealDesktopQueue();
         const journey = main.locator('[data-og7="publication-monitor"]');
-        await expect(journey.getByRole('progressbar')).toHaveAttribute(
-          'value',
-          '0'
-        );
-        await expect(journey.getByRole('progressbar')).toHaveAttribute(
-          'max',
-          '3'
-        );
+        const heading = journey.getByRole('heading', {
+          name: 'NordVale Énergie',
+          exact: true
+        });
+        await expect(heading).toBeVisible();
         await expectAdminFontsReady(page);
         await expectComposition();
         await expect(
@@ -1224,12 +1221,7 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toHaveAttribute('aria-current', 'page');
         if (viewport.width === 1536) {
           expect(await page.evaluate(() => scrollY)).toBe(0);
-          await expect(
-            journey.getByRole('heading', {
-              name: 'Publication',
-              exact: true
-            })
-          ).toBeInViewport({
+          await expect(heading).toBeInViewport({
             ratio: 1
           });
         }
@@ -1239,6 +1231,15 @@ for (const language of ['fr-CA', 'en'] as const)
           ),
           animations: 'disabled'
         });
+        await openPublicationAnalysis(page);
+        await expect(journey.getByRole('progressbar')).toHaveAttribute(
+          'value',
+          '0'
+        );
+        await expect(journey.getByRole('progressbar')).toHaveAttribute(
+          'max',
+          '3'
+        );
         expect(writes).toEqual([]);
         expect(calls.every((call) => call.method === 'GET')).toBe(true);
       });
@@ -1829,7 +1830,9 @@ for (const width of [1920, 1280, 390]) {
       .click();
     const review = page.locator('#dossier-review');
     await review.getByRole('button', { name: 'Accepter', exact: true }).focus();
-    await review.scrollIntoViewIfNeeded();
+    await review.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' })
+    );
     await expect(review).toBeInViewport({ ratio: 1 });
     await expect(
       review.getByRole('button', { name: 'Accepter', exact: true })
@@ -4856,9 +4859,12 @@ for (const width of [1280, 390]) {
     const view = page.locator('[data-og7="publication-monitor"]');
     await openPublicationAnalysis(page);
     await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
+    const service = view.locator('[data-og7="publication-service"]');
+    await expect(service).toHaveCount(1);
+    await expect(service.getByRole('button')).toHaveCount(1);
     await expect(
-      view.locator('[data-og7="publication-monitor-next"]').getByRole('button')
-    ).toHaveCount(0);
+      service.locator('[data-og7="publication-service-details"]')
+    ).toBeVisible();
     await tabs(page)
       .getByRole('button', { name: 'Fiche et médias', exact: true })
       .click();
@@ -4924,6 +4930,7 @@ test('website readers can inspect confirmed visibility in media without mutation
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
+  await openPublicationAnalysis(page);
   await expect(
     page.locator('[data-og7="publication-monitor"]').getByRole('progressbar')
   ).toHaveAttribute('value', '1');

@@ -116,6 +116,19 @@ test.describe('Docker admin contributions', () => {
 
     await page.unroute('**/admin/contributions');
     await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Actualiser les contributions' })
+    ).toBeVisible();
+    const refreshed = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.endsWith('/admin/contributions') &&
+        response.request().method() === 'GET'
+    );
+    await page.locator('[data-og7="contributions-refresh-local"]').click();
+    expect((await refreshed).ok()).toBe(true);
+    await expect(
+      page.getByRole('dialog', { name: 'Actualiser les contributions' })
+    ).toBeHidden();
 
     await expect(
       page.getByText(/Impossible de charger ou exporter les contributions/i)

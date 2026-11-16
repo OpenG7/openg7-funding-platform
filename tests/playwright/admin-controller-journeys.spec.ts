@@ -24,6 +24,15 @@ const writes = (
   suffix: string
 ) => state.commands.filter((command) => command.path.endsWith(suffix));
 
+async function openAgreement(page: Page, pad: AdminController): Promise<void> {
+  const toggle = page.locator(
+    '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
+  );
+  await pad.activate(toggle);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(hook(page, 'admin-commitments')).toBeVisible();
+}
+
 async function moderation(
   page: Page,
   pad: AdminController,
@@ -432,6 +441,7 @@ test('Xbox historical qualification and an explicit waiver preserve accepted ter
   });
   const pad = adminController(page);
   await page.goto(path('publication'));
+  await openAgreement(page, pad);
   const panel = hook(page, 'admin-commitments');
   await pad.activate(panel.locator('[data-og7="commitments-add-benefit"]'));
   await pad.select(
@@ -561,6 +571,7 @@ test('Xbox historical evidence review requires reason, conclusion and current co
   );
   const pad = adminController(page);
   await page.goto(path('publication'));
+  await openAgreement(page, pad);
   const panel = hook(page, 'historical-evidence-audit');
   await pad.activate(panel.locator('[data-og7-id="historical-audit-load"]'));
   await pad.activate(panel.locator('[data-og7-id="historical-audit-review"]'));

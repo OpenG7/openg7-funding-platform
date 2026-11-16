@@ -54,6 +54,7 @@ import { AdminSponsorRefundWorkflow } from '../../services/admin-sponsor-refund-
 import { AdminSponsorMediaWorkflow } from '../../services/admin-sponsor-media-workflow.js';
 import { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
@@ -223,7 +224,11 @@ export class AdminSponsorsPageComponent implements OnInit {
     if (!this.dossierToolBusy()) void this.sponsorInterventions()?.open();
   }
 
-  openDossierTool(tool: SponsorDossierTool, toggle = true): void {
+  openDossierTool(
+    tool: SponsorDossierTool,
+    toggle = true,
+    focusPanel = true
+  ): void {
     if (
       this.dossierToolBusy() ||
       (tool === 'access' && !this.canUseOwnerActions()) ||
@@ -240,6 +245,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       active && panel?.contains(active) ? active : null;
     this.visitedDossierTools.update((visited) => new Set([...visited, tool]));
     this.dossierTool.set(tool);
+    if (!focusPanel) return;
     const sponsorshipId = this.selectedSponsorshipId();
     afterNextRender(
       () => {
@@ -389,6 +395,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly moderation = inject(FundingModerationService);
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
+  private readonly workflowGuidance = inject(AdminGuidanceService);
   private readonly injector = inject(Injector);
   private readonly rejectionPanel = viewChild(
     AdminSponsorRejectionPanelComponent
@@ -880,6 +887,43 @@ export class AdminSponsorsPageComponent implements OnInit {
       ) {
         this.dossierTool.set(null);
       }
+    });
+    afterRenderEffect(() => {
+      const request = this.workflowGuidance.workflowAgreementRequest();
+      if (!request) return;
+      if (
+        request.sessionGeneration !== this.admin.sessionGeneration() ||
+        request.contributionId !== this.workflowGuidance.paymentContext()
+      ) {
+        untracked(() =>
+          this.workflowGuidance.consumeWorkflowAgreement(request)
+        );
+        return;
+      }
+      if (this.state() !== 'ready') return;
+      if (
+        request.contributionId !== this.selectedSponsorshipId() ||
+        this.activeTab() !== 'publication'
+      ) {
+        untracked(() =>
+          this.workflowGuidance.consumeWorkflowAgreement(request)
+        );
+        return;
+      }
+      if (
+        this.progress()?.contributionId !== request.contributionId ||
+        this.dossierToolBusy()
+      )
+        return;
+      const modal =
+        this.sponsorDetailPanel?.nativeElement.ownerDocument.querySelector(
+          'dialog[open]'
+        );
+      untracked(() => {
+        this.workflowGuidance.consumeWorkflowAgreement(request);
+        if (!modal && this.dossierTool() !== 'agreement')
+          this.openDossierTool('agreement', false, false);
+      });
     });
     let agreementRoute = '';
     afterRenderEffect(() => {
