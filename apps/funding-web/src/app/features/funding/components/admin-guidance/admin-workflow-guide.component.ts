@@ -93,6 +93,11 @@ export class AdminWorkflowGuideComponent {
         '[data-og7="admin-layout"]'
       );
       if (!view || !layout) return;
+      if (
+        this.journey().id === 'agreement' &&
+        !this.document.querySelector('dialog[open]')
+      )
+        untracked(() => this.guidance.requestWorkflowAgreement(context));
       let release: (() => void) | undefined;
       let frame = 0;
       let revealFrame = 0;

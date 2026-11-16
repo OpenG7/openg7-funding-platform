@@ -1,5 +1,14 @@
 {
   "title": "Publication",
+  "unnamedSponsor": "Unnamed sponsor",
+  "dossierType": "Sponsorship",
+  "mediaPreview": "Proposed visual for this service",
+  "analysis": {
+    "open": "View analysis and prerequisites",
+    "title": "Analysis and prerequisites",
+    "attention": "Check before publication",
+    "readUnavailable": "Publication tracking is temporarily unavailable. Open the details to check its status."
+  },
   "proposalAvailable": "Proposal available",
   "manageWebsite": "Manage Web publication",
   "servicesUnknown": "Publication services",
@@ -16,6 +25,31 @@
   },
   "plan": "Plan publication",
   "subtitle": "Track this sponsor’s promised publication services.",
+  "automatic": {
+    "title": "Automatic preparation",
+    "engine": "Engine",
+    "preflight": "Preflight workshop",
+    "activateEngine": "Enable engine",
+    "configurePreflight": "Configure Preflight",
+    "setup": {
+      "title": "Preflight — server configuration required",
+      "intro": "Preflight activation is handled with the person responsible for the server.",
+      "connection": "Configure secure access from Funding to Preflight.",
+      "relay": "Enable the workshop profile, then restart the API and its preparation relay as described in the guide.",
+      "refresh": "Return to this dossier and refresh tracking to check the new state.",
+      "guide": "Open the activation guide",
+      "check": "Refresh status"
+    },
+    "states": {
+      "enabled": "Enabled",
+      "enabling": "Enabling…",
+      "stopped": "Stopped",
+      "configured": "Configured",
+      "disabled": "Disabled",
+      "checking": "Checking…",
+      "unavailable": "Status unavailable"
+    }
+  },
   "refresh": "Refresh tracking",
   "loading": "Refreshing tracking…",
   "checked": "Last checked:",
@@ -50,7 +84,7 @@
   "deliveryVersion": "Delivery version: {{version}}",
   "openDelivery": "Open delivery",
   "publicLink": "View publication",
-  "authority": "Preflight prepares. Funding retains human review, authorization, execution and delivery evidence.",
+  "authority": "AI prepares, Preflight checks and you decide. The engine executes authorized operations. Funding retains decisions and delivery evidence.",
   "channel": {
     "website": "Web presentation",
     "facebook": "Facebook publication",
@@ -76,6 +110,8 @@
     "details": "Details"
   },
   "state": {
+    "awaiting_review": "To prepare",
+    "awaiting_preparation": "Awaiting preparation",
     "exception": "Action required",
     "delivered": "Delivered",
     "scheduled": "Scheduled",
@@ -140,9 +176,14 @@
   },
   "warning": {
     "company_missing": "The company name is missing.",
-    "presentation_missing": "The public presentation is missing.",
+    "presentation_missing": "The public presentation text is missing.",
+    "review_and_moderation": "Sponsor review and moderation are pending.",
+    "moderation_review_required": "A moderation decision is still required for this service.",
+    "obligation_blocked": "The requirements for this service need to be checked.",
+    "publication_blocked": "Publication prerequisites still need to be completed.",
+    "otherWithCode": "Another prerequisite needs checking (reference: {{code}}).",
     "preparation_input_required": "Preparation requires additional information.",
-    "public_presentation": "The public presentation is missing.",
+    "public_presentation": "The public presentation text is missing.",
     "media_destination_authorization": "Media rights for this destination still need verification.",
     "public_name_consent": "Public name consent is missing.",
     "public_name": "The public name is missing.",

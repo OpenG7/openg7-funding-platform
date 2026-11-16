@@ -179,6 +179,17 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       await owner
         .getByRole('button', { name: 'Actualiser', exact: true })
         .click();
+      await expect(
+        owner.getByRole('dialog', { name: 'Actualiser les contributions' })
+      ).toBeVisible();
+      const refreshed = owner.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/contributions' &&
+          response.request().method() === 'GET'
+      );
+      await owner.locator('[data-og7="contributions-refresh-local"]').click();
+      expect((await refreshed).status()).toBe(200);
+      await expect(owner.getByRole('dialog')).toHaveCount(0);
       await expect(button).toBeEnabled();
     });
 
@@ -280,7 +291,7 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       expect((await exports()).rows).toHaveLength(1);
     });
 
-    await test.step('English mobile, empty selection and expiry while confirming preserve the private boundary', async () => {
+    await test.step('English mobile, empty selection and expiry before the confirmed export reaches the API preserve the private boundary', async () => {
       await owner
         .getByRole('button', {
           name: 'Switch administration language to English'
@@ -294,15 +305,29 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       await expect(owner.getByRole('dialog')).toContainText(
         '2 displayed contributions'
       );
-      await stack.pool.query(
-        "UPDATE admin_identity_sessions SET expires_at=now()-interval '1 second' WHERE id=$1",
-        [profile.sessionId]
+      const exportsBeforeExpiry = exportRequests;
+      // Expire only after the confirmed POST leaves the browser. Otherwise an
+      // unrelated protected refresh can purge the session before submission.
+      await owner.route(
+        '**/api/admin/contributions.csv',
+        async (route) => {
+          expect(route.request().method()).toBe('POST');
+          await stack.pool.query(
+            "UPDATE admin_identity_sessions SET expires_at=now()-interval '1 second' WHERE id=$1",
+            [profile.sessionId]
+          );
+          await route.continue();
+        },
+        { times: 1 }
       );
-      const expired = owner.waitForResponse((r) =>
-        r.url().endsWith('/admin/contributions.csv')
+      const expired = owner.waitForResponse(
+        (response) =>
+          response.url().endsWith('/admin/contributions.csv') &&
+          response.request().method() === 'POST'
       );
       await confirm.click();
       expect((await expired).status()).toBe(401);
+      expect(exportRequests).toBe(exportsBeforeExpiry + 1);
       await expect(owner).toHaveURL(/\/admin\/login\?.*sessionExpired=1/);
       await expect(owner.getByRole('status')).toHaveText(
         'Your session has expired or been revoked. Sign in again to continue.'

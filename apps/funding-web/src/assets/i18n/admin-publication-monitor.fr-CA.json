@@ -1,5 +1,14 @@
 {
   "title": "Publication",
+  "unnamedSponsor": "Commanditaire sans nom",
+  "dossierType": "Commandite",
+  "mediaPreview": "Visuel proposé pour cette prestation",
+  "analysis": {
+    "open": "Voir l’analyse et les prérequis",
+    "title": "Analyse et prérequis",
+    "attention": "À vérifier avant publication",
+    "readUnavailable": "Le suivi de publication est temporairement indisponible. Consultez les détails pour vérifier son état."
+  },
   "proposalAvailable": "Proposition disponible",
   "manageWebsite": "Gérer la publication Web",
   "servicesUnknown": "Prestations de publication",
@@ -16,6 +25,31 @@
   },
   "plan": "Planifier la publication",
   "subtitle": "Suivi des prestations de publication de ce commanditaire.",
+  "automatic": {
+    "title": "Préparation automatique",
+    "engine": "Moteur",
+    "preflight": "Atelier Preflight",
+    "activateEngine": "Activer le moteur",
+    "configurePreflight": "Configurer Preflight",
+    "setup": {
+      "title": "Preflight — configuration serveur requise",
+      "intro": "L’activation de Preflight se fait avec la personne responsable du serveur.",
+      "connection": "Configurer l’accès sécurisé de Funding à Preflight.",
+      "relay": "Activer le profil Atelier, puis redémarrer l’API et son relais de préparation selon le guide.",
+      "refresh": "Revenir dans ce dossier et actualiser le suivi pour vérifier le nouvel état.",
+      "guide": "Ouvrir le guide d’activation",
+      "check": "Actualiser l’état"
+    },
+    "states": {
+      "enabled": "Activé",
+      "enabling": "Activation en cours…",
+      "stopped": "Arrêté",
+      "configured": "Configuré",
+      "disabled": "Désactivé",
+      "checking": "Vérification…",
+      "unavailable": "État indisponible"
+    }
+  },
   "refresh": "Actualiser le suivi",
   "loading": "Actualisation du suivi…",
   "checked": "Dernière vérification :",
@@ -50,7 +84,7 @@
   "deliveryVersion": "Version de la livraison : {{version}}",
   "openDelivery": "Ouvrir la livraison",
   "publicLink": "Consulter la publication",
-  "authority": "Preflight prépare. Funding conserve la revue humaine, l’autorisation, l’exécution et les preuves de livraison.",
+  "authority": "L’IA prépare, Preflight vérifie et vous décidez. Le moteur exécute les opérations autorisées. Funding conserve les décisions et les preuves de livraison.",
   "channel": {
     "website": "Présentation Web",
     "facebook": "Publication Facebook",
@@ -76,6 +110,8 @@
     "details": "Détails"
   },
   "state": {
+    "awaiting_review": "À préparer",
+    "awaiting_preparation": "En attente de préparation",
     "exception": "Une intervention est nécessaire",
     "delivered": "Livrée",
     "scheduled": "Programmée",
@@ -140,9 +176,14 @@
   },
   "warning": {
     "company_missing": "Le nom de l’entreprise est manquant.",
-    "presentation_missing": "La présentation publique est manquante.",
+    "presentation_missing": "Le texte de présentation publique est manquant.",
+    "review_and_moderation": "La revue et la modération du commanditaire sont attendues.",
+    "moderation_review_required": "Une validation de modération reste à effectuer pour cette prestation.",
+    "obligation_blocked": "Les conditions de cette prestation doivent être vérifiées.",
+    "publication_blocked": "Les prérequis de publication doivent être complétés.",
+    "otherWithCode": "Un autre prérequis reste à vérifier (référence : {{code}}).",
     "preparation_input_required": "La préparation attend des informations complémentaires.",
-    "public_presentation": "La présentation publique est manquante.",
+    "public_presentation": "Le texte de présentation publique est manquant.",
     "media_destination_authorization": "Les droits du média pour cette destination restent à vérifier.",
     "public_name_consent": "Le nom public n’est pas consenti.",
     "public_name": "Le nom public est manquant.",

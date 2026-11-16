@@ -11,6 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { openPublicationAnalysis } from './publication-decision.ui.js';
 
 interface Context {
   fixtures(
@@ -627,7 +628,10 @@ export function registerPublicationMonitorTests(context: Context): void {
           )
         ).toHaveCount(2);
         await expect(
-          view.getByRole('heading', { name: 'Publication', exact: true })
+          view.getByRole('heading', {
+            name: 'Partenaire synthétique',
+            exact: true
+          })
         ).toBeVisible();
         await expect(
           view.locator('[data-og7="publication-delivery-progress"] progress')
@@ -656,13 +660,16 @@ export function registerPublicationMonitorTests(context: Context): void {
           .locator('[data-og7="publication-service"]')
           .all()) {
           await expect(
-            service.locator('[data-og7="publication-service-action"]')
+            service.locator('[data-og7="publication-service-details"]')
           ).toHaveCount(1);
           await expect(
-            service.locator('[data-og7="publication-service-action"]')
+            service.locator('[data-og7="publication-service-details"]')
           ).toHaveAccessibleName(/\S/);
         }
         expect(fixture.writes).toEqual([]);
+        await expect(
+          view.locator('[data-og7="publication-analysis"]')
+        ).not.toHaveAttribute('open', '');
         expect(
           (
             await new AxeBuilder({ page })
@@ -678,6 +685,7 @@ export function registerPublicationMonitorTests(context: Context): void {
         const refresh = view.locator(
           '[data-og7="publication-monitor-refresh"]'
         );
+        await openPublicationAnalysis(page);
         await refresh.focus();
         await expect(refresh).toBeFocused();
         await page.keyboard.press('Enter');
@@ -691,8 +699,13 @@ export function registerPublicationMonitorTests(context: Context): void {
           )
         });
         await view
-          .locator('[data-og7="publication-service-action"]')
+          .locator('[data-og7="publication-service-details"]')
           .first()
+          .click();
+        await page
+          .locator(
+            '[data-og7="publication-monitor-details"] [data-og7="publication-service-action"]'
+          )
           .click();
         await expect(page).toHaveURL(operationsPath());
         await expect(
@@ -807,7 +820,10 @@ export function registerPublicationMonitorTests(context: Context): void {
         '[data-og7="publication-service"][data-state="collective_review"]'
       )
     ).toHaveCount(1);
-    const action = row.locator('[data-og7="publication-service-action"]');
+    await row.locator('[data-og7="publication-service-details"]').click();
+    const action = page.locator(
+      '[data-og7="publication-monitor-details"] [data-og7="publication-service-action"]'
+    );
     await action.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/admin\/fundraiser\/preflight\?view=desk/);
@@ -870,6 +886,7 @@ export function registerPublicationMonitorTests(context: Context): void {
       view.locator('[data-og7="publication-monitor-error"]')
     ).toHaveCount(0);
     fixture.state.readStatus = 503;
+    await openPublicationAnalysis(page);
     await view.locator('[data-og7="publication-monitor-refresh"]').click();
     await expect(
       view.locator('[data-og7="publication-monitor-error"]')
@@ -893,6 +910,7 @@ export function registerPublicationMonitorTests(context: Context): void {
       view.locator('[data-og7="publication-service"][data-state="proposal"]')
     ).toHaveCount(2);
     fixture.state.readStatus = 503;
+    await openPublicationAnalysis(page);
     await view.locator('[data-og7="publication-monitor-refresh"]').click();
     await expect(
       view.locator('[data-og7="publication-monitor-error"]')
@@ -1065,6 +1083,231 @@ export function registerPublicationMonitorTests(context: Context): void {
     ).toHaveCount(0);
     expect(fixture.writes).toEqual([]);
   });
+
+  test('publication monitor opens analysis for a simulated preparation warning without routing to Finances', async ({
+    page
+  }) => {
+    const fixture = await monitorFixtures(page, context, 'reader');
+    const mutations: string[] = [];
+    page.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname.startsWith('/api/admin/') &&
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+      )
+        mutations.push(
+          `${request.method()} ${new URL(request.url()).pathname}`
+        );
+    });
+    await page.goto(context.path('publication'));
+    const initialUrl = page.url();
+    const view = monitor(page);
+    const attention = view.locator('[data-og7="publication-monitor-blockers"]');
+    const analysis = view.locator('[data-og7="publication-analysis"]');
+    await expect(attention).toContainText(/simul/i);
+    await expect(attention.locator('a[href*="tab=billing"]')).toHaveCount(0);
+    await expect(analysis).not.toHaveAttribute('open', '');
+    const inspect = attention.locator(
+      '[data-og7="publication-attention-analysis"]'
+    );
+    await inspect.focus();
+    await page.keyboard.press('Enter');
+    await expect(analysis).toHaveAttribute('open', '');
+    await expect(page).toHaveURL(initialUrl);
+    await expect(
+      view.locator('[data-og7="publication-service"][data-state="proposal"]')
+    ).toHaveCount(2);
+    await expect(
+      view.locator('[data-og7="publication-delivery-progress"] progress')
+    ).toHaveAttribute('value', '0');
+    await expect(
+      view.locator('[data-og7="publication-delivery-progress"] progress')
+    ).toHaveAttribute('max', '2');
+    expect(fixture.writes).toEqual([]);
+    expect(mutations).toEqual([]);
+  });
+
+  for (const [language, width] of [
+    ['fr-CA', 1280],
+    ['en', 390]
+  ] as const) {
+    test(`publication service groups pending Web review aliases while keeping missing public text separate from media in ${language}`, async ({
+      page
+    }) => {
+      const fixture = await monitorFixtures(page, context, 'operator');
+      const original = fixture.base.options.progressOverrides.commitment!;
+      const web = {
+        ...original.obligations.find((item) => item.channel === 'website')!,
+        state: 'blocked' as const,
+        blockedReason: 'review_pending_review'
+      };
+      const preparationBlockers = [
+        'sponsor_review_required',
+        'moderation_review_required',
+        'presentation_missing',
+        'obligation_blocked',
+        'publication_blocked'
+      ];
+      fixture.base.options.edited.set(id, {
+        sponsor_review_status: 'pending_review',
+        sponsor_public_summary: null
+      });
+      fixture.base.options.progressOverrides = {
+        ...fixture.base.options.progressOverrides,
+        reviewStatus: 'pending_review',
+        commitment: { ...original, obligations: [web] },
+        publicationBlockers: ['review', 'media'],
+        publications: [],
+        publicationCompletion: { done: 0, total: 1 }
+      };
+      fixture.state.value = {
+        ...fixture.state.value,
+        mission: null,
+        proposal: null,
+        history: [],
+        canPrepare: false,
+        canAdopt: false
+      };
+      fixture.desk.orders = [
+        {
+          contributionId: id,
+          reference: 'DEMO-401',
+          companyName: 'Partenaire synthétique',
+          amountMinor: '25000',
+          currency: 'CAD',
+          commitmentId: original.id,
+          commitmentVersion: original.version,
+          paidAt: timestamp,
+          delivered: 0,
+          total: 1,
+          adminUrl: context.path('publication'),
+          services: [
+            {
+              id: web.id,
+              contributionId: id,
+              reference: 'DEMO-401',
+              companyName: 'Partenaire synthétique',
+              paidAt: timestamp,
+              channel: 'website',
+              target: 'openg7',
+              ordinal: 1,
+              quantity: 1,
+              format: null,
+              obligationState: 'blocked',
+              timing: null,
+              preparation: {
+                status: 'incomplete',
+                version: 'service-v1',
+                approvedAt: null,
+                blockers: preparationBlockers
+              },
+              workflow: {
+                obligationId: web.id,
+                channel: 'website',
+                target: 'openg7',
+                ordinal: 1,
+                state: 'blocked',
+                responsibility: 'admin',
+                reason: 'publication_blocked',
+                deliveryId: null,
+                scheduledAt: null
+              },
+              content: { title: '', body: '' },
+              proof: null,
+              adminUrl: context.path('publication'),
+              stage: 'to_prepare',
+              blocked: true,
+              blockers: preparationBlockers,
+              preparationOrigin: 'funding',
+              preflightLink: 'unverified',
+              reviewUrl: `/admin/fundraiser/preflight?sponsorshipId=${id}&obligationId=${web.id}`
+            }
+          ]
+        }
+      ];
+      const deskResponse: PreflightDeskResponse = {
+        generatedAt: timestamp,
+        orders: fixture.desk.orders,
+        pagination: {
+          page: 1,
+          pageSize: 50,
+          totalItems: 1,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false
+        },
+        summary: {
+          total: 1,
+          toPrepare: 1,
+          toReview: 0,
+          toDeliver: 0,
+          delivered: 0,
+          excludedAdjusted: 0,
+          orders: 1,
+          scope: 'recorded_promised_services',
+          preflightLink: 'unverified'
+        }
+      };
+      await page.route('**/api/admin/preflight/desk?**', (route) =>
+        route.fulfill({ json: deskResponse })
+      );
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(context.path('publication'));
+      const initialUrl = page.url();
+      const row = monitor(page).locator(
+        `[data-og7="publication-service"][data-og7-id="${web.id}"]`
+      );
+      await expect(row).toHaveAttribute('data-state', 'exception');
+      await row.locator('[data-og7="publication-service-details"]').click();
+      const detail = page.locator('[data-og7="publication-monitor-details"]');
+      const warnings = detail.locator(
+        '[data-og7="publication-service-warning"]'
+      );
+      await expect(warnings).toHaveCount(3);
+      expect(
+        (
+          await warnings.evaluateAll((elements) =>
+            elements.map((element) => element.getAttribute('data-og7-id'))
+          )
+        ).sort()
+      ).toEqual(
+        ['review_and_moderation', 'media', 'presentation_missing'].sort()
+      );
+      await expect(
+        detail.locator(
+          '[data-og7="publication-service-warning"][data-og7-id="review_and_moderation"]'
+        )
+      ).toHaveText(
+        language === 'en'
+          ? 'Sponsor review and moderation are pending.'
+          : 'La revue et la modération du commanditaire sont attendues.'
+      );
+      const presentation = detail.locator(
+        '[data-og7="publication-service-warning"][data-og7-id="presentation_missing"]'
+      );
+      await expect(presentation).toHaveText(
+        language === 'en'
+          ? 'The public presentation text is missing.'
+          : 'Le texte de présentation publique est manquant.'
+      );
+      await expect(presentation).not.toContainText(/photo|média|media|image/i);
+      await expect(
+        detail.locator(
+          '[data-og7="publication-service-warning"][data-og7-id="media"]'
+        )
+      ).toContainText(language === 'en' ? 'media' : 'média');
+      await expect(
+        monitor(page).locator(
+          '[data-og7="publication-delivery-progress"] progress'
+        )
+      ).toHaveAttribute('value', '0');
+      await expect(page).toHaveURL(initialUrl);
+      expect(fixture.writes).toEqual([]);
+    });
+  }
 
   test('publication monitor has an explicit empty state when no publication is promised', async ({
     page

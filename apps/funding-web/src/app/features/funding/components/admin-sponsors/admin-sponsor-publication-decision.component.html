@@ -1,0 +1,154 @@
+<section
+  #region
+  class="decision-card admin-focus-target"
+  [attr.data-og7]="canReview() ? 'dossier-actions' : null"
+  [attr.id]="canReview() ? 'dossier-review' : null"
+  [attr.data-review-state]="sponsorship().sponsor_review_status"
+  [attr.data-approval-state]="approvalState()"
+  [attr.aria-label]="t('region')"
+  role="region"
+  tabindex="-1"
+>
+  <header class="decision-heading">
+    <span class="decision-icon" aria-hidden="true">
+      <openg7-admin-icon
+        [name]="
+          sponsorship().sponsor_review_status === 'approved'
+            ? 'check'
+            : sponsorship().sponsor_review_status === 'rejected'
+              ? 'close'
+              : 'person'
+        "
+      />
+    </span>
+    <div>
+      <h3>{{ t('title.' + sponsorship().sponsor_review_status) }}</h3>
+      <p>{{ t('help.' + sponsorship().sponsor_review_status) }}</p>
+    </div>
+  </header>
+
+  <p class="decision-distinction">{{ t('distinction') }}</p>
+  @if (sponsorship().sponsor_review_status !== 'pending_review') {
+    <p
+      class="decision-status"
+      data-og7="publication-decision-status"
+      [attr.data-review-state]="sponsorship().sponsor_review_status"
+    >
+      {{ t('state.' + sponsorship().sponsor_review_status) }}
+      @if (reviewedAt(); as date) {
+        <span> · {{ date }}</span>
+      }
+    </p>
+  }
+  @if (
+    sponsorship().sponsor_review_status === 'rejected' &&
+      sponsorship().sponsor_review_note?.trim();
+    as reason
+  ) {
+    <p class="decision-reason">
+      <strong>{{ t('reason') }}</strong>
+      {{ reason }}
+    </p>
+  }
+  @if (reviewMessage()) {
+    <p
+      class="decision-feedback"
+      data-og7="publication-decision-feedback"
+      [attr.role]="approvalState() === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      {{ reviewMessage() }}
+    </p>
+  }
+  @if (unavailableReason()) {
+    <p
+      class="decision-unavailable"
+      data-og7="publication-decision-unavailable"
+      id="publication-decision-unavailable"
+    >
+      <openg7-admin-icon name="info" />{{ unavailableReason() }}
+    </p>
+  }
+
+  @if (canReview()) {
+    @if (sponsorship().sponsor_review_status === 'pending_review') {
+      <div class="decision-actions">
+        <ng-container [ngTemplateOutlet]="rejectAction" />
+        <ng-container [ngTemplateOutlet]="approveAction" />
+      </div>
+      <p class="decision-after">{{ t('afterApproval') }}</p>
+    } @else {
+      <details #otherDecisions data-og7="publication-other-decisions">
+        <summary>{{ t('otherDecisions') }}</summary>
+        <div class="decision-actions secondary-actions">
+          @if (sponsorship().sponsor_review_status === 'approved') {
+            <ng-container [ngTemplateOutlet]="rejectAction" />
+          }
+          <button
+            type="button"
+            class="decision-button neutral"
+            [disabled]="actionsDisabled()"
+            (click)="returnPending.emit()"
+          >
+            {{ t('returnPending') }}
+          </button>
+          @if (sponsorship().sponsor_review_status === 'rejected') {
+            <ng-container [ngTemplateOutlet]="approveAction" />
+          }
+        </div>
+      </details>
+    }
+  } @else {
+    <p class="decision-readonly">{{ t('readOnly') }}</p>
+  }
+</section>
+
+<ng-template #rejectAction>
+  <button
+    #rejectButton
+    type="button"
+    class="decision-button reject"
+    [disabled]="
+      actionsDisabled() || sponsorship().sponsor_review_status === 'rejected'
+    "
+    [openg7AutomaticPrepare]="'sponsor.review.reject'"
+    [automaticFor]="sponsorship().id"
+    automaticExecutionMode="confirmation_required"
+    (automaticPrepare)="openRejection.emit()"
+    (click)="openRejection.emit()"
+  >
+    {{ t('reject') }}
+  </button>
+</ng-template>
+
+<ng-template #approveAction>
+  <button
+    #approvalButton
+    type="button"
+    class="decision-button approve"
+    [class.primary]="
+      sponsorship().sponsor_review_status === 'pending_review' &&
+      canApprove() &&
+      !actionsDisabled()
+    "
+    data-og7="sponsorship-approve"
+    [attr.data-state]="approvalState()"
+    [attr.aria-busy]="approvalState() === 'pending'"
+    [attr.aria-describedby]="
+      unavailableReason() ? 'publication-decision-unavailable' : null
+    "
+    [disabled]="actionsDisabled() || !canApprove()"
+    [openg7AutomaticPrepare]="'sponsor.review.approve'"
+    [automaticFor]="sponsorship().id"
+    automaticExecutionMode="confirmation_required"
+    (automaticPrepare)="approve.emit()"
+    (click)="approve.emit()"
+  >
+    <span class="approval-icon" aria-hidden="true">
+      <openg7-admin-icon
+        [name]="approvalState() === 'pending' ? 'refresh' : 'check'"
+      />
+    </span>
+    {{ t('approve') }}
+  </button>
+</ng-template>

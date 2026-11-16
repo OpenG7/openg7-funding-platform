@@ -1031,3 +1031,386 @@ test('the dossier review cannot compose an unrelated publication', async (t) => 
   await f.controller.prepare('openg7:facebook');
   assert.deepEqual(f.calls.commands, []);
 });
+
+const workerFixture = (t, initial = serverState()) => {
+  const f = fixture(t, initial);
+  f.ports.canManageWorker = () => true;
+  return f;
+};
+
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
+test('inline worker activation denies missing permission and non-owner roles without asking for confirmation', async (t) => {
+  for (const permission of ['absent', 'reader', 'operator'])
+    await t.test(permission, async (t) => {
+      const f = fixture(t);
+      if (permission !== 'absent') f.ports.canManageWorker = () => false;
+      await f.controller.load('synthetic-sponsor');
+      assert.equal(await f.controller.enableWorker(), false);
+      assert.deepEqual(f.calls.confirmations, []);
+      assert.deepEqual(f.calls.commands, []);
+      assert.equal(f.calls.reads.length, 1);
+      assert.equal(f.controller.workerChanging(), false);
+      assert.equal(f.controller.state().workerEnabled, false);
+    });
+});
+
+test('inline worker activation requires a current readable stopped state and an idle controller', async (t) => {
+  for (const unavailable of [
+    'unloaded',
+    'enabled',
+    'error',
+    'busy',
+    'disposed'
+  ])
+    await t.test(unavailable, async (t) => {
+      const f = workerFixture(
+        t,
+        serverState({ workerEnabled: unavailable === 'enabled' })
+      );
+      if (unavailable !== 'unloaded')
+        await f.controller.load('synthetic-sponsor');
+      if (unavailable === 'error')
+        f.controller.error.set('admin.publicationAutomation.errors.generic');
+      if (unavailable === 'busy') f.controller.busy.set(true);
+      if (unavailable === 'disposed') f.controller.dispose();
+      await f.controller.enableWorker();
+      assert.deepEqual(f.calls.confirmations, []);
+      assert.deepEqual(f.calls.commands, []);
+      assert.equal(f.controller.workerChanging(), false);
+      assert.equal(f.calls.changed, 0);
+    });
+});
+
+test('a pending dossier read cannot be bypassed to activate the worker', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const response = deferred();
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    assert.equal(command, undefined);
+    f.calls.reads.push(filter);
+    return response.promise;
+  };
+  const loading = f.controller.refresh();
+  assert.equal(f.controller.loading(), true);
+  await f.controller.enableWorker();
+  assert.deepEqual(f.calls.confirmations, []);
+  assert.deepEqual(f.calls.commands, []);
+  response.resolve(serverState());
+  await loading;
+  assert.equal(f.controller.workerChanging(), false);
+});
+
+test('inline worker activation confirms once and cancelling leaves all server facts unchanged', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const before = f.controller.state();
+  const answer = deferred();
+  f.ports.confirm = async (message, title) => {
+    f.calls.confirmations.push({ message, title });
+    return answer.promise;
+  };
+  const activation = f.controller.enableWorker();
+  assert.equal(f.controller.workerChanging(), true);
+  assert.equal(f.controller.busy(), false);
+  await f.controller.enableWorker();
+  assert.deepEqual(f.calls.confirmations, [
+    {
+      message: 'admin.publicationAutomation.workerConfirm',
+      title: 'admin.publicationAutomation.workerTitle'
+    }
+  ]);
+  assert.deepEqual(f.calls.commands, []);
+  answer.resolve(false);
+  assert.equal(await activation, false);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.equal(f.controller.state(), before);
+  assert.equal(f.calls.reads.length, 1);
+  assert.equal(f.calls.changed, 0);
+  assert.equal(f.controller.notice(), '');
+});
+
+test('replacing a session retains the pending confirmation lock until its stale answer is discarded', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const answer = deferred();
+  f.ports.confirm = async (message, title) => {
+    f.calls.confirmations.push({ message, title });
+    return answer.promise;
+  };
+  const oldActivation = f.controller.enableWorker();
+  f.controller.reset();
+  await f.controller.load('synthetic-sponsor');
+  assert.equal(f.controller.workerChanging(), true);
+  assert.equal(await f.controller.enableWorker(), false);
+  assert.equal(f.calls.confirmations.length, 1);
+  answer.resolve(true);
+  assert.equal(await oldActivation, false);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.deepEqual(f.calls.commands, []);
+  f.ports.confirm = async () => false;
+  assert.equal(await f.controller.enableWorker(), false);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.deepEqual(f.calls.commands, []);
+});
+
+test('a failed confirmation releases the inline activation lock without sending a worker command', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  f.ports.confirm = async () => {
+    throw new Error('Synthetic confirmation unavailable');
+  };
+  await assert.rejects(
+    f.controller.enableWorker(),
+    /Synthetic confirmation unavailable/
+  );
+  assert.equal(f.controller.workerChanging(), false);
+  assert.equal(f.controller.busy(), false);
+  assert.deepEqual(f.calls.commands, []);
+  assert.equal(f.calls.reads.length, 1);
+  assert.equal(f.calls.changed, 0);
+});
+
+test('inline activation sends the confirmed worker version once and waits for authoritative readback', async (t) => {
+  const f = workerFixture(t, serverState({ workerVersion: 7 }));
+  await f.controller.load('synthetic-sponsor');
+  const commandResponse = deferred();
+  const confirmedState = deferred();
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      return commandResponse.promise;
+    }
+    f.calls.reads.push(filter);
+    return confirmedState.promise;
+  };
+  const activation = f.controller.enableWorker();
+  await nextTurn();
+  assert.equal(f.controller.workerChanging(), true);
+  assert.equal(f.controller.busy(), true);
+  assert.equal(f.controller.state().workerEnabled, false);
+  assert.equal(f.calls.changed, 0);
+  await f.controller.enableWorker();
+  assert.deepEqual(f.calls.commands, [
+    {
+      action: 'worker',
+      enabled: true,
+      version: 7,
+      confirmation: 'enable-worker'
+    }
+  ]);
+  assert.equal(f.calls.confirmations.length, 1);
+  commandResponse.resolve({});
+  await nextTurn();
+  assert.equal(f.controller.workerChanging(), true);
+  assert.equal(f.controller.state().workerEnabled, false);
+  assert.equal(f.calls.changed, 0);
+  confirmedState.resolve(
+    serverState({ workerEnabled: true, workerVersion: 8 })
+  );
+  assert.equal(await activation, true);
+  assert.equal(f.controller.state().workerEnabled, true);
+  assert.equal(f.controller.state().workerVersion, 8);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.equal(f.controller.busy(), false);
+  assert.equal(f.controller.notice(), 'admin.publicationAutomation.saved');
+  assert.equal(f.calls.changed, 1);
+  assert.deepEqual(f.calls.reads.at(-1), {
+    sponsorshipId: 'synthetic-sponsor'
+  });
+  assert.equal(f.controller.delivery.selected(), null);
+  assert.deepEqual(f.calls.moderate, []);
+});
+
+test('a worker confirmation becomes invalid when dossier, session, permission or observed state changes', async (t) => {
+  for (const change of [
+    'different dossier',
+    'replacement session',
+    'permission revoked',
+    'same-version refresh',
+    'new worker version',
+    'worker already enabled',
+    'new error',
+    'another command',
+    'disposed'
+  ])
+    await t.test(change, async (t) => {
+      const f = workerFixture(t);
+      await f.controller.load('synthetic-sponsor');
+      const answer = deferred();
+      f.ports.confirm = async (message, title) => {
+        f.calls.confirmations.push({ message, title });
+        return answer.promise;
+      };
+      const activation = f.controller.enableWorker();
+      assert.equal(f.controller.workerChanging(), true);
+      if (change === 'different dossier')
+        await f.controller.load('synthetic-other');
+      else if (change === 'replacement session') {
+        f.controller.reset();
+        await f.controller.load('synthetic-sponsor');
+      } else if (change === 'permission revoked')
+        f.ports.canManageWorker = () => false;
+      else if (change === 'same-version refresh') await f.controller.refresh();
+      else if (change === 'new worker version') {
+        f.current.state = serverState({ workerVersion: 2 });
+        await f.controller.refresh();
+      } else if (change === 'worker already enabled') {
+        f.current.state = serverState({ workerEnabled: true });
+        await f.controller.refresh();
+      } else if (change === 'new error')
+        f.controller.error.set('admin.publicationAutomation.errors.generic');
+      else if (change === 'another command') f.controller.busy.set(true);
+      else f.controller.dispose();
+      answer.resolve(true);
+      await activation;
+      assert.deepEqual(f.calls.commands, []);
+      assert.equal(f.calls.confirmations.length, 1);
+      assert.equal(f.calls.changed, 0);
+      assert.equal(f.controller.workerChanging(), false);
+      assert.equal(f.controller.notice(), '');
+    });
+});
+
+test('lost activation response reconciles the enabled state without replay or a false success notice', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      throw new Error('Synthetic activation response lost');
+    }
+    f.calls.reads.push(filter);
+    return serverState({ workerEnabled: true, workerVersion: 2 });
+  };
+  await f.controller.enableWorker();
+  assert.equal(f.controller.state().workerEnabled, true);
+  assert.equal(f.controller.state().workerVersion, 2);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.equal(f.controller.busy(), false);
+  assert.equal(f.controller.notice(), '');
+  assert.equal(f.calls.changed, 0);
+  assert.equal(f.calls.commands.length, 1);
+  assert.equal(f.calls.reads.length, 2);
+  assert.equal(
+    f.controller.error(),
+    'admin.publicationAutomation.errors.generic'
+  );
+  await f.controller.enableWorker();
+  await f.controller.refresh();
+  await f.controller.enableWorker();
+  assert.equal(f.controller.error(), '');
+  assert.equal(f.calls.commands.length, 1);
+  assert.equal(f.calls.confirmations.length, 1);
+});
+
+test('an unreadable uncertain activation blocks another attempt until explicit reconciliation and a new confirmation', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      throw new Error('Synthetic activation response lost');
+    }
+    f.calls.reads.push(filter);
+    throw new Error('Synthetic reconciliation unavailable');
+  };
+  await f.controller.enableWorker();
+  assert.equal(f.controller.state().workerEnabled, false);
+  assert.equal(f.controller.workerChanging(), false);
+  assert.equal(f.controller.busy(), false);
+  assert.equal(f.controller.notice(), '');
+  assert.equal(f.calls.changed, 0);
+  assert.equal(f.calls.reads.length, 2);
+  await f.controller.enableWorker();
+  assert.equal(f.calls.commands.length, 1);
+  assert.equal(f.calls.confirmations.length, 1);
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      return {};
+    }
+    f.calls.reads.push(filter);
+    return serverState({
+      workerEnabled: f.calls.commands.length === 2,
+      workerVersion: f.calls.commands.length === 2 ? 5 : 4
+    });
+  };
+  await f.controller.refresh();
+  assert.equal(f.controller.error(), '');
+  assert.equal(f.controller.state().workerVersion, 4);
+  assert.equal(f.calls.commands.length, 1);
+  await f.controller.enableWorker();
+  assert.equal(f.calls.commands.length, 2);
+  assert.deepEqual(f.calls.commands[1], {
+    action: 'worker',
+    enabled: true,
+    version: 4,
+    confirmation: 'enable-worker'
+  });
+  assert.equal(f.calls.confirmations.length, 2);
+  assert.equal(f.controller.state().workerEnabled, true);
+});
+
+test('a successful activation response with failed readback does not establish success or replay on refresh', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      return {};
+    }
+    f.calls.reads.push(filter);
+    throw new Error('Synthetic readback unavailable');
+  };
+  await f.controller.enableWorker();
+  assert.equal(f.controller.state().workerEnabled, false);
+  assert.equal(f.controller.notice(), '');
+  assert.equal(f.calls.changed, 0);
+  assert.equal(
+    f.controller.error(),
+    'admin.publicationAutomation.errors.generic'
+  );
+  assert.equal(f.controller.workerChanging(), false);
+  await f.controller.enableWorker();
+  assert.equal(f.calls.commands.length, 1);
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    assert.equal(command, undefined);
+    f.calls.reads.push(filter);
+    return serverState({ workerEnabled: true, workerVersion: 2 });
+  };
+  await f.controller.refresh();
+  await f.controller.enableWorker();
+  assert.equal(f.controller.state().workerEnabled, true);
+  assert.equal(f.calls.commands.length, 1);
+  assert.equal(f.calls.confirmations.length, 1);
+});
+
+test('a late activation response cannot update a replacement dossier or session', async (t) => {
+  const f = workerFixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const response = deferred();
+  f.ports.admin.publicationAutomation = async (command, filter) => {
+    if (command) {
+      f.calls.commands.push(command);
+      return response.promise;
+    }
+    f.calls.reads.push(filter);
+    return serverState({ workerVersion: 4, queue: { entries: [] } });
+  };
+  const activation = f.controller.enableWorker();
+  await nextTurn();
+  assert.equal(f.calls.commands.length, 1);
+  f.controller.reset();
+  await f.controller.load('synthetic-other');
+  const replacement = f.controller.state();
+  const readsBeforeResponse = f.calls.reads.length;
+  response.resolve({});
+  await activation;
+  assert.equal(f.controller.state(), replacement);
+  assert.equal(f.controller.state().workerEnabled, false);
+  assert.equal(f.calls.reads.length, readsBeforeResponse);
+  assert.equal(f.controller.notice(), '');
+  assert.equal(f.calls.changed, 0);
+  assert.equal(f.controller.workerChanging(), false);
+});

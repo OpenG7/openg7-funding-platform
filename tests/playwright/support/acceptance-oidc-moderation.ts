@@ -44,7 +44,7 @@ export async function rejectAcceptanceSponsorship(
     const initial = await dossier();
     const input = await submitRejection(
       identity.author,
-      initial.id,
+      initial,
       internalReason,
       refundHandling
     );
@@ -87,10 +87,11 @@ async function readDossier(author: Page, publicReference: string) {
 
 async function submitRejection(
   author: Page,
-  contributionId: string,
+  dossier: Dossier,
   internalReason: string,
   refundHandling: RefundHandling
 ): Promise<AdminSponsorshipReviewRequest> {
+  const contributionId = dossier.id;
   await author.goto(
     '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
   );
@@ -99,7 +100,16 @@ async function submitRejection(
     .getByRole('button', { name: 'Publication', exact: true });
   await publicationTab.click();
   await expect(publicationTab).toHaveAttribute('aria-current', 'page');
-  const reject = author.getByRole('button', { name: 'Refuser', exact: true });
+  const decision = author.locator('[data-og7="publication-decision"]');
+  await expect(decision).toBeVisible();
+  if (dossier.sponsor_review_status === 'approved') {
+    const otherDecisions = decision.locator(
+      '[data-og7="publication-other-decisions"]'
+    );
+    await otherDecisions.locator(':scope > summary').click();
+    await expect(otherDecisions).toHaveAttribute('open', '');
+  }
+  const reject = decision.getByRole('button', { name: 'Refuser', exact: true });
   await expect(reject).toBeVisible();
   await expect(reject).toBeEnabled();
   await reject.evaluate((button) =>

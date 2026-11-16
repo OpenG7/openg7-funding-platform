@@ -1,409 +1,541 @@
-﻿<section class="publication-monitor" data-og7="publication-monitor">
-  <header class="monitor-heading">
-    <span class="heading-icon"><openg7-admin-icon name="send" /></span>
+<section class="publication-monitor" data-og7="publication-monitor">
+  <header class="monitor-heading" data-og7="publication-identity">
+    <span class="heading-icon"><openg7-admin-icon name="building" /></span>
     <div>
-      <h2 id="publication-monitor-title">{{ t('title') }}</h2>
-      <p>{{ t('subtitle') }}</p>
+      <p class="publication-eyebrow">{{ t('title') }}</p>
+      <h2 id="publication-monitor-title">
+        {{ currentDossier().companyName || t('unnamedSponsor') }}
+      </h2>
+      <p>
+        {{ currentDossier().reference }} <span aria-hidden="true">·</span>
+        {{ t('dossierType') }}
+      </p>
     </div>
-    @if (
-      !accessDenied() && currentDossier().preparationActivityId;
-      as activityId
-    ) {
-      <button
-        type="button"
-        class="admin-button"
-        data-og7="publication-preparation-activity"
-        (click)="activity.openPreparation(activityId)"
-      >
-        {{ 'admin.contributionActivity.view' | translate }}
-      </button>
-    }
-    <button
-      class="admin-button refresh-button"
-      type="button"
-      data-og7="publication-monitor-refresh"
-      [disabled]="busy()"
-      (click)="refresh()"
-    >
-      <openg7-admin-icon name="refresh" />{{ t('refresh') }}
-    </button>
   </header>
 
-  @if (tracking.error() || scheduling.error()) {
+  @if (!accessDenied()) {
+    <section class="services" aria-labelledby="publication-services-title">
+      <h3 id="publication-services-title">
+        {{
+          agreementKnown()
+            ? t('services', { count: monitor().total })
+            : t('servicesUnknown')
+        }}
+      </h3>
+      <div class="service-list">
+        @for (row of monitor().rows; track row.obligation.id) {
+          <article
+            class="service-row"
+            data-og7="publication-service"
+            [attr.data-og7-id]="row.obligation.id"
+            [attr.data-state]="row.status"
+          >
+            <span
+              class="destination-icon"
+              [class.social]="row.obligation.channel !== 'website'"
+            >
+              @if (row.obligation.channel === 'facebook') {
+                <span class="brand-letter" aria-hidden="true">f</span>
+              } @else if (row.obligation.channel === 'linkedin') {
+                <span class="brand-in" aria-hidden="true">in</span>
+              } @else {
+                <openg7-admin-icon [name]="icon(row)" />
+              }
+            </span>
+            <div class="service-copy">
+              @if (safeUrl(row.delivery?.mediaUrl); as imageUrl) {
+                <img
+                  class="service-media"
+                  [src]="imageUrl"
+                  [alt]="t('mediaPreview')"
+                  loading="lazy"
+                  width="112"
+                  height="80"
+                />
+              }
+              <h4>{{ t('channel.' + row.obligation.channel) }}</h4>
+              <p class="service-meta">
+                {{ row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+                ·
+                {{
+                  t('passage', {
+                    number: row.obligation.ordinal,
+                    count: row.occurrenceCount
+                  })
+                }}
+                @if (row.proposal) {
+                  <span>
+                    ·
+                    {{
+                      t('proposalVersion', {
+                        version: row.proposal.version
+                      })
+                    }}</span
+                  >
+                }
+              </p>
+              @if (row.summary) {
+                <p class="service-summary">{{ row.summary }}</p>
+              }
+              @if (differs(row)) {
+                <p class="row-warning">{{ t('draftDifference') }}</p>
+              }
+
+              @if (row.evidence; as evidence) {
+                <p class="service-date">
+                  {{ t('deliveredAt', { date: date(evidence.deliveredAt) }) }}
+                </p>
+              } @else if (
+                row.delivery?.scheduledAt || row.workflow?.scheduledAt;
+                as scheduledAt
+              ) {
+                <p class="service-date">
+                  {{ t('scheduledAt', { date: date(scheduledAt) }) }}
+                </p>
+              }
+            </div>
+            <span
+              class="status-badge"
+              [attr.data-state]="row.status"
+              [attr.data-tone]="
+                serviceState(row).startsWith('awaiting_') ? 'neutral' : null
+              "
+              ><openg7-admin-icon
+                [name]="
+                  serviceState(row).startsWith('awaiting_')
+                    ? 'clock'
+                    : row.status === 'delivered'
+                      ? 'check'
+                      : ['exception', 'obsolete', 'partial'].includes(
+                            row.status
+                          )
+                        ? 'warning'
+                        : 'clock'
+                "
+              />{{
+                t(
+                  row.status === 'proposal'
+                    ? 'proposalAvailable'
+                    : 'state.' + serviceState(row)
+                )
+              }}</span
+            >
+            <div class="service-actions">
+              <button
+                class="details-link"
+                type="button"
+                data-og7="publication-service-details"
+                (click)="details(row)"
+              >
+                {{ t('details') }}<openg7-admin-icon name="arrow" />
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+      @if (!monitor().rows.length) {
+        <div class="empty-state" data-og7="publication-monitor-empty">
+          <openg7-admin-icon name="publications" />
+          <p>{{ t('help.' + monitor().state) }}</p>
+          @if (
+            monitor().agreementState === 'agreement_unknown' ||
+            monitor().agreementState === 'agreement_unconfirmed'
+          ) {
+            <a
+              class="admin-button"
+              [routerLink]="sponsorsPath"
+              [queryParams]="ownerParams('publication')"
+              fragment="dossier-agreement"
+              >{{ t('links.agreement') }}</a
+            >
+          }
+        </div>
+      }
+    </section>
+
+    @if (attentionCode(); as code) {
+      <aside
+        class="publication-attention"
+        data-og7="publication-monitor-blockers"
+        role="note"
+      >
+        <openg7-admin-icon name="info" />
+        <div>
+          <h3>{{ t('analysis.attention') }}</h3>
+          <p>{{ warning(code) }}</p>
+        </div>
+        @if (isSourceIssue(code)) {
+          <a
+            [routerLink]="blockerPath(code)"
+            [queryParams]="blockerParams(code)"
+            [fragment]="blockerFragment(code)"
+          >
+            {{ t('resolveSource') }}<openg7-admin-icon name="arrow" />
+          </a>
+        } @else {
+          <button
+            type="button"
+            class="details-link"
+            data-og7="publication-attention-analysis"
+            (click)="openAnalysis()"
+          >
+            {{ t('analysis.open') }}<openg7-admin-icon name="arrow" />
+          </button>
+        }
+      </aside>
+    }
+    @if (tracking.error() || scheduling.error()) {
+      <p
+        class="publication-read-warning"
+        role="status"
+        data-og7="publication-tracking-warning"
+      >
+        <openg7-admin-icon name="info" />{{ t('analysis.readUnavailable') }}
+        <button type="button" class="details-link" (click)="openAnalysis()">
+          {{ t('analysis.open') }}
+        </button>
+      </p>
+    }
+  }
+
+  <div class="publication-decision-slot">
+    <ng-content select="[publicationDecision]" />
+  </div>
+
+  @if (!accessDenied()) {
+    @if (
+      !reviewPending() &&
+      !attentionCode() &&
+      !tracking.error() &&
+      !scheduling.error()
+    ) {
+      <section
+        class="publication-followup"
+        data-og7="publication-monitor-summary"
+        [attr.data-state]="summaryState()"
+        role="status"
+      >
+        <openg7-admin-icon [name]="monitor().complete ? 'check' : 'clock'" />
+        <div>
+          <h3>{{ t('state.' + summaryState()) }}</h3>
+          <p>
+            {{
+              t('help.' + summaryState(), { count: monitor().proposalCount })
+            }}
+          </p>
+        </div>
+      </section>
+    }
+    <details
+      class="publication-analysis"
+      data-og7="publication-analysis"
+      #analysisPanel
+      [open]="analysisOpen()"
+      (toggle)="analysisOpen.set(analysisPanel.open)"
+    >
+      <summary data-og7="publication-analysis-toggle">
+        <openg7-admin-icon name="search" />{{ t('analysis.open')
+        }}<openg7-admin-icon name="arrow" />
+      </summary>
+      <div class="analysis-content">
+        <header class="analysis-heading">
+          <div>
+            <h3>{{ t('analysis.title') }}</h3>
+            @if (tracking.checkedAt(); as checkedAt) {
+              <p class="checked-at">
+                {{ t('checked') }}
+                <time [attr.datetime]="checkedAt">{{ date(checkedAt) }}</time>
+              </p>
+            }
+          </div>
+          <div class="analysis-actions">
+            @if (currentDossier().preparationActivityId; as activityId) {
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="publication-preparation-activity"
+                (click)="activity.openPreparation(activityId)"
+              >
+                {{ 'admin.contributionActivity.view' | translate }}
+              </button>
+            }
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="publication-monitor-refresh"
+              [disabled]="busy()"
+              (click)="refresh()"
+            >
+              <openg7-admin-icon name="refresh" />{{ t('refresh') }}
+            </button>
+          </div>
+        </header>
+        @if (!accessDenied()) {
+          <div
+            class="preparation-status"
+            #preparationStatus
+            tabindex="-1"
+            data-og7="publication-preparation-status"
+            role="status"
+            aria-atomic="true"
+          >
+            <span class="preparation-status-label">{{
+              t('automatic.title')
+            }}</span>
+            <span class="preparation-status-item">
+              <span
+                class="status-badge"
+                data-og7="publication-preparation-engine"
+                [attr.data-state]="preparationEngineState()"
+              >
+                <openg7-admin-icon
+                  [name]="preparationStatusIcon(preparationEngineState())"
+                />
+                {{ t('automatic.engine') }} :
+                {{ t('automatic.states.' + preparationEngineState()) }}
+              </span>
+              @if (
+                (preparationEngineState() === 'stopped' ||
+                  preparationEngineState() === 'enabling') &&
+                canConfigurePreparation()
+              ) {
+                <button
+                  type="button"
+                  class="preparation-shortcut"
+                  data-og7="publication-preparation-engine-activate"
+                  [disabled]="busy()"
+                  (click)="enablePreparationEngine()"
+                >
+                  {{ t('automatic.activateEngine')
+                  }}<openg7-admin-icon name="arrow" />
+                </button>
+              }
+            </span>
+            <span class="preparation-status-item">
+              <span
+                class="status-badge"
+                data-og7="publication-preparation-preflight"
+                [attr.data-state]="preparationPreflightState()"
+              >
+                <openg7-admin-icon
+                  [name]="preparationStatusIcon(preparationPreflightState())"
+                />
+                {{ t('automatic.preflight') }} :
+                {{ t('automatic.states.' + preparationPreflightState()) }}
+              </span>
+              @if (
+                (preparationPreflightState() === 'disabled' ||
+                  preflightActivationOpen()) &&
+                canConfigurePreparation()
+              ) {
+                <button
+                  type="button"
+                  class="preparation-shortcut"
+                  data-og7="publication-preparation-preflight-configure"
+                  aria-haspopup="dialog"
+                  (click)="preflightActivationOpen.set(true)"
+                >
+                  {{ t('automatic.configurePreflight')
+                  }}<openg7-admin-icon name="arrow" />
+                </button>
+              }
+            </span>
+          </div>
+        }
+        @if (tracking.error() || scheduling.error()) {
+          <div
+            class="monitor-alert"
+            data-og7="publication-monitor-error"
+            role="alert"
+          >
+            <openg7-admin-icon name="warning" />
+            <div>
+              <strong>{{
+                t(
+                  'error.' +
+                    (tracking.error() ||
+                      (accessDenied() ? 'forbidden' : 'unavailable'))
+                )
+              }}</strong>
+              @if (tracking.checkedAt(); as checkedAt) {
+                <p>{{ t('stale', { date: date(checkedAt) }) }}</p>
+              }
+            </div>
+          </div>
+        }
+        @if (busy()) {
+          <p class="loading-notice" role="status">{{ t('loading') }}</p>
+        }
+        @if (additionalIssues().length) {
+          <ul class="context-blockers" data-og7="publication-analysis-blockers">
+            @for (code of additionalIssues(); track code) {
+              <li>
+                <openg7-admin-icon name="info" /><span>{{
+                  warning(code)
+                }}</span>
+                @if (isSourceIssue(code)) {
+                  <a
+                    [routerLink]="blockerPath(code)"
+                    [queryParams]="blockerParams(code)"
+                    [fragment]="blockerFragment(code)"
+                  >
+                    {{ t('resolveSource') }}<openg7-admin-icon name="arrow" />
+                  </a>
+                } @else {
+                  <button
+                    type="button"
+                    class="details-link"
+                    data-og7="publication-issue-details"
+                    (click)="detailsForIssue(code)"
+                  >
+                    {{ t('details') }}
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+        <aside class="monitor-sidebar">
+          <section
+            class="side-panel delivery-progress"
+            data-og7="publication-delivery-progress"
+            aria-labelledby="publication-progress-title"
+          >
+            <div class="panel-heading">
+              <openg7-admin-icon name="check" />
+              <h3 id="publication-progress-title">{{ t('deliveries') }}</h3>
+              <strong>{{
+                agreementKnown()
+                  ? monitor().delivered + ' / ' + monitor().total
+                  : '—'
+              }}</strong>
+            </div>
+            @if (monitor().total > 0) {
+              <progress
+                [value]="monitor().delivered"
+                [max]="monitor().total"
+                [attr.aria-label]="
+                  t('progressLabel', {
+                    done: monitor().delivered,
+                    total: monitor().total
+                  })
+                "
+              ></progress>
+            }
+            <dl>
+              <div>
+                <dt><openg7-admin-icon name="check" />{{ t('delivered') }}</dt>
+                <dd>{{ agreementKnown() ? monitor().delivered : '—' }}</dd>
+              </div>
+              <div>
+                <dt><openg7-admin-icon name="clock" />{{ t('remaining') }}</dt>
+                <dd>{{ agreementKnown() ? monitor().remaining : '—' }}</dd>
+              </div>
+            </dl>
+            <p class="unit-label">{{ t('counterUnit') }}</p>
+            @if (monitor().adjusted) {
+              <p class="unit-label">
+                {{ t('adjusted', { count: monitor().adjusted }) }}
+              </p>
+            }
+          </section>
+
+          <nav
+            class="side-panel useful-links"
+            [attr.aria-label]="t('links.title')"
+          >
+            <div class="panel-heading">
+              <openg7-admin-icon name="publications" />
+              <h3>{{ t('links.title') }}</h3>
+            </div>
+            <a [routerLink]="deskPath" [queryParams]="deskParams()"
+              ><openg7-admin-icon name="external" />{{ t('links.desk')
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+            <a [routerLink]="deskPath" [queryParams]="workshopParams()"
+              ><openg7-admin-icon name="search" />{{ t('links.proposals')
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+            <a [routerLink]="sponsorsPath" [queryParams]="ownerParams('audit')"
+              ><openg7-admin-icon name="clock" />{{ t('links.history')
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+            <a
+              [routerLink]="sponsorsPath"
+              [queryParams]="ownerParams('media')"
+              fragment="dossier-website-settings"
+              ><openg7-admin-icon name="settings" />{{ t('links.profile')
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+          </nav>
+          @if (tracking.queueError()) {
+            <p class="secondary-notice">{{ t('queueUnavailable') }}</p>
+          }
+        </aside>
+      </div>
+    </details>
+  } @else {
     <div
       class="monitor-alert"
       data-og7="publication-monitor-error"
       role="alert"
     >
-      <openg7-admin-icon name="warning" />
-      <div>
-        <strong>{{
-          t(
-            'error.' +
-              (tracking.error() ||
-                (accessDenied() ? 'forbidden' : 'unavailable'))
-          )
-        }}</strong>
-        @if (tracking.checkedAt(); as checkedAt) {
-          <p>{{ t('stale', { date: date(checkedAt) }) }}</p>
-        }
-      </div>
-    </div>
-  }
-  @if (busy()) {
-    <p class="loading-notice" role="status">{{ t('loading') }}</p>
-  }
-
-  @if (!accessDenied()) {
-    <div class="monitor-layout">
-      <div class="monitor-main">
-        <section
-          class="current-state"
-          data-og7="publication-monitor-summary"
-          [attr.data-state]="summaryState()"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span class="state-icon"
-            ><openg7-admin-icon
-              [name]="
-                summaryState() === 'exception' || summaryState() === 'obsolete'
-                  ? 'warning'
-                  : monitor().complete
-                    ? 'check'
-                    : 'assistant'
-              "
-          /></span>
-          <div>
-            <h3>{{ t('state.' + summaryState()) }}</h3>
-            <p>
-              {{
-                t('help.' + summaryState(), { count: monitor().proposalCount })
-              }}
-            </p>
-            @if (tracking.checkedAt(); as checkedAt) {
-              <p class="checked-at">
-                <openg7-admin-icon name="clock" />{{ t('checked') }}
-                <time [attr.datetime]="checkedAt">{{ date(checkedAt) }}</time>
-              </p>
-            }
-          </div>
-        </section>
-
-        @if (contextBlockers().length) {
-          <ul class="context-blockers" data-og7="publication-monitor-blockers">
-            @for (blocker of contextBlockers(); track blocker) {
-              <li>
-                <openg7-admin-icon name="warning" /><span>{{
-                  warning(blocker)
-                }}</span
-                ><a
-                  [routerLink]="blockerPath(blocker)"
-                  [queryParams]="blockerParams(blocker)"
-                  [fragment]="blockerFragment(blocker)"
-                  >{{ t('resolveSource') }}<openg7-admin-icon name="arrow"
-                /></a>
-              </li>
-            }
-          </ul>
-        }
-
-        <section class="services" aria-labelledby="publication-services-title">
-          <h3 id="publication-services-title">
-            {{
-              agreementKnown()
-                ? t('services', { count: monitor().total })
-                : t('servicesUnknown')
-            }}
-          </h3>
-          <div class="service-list">
-            @for (row of monitor().rows; track row.obligation.id) {
-              <article
-                class="service-row"
-                data-og7="publication-service"
-                [attr.data-og7-id]="row.obligation.id"
-                [attr.data-state]="row.status"
-              >
-                <span
-                  class="destination-icon"
-                  [class.social]="row.obligation.channel !== 'website'"
-                >
-                  @if (row.obligation.channel === 'facebook') {
-                    <span class="brand-letter" aria-hidden="true">f</span>
-                  } @else if (row.obligation.channel === 'linkedin') {
-                    <span class="brand-in" aria-hidden="true">in</span>
-                  } @else {
-                    <openg7-admin-icon [name]="icon(row)" />
-                  }
-                </span>
-                <div class="service-copy">
-                  <h4>{{ t('channel.' + row.obligation.channel) }}</h4>
-                  <p class="service-meta">
-                    {{
-                      row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7'
-                    }}
-                    ·
-                    {{
-                      t('passage', {
-                        number: row.obligation.ordinal,
-                        count: row.occurrenceCount
-                      })
-                    }}
-                    @if (row.proposal) {
-                      <span>
-                        ·
-                        {{
-                          t('proposalVersion', {
-                            version: row.proposal.version
-                          })
-                        }}</span
-                      >
-                    }
-                  </p>
-                  <p class="service-summary">
-                    {{ row.summary || t('rowHelp.' + row.status) }}
-                  </p>
-                  @if (differs(row)) {
-                    <p class="row-warning">{{ t('draftDifference') }}</p>
-                  }
-                  @if (row.warnings.length) {
-                    <p class="row-warning">
-                      <openg7-admin-icon name="info" />{{
-                        warning(row.warnings[0])
-                      }}
-                    </p>
-                  }
-                  @if (row.evidence; as evidence) {
-                    <p class="service-date">
-                      {{
-                        t('deliveredAt', { date: date(evidence.deliveredAt) })
-                      }}
-                    </p>
-                  } @else if (
-                    row.delivery?.scheduledAt || row.workflow?.scheduledAt;
-                    as scheduledAt
-                  ) {
-                    <p class="service-date">
-                      {{ t('scheduledAt', { date: date(scheduledAt) }) }}
-                    </p>
-                  }
-                </div>
-                <span class="status-badge" [attr.data-state]="row.status"
-                  ><openg7-admin-icon
-                    [name]="
-                      row.status === 'delivered'
-                        ? 'check'
-                        : ['exception', 'obsolete', 'partial'].includes(
-                              row.status
-                            )
-                          ? 'warning'
-                          : 'clock'
-                    "
-                  />{{
-                    t(
-                      row.status === 'proposal'
-                        ? 'proposalAvailable'
-                        : 'state.' + row.status
-                    )
-                  }}</span
-                >
-                <div class="service-actions">
-                  <button
-                    class="admin-button"
-                    type="button"
-                    data-og7="publication-service-action"
-                    [disabled]="busy()"
-                    (click)="act(row)"
-                  >
-                    {{ actionLabel(row) }}
-                  </button>
-                  @if (row.action !== 'details' && row.action !== 'proof') {
-                    <button
-                      class="details-link"
-                      type="button"
-                      data-og7="publication-service-details"
-                      (click)="details(row)"
-                    >
-                      {{ t('details') }}
-                    </button>
-                  }
-                </div>
-              </article>
-            }
-          </div>
-          @if (!monitor().rows.length) {
-            <div class="empty-state" data-og7="publication-monitor-empty">
-              <openg7-admin-icon name="publications" />
-              <p>{{ t('help.' + monitor().state) }}</p>
-              @if (
-                monitor().agreementState === 'agreement_unknown' ||
-                monitor().agreementState === 'agreement_unconfirmed'
-              ) {
-                <a
-                  class="admin-button"
-                  [routerLink]="sponsorsPath"
-                  [queryParams]="ownerParams('publication')"
-                  fragment="dossier-agreement"
-                  >{{ t('links.agreement') }}</a
-                >
-              }
-            </div>
-          }
-        </section>
-
-        @if (monitor().next; as next) {
-          @if (next.action === 'queue') {
-            <div class="collective-callout">
-              <a
-                class="admin-button admin-button--primary"
-                [routerLink]="deskPath"
-                [queryParams]="deskParams(next)"
-                ><openg7-admin-icon name="sponsors" />{{ t('action.queue') }}</a
-              >
-              <p>{{ t('collectiveHelp') }}</p>
-            </div>
-          }
-        }
-      </div>
-
-      <aside class="monitor-sidebar">
-        <section
-          class="side-panel delivery-progress"
-          data-og7="publication-delivery-progress"
-          aria-labelledby="publication-progress-title"
-        >
-          <div class="panel-heading">
-            <openg7-admin-icon name="check" />
-            <h3 id="publication-progress-title">{{ t('deliveries') }}</h3>
-            <strong>{{
-              agreementKnown()
-                ? monitor().delivered + ' / ' + monitor().total
-                : '—'
-            }}</strong>
-          </div>
-          @if (monitor().total > 0) {
-            <progress
-              [value]="monitor().delivered"
-              [max]="monitor().total"
-              [attr.aria-label]="
-                t('progressLabel', {
-                  done: monitor().delivered,
-                  total: monitor().total
-                })
-              "
-            ></progress>
-          }
-          <dl>
-            <div>
-              <dt><openg7-admin-icon name="check" />{{ t('delivered') }}</dt>
-              <dd>{{ agreementKnown() ? monitor().delivered : '—' }}</dd>
-            </div>
-            <div>
-              <dt><openg7-admin-icon name="clock" />{{ t('remaining') }}</dt>
-              <dd>{{ agreementKnown() ? monitor().remaining : '—' }}</dd>
-            </div>
-          </dl>
-          <p class="unit-label">{{ t('counterUnit') }}</p>
-          @if (monitor().adjusted) {
-            <p class="unit-label">
-              {{ t('adjusted', { count: monitor().adjusted }) }}
-            </p>
-          }
-        </section>
-
-        <section
-          class="side-panel next-action"
-          data-og7="publication-monitor-next"
-          aria-labelledby="publication-next-title"
-        >
-          <div class="panel-heading">
-            <openg7-admin-icon name="arrow" />
-            <h3 id="publication-next-title">{{ t('next') }}</h3>
-          </div>
-          @if (tracking.error() || scheduling.error()) {
-            <button
-              class="next-button"
-              type="button"
-              [disabled]="busy()"
-              (click)="refresh()"
-            >
-              <openg7-admin-icon name="refresh" /><span
-                ><strong>{{ t('refresh') }}</strong
-                ><small>{{ t('error.unavailable') }}</small></span
-              ><openg7-admin-icon name="arrow" />
-            </button>
-          } @else if (monitor().next; as next) {
-            <button
-              class="next-button"
-              type="button"
-              [disabled]="busy()"
-              (click)="act(next)"
-            >
-              <openg7-admin-icon
-                [name]="
-                  next.action === 'queue'
-                    ? 'sponsors'
-                    : next.action === 'resolve'
-                      ? 'warning'
-                      : 'search'
-                "
-              /><span
-                ><strong>{{ actionLabel(next) }}</strong
-                ><small
-                  >{{ t('channel.' + next.obligation.channel) }} ·
-                  {{
-                    t('passage', {
-                      number: next.obligation.ordinal,
-                      count: next.occurrenceCount
-                    })
-                  }}</small
-                ></span
-              ><openg7-admin-icon name="arrow" />
-            </button>
-          } @else {
-            <p class="completed-notice">
-              <openg7-admin-icon name="check" />{{
-                t(monitor().complete ? 'complete' : 'noAction')
-              }}
-            </p>
-          }
-        </section>
-
-        <nav
-          class="side-panel useful-links"
-          [attr.aria-label]="t('links.title')"
-        >
-          <div class="panel-heading">
-            <openg7-admin-icon name="publications" />
-            <h3>{{ t('links.title') }}</h3>
-          </div>
-          <a [routerLink]="deskPath" [queryParams]="deskParams()"
-            ><openg7-admin-icon name="external" />{{ t('links.desk')
-            }}<openg7-admin-icon name="arrow"
-          /></a>
-          <a [routerLink]="deskPath" [queryParams]="workshopParams()"
-            ><openg7-admin-icon name="search" />{{ t('links.proposals')
-            }}<openg7-admin-icon name="arrow"
-          /></a>
-          <a [routerLink]="sponsorsPath" [queryParams]="ownerParams('audit')"
-            ><openg7-admin-icon name="clock" />{{ t('links.history')
-            }}<openg7-admin-icon name="arrow"
-          /></a>
-          <a
-            [routerLink]="sponsorsPath"
-            [queryParams]="ownerParams('media')"
-            fragment="dossier-website-settings"
-            ><openg7-admin-icon name="settings" />{{ t('links.profile')
-            }}<openg7-admin-icon name="arrow"
-          /></a>
-        </nav>
-        @if (tracking.queueError()) {
-          <p class="secondary-notice">{{ t('queueUnavailable') }}</p>
-        }
-      </aside>
+      <openg7-admin-icon name="warning" /><strong>{{
+        t('error.' + (tracking.error() || 'forbidden'))
+      }}</strong>
+      <button
+        class="admin-button"
+        type="button"
+        data-og7="publication-monitor-refresh"
+        [disabled]="busy()"
+        (click)="refresh()"
+      >
+        {{ t('refresh') }}
+      </button>
     </div>
   }
 </section>
+
+<openg7-admin-drawer
+  [opened]="preflightActivationOpen() && canConfigurePreparation()"
+  [title]="t('automatic.setup.title')"
+  [closeLabel]="t('close')"
+  (closed)="preflightActivationOpen.set(false)"
+>
+  <section
+    class="preflight-activation-help"
+    data-og7="publication-preflight-activation-help"
+  >
+    <p>{{ t('automatic.setup.intro') }}</p>
+    <p role="status" data-og7="publication-preflight-activation-state">
+      {{ t('automatic.preflight') }} :
+      {{ t('automatic.states.' + preparationPreflightState()) }}
+    </p>
+    <ol>
+      <li>{{ t('automatic.setup.connection') }}</li>
+      <li>{{ t('automatic.setup.relay') }}</li>
+      <li>{{ t('automatic.setup.refresh') }}</li>
+    </ol>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="publication-preflight-activation-refresh"
+      [disabled]="busy()"
+      (click)="refresh()"
+    >
+      <openg7-admin-icon name="refresh" />{{ t('automatic.setup.check') }}
+    </button>
+    <a
+      class="admin-button"
+      href="https://github.com/OpenG7/openg7-funding-platform/blob/main/docs/technical/publication-workshop.md"
+      target="_blank"
+      rel="noopener noreferrer"
+      data-og7="publication-preflight-activation-guide"
+    >
+      <openg7-admin-icon name="external" />{{ t('automatic.setup.guide') }}
+    </a>
+  </section>
+</openg7-admin-drawer>
 
 <openg7-admin-drawer
   [opened]="!!selected()"
@@ -413,6 +545,17 @@
 >
   @if (selected(); as row) {
     <section class="service-details" data-og7="publication-monitor-details">
+      @if (row.action !== 'details' && row.action !== 'proof') {
+        <button
+          class="admin-button"
+          type="button"
+          data-og7="publication-service-action"
+          [disabled]="busy()"
+          (click)="runServiceAction(row)"
+        >
+          {{ actionLabel(row) }}
+        </button>
+      }
       <h3>
         {{ t('channel.' + row.obligation.channel) }} ·
         {{ row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
@@ -424,10 +567,16 @@
             count: row.occurrenceCount
           })
         }}
-        · {{ t('state.' + row.status) }}
+        · {{ t('state.' + serviceState(row)) }}
       </p>
-      @for (code of row.warnings; track code) {
-        <p class="detail-warning">{{ warning(code) }}</p>
+      @for (code of warningCodes(row); track code) {
+        <p
+          class="detail-warning"
+          data-og7="publication-service-warning"
+          [attr.data-og7-id]="code"
+        >
+          {{ warning(code) }}
+        </p>
       }
       @if (row.proposal; as proposal) {
         <dl>

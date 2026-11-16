@@ -35,7 +35,7 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
       dossierTab: 'publication',
       steps: [
         { id: 'obligations', targets: ['publication-service'] },
-        { id: 'prepare', targets: ['publication-monitor-next'] },
+        { id: 'prepare', targets: ['publication-preparation-status'] },
         { id: 'draft', targets: ['publication-service'] }
       ]
     },
@@ -43,10 +43,10 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
       id: 'authorization',
       dossierTab: 'publication',
       steps: [
-        { id: 'review', targets: ['publication-service-action'] },
+        { id: 'review', targets: ['publication-service-details'] },
         { id: 'content', targets: ['publication-service'] },
         { id: 'schedule', targets: ['publication-service'] },
-        { id: 'authorize', targets: ['publication-monitor-next'] }
+        { id: 'authorize', targets: ['publication-service-details'] }
       ]
     },
     {
@@ -54,7 +54,7 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
       dossierTab: 'publication',
       steps: [
         { id: 'status', targets: ['publication-service'] },
-        { id: 'responsibility', targets: ['publication-monitor-next'] },
+        { id: 'responsibility', targets: ['publication-preparation-status'] },
         { id: 'evidence', targets: ['publication-delivery-progress'] }
       ]
     },

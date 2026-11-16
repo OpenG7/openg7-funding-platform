@@ -1063,6 +1063,7 @@
         "complete": "Terminé",
         "pending": "En attente",
         "blocked": "Bloqué",
+        "media_empty": "À compléter — aucune photo",
         "error": "Erreur",
         "partial": "Partiel",
         "cancelled": "Annulé",

@@ -441,6 +441,10 @@ test('refresh previews the custom scope once and confirms only its newest previe
 }) => {
   await page.clock.install({ time: new Date('2026-09-29T12:00:00Z') });
   const state = await setup(page);
+  const refresh = page.locator('[data-og7="contributions-refresh"]');
+  const choices = page
+    .locator('[data-og7="contributions-refresh-choices"]')
+    .getByRole('dialog');
   const panel = page.locator('[data-og7="stripe-backfill"]');
   const dates = panel.locator('input[type=date]');
   const limit = panel.locator('input[type=number]');
@@ -462,7 +466,8 @@ test('refresh previews the custom scope once and confirms only its newest previe
     release = resolve;
   });
   try {
-    await page.locator('[data-og7="contributions-refresh"]').click();
+    await refresh.click();
+    await expect(choices).toBeVisible();
     const shortcut = page.locator('[data-og7="contributions-refresh-stripe"]');
     await expect(shortcut).toContainText(scope.from);
     await expect(shortcut).toContainText(scope.to);
@@ -476,11 +481,14 @@ test('refresh previews the custom scope once and confirms only its newest previe
     await expect.poll(() => state.posts.length).toBe(2);
     await expect(preview).toBeDisabled();
     await expect(execute).toHaveCount(0);
-    await page.locator('[data-og7="contributions-refresh"]').click();
+    await refresh.click();
+    await expect(choices).toBeVisible();
     await expect(
       page.locator('[data-og7="contributions-refresh-stripe"]')
     ).toBeDisabled();
     await page.keyboard.press('Escape');
+    await expect(choices).toBeHidden();
+    await expect(refresh).toBeFocused();
     expect(state.posts).toEqual([
       { action: 'preview', scope },
       { action: 'preview', scope }

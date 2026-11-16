@@ -1,0 +1,32 @@
+{
+  "region": "Review actions",
+  "title": {
+    "pending_review": "Human decision required",
+    "approved": "Sponsorship accepted",
+    "rejected": "Sponsorship rejected"
+  },
+  "help": {
+    "pending_review": "Review the sponsorship and confirm whether it can be accepted.",
+    "approved": "The administrative decision is recorded. Consult the service tracking.",
+    "rejected": "The recorded rejection remains separate from payment and the promised services."
+  },
+  "state": {
+    "approved": "Review recorded",
+    "rejected": "Rejection recorded"
+  },
+  "distinction": "Accepting the sponsorship is separate from authorizing publication.",
+  "approve": "Accept",
+  "reject": "Reject",
+  "returnPending": "Return to pending",
+  "otherDecisions": "Other decisions",
+  "reason": "Internal rejection reason",
+  "readOnly": "You can consult the decision. Your access does not allow you to change it.",
+  "afterApproval": "After approval, the system continues preparing the services according to the applicable authorizations and prerequisites.",
+  "unavailable": {
+    "loading": "The dossier is being refreshed. Wait for loading to finish before making a decision.",
+    "pending": "An action is in progress on this dossier. Wait for its result before making another decision.",
+    "mediaBusy": "A media action must be completed or checked before making another decision.",
+    "conflict": "The dossier has changed. Refresh and examine its current version before making a decision.",
+    "payment": "A confirmed, eligible payment is required to accept this sponsorship."
+  }
+}

@@ -184,7 +184,12 @@ test.describe('Docker admin sponsorship review', () => {
 
     // Confirm the reviewed administrative action in the shared dialog.
     await openDossierTab(page, 'Publication');
-    await page
+    const otherDecisions = page.locator(
+      '[data-og7="publication-other-decisions"]'
+    );
+    await otherDecisions.locator(':scope > summary').click();
+    await expect(otherDecisions).toHaveAttribute('open', '');
+    await otherDecisions
       .getByRole('button', { name: 'Remettre en attente', exact: true })
       .click();
     await page.locator('[data-og7="confirm-action"]').click();

@@ -364,6 +364,11 @@
           </section>
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
+            [mediaCount]="
+              mediaWorkflow.sponsorMediaReadState()[selected.id] === 'ready'
+                ? (mediaWorkflow.sponsorMedia()[selected.id]?.length ?? null)
+                : null
+            "
             [dossier]="
               progress()?.contributionId === selected.id ? progress() : null
             "
@@ -469,12 +474,55 @@
               </ng-container>
 
               @if (activeTab() === 'publication') {
-                <openg7-admin-sponsorship-facts
-                  *ngIf="progress()"
-                  view="publication"
-                  [dossier]="progress()"
-                  (commitmentChanged)="loadSponsorships(true)"
-                />
+                <ng-template #publicationDecision>
+                  <openg7-admin-sponsor-publication-decision
+                    [sponsorship]="selected"
+                    [canReview]="canManage()"
+                    [actionsDisabled]="actionsDisabled()"
+                    [canApprove]="
+                      reviewWorkflow.canApproveSponsorship(selected)
+                    "
+                    [approvalState]="approvalState(selected.id)"
+                    [reviewMessage]="publicationDecisionReviewMessage(selected)"
+                    [unavailableReason]="
+                      publicationDecisionUnavailableReason(selected)
+                    "
+                    (returnPending)="
+                      reviewWorkflow.review(selected, 'pending_review')
+                    "
+                    (openRejection)="openRejectionPanel(selected)"
+                    (approve)="reviewWorkflow.review(selected, 'approved')"
+                  />
+                </ng-template>
+                <section
+                  id="dossier-publication"
+                  data-og7="dossier-facts"
+                  data-og7-id="publication"
+                  class="admin-focus-target"
+                  tabindex="-1"
+                  [attr.aria-label]="
+                    'admin.dossier.tabs.publication' | translate
+                  "
+                >
+                  @if (
+                    progress()?.contributionId === selected.id
+                      ? progress()
+                      : null;
+                    as dossier
+                  ) {
+                    <openg7-admin-sponsorship-publication
+                      [dossier]="dossier"
+                      (commitmentChanged)="loadSponsorships(true)"
+                    >
+                      <ng-container
+                        publicationDecision
+                        [ngTemplateOutlet]="publicationDecision"
+                      />
+                    </openg7-admin-sponsorship-publication>
+                  } @else {
+                    <ng-container [ngTemplateOutlet]="publicationDecision" />
+                  }
+                </section>
               }
 
               <section
@@ -747,11 +795,7 @@
               }
             </div>
           </div>
-          @if (
-            canManage() &&
-            (!isFinanceTab() || canUseOwnerActions()) &&
-            (activeTab() === 'publication' || isFinanceTab())
-          ) {
+          @if (canManage() && canUseOwnerActions() && isFinanceTab()) {
             <openg7-admin-sponsor-decision-actions
               [sponsorship]="selected"
               [financeTab]="isFinanceTab()"

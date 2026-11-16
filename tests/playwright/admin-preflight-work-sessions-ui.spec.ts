@@ -189,8 +189,13 @@ async function fixtures(
   page: Page,
   {
     language = 'fr-CA',
-    website = false
-  }: { language?: 'fr-CA' | 'en'; website?: boolean } = {}
+    website = false,
+    sessionStatus
+  }: {
+    language?: 'fr-CA' | 'en';
+    website?: boolean;
+    sessionStatus?: 'paused' | 'finished';
+  } = {}
 ) {
   await prepareAdminDesignReview(page);
   await page
@@ -297,6 +302,12 @@ async function fixtures(
       attention: []
     }
   });
+  if (sessionStatus)
+    state.session = {
+      ...createSession(obligations[0]),
+      status: sessionStatus,
+      finishedAt: sessionStatus === 'finished' ? at : null
+    };
   await page.context().route('**/api/**', async (route) => {
     const request = route.request(),
       address = new URL(request.url());
@@ -1019,14 +1030,8 @@ for (const status of ['paused', 'finished'] as const) {
   test(`opening a ${status} work session cannot decide or invent uncertainty before explicit resume`, async ({
     page
   }) => {
-    const state = await fixtures(page);
-    await begin(page);
-    state.session = {
-      ...state.session!,
-      status,
-      finishedAt: status === 'finished' ? at : null
-    };
-    const writesBeforeOpen = state.writes.length;
+    const state = await fixtures(page, { sessionStatus: status });
+    expect(state.writes).toHaveLength(0);
     await page.goto(url(0, true));
     await expect(hook(page, 'work-session-state')).toHaveAttribute(
       'data-state',
@@ -1039,7 +1044,7 @@ for (const status of ['paused', 'finished'] as const) {
     );
     await expect(hook(page, 'examination-guidance-resume')).toBeVisible();
     await expect(hook(page, 'work-session-reconcile')).toHaveCount(0);
-    expect(state.writes).toHaveLength(writesBeforeOpen);
+    expect(state.writes).toHaveLength(0);
     await hook(page, 'examination-guidance-resume').click();
     await expect(hook(page, 'examination-approve')).toBeEnabled();
     expect(

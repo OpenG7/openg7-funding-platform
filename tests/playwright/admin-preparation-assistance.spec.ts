@@ -352,6 +352,17 @@ async function fixtures(
 
 async function open(page: Page) {
   await page.goto(controllerPath('publication'));
+  await openAgreement(page);
+}
+
+async function openAgreement(page: Page) {
+  const toggle = page.locator(
+    '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
+  );
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true')
+    await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(hook(page, 'admin-commitments')).toBeVisible();
 }
 
@@ -492,6 +503,7 @@ for (const locale of ['en', 'fr-CA']) {
     );
     await expect(gear).toHaveCSS('animation-name', 'none');
     await page.reload();
+    await openAgreement(page);
     await expect(hook(page, 'assistance-run-state')).toHaveAttribute(
       'data-og7-state',
       'queued'

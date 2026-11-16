@@ -54,6 +54,7 @@ import { AdminSponsorRefundWorkflow } from '../../services/admin-sponsor-refund-
 import { AdminSponsorMediaWorkflow } from '../../services/admin-sponsor-media-workflow.js';
 import { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
@@ -104,6 +105,8 @@ import { AdminSponsorAuditHistoryComponent } from '../../components/admin-sponso
 import { AdminSponsorRejectionPanelComponent } from '../../components/admin-sponsors/admin-sponsor-rejection-panel.component.js';
 import { AdminSponsorRefundPanelComponent } from '../../components/admin-sponsors/admin-sponsor-refund-panel.component.js';
 import { AdminSponsorDecisionActionsComponent } from '../../components/admin-sponsors/admin-sponsor-decision-actions.component.js';
+import { AdminSponsorPublicationDecisionComponent } from '../../components/admin-sponsors/admin-sponsor-publication-decision.component.js';
+import { AdminSponsorshipPublicationComponent } from '../../components/admin-sponsors/admin-sponsorship-publication.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import {
   AssistantDossierNavigation,
@@ -125,6 +128,8 @@ type SponsorDossierTool = 'moderation' | 'access' | 'agreement';
     AdminSponsorRejectionPanelComponent,
     AdminSponsorRefundPanelComponent,
     AdminSponsorDecisionActionsComponent,
+    AdminSponsorPublicationDecisionComponent,
+    AdminSponsorshipPublicationComponent,
     TranslatePipe,
     AdminSponsorDetailMediaComponent,
     AdminSponsorshipProgressComponent,
@@ -219,7 +224,11 @@ export class AdminSponsorsPageComponent implements OnInit {
     if (!this.dossierToolBusy()) void this.sponsorInterventions()?.open();
   }
 
-  openDossierTool(tool: SponsorDossierTool, toggle = true): void {
+  openDossierTool(
+    tool: SponsorDossierTool,
+    toggle = true,
+    focusPanel = true
+  ): void {
     if (
       this.dossierToolBusy() ||
       (tool === 'access' && !this.canUseOwnerActions()) ||
@@ -236,6 +245,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       active && panel?.contains(active) ? active : null;
     this.visitedDossierTools.update((visited) => new Set([...visited, tool]));
     this.dossierTool.set(tool);
+    if (!focusPanel) return;
     const sponsorshipId = this.selectedSponsorshipId();
     afterNextRender(
       () => {
@@ -385,6 +395,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly moderation = inject(FundingModerationService);
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
+  private readonly workflowGuidance = inject(AdminGuidanceService);
   private readonly injector = inject(Injector);
   private readonly rejectionPanel = viewChild(
     AdminSponsorRejectionPanelComponent
@@ -392,6 +403,9 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly refundPanel = viewChild(AdminSponsorRefundPanelComponent);
   private readonly decisionActions = viewChild(
     AdminSponsorDecisionActionsComponent
+  );
+  private readonly publicationDecisionActions = viewChild(
+    AdminSponsorPublicationDecisionComponent
   );
   readonly canManage = computed(() => this.admin.identity()?.role !== 'reader');
   readonly canUseOwnerActions = computed(
@@ -874,6 +888,43 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.dossierTool.set(null);
       }
     });
+    afterRenderEffect(() => {
+      const request = this.workflowGuidance.workflowAgreementRequest();
+      if (!request) return;
+      if (
+        request.sessionGeneration !== this.admin.sessionGeneration() ||
+        request.contributionId !== this.workflowGuidance.paymentContext()
+      ) {
+        untracked(() =>
+          this.workflowGuidance.consumeWorkflowAgreement(request)
+        );
+        return;
+      }
+      if (this.state() !== 'ready') return;
+      if (
+        request.contributionId !== this.selectedSponsorshipId() ||
+        this.activeTab() !== 'publication'
+      ) {
+        untracked(() =>
+          this.workflowGuidance.consumeWorkflowAgreement(request)
+        );
+        return;
+      }
+      if (
+        this.progress()?.contributionId !== request.contributionId ||
+        this.dossierToolBusy()
+      )
+        return;
+      const modal =
+        this.sponsorDetailPanel?.nativeElement.ownerDocument.querySelector(
+          'dialog[open]'
+        );
+      untracked(() => {
+        this.workflowGuidance.consumeWorkflowAgreement(request);
+        if (!modal && this.dossierTool() !== 'agreement')
+          this.openDossierTool('agreement', false, false);
+      });
+    });
     let agreementRoute = '';
     afterRenderEffect(() => {
       const fragment = this.websiteSettingsFragment();
@@ -1065,7 +1116,9 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
   closeRejectionPanel(): void {
     if (!this.reviewWorkflow.closeRejectionPanel()) return;
-    this.decisionActions()?.focusRejectButton();
+    if (this.activeTab() === 'publication')
+      this.publicationDecisionActions()?.focusRejectButton();
+    else this.decisionActions()?.focusRejectButton();
   }
 
   openRefundPanel(sponsorship: AdminSponsorshipRecord): void {
@@ -1219,6 +1272,41 @@ export class AdminSponsorsPageComponent implements OnInit {
       );
     }
 
+    return '';
+  }
+
+  publicationDecisionReviewMessage(
+    sponsorship: AdminSponsorshipRecord
+  ): string {
+    const message = this.reviewWorkflow.reviewMessageFor(sponsorship.id);
+    return this.versionConflict() ||
+      message === this.i18n.t('admin.dossier.conflict')
+      ? ''
+      : message;
+  }
+
+  publicationDecisionUnavailableReason(
+    sponsorship: AdminSponsorshipRecord
+  ): string {
+    if (!this.canManage()) return '';
+    if (this.state() === 'loading')
+      return this.i18n.t('admin.publicationDecision.unavailable.loading');
+    if (this.versionConflict())
+      return this.i18n.t('admin.publicationDecision.unavailable.conflict');
+    if (this.admin.mediaMutationBusy())
+      return this.i18n.t('admin.publicationDecision.unavailable.mediaBusy');
+    if (this.actionState() !== null)
+      return this.reviewWorkflow.reviewMessageFor(sponsorship.id)
+        ? ''
+        : this.i18n.t('admin.publicationDecision.unavailable.pending');
+    if (
+      sponsorship.sponsor_review_status !== 'approved' &&
+      !this.reviewWorkflow.canApproveSponsorship(sponsorship)
+    )
+      return (
+        this.paymentEligibilityMessage(sponsorship) ||
+        this.i18n.t('admin.publicationDecision.unavailable.payment')
+      );
     return '';
   }
 
