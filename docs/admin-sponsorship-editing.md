@@ -51,11 +51,8 @@ rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
 ## Outils du dossier à la demande
 
 L’en-tête du dossier propose **Modération éditoriale** pour l’opérateur ou le
-propriétaire. La barre conserve **Accès au suivi** pour le propriétaire et propose
-**Accord** depuis chaque onglet. Un panneau non modal affiche un seul de ces
-outils à la fois. **Accord** ouvre les engagements enregistrés à la demande, avec
-les mêmes commandes de qualification, d’ajustement et de délai ou de durée;
-leurs mutations restent réservées au propriétaire. La modération
+propriétaire. La barre conserve **Accès au suivi** pour le propriétaire.
+Un panneau non modal affiche un seul de ces outils à la fois. La modération
 réutilise le composant de décisions existant et sa confirmation du contenu exact.
 
 À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
@@ -68,15 +65,36 @@ de session, même avec le même rôle, réinitialise les outils visités et effa
 le contexte de modération précédent. Dans la nouvelle session, la modération repart au niveau
 **Demander une correction (N1)** ; le niveau choisi reste conservé pour la même
 session et le même dossier. Leur fermeture est bloquée pendant une
-opération de modération, d’accès, de qualification ou d’ajustement en cours,
-ainsi que lorsqu’une commande d’accord reste à réconcilier.
+commande en cours ou à réconcilier dans le dossier.
 Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
 
-Le panneau Accord n’est pas monté pendant la simple consultation de Publication.
+**Publication** regroupe les engagements et leur réalisation. Son bloc repliable
+**Prestations convenues** présente l’offre acceptée, les quantités, les formats
+et les délais sous forme de lignes avec icônes et libellés accessibles. Chaque
+ligne ouvre **Détails de l’offre** et focalise sa carte de conditions complètes,
+au clavier comme au toucher. Le montant de l’offre, sa devise et son origine
+précèdent les conditions initialement acceptées ou documentées ; les exigences,
+formats et périodes restent explicites. Les périodes non précisées restent
+indiquées par un tiret dans le résumé. Les versions et références sont regroupées
+dans **Traçabilité de l’offre**, repliée par défaut. **Retour au résumé** referme les détails
+et rend le focus à la même ligne sans replier les prestations ni perdre une commande.
+Lorsque les engagements restent à confirmer, il propose
+**Prestations à documenter**, avec la qualification historique et l’assistance
+existantes. L’éditeur n’est monté qu’au premier dépliage, puis reste monté pour
+le même dossier et la même session. Un changement de dossier ou de session le
+réinitialise. Le repli est bloqué pendant une commande en cours ou incertaine.
+
+La liste des prestations et leurs états n’apparaissent qu’une fois, dans le suivi
+de Publication. Les détails de chaque prestation présentent son format, sa
+version et ses délais, également consultables par les lecteurs et opérateurs.
+Les ajustements et les commandes de délai ou de durée restent réservés au
+propriétaire. Les prestations ajustées ou dispensées restent dans l’historique
+du bloc. Les preuves restent accessibles depuis le suivi. Les commandes conservent leurs versions,
+confirmations, audits et reprise d’un résultat incertain.
+
 Les liens existants `tab=publication#dossier-agreement` et les fragments
-`dossier-assistance-source` / `dossier-assistance-review` l’ouvrent automatiquement
-pour le dossier exact. Les commandes d’accord conservent versions, confirmations
-et reprise d’un résultat incertain; aucune donnée, API ou règle métier n’est supprimée.
+`dossier-assistance-source` / `dossier-assistance-review` déplient automatiquement
+ce bloc pour le dossier exact, sans ouvrir d’outil séparé ni exécuter de mutation.
 
 **Note interne** ouvre le même tiroir depuis chaque onglet, sans quitter celui-ci.
 Les brouillons, la limite de 1 000 caractères, la lecture seule, la sauvegarde
@@ -110,6 +128,17 @@ dans **Fiche et médias** ; leur sauvegarde conserve le workflow versionné exis
 Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
 `/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
 dans un dossier reste borné à ce dossier.
+
+L’audit historique présente une table compacte sur ordinateur et les mêmes lignes
+en cartes sur mobile. **Examiner** ouvre un panneau contextuel à droite ou sous
+la liste : observations détaillées, éléments requis, références et formulaire
+restent associés à la preuve sélectionnée. Examiner à nouveau cette preuve
+conserve son brouillon. **Annuler** ou fermer abandonne explicitement le brouillon
+et rend le focus au même bouton ; ces actions sont bloquées pendant une commande
+en cours ou à réconcilier. **À propos de cet audit** conserve les explications de
+portée et de pagination, avec les totaux globaux dans le portefeuille seulement.
+Les dates restent affichées à Toronto. La dernière conclusion administrative
+reste distincte des constats ; aucun constat ni examen n’autorise une publication.
 
 ## Identité et coordonnées
 
@@ -288,7 +317,8 @@ pour la sélection, les commandes et les limites de la simulation Gamepad, ainsi
 que le [vocabulaire commun](technical/admin-campaigns.md#vocabulaire-des-operations).
 
 Pour un accord historique à qualifier, le propriétaire peut enregistrer un texte
-privé versionné et lancer une **assistance locale** depuis la section de l’accord.
+privé versionné et lancer une **assistance locale** depuis **Publication →
+Prestations à documenter**.
 Une nouvelle source admissible démarre le traitement dès son enregistrement ;
 une source identique ou la simple consultation ne le relance pas.
 Le tableau rapproche les détails explicitement repérés de leur source : nature,
@@ -318,12 +348,12 @@ disponibles et au parcours propriétaire : Comptoir collectif, espace de prépar
 Examiner, planification ou preuve. Le suivi distingue les propositions des
 livraisons et conserve les erreurs de lecture explicites. **Voir la préparation**,
 lorsqu’une activité enregistrée existe, ouvre son tiroir transversal depuis
-l’en-tête du suivi. Les engagements ne sont plus affichés dans ce contenu :
-**Outils du dossier → Accord** ouvre leur panneau depuis la barre globale.
+l’en-tête du suivi. Les termes acceptés se consultent dans **Prestations convenues**
+et les ajustements s’ouvrent depuis les détails de la prestation concernée.
 L’autorisation reste celle du contenu et de la livraison exacts dans le tiroir
 partagé. Le suivi Web et les canaux sociaux gardent leurs décisions indépendantes ;
-un canal non promis n’est pas un prérequis de livraison. Les références de preuve
-qualifiées dans l’accord rejoignent la prestation exacte dans **Campagnes**.
+un canal non promis n’est pas un prérequis de livraison. Les détails du suivi
+affichent les preuves qualifiées et rejoignent la prestation exacte dans **Campagnes**.
 Les dates et la portée de la réalisation restent distinctes de l'observation
 actuelle de visibilité ; une référence déclarée seule ne solde pas une prestation.
 Voir le [contrat de visibilité des preuves](technical/admin-campaigns.md).

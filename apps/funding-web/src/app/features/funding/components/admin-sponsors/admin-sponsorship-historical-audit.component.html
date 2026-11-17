@@ -1,49 +1,175 @@
+<ng-template #findingBadges let-item>
+  <div class="audit-findings" data-og7="historical-audit-findings">
+    @if (item.findings.length === 0) {
+      <span
+        class="audit-finding"
+        role="img"
+        data-og7="historical-audit-finding"
+        data-og7-id="no_issue_detected"
+        [attr.aria-label]="
+          'admin.historicalAudit.findings.no_issue_detected' | translate
+        "
+        [title]="'admin.historicalAudit.findings.no_issue_detected' | translate"
+      >
+        <openg7-admin-icon name="info" />
+        <span aria-hidden="true">{{
+          'admin.historicalAudit.filterLabels.no_issue_detected' | translate
+        }}</span>
+      </span>
+    }
+    @for (finding of item.findings; track finding) {
+      <span
+        class="audit-finding"
+        role="img"
+        data-og7="historical-audit-finding"
+        [attr.data-og7-id]="finding"
+        [attr.aria-label]="
+          'admin.historicalAudit.findings.' + finding | translate
+        "
+        [title]="'admin.historicalAudit.findings.' + finding | translate"
+      >
+        <openg7-admin-icon [name]="findingIcon(finding)" />
+        <span aria-hidden="true">{{
+          'admin.historicalAudit.filterLabels.' + finding | translate
+        }}</span>
+      </span>
+    }
+  </div>
+</ng-template>
+
 <section
+  class="historical-audit"
   data-og7="historical-evidence-audit"
-  class="mt-6 space-y-4 rounded-xl border border-slate-300 p-4"
   aria-labelledby="historical-audit-title"
 >
-  <h3 id="historical-audit-title" class="font-semibold">
-    {{ 'admin.historicalAudit.title' | translate }}
-  </h3>
-  <p>{{ 'admin.historicalAudit.description' | translate }}</p>
+  <header class="audit-header">
+    <h3 id="historical-audit-title" class="audit-title">
+      <openg7-admin-icon name="audit" />
+      {{ 'admin.historicalAudit.title' | translate }}
+    </h3>
+    @if (canOwn()) {
+      <div class="audit-metadata">
+        <p data-og7="historical-audit-scope">
+          <openg7-admin-icon
+            [name]="scope() === 'portfolio' ? 'grid' : 'building'"
+          />
+          {{
+            labels.t(
+              scope() === 'portfolio'
+                ? 'audit.compact.scopePortfolio'
+                : 'audit.compact.scopeDossier'
+            )
+          }}
+        </p>
+        @if (c.data(); as data) {
+          <p
+            data-og7="historical-audit-page-summary"
+            data-og7-id="historical-audit-counts"
+          >
+            {{
+              labels.t('audit.compact.visibleCount', {
+                count: data.items.length,
+                filtered: data.totals.filtered
+              })
+            }}
+          </p>
+          <p data-og7="historical-audit-as-of">
+            <openg7-admin-icon name="calendar" />
+            {{ labels.t('audit.compact.inventoryDate') }}
+            @if (date(data.asOf); as asOf) {
+              <time [attr.datetime]="data.asOf">{{ asOf }}</time>
+              <span>{{ labels.t('audit.timezone') }}</span>
+            } @else {
+              {{ labels.t('audit.dateUnavailable') }}
+            }
+          </p>
+        }
+      </div>
+    }
+  </header>
+
+  <details class="audit-help" data-og7="historical-audit-help">
+    <summary>
+      <openg7-admin-icon name="info" />{{ labels.t('audit.compact.about') }}
+    </summary>
+    <p>{{ 'admin.historicalAudit.description' | translate }}</p>
+    @if (canOwn()) {
+      <p>
+        {{
+          labels.t(
+            scope() === 'portfolio'
+              ? 'audit.portfolioScope'
+              : 'audit.dossierScope'
+          )
+        }}
+      </p>
+      <p>{{ labels.t('audit.snapshotScope') }}</p>
+      <p>{{ labels.t('audit.nextPageScope') }}</p>
+      <p>{{ labels.t('audit.reviewScope') }}</p>
+      @if (c.data(); as data) {
+        <p>
+          {{
+            labels.t('audit.pageCount', {
+              count: data.items.length,
+              limit: data.pageSize
+            })
+          }}
+        </p>
+        @if (scope() === 'portfolio') {
+          <p>
+            {{
+              'admin.historicalAudit.counts'
+                | translate
+                  : {
+                      total: data.totals.evidence,
+                      filtered: data.totals.filtered,
+                      unreviewed: data.totals.unreviewed
+                    }
+            }}
+          </p>
+          <p>
+            {{
+              'admin.historicalAudit.globalCounts'
+                | translate
+                  : {
+                      duration: data.totals.durationUnverified,
+                      missing: data.totals.requiredElementMissing,
+                      incomplete: data.totals.snapshotIncomplete
+                    }
+            }}
+          </p>
+        } @else {
+          <p>
+            {{
+              labels.t('audit.dossierCounts', { count: data.totals.filtered })
+            }}
+          </p>
+        }
+      }
+      @if (scope() === 'dossier') {
+        <a
+          class="admin-link audit-link"
+          routerLink="/admin/fundraiser/sponsors/quality"
+          [queryParams]="{ returnSponsorshipId: contributionId() }"
+          data-og7="historical-audit-open-quality"
+        >
+          <openg7-admin-icon name="grid" />{{ labels.t('openQuality')
+          }}<openg7-admin-icon name="arrow" />
+        </a>
+      }
+    }
+  </details>
+
   @if (!canOwn()) {
     <p>{{ 'admin.historicalAudit.ownerRequired' | translate }}</p>
   } @else {
-    <p data-og7="historical-audit-scope">
-      {{
-        labels.t(
-          scope() === 'portfolio'
-            ? 'audit.portfolioScope'
-            : 'audit.dossierScope'
-        )
-      }}
-    </p>
-    @if (scope() === 'dossier') {
-      <a
-        class="admin-link"
-        routerLink="/admin/fundraiser/sponsors/quality"
-        [queryParams]="{ returnSponsorshipId: contributionId() }"
-        data-og7="historical-audit-open-quality"
-        >{{ labels.t('openQuality') }}</a
-      >
-    }
-    <div class="flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        class="admin-button"
-        data-og7-id="historical-audit-load"
-        [disabled]="c.loading() || c.saving()"
-        (click)="c.load()"
-      >
-        {{ 'admin.historicalAudit.load' | translate }}
-      </button>
-      <label class="audit-filter"
-        >{{ 'admin.historicalAudit.filter' | translate }}
+    <div class="audit-toolbar">
+      <label class="audit-filter">
+        {{ 'admin.historicalAudit.filter' | translate }}
         <select
           class="admin-select"
           [value]="c.filter()"
-          [disabled]="c.saving() || !!c.pending()"
+          [disabled]="busy()"
           (change)="setFilter($event)"
         >
           <option value="">
@@ -56,198 +182,445 @@
           }
         </select>
       </label>
+      <button
+        type="button"
+        class="admin-button audit-action"
+        data-og7-id="historical-audit-load"
+        [disabled]="c.loading() || c.saving()"
+        (click)="c.load()"
+      >
+        <openg7-admin-icon name="refresh" />{{
+          labels.t('audit.compact.refresh')
+        }}
+      </button>
     </div>
     @if (c.loading()) {
-      <p role="status">{{ 'admin.historicalAudit.loading' | translate }}</p>
+      <p class="audit-status" role="status">
+        <openg7-admin-icon name="refresh" />{{
+          'admin.historicalAudit.loading' | translate
+        }}
+      </p>
     }
-    @if (c.error()) {
-      <p role="alert" class="text-red-800">
-        {{ 'admin.historicalAudit.' + c.error() | translate }}
+    @if (c.error() && !selectedEvidenceId()) {
+      <p role="alert" class="audit-status">
+        <openg7-admin-icon name="warning" />{{
+          'admin.historicalAudit.' + c.error() | translate
+        }}
       </p>
     }
     @if (c.saved()) {
-      <p role="status">{{ 'admin.historicalAudit.saved' | translate }}</p>
+      <p class="audit-status" role="status">
+        <openg7-admin-icon name="info" />{{
+          'admin.historicalAudit.saved' | translate
+        }}
+      </p>
     }
-    @if (c.data(); as data) {
-      <div class="audit-reading-scope">
-        <p data-og7="historical-audit-as-of">
-          {{ labels.t('audit.asOf') }}
-          @if (date(data.asOf); as asOf) {
-            <time [attr.datetime]="data.asOf">{{ asOf }}</time>
-            <span>{{ labels.t('audit.timezone') }}</span>
-          } @else {
-            {{ labels.t('audit.dateUnavailable') }}
-          }
-        </p>
-        <p data-og7="historical-audit-page-summary">
-          {{
-            labels.t('audit.pageCount', {
-              count: data.items.length,
-              limit: data.pageSize
-            })
-          }}
-        </p>
-        <p>{{ labels.t('audit.snapshotScope') }}</p>
-      </div>
-      @if (scope() === 'portfolio') {
-        <p data-og7-id="historical-audit-counts">
-          {{
-            'admin.historicalAudit.counts'
-              | translate
-                : {
-                    total: data.totals.evidence,
-                    filtered: data.totals.filtered,
-                    unreviewed: data.totals.unreviewed
-                  }
-          }}
-        </p>
-        <p>
-          {{
-            'admin.historicalAudit.globalCounts'
-              | translate
-                : {
-                    duration: data.totals.durationUnverified,
-                    missing: data.totals.requiredElementMissing,
-                    incomplete: data.totals.snapshotIncomplete
-                  }
-          }}
-        </p>
-      } @else {
-        <p data-og7-id="historical-audit-counts">
-          {{ labels.t('audit.dossierCounts', { count: data.totals.filtered }) }}
-        </p>
-      }
-      @if (data.items.length === 0) {
-        <p>{{ 'admin.historicalAudit.empty' | translate }}</p>
-      }
-      <ul class="space-y-3">
-        @for (item of data.items; track item.evidenceId) {
-          <li
-            class="space-y-2 rounded-lg border border-slate-300 p-3"
-            data-og7-id="historical-audit-item"
+
+    <div
+      class="audit-workspace"
+      [attr.data-review-open]="!!selectedEvidenceId()"
+    >
+      <div class="audit-table-column">
+        @if (c.data(); as data) {
+          <table
+            class="audit-table"
+            data-og7="historical-audit-table"
+            aria-labelledby="historical-audit-title"
           >
-            <p class="audit-item-heading">
-              <strong
-                >{{
-                  'admin.commitments.channels.' + item.channel | translate
-                }}
-                · {{ item.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}</strong
-              >
-            </p>
-            <p>
-              {{ labels.t('audit.deliveredAt') }}
-              @if (date(item.deliveredAt); as deliveredAt) {
-                <time
-                  data-og7="historical-audit-evidence-date"
-                  [attr.datetime]="item.deliveredAt"
-                  >{{ deliveredAt }}</time
+            <thead>
+              <tr>
+                <th scope="col">{{ labels.t('audit.compact.channel') }}</th>
+                <th scope="col">{{ labels.t('audit.compact.delivery') }}</th>
+                <th scope="col">{{ labels.t('audit.compact.findings') }}</th>
+                <th scope="col">{{ labels.t('audit.compact.lastReview') }}</th>
+                <th scope="col">{{ labels.t('audit.compact.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of data.items; track item.evidenceId) {
+                <tr
+                  data-og7="historical-audit-row"
+                  data-og7-id="historical-audit-item"
+                  [attr.data-evidence-id]="item.evidenceId"
+                  [attr.data-selected]="
+                    selectedEvidenceId() === item.evidenceId
+                  "
                 >
-                <span>{{ labels.t('audit.timezone') }}</span>
-              } @else {
-                {{ labels.t('audit.dateUnavailable') }}
+                  <td class="audit-channel-cell">
+                    <span class="audit-cell-label" aria-hidden="true">{{
+                      labels.t('audit.compact.channel')
+                    }}</span>
+                    <div class="audit-item-heading">
+                      <openg7-admin-icon [name]="channelIcon(item.channel)" />
+                      <strong
+                        >{{
+                          'admin.commitments.channels.' + item.channel
+                            | translate
+                        }}<span class="audit-destination">{{
+                          item.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+                        }}</span></strong
+                      >
+                    </div>
+                  </td>
+                  <td>
+                    <span class="audit-cell-label" aria-hidden="true">{{
+                      labels.t('audit.compact.delivery')
+                    }}</span>
+                    <div class="audit-cell-body audit-date">
+                      @if (date(item.deliveredAt); as deliveredAt) {
+                        <time
+                          data-og7="historical-audit-evidence-date"
+                          [attr.datetime]="item.deliveredAt"
+                          >{{ deliveredAt }}</time
+                        >
+                        <span>{{ labels.t('audit.timezone') }}</span>
+                      } @else {
+                        {{ labels.t('audit.dateUnavailable') }}
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <span class="audit-cell-label" aria-hidden="true">{{
+                      labels.t('audit.compact.findings')
+                    }}</span>
+                    <div class="audit-cell-body">
+                      <ng-container
+                        [ngTemplateOutlet]="findingBadges"
+                        [ngTemplateOutletContext]="{ $implicit: item }"
+                      />
+                    </div>
+                  </td>
+                  <td>
+                    <span class="audit-cell-label" aria-hidden="true">{{
+                      labels.t('audit.compact.lastReview')
+                    }}</span>
+                    <div class="audit-cell-body">
+                      @if (item.latestReview; as review) {
+                        <section
+                          data-og7="historical-audit-latest-review"
+                          class="audit-table-review"
+                        >
+                          <p class="audit-review-conclusion">
+                            <openg7-admin-icon
+                              [name]="conclusionIcon(review.conclusion)"
+                            />{{
+                              'admin.historicalAudit.conclusions.' +
+                                review.conclusion | translate
+                            }}
+                          </p>
+                          <p class="audit-date">
+                            @if (date(review.reviewedAt); as reviewedAt) {
+                              <time
+                                data-og7="historical-audit-review-date"
+                                [attr.datetime]="review.reviewedAt"
+                                >{{ reviewedAt }}</time
+                              >
+                              <span>{{ labels.t('audit.timezone') }}</span>
+                            } @else {
+                              {{ labels.t('audit.dateUnavailable') }}
+                            }
+                          </p>
+                        </section>
+                      } @else {
+                        <span
+                          class="audit-no-review"
+                          data-og7="historical-audit-no-review"
+                          [title]="labels.t('audit.noReview')"
+                        >
+                          <openg7-admin-icon name="info" />{{
+                            labels.t('audit.compact.noReview')
+                          }}
+                        </span>
+                      }
+                    </div>
+                  </td>
+                  <td class="audit-actions-cell">
+                    <span class="audit-cell-label" aria-hidden="true">{{
+                      labels.t('audit.compact.actions')
+                    }}</span>
+                    <div class="audit-row-actions">
+                      <a
+                        class="admin-link audit-link"
+                        [routerLink]="
+                          busy() ? null : '/admin/fundraiser/campaigns'
+                        "
+                        [attr.aria-disabled]="busy() ? 'true' : null"
+                        [queryParams]="{
+                          sponsorshipId: item.contributionId,
+                          obligationId: item.obligationId
+                        }"
+                        [attr.aria-label]="
+                          labels.t('audit.compact.view') +
+                          ' : ' +
+                          labels.t('audit.openEvidence')
+                        "
+                        [title]="labels.t('audit.openEvidence')"
+                        data-og7="historical-audit-open-evidence"
+                      >
+                        {{ labels.t('audit.compact.view')
+                        }}<openg7-admin-icon name="arrow" />
+                      </a>
+                      <button
+                        type="button"
+                        class="admin-button audit-action"
+                        data-og7="historical-audit-examine"
+                        data-og7-id="historical-audit-review"
+                        [attr.data-evidence-id]="item.evidenceId"
+                        [attr.aria-label]="reviewLabel(item)"
+                        [attr.aria-expanded]="
+                          selectedEvidenceId() === item.evidenceId
+                        "
+                        aria-controls="historical-audit-review-panel"
+                        [disabled]="c.loading() || busy()"
+                        (click)="openReview(item, $event)"
+                      >
+                        {{ labels.t('audit.compact.examine') }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr class="audit-empty">
+                  <td colspan="5">
+                    {{ 'admin.historicalAudit.empty' | translate }}
+                  </td>
+                </tr>
               }
+            </tbody>
+          </table>
+          <footer class="audit-pagination">
+            <p>
+              {{
+                labels.t('audit.pageCount', {
+                  count: data.items.length,
+                  limit: data.pageSize
+                })
+              }}
             </p>
-            <a
-              class="admin-link"
-              [routerLink]="
-                c.saving() || c.pending() ? null : '/admin/fundraiser/campaigns'
-              "
-              [attr.aria-disabled]="c.saving() || c.pending() ? 'true' : null"
-              [queryParams]="{
-                sponsorshipId: item.contributionId,
-                obligationId: item.obligationId
-              }"
-              data-og7="historical-audit-open-evidence"
-              >{{ labels.t('audit.openEvidence') }}</a
+            @if (data.nextCursor) {
+              <button
+                type="button"
+                class="admin-button audit-action"
+                data-og7-id="historical-audit-next"
+                [disabled]="c.loading() || busy()"
+                (click)="c.load(data.nextCursor)"
+              >
+                {{ 'admin.historicalAudit.next' | translate
+                }}<openg7-admin-icon name="arrow" />
+              </button>
+            }
+          </footer>
+        }
+      </div>
+
+      @if (selectedEvidenceId()) {
+        <aside
+          #reviewPanel
+          id="historical-audit-review-panel"
+          class="audit-review-panel"
+          data-og7="historical-audit-review-panel"
+          aria-labelledby="historical-audit-panel-title"
+          tabindex="-1"
+          (keydown.escape)="closeReview($event)"
+        >
+          <header class="audit-panel-header">
+            <h4 id="historical-audit-panel-title">
+              <openg7-admin-icon name="edit" />{{
+                labels.t('audit.compact.panelTitle')
+              }}
+            </h4>
+            <button
+              type="button"
+              class="admin-button audit-close"
+              data-og7="historical-audit-close"
+              [disabled]="busy()"
+              [attr.aria-label]="labels.t('audit.compact.close')"
+              [title]="labels.t('audit.compact.close')"
+              (click)="closeReview()"
             >
-            @if (scope() === 'portfolio') {
-              <a
-                class="admin-link"
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{
-                  sponsorshipId: item.contributionId,
-                  tab: 'publication',
-                  returnTo: '/admin/fundraiser/sponsors/quality'
-                }"
-                fragment="dossier-agreement"
-                >{{ labels.t('openDossier') }}</a
-              >
-            }
-            @if (item.findings.length === 0) {
-              <p>
-                {{
-                  'admin.historicalAudit.findings.no_issue_detected' | translate
+              <openg7-admin-icon name="close" />
+            </button>
+          </header>
+          @if (c.selected(); as selected) {
+            <div class="audit-panel-source">
+              <h5>
+                <openg7-admin-icon [name]="channelIcon(selected.channel)" />{{
+                  'admin.commitments.channels.' + selected.channel | translate
                 }}
-              </p>
-            }
-            @for (finding of item.findings; track finding) {
-              <p>
-                {{ 'admin.historicalAudit.findings.' + finding | translate }}
-              </p>
-            }
-            @for (requirement of item.requirements; track requirement.element) {
-              <p>
-                {{
-                  'admin.historicalAudit.elements.' + requirement.element
-                    | translate
-                }}:
-                {{
-                  'admin.historicalAudit.observations.' +
-                    requirement.observation | translate
+                · {{ selected.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+              </h5>
+              <p class="audit-panel-date">
+                <openg7-admin-icon name="calendar" />{{
+                  labels.t('audit.deliveredAt')
                 }}
+                @if (date(selected.deliveredAt); as deliveredAt) {
+                  <time
+                    data-og7="historical-audit-panel-evidence-date"
+                    [attr.datetime]="selected.deliveredAt"
+                    >{{ deliveredAt }}</time
+                  >
+                  <span>{{ labels.t('audit.timezone') }}</span>
+                } @else {
+                  {{ labels.t('audit.dateUnavailable') }}
+                }
               </p>
-            }
-            @if (item.latestReview; as review) {
+              @if (scope() === 'portfolio') {
+                <a
+                  class="admin-link audit-link"
+                  [routerLink]="busy() ? null : '/admin/fundraiser/sponsors'"
+                  [attr.aria-disabled]="busy() ? 'true' : null"
+                  [queryParams]="{
+                    sponsorshipId: selected.contributionId,
+                    tab: 'publication',
+                    returnTo: '/admin/fundraiser/sponsors/quality'
+                  }"
+                  fragment="dossier-agreement"
+                  ><openg7-admin-icon name="building" />{{
+                    labels.t('openDossier')
+                  }}<openg7-admin-icon name="arrow"
+                /></a>
+              }
+            </div>
+            <section
+              class="audit-panel-section"
+              aria-labelledby="historical-audit-panel-findings-title"
+            >
+              <h5 id="historical-audit-panel-findings-title">
+                {{ labels.t('audit.compact.findings') }}
+              </h5>
+              <ng-container
+                [ngTemplateOutlet]="findingBadges"
+                [ngTemplateOutletContext]="{ $implicit: selected }"
+              />
+            </section>
+            @if (selected.requirements.length) {
               <section
-                class="audit-latest-review"
-                data-og7="historical-audit-latest-review"
+                class="audit-panel-section"
+                aria-labelledby="historical-audit-panel-requirements-title"
               >
-                <h4>{{ labels.t('audit.latestReview') }}</h4>
+                <h5 id="historical-audit-panel-requirements-title">
+                  {{ labels.t('audit.compact.requirements') }}
+                </h5>
+                <div
+                  class="audit-requirements"
+                  data-og7="historical-audit-requirements"
+                >
+                  @for (
+                    requirement of selected.requirements;
+                    track requirement.element
+                  ) {
+                    <span
+                      class="audit-requirement"
+                      role="img"
+                      data-og7="historical-audit-requirement"
+                      [attr.data-og7-id]="requirement.element"
+                      [attr.data-observation]="requirement.observation"
+                      [attr.aria-label]="requirementLabel(requirement)"
+                      [title]="requirementLabel(requirement)"
+                    >
+                      <openg7-admin-icon
+                        [name]="requirementIcon(requirement.element)"
+                      />
+                      <span aria-hidden="true"
+                        >{{
+                          'admin.historicalAudit.elements.' +
+                            requirement.element | translate
+                        }}
+                        :
+                        <strong>{{
+                          'admin.historicalAudit.observations.' +
+                            requirement.observation | translate
+                        }}</strong>
+                      </span>
+                    </span>
+                  }
+                </div>
+              </section>
+            }
+            <details
+              class="audit-observations"
+              data-og7="historical-audit-observations"
+            >
+              <summary>
+                <openg7-admin-icon name="search" />{{
+                  labels.t('audit.detailedObservations')
+                }}
+              </summary>
+              @if (selected.findings.length === 0) {
                 <p>
                   {{
+                    'admin.historicalAudit.findings.no_issue_detected'
+                      | translate
+                  }}
+                </p>
+              }
+              @for (finding of selected.findings; track finding) {
+                <p>
+                  {{ 'admin.historicalAudit.findings.' + finding | translate }}
+                </p>
+              }
+              @for (
+                requirement of selected.requirements;
+                track requirement.element
+              ) {
+                <p>{{ requirementLabel(requirement) }}</p>
+              }
+            </details>
+            @if (panelCurrentRecord()?.latestReview; as review) {
+              <section
+                class="audit-latest-review"
+                data-og7="historical-audit-panel-latest-review"
+              >
+                <h5>{{ labels.t('audit.latestReview') }}</h5>
+                <p class="audit-review-conclusion">
+                  <openg7-admin-icon
+                    [name]="conclusionIcon(review.conclusion)"
+                  />{{
                     'admin.historicalAudit.conclusions.' + review.conclusion
                       | translate
                   }}
                 </p>
-                <p>
+                <p class="audit-date">
                   @if (date(review.reviewedAt); as reviewedAt) {
-                    <time
-                      data-og7="historical-audit-review-date"
-                      [attr.datetime]="review.reviewedAt"
-                      >{{ reviewedAt }}</time
-                    >
+                    <time [attr.datetime]="review.reviewedAt">{{
+                      reviewedAt
+                    }}</time>
                     <span>{{ labels.t('audit.timezone') }}</span>
                   } @else {
                     {{ labels.t('audit.dateUnavailable') }}
                   }
                 </p>
-                <p>{{ labels.t('audit.reviewScope') }}</p>
+                <p class="audit-reading-scope">
+                  {{ labels.t('audit.reviewScope') }}
+                </p>
               </section>
             } @else {
-              <p data-og7="historical-audit-no-review">
-                {{ labels.t('audit.noReview') }}
-              </p>
+              <p class="audit-status">{{ labels.t('audit.noReview') }}</p>
             }
             <details data-og7="historical-audit-references">
-              <summary>{{ labels.t('audit.references') }}</summary>
+              <summary>
+                <openg7-admin-icon name="tag" />{{
+                  labels.t('audit.references')
+                }}
+              </summary>
               <dl class="audit-references">
                 <div>
                   <dt>{{ labels.t('audit.evidenceReference') }}</dt>
                   <dd>
-                    <code>{{ item.evidenceId }}</code>
+                    <code>{{ selected.evidenceId }}</code>
                   </dd>
                 </div>
                 <div>
                   <dt>{{ labels.t('audit.obligationReference') }}</dt>
                   <dd>
-                    <code>{{ item.obligationId }}</code>
+                    <code>{{ selected.obligationId }}</code>
                   </dd>
                 </div>
                 <div>
                   <dt>{{ labels.t('audit.reviewVersion') }}</dt>
-                  <dd>{{ item.reviewVersion }}</dd>
+                  <dd>{{ panelCurrentRecord()?.reviewVersion }}</dd>
                 </div>
-                @if (item.latestReview; as review) {
+                @if (panelCurrentRecord()?.latestReview; as review) {
                   <div>
                     <dt>{{ labels.t('audit.reviewReference') }}</dt>
                     <dd>
@@ -257,101 +630,155 @@
                 }
               </dl>
             </details>
+            <form
+              data-og7-id="historical-audit-form"
+              class="audit-review-form"
+              (submit)="$event.preventDefault(); c.submit()"
+            >
+              <label>
+                {{ 'admin.historicalAudit.conclusion' | translate }}
+                <select
+                  class="admin-select"
+                  [disabled]="busy()"
+                  (change)="setConclusion($event)"
+                >
+                  @for (conclusion of conclusions; track conclusion) {
+                    <option
+                      [value]="conclusion"
+                      [selected]="
+                        (c.pending()?.conclusion ?? c.conclusion()) ===
+                        conclusion
+                      "
+                    >
+                      {{
+                        'admin.historicalAudit.conclusions.' + conclusion
+                          | translate
+                      }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <label>
+                {{ 'admin.historicalAudit.reason' | translate }}
+                <textarea
+                  class="admin-input"
+                  rows="3"
+                  maxlength="2000"
+                  [value]="c.pending()?.reason ?? c.reason()"
+                  [disabled]="busy()"
+                  (input)="setReason($event)"
+                ></textarea>
+              </label>
+              <label class="audit-confirmation">
+                <input
+                  type="checkbox"
+                  [checked]="
+                    c.pending()
+                      ? c.pending()?.confirmation === selected.evidenceId
+                      : c.confirmation()
+                  "
+                  [disabled]="busy()"
+                  (change)="setConfirmation($event)"
+                />
+                {{ 'admin.historicalAudit.confirmation' | translate }}
+              </label>
+              <div class="audit-form-actions">
+                <button
+                  type="submit"
+                  class="admin-button audit-action"
+                  data-og7-id="historical-audit-save"
+                  [disabled]="
+                    !c.confirmation() ||
+                    !c.reason().trim() ||
+                    c.saving() ||
+                    c.loading() ||
+                    !!c.pending()
+                  "
+                >
+                  <openg7-admin-icon name="audit" />{{
+                    'admin.historicalAudit.save' | translate
+                  }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="historical-audit-cancel"
+                  [disabled]="busy()"
+                  (click)="closeReview()"
+                >
+                  {{ labels.t('audit.compact.cancel') }}
+                </button>
+              </div>
+            </form>
+          } @else if (c.pending(); as pending) {
+            <p class="audit-reading-scope">
+              {{ labels.t('audit.evidenceReference') }}
+            </p>
+            <p class="audit-pending-reference">
+              <code>{{ pending.evidenceId }}</code>
+            </p>
+          }
+          @if (c.error()) {
+            <p role="alert" class="audit-status">
+              <openg7-admin-icon name="warning" />{{
+                'admin.historicalAudit.' + c.error() | translate
+              }}
+            </p>
+          }
+          @if (c.pending(); as pending) {
+            <p class="audit-status" role="status">
+              <openg7-admin-icon name="clock" />{{
+                'admin.historicalAudit.uncertain' | translate
+              }}
+            </p>
+            <details data-og7="historical-audit-pending-command">
+              <summary>{{ labels.t('audit.compact.capturedRequest') }}</summary>
+              <dl class="audit-references">
+                <div>
+                  <dt>{{ labels.t('audit.compact.requestId') }}</dt>
+                  <dd>
+                    <code>{{ pending.requestId }}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ labels.t('audit.evidenceReference') }}</dt>
+                  <dd>
+                    <code>{{ pending.evidenceId }}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ labels.t('audit.compact.expectedVersion') }}</dt>
+                  <dd>{{ pending.expectedVersion }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.historicalAudit.conclusion' | translate }}</dt>
+                  <dd>
+                    {{
+                      'admin.historicalAudit.conclusions.' + pending.conclusion
+                        | translate
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.historicalAudit.reason' | translate }}</dt>
+                  <dd class="audit-captured-reason">{{ pending.reason }}</dd>
+                </div>
+              </dl>
+            </details>
             <button
               type="button"
-              class="admin-button"
-              data-og7-id="historical-audit-review"
-              [disabled]="c.saving() || !!c.pending()"
-              (click)="c.choose(item)"
+              class="admin-button audit-action"
+              data-og7-id="historical-audit-retry"
+              [disabled]="c.saving() || c.loading()"
+              (click)="c.retry()"
             >
-              {{ 'admin.historicalAudit.review' | translate }}
+              <openg7-admin-icon name="refresh" />{{
+                'admin.historicalAudit.retry' | translate
+              }}
             </button>
-          </li>
-        }
-      </ul>
-      @if (data.nextCursor) {
-        <p>{{ labels.t('audit.nextPageScope') }}</p>
-        <button
-          type="button"
-          class="admin-button"
-          data-og7-id="historical-audit-next"
-          [disabled]="c.loading() || c.saving() || !!c.pending()"
-          (click)="c.load(data.nextCursor)"
-        >
-          {{ 'admin.historicalAudit.next' | translate }}
-        </button>
+          }
+        </aside>
       }
-    }
-    @if (c.selected(); as selected) {
-      <form
-        data-og7-id="historical-audit-form"
-        class="space-y-3"
-        (submit)="$event.preventDefault(); c.submit()"
-      >
-        <p class="break-all">{{ selected.evidenceId }}</p>
-        <label class="block"
-          >{{ 'admin.historicalAudit.conclusion' | translate }}
-          <select
-            class="admin-select"
-            [value]="c.conclusion()"
-            [disabled]="c.saving() || !!c.pending()"
-            (change)="setConclusion($event)"
-          >
-            @for (conclusion of conclusions; track conclusion) {
-              <option [value]="conclusion">
-                {{
-                  'admin.historicalAudit.conclusions.' + conclusion | translate
-                }}
-              </option>
-            }
-          </select>
-        </label>
-        <label class="block"
-          >{{ 'admin.historicalAudit.reason' | translate
-          }}<textarea
-            class="admin-input w-full"
-            rows="3"
-            maxlength="2000"
-            [value]="c.reason()"
-            [disabled]="c.saving() || !!c.pending()"
-            (input)="setReason($event)"
-          ></textarea>
-        </label>
-        <label class="flex items-start gap-2"
-          ><input
-            type="checkbox"
-            [checked]="c.confirmation()"
-            [disabled]="c.saving() || !!c.pending()"
-            (change)="setConfirmation($event)"
-          />{{ 'admin.historicalAudit.confirmation' | translate }}</label
-        >
-        <button
-          class="admin-button"
-          type="submit"
-          data-og7-id="historical-audit-save"
-          [disabled]="
-            !c.confirmation() ||
-            !c.reason().trim() ||
-            c.saving() ||
-            c.loading() ||
-            !!c.pending()
-          "
-        >
-          {{ 'admin.historicalAudit.save' | translate }}
-        </button>
-      </form>
-    }
-    @if (c.pending()) {
-      <p role="status">{{ 'admin.historicalAudit.uncertain' | translate }}</p>
-      <button
-        type="button"
-        class="admin-button"
-        data-og7-id="historical-audit-retry"
-        [disabled]="c.saving() || c.loading()"
-        (click)="c.retry()"
-      >
-        {{ 'admin.historicalAudit.retry' | translate }}
-      </button>
-    }
+    </div>
   }
 </section>

@@ -175,20 +175,6 @@
               >
                 {{ 'admin.legacy.note_interne' | translate }}
               </button>
-              <button
-                type="button"
-                data-og7="dossier-tool-toggle"
-                data-og7-id="agreement"
-                [attr.aria-expanded]="dossierTool() === 'agreement'"
-                aria-controls="dossier-tool-panel"
-                [disabled]="
-                  dossierToolBusy() ||
-                  progress()?.contributionId !== selected.id
-                "
-                (click)="openDossierTool('agreement')"
-              >
-                {{ 'admin.sponsorsCleanup.agreement' | translate }}
-              </button>
               <openg7-admin-sponsorship-interventions
                 [contributionId]="selected.id"
                 [refreshKey]="assistantRefresh()"
@@ -348,19 +334,6 @@
                 />
               </div>
             }
-            @if (
-              visitedDossierTools().has('agreement') && progress();
-              as dossier
-            ) {
-              @if (dossier.contributionId === selected.id) {
-                <div [hidden]="tool !== 'agreement'">
-                  <openg7-admin-sponsorship-commitments
-                    [dossier]="dossier"
-                    (changed)="loadSponsorships(true)"
-                  />
-                </div>
-              }
-            }
           </section>
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
@@ -376,6 +349,11 @@
           />
           <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
+              @if (activeTab() === 'publication') {
+                <h2 class="dossier-section-title">
+                  {{ 'admin.dossier.tabs.publication' | translate }}
+                </h2>
+              }
               <h2
                 *ngIf="
                   activeTab() !== 'media' &&
@@ -473,6 +451,48 @@
                 />
               </ng-container>
 
+              @if (
+                publicationTermsDossier()?.contributionId === selected.id &&
+                (activeTab() === 'publication' || publicationTermsVisited())
+              ) {
+                <details
+                  class="publication-terms"
+                  data-og7="publication-terms"
+                  [hidden]="activeTab() !== 'publication'"
+                  [open]="publicationTermsOpen()"
+                  (toggle)="togglePublicationTerms($event)"
+                >
+                  <summary
+                    data-og7="publication-terms-toggle"
+                    [attr.aria-disabled]="
+                      dossierAgreement()?.busy() ? 'true' : null
+                    "
+                    (click)="guardPublicationTermsToggle($event)"
+                  >
+                    <h3>
+                      {{
+                        (publicationTermsDossier()?.commitment?.state ===
+                          'needs_confirmation' ||
+                        !publicationTermsDossier()?.commitment
+                          ? 'admin.sponsorsCleanup.documentServices'
+                          : 'admin.sponsorsCleanup.agreedServices'
+                        ) | translate
+                      }}
+                    </h3>
+                  </summary>
+                  @if (
+                    publicationTermsVisited() && publicationTermsDossier();
+                    as dossier
+                  ) {
+                    <openg7-admin-sponsorship-commitments
+                      [dossier]="dossier"
+                      [embedded]="true"
+                      (changed)="loadSponsorships(true)"
+                    />
+                  }
+                </details>
+              }
+
               @if (activeTab() === 'publication') {
                 <ng-template #publicationDecision>
                   <openg7-admin-sponsor-publication-decision
@@ -513,6 +533,8 @@
                     <openg7-admin-sponsorship-publication
                       [dossier]="dossier"
                       (commitmentChanged)="loadSponsorships(true)"
+                      (obligationRequested)="openPublicationObligation($event)"
+                      [obligationActionsDisabled]="dossierToolBusy()"
                     >
                       <ng-container
                         publicationDecision

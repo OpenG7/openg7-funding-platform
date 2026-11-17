@@ -101,6 +101,29 @@ repliables. Le lien vers Prestations transmet contribution et obligation exactes
 pour consulter les faits qualifiés chez leur propriétaire ; consulter ce lien
 ne qualifie ni ne réexamine une preuve.
 
+L’en-tête compact indique la portée, le nombre affiché et le total filtré, avec
+la date d’inventaire. **À propos de cet audit** regroupe les explications, les
+limites de lecture et, pour le portefeuille seulement, les compteurs globaux.
+Les preuves se comparent dans un tableau sur écran large et des cartes sur
+petit écran, avec les constats séparés de la dernière conclusion.
+
+**Examiner** sélectionne la preuve exacte dans un panneau contextuel. Le
+formulaire, les observations complètes et les références y restent liés à cette
+preuve. Réactiver la même preuve conserve le brouillon ; **Annuler** ou fermer
+le panneau abandonne explicitement ce brouillon et rend le focus au déclencheur.
+Une sauvegarde ou une commande incertaine bloque cette fermeture et le repli du
+bloc de prestations. Le rechargement conserve la commande capturée et sa source
+sélectionnée ; si cette source n’est pas disponible, le panneau garde sa référence
+et l’action de reprise exacte. La requête capturée reste consultable avec son
+identifiant, sa version attendue, sa conclusion et sa raison privées ; les champs
+désactivés affichent ces paramètres exacts pendant la reprise.
+
+Les constats et les éléments vérifiés utilisent des icônes accompagnées de
+libellés courts. **Observations détaillées** conserve les explications et les
+observations complètes, accessibles au clavier et au toucher. « Enregistré »
+décrit le snapshot historique ; aucun repère visuel ne vaut autorisation de
+publication ni confirmation de visibilité actuelle.
+
 ## Examen explicite et reçus
 
 `POST /api/admin/sponsorship-commitments/historical-audit/review` exige le même rôle,
@@ -133,8 +156,8 @@ reste capturée ; un refus définitif de la mutation retire cette commande.
 
 Une réponse perdue, incohérente, une session expirée ou un conflit non reconnu
 conserve la commande capturée et son UUID en mémoire. Une nouvelle commande reste
-bloquée; la reprise réutilise exactement les mêmes paramètres. Après une fermeture
-ou destruction de cette interface, cette mémoire locale est perdue : vérifier
+bloquée; la reprise réutilise exactement les mêmes paramètres. Après un départ
+de cette page ou la destruction du composant, cette mémoire locale est perdue : vérifier
 l'inventaire et la piste administrative avant toute nouvelle conclusion. Le
 transport authentifié refuse toute reprise sans session ou rôle autorisé.
 

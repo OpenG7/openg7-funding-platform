@@ -15,10 +15,7 @@ import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
-import {
-  openPublicationSection,
-  openSponsorshipWebsiteSettings
-} from './support/sponsorship-dossier.js';
+import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorWorkspaceTests } from './admin-sponsor-workspace.ui.js';
@@ -1268,36 +1265,31 @@ for (const [language, width] of [
               ? {
                   ...item,
                   state: 'fulfilled',
-                  fulfilmentEvidenceId: evidenceId
+                  fulfilmentEvidenceId: evidenceId,
+                  ...(qualification === 'stale'
+                    ? { version: item.version + 1, target: 'openg20' as const }
+                    : {})
                 }
               : item
           )
         },
         qualifiedFulfilmentEvidenceIds:
-          qualification !== 'unqualified' ? [evidenceId] : []
+          qualification !== 'unqualified' ? [evidenceId] : [],
+        fulfilmentEvidence: [
+          {
+            id: evidenceId,
+            obligationId: obligation.id,
+            deliveryId: null,
+            channel: obligation.channel,
+            target: obligation.target,
+            provenance: 'provider_verified',
+            deliveredAt: date,
+            externalPostUrl: null,
+            visibility: 'visible',
+            visibilityObservedAt: date
+          }
+        ]
       };
-      if (qualification === 'stale') {
-        await page.route('**/api/admin/sponsorship-commitments?**', (route) =>
-          route.fulfill({
-            json: {
-              commitment: {
-                ...options.progressOverrides.commitment!,
-                obligations:
-                  options.progressOverrides.commitment!.obligations.map(
-                    (item) =>
-                      item.id === obligation.id
-                        ? {
-                            ...item,
-                            version: item.version + 1,
-                            target: 'openg20'
-                          }
-                        : item
-                  )
-              }
-            }
-          })
-        );
-      }
       await page.setViewportSize({ width, height: 950 });
       await page.goto(path('publication'));
       if (language === 'en')
@@ -1306,24 +1298,21 @@ for (const [language, width] of [
             name: 'Switch administration language to English'
           })
           .click();
-      await openPublicationSection(page, 'contract');
-      const panel = page.locator('[data-og7="admin-commitments"]');
-      await expect(
-        panel.locator('[data-og7="commitments-accepted-offer"]')
-      ).toBeVisible();
-      const row = panel.locator(
-        `[data-og7="commitments-obligations"] [data-og7-id="${obligation.id}"]`
+      const row = page.locator(
+        `[data-og7="publication-service"][data-og7-id="${obligation.id}"]`
       );
-      await expect(row).toContainText(evidenceId);
-      const link = row.locator('[data-og7="commitments-evidence"]');
+      await row.locator('[data-og7="publication-service-details"]').click();
+      const details = page.locator('[data-og7="publication-monitor-details"]');
+      const proof = details.locator('[data-og7="publication-monitor-proof"]');
       const qualified = qualification === 'qualified';
-      await expect(link).toHaveCount(qualified ? 1 : 0);
+      await expect(proof).toHaveCount(qualified ? 1 : 0);
+      const link = details.locator('a[href*="/campaigns?"]');
+      await expect(link).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/campaigns?sponsorshipId=${id}&obligationId=${obligation.id}`
+      );
       if (qualified) {
-        await expect(link).toHaveAttribute('data-og7-id', evidenceId);
-        await expect(link).toHaveAttribute(
-          'href',
-          `/admin/fundraiser/campaigns?sponsorshipId=${id}&obligationId=${obligation.id}`
-        );
+        await expect(proof).toContainText(evidenceId);
         await link.focus();
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(
@@ -1332,9 +1321,11 @@ for (const [language, width] of [
           )
         );
       } else {
-        await expect(row).toContainText(
-          language === 'en' ? 'delivery unconfirmed' : 'livraison non confirmée'
-        );
+        await expect(
+          details.locator(
+            '[data-og7="publication-service-warning"][data-og7-id="fulfilment_unverified"]'
+          )
+        ).toBeVisible();
       }
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
@@ -4793,6 +4784,9 @@ for (const [currency, language] of [
     const agreement = view
       .locator('[data-og7="publication-monitor-empty"]')
       .getByRole('link');
+    await expect(agreement).toHaveAccessibleName(
+      language === 'en' ? 'Document the services' : 'Documenter les prestations'
+    );
     await expect(agreement).toHaveAttribute(
       'href',
       path('publication') + '#dossier-agreement'

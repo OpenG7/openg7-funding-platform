@@ -90,6 +90,134 @@ function prepare(c) {
   c.reason.set('Synthetic private review reason');
   c.confirmation.set(true);
 }
+test('closing an unsubmitted review clears its draft without changing the inventory or issuing a command', async () => {
+  const { c, state } = fixture();
+  c.filter.set('duration_unverified');
+  await c.load();
+  prepare(c);
+  c.conclusion.set('confirmed');
+  state.readFailure = new TypeError('Synthetic unavailable refresh');
+  await c.load();
+  const inventory = c.data();
+  const queryCount = state.queries.length;
+  assert.equal(c.error(), 'loadUnavailable');
+
+  assert.equal(c.close(), true);
+  assert.equal(c.selected(), null);
+  assert.equal(c.reason(), '');
+  assert.equal(c.confirmation(), false);
+  assert.equal(c.conclusion(), 'inconclusive');
+  assert.equal(c.data(), inventory);
+  assert.deepEqual(c.data().totals, data.totals);
+  assert.equal(c.filter(), 'duration_unverified');
+  assert.equal(c.error(), 'loadUnavailable');
+  assert.equal(c.saved(), false);
+  assert.equal(c.pending(), null);
+  assert.equal(state.queries.length, queryCount);
+  assert.equal(state.commands.length, 0);
+  assert.equal(state.nonces, 0);
+  assert.equal(c.close(), false);
+});
+
+test('closing a review is refused during submission and preserves the confirmed result after settlement', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  let finish;
+  state.result = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const submitting = c.submit();
+  const selected = c.selected();
+  const pending = c.pending();
+  assert.equal(c.saving(), true);
+  assert.equal(c.close(), false);
+  assert.equal(c.selected(), selected);
+  assert.equal(c.pending(), pending);
+  assert.equal(c.reason(), 'Synthetic private review reason');
+  assert.equal(c.confirmation(), true);
+  finish({
+    evidenceId,
+    reviewVersion: pending.expectedVersion + 1,
+    review: {
+      id: '10000000-0000-4000-8000-000000000604',
+      conclusion: pending.conclusion,
+      reviewedAt: '2026-10-12T00:00:00.000Z'
+    }
+  });
+  await submitting;
+  assert.equal(c.saving(), false);
+  assert.equal(c.pending(), null);
+  assert.equal(c.selected(), null);
+  assert.equal(c.saved(), true);
+  assert.equal(c.close(), false);
+  assert.equal(c.saved(), true);
+  assert.equal(state.commands.length, 1);
+  assert.equal(state.nonces, 1);
+});
+
+test('closing refuses revoked permissions, destroyed views and mismatched dossier, scope or owner session', async () => {
+  for (const change of [
+    (state) => (state.owner = false),
+    (state) => (state.destroyed = true),
+    (state) => (state.id = '10000000-0000-4000-8000-000000000699'),
+    (state) => (state.scope = 'portfolio'),
+    (state) => (state.identity = 'synthetic-replacement-owner-session')
+  ]) {
+    const { c, state } = fixture();
+    await c.load();
+    prepare(c);
+    c.conclusion.set('follow_up_required');
+    const selected = c.selected();
+    const inventory = c.data();
+    change(state);
+    assert.equal(c.close(), false);
+    assert.equal(c.selected(), selected);
+    assert.equal(c.data(), inventory);
+    assert.equal(c.reason(), 'Synthetic private review reason');
+    assert.equal(c.confirmation(), true);
+    assert.equal(c.conclusion(), 'follow_up_required');
+    assert.equal(state.commands.length, 0);
+    assert.equal(state.nonces, 0);
+  }
+});
+
+test('a restored uncertain review reloads its exact evidence when available and remains replayable when the page omits it', async () => {
+  for (const included of [true, false]) {
+    const { c, state } = fixture();
+    await c.load();
+    prepare(c);
+    state.failure = new TypeError('Synthetic lost review response');
+    await c.submit();
+    const pending = c.pending();
+    assert.equal(c.close(), false);
+    assert.equal(c.pending(), pending);
+    state.scope = 'portfolio';
+    c.select();
+    assert.equal(c.pending(), null);
+    state.scope = 'dossier';
+    c.select();
+    assert.equal(c.pending(), pending);
+    assert.equal(c.selected(), null);
+    state.readResult = {
+      ...data,
+      items: included ? [item] : [],
+      totals: { ...data.totals, filtered: included ? 1 : 0 }
+    };
+    await c.load();
+    assert.equal(c.pending(), pending);
+    assert.equal(c.selected(), included ? c.data().items[0] : null);
+    assert.equal(c.close(), false);
+    assert.equal(state.commands.length, 1);
+    state.failure = null;
+    await c.retry();
+    assert.deepEqual(state.commands[1], pending);
+    assert.equal(state.nonces, 1);
+    assert.equal(c.saved(), true);
+    assert.equal(c.pending(), null);
+  }
+});
+
 test('dossier and portfolio audit scopes are explicit while the API retains its global totals', async () => {
   const { c, state } = fixture();
   await c.load();
@@ -328,6 +456,7 @@ test('replaying an older receipt preserves a newer observed review and its globa
     conclusion: 'follow_up_required',
     reviewedAt: '2026-10-12T01:00:00.000Z'
   };
+  const selected = c.selected();
   state.readResult = {
     ...data,
     items: [{ ...item, reviewVersion: 2, latestReview: currentReview }],
@@ -335,6 +464,9 @@ test('replaying an older receipt preserves a newer observed review and its globa
   };
   await c.load();
   assert.equal(c.pending(), original);
+  assert.equal(c.selected(), selected);
+  assert.equal(c.selected().reviewVersion, 0);
+  assert.equal(c.close(), false);
   state.failure = null;
   await c.retry();
   assert.deepEqual(state.commands[1], original);

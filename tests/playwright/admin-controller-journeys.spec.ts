@@ -25,11 +25,10 @@ const writes = (
 ) => state.commands.filter((command) => command.path.endsWith(suffix));
 
 async function openAgreement(page: Page, pad: AdminController): Promise<void> {
-  const toggle = page.locator(
-    '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
-  );
-  await pad.activate(toggle);
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const terms = hook(page, 'publication-terms');
+  if ((await terms.getAttribute('open')) === null)
+    await pad.activate(hook(page, 'publication-terms-toggle'));
+  await expect(terms).toHaveAttribute('open', '');
   await expect(hook(page, 'admin-commitments')).toBeVisible();
 }
 
@@ -470,7 +469,7 @@ test('Xbox historical qualification and an explicit waiver preserve accepted ter
   await pad.text(panel.locator('[data-og7="commitments-confirmation"]'), id);
   await pad.activate(panel.locator('[data-og7="commitments-qualify"]'));
   await expect(
-    panel.locator('[data-og7="commitments-accepted-offer"]')
+    panel.locator('[data-og7="commitments-offer-summary"]')
   ).toBeVisible();
   const accepted = structuredClone(commands[0]!.offer);
   expect(commands[0]).toMatchObject({
@@ -480,7 +479,13 @@ test('Xbox historical qualification and an explicit waiver preserve accepted ter
     evidenceReference: 'proof:123',
     reason: 'Terms verified'
   });
-  await pad.activate(panel.locator('[data-og7="commitments-adjust-open"]'));
+  const service = page.locator(
+    `[data-og7="publication-service"][data-og7-id="${obligationId}"]`
+  );
+  await pad.activate(
+    service.locator('[data-og7="publication-service-details"]')
+  );
+  await pad.activate(hook(page, 'publication-service-adjust'));
   await pad.select(
     panel.locator('[data-og7="commitments-adjust-kind"]'),
     'waiver'
@@ -496,7 +501,9 @@ test('Xbox historical qualification and an explicit waiver preserve accepted ter
   );
   await pad.activate(panel.locator('[data-og7="commitments-adjust-save"]'));
   await expect(
-    panel.locator('[data-og7="commitments-adjust-open"]')
+    page.locator(
+      `[data-og7="publication-service"][data-og7-id="${obligationId}"]`
+    )
   ).toHaveCount(0);
   expect(commands[1]).toMatchObject({
     obligationId,
@@ -575,7 +582,11 @@ test('Xbox historical evidence review requires reason, conclusion and current co
   const panel = hook(page, 'historical-evidence-audit');
   await pad.activate(panel.locator('[data-og7-id="historical-audit-load"]'));
   await pad.activate(panel.locator('[data-og7-id="historical-audit-review"]'));
-  const form = panel.locator('form');
+  const examination = panel.locator(
+    '[data-og7="historical-audit-review-panel"]'
+  );
+  await expect(examination).toBeFocused();
+  const form = examination.locator('form');
   const save = form.locator('[data-og7-id="historical-audit-save"]');
   await expect(save).toBeDisabled();
   await pad.text(form.locator('textarea'), 'Proof reviewed');

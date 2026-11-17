@@ -73,6 +73,8 @@ export class AdminSponsorshipPublicationComponent {
   readonly activity = inject(ContributionActivityService);
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly commitmentChanged = output<void>();
+  readonly obligationRequested = output<string>();
+  readonly obligationActionsDisabled = input(false);
   private readonly admin = inject(FundingAdminService);
   private readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
@@ -105,6 +107,22 @@ export class AdminSponsorshipPublicationComponent {
     )
   );
   readonly selectedId = signal<string | null>(null);
+
+  manageObligation(row: PublicationMonitorRow): void {
+    if (
+      !this.admin.hasValidAdminSession() ||
+      this.accessDenied() ||
+      this.busy() ||
+      this.obligationActionsDisabled() ||
+      row.obligation.contributionId !== this.dossier().contributionId ||
+      !this.monitor().rows.some(
+        (current) => current.obligation.id === row.obligation.id
+      )
+    )
+      return;
+    this.selectedId.set(null);
+    this.obligationRequested.emit(row.obligation.id);
+  }
   readonly analysisOpen = signal(false);
   private readonly analysisPanel =
     viewChild<ElementRef<HTMLDetailsElement>>('analysisPanel');

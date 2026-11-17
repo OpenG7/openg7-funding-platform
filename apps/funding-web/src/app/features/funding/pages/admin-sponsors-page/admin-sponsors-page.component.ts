@@ -33,6 +33,7 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipRecord,
+  AdminSponsorshipProgress,
   SponsorFeedStatus,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
@@ -115,7 +116,7 @@ import {
 
 import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adapter.js';
 
-type SponsorDossierTool = 'moderation' | 'access' | 'agreement';
+type SponsorDossierTool = 'moderation' | 'access';
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -177,6 +178,24 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
   readonly dossierTool = signal<SponsorDossierTool | null>(null);
+  readonly publicationTermsOpen = signal(false);
+  readonly publicationTermsVisited = signal(false);
+  private readonly publicationTermsSnapshot = signal<{
+    session: string;
+    dossier: AdminSponsorshipProgress;
+  } | null>(null);
+  readonly publicationTermsDossier = computed(() => {
+    const current = this.progress();
+    const id = this.selectedSponsorshipId();
+    const previous = this.publicationTermsSnapshot();
+    const state = this.sponsorProgress()?.state();
+    return (state === 'loading' ||
+      (state === 'ready' && current?.contributionId === id)) &&
+      previous?.dossier.contributionId === id &&
+      previous?.session === this.dossierToolSessionKey()
+      ? previous.dossier
+      : null;
+  });
   private dossierToolReturnTarget: HTMLElement | null = null;
   readonly visitedDossierTools = signal<ReadonlySet<SponsorDossierTool>>(
     new Set()
@@ -190,15 +209,12 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly sponsorInterventions = viewChild(
     AdminSponsorshipInterventionsComponent
   );
-  private readonly dossierAgreement = viewChild(
-    AdminSponsorshipCommitmentsComponent
-  );
+  readonly dossierAgreement = viewChild(AdminSponsorshipCommitmentsComponent);
   readonly dossierToolBusy = computed(
     () =>
       !!this.sponsorAccess()?.busy() ||
       !!this.dossierModeration()?.busy() ||
-      !!this.dossierAgreement()?.c.saving() ||
-      !!this.dossierAgreement()?.c.pending()
+      !!this.dossierAgreement()?.busy()
   );
   private readonly dossierToolSessionKey = computed(() => {
     const identity = this.admin.identity();
@@ -222,6 +238,69 @@ export class AdminSponsorsPageComponent implements OnInit {
 
   openHistoryInterventions(): void {
     if (!this.dossierToolBusy()) void this.sponsorInterventions()?.open();
+  }
+
+  openPublicationTerms(fragment = 'dossier-agreement', focus = true): void {
+    if (
+      this.activeTab() !== 'publication' ||
+      this.publicationTermsDossier()?.contributionId !==
+        this.selectedSponsorshipId()
+    )
+      return;
+    this.publicationTermsVisited.set(true);
+    this.publicationTermsOpen.set(true);
+    if (focus)
+      this.pendingSection.set({
+        sponsorshipId: this.selectedSponsorshipId()!,
+        tab: 'publication',
+        fragment
+      });
+  }
+
+  guardPublicationTermsToggle(event: Event): void {
+    if (this.publicationTermsOpen() && this.dossierAgreement()?.busy())
+      event.preventDefault();
+  }
+
+  togglePublicationTerms(event: Event): void {
+    const details = event.target as HTMLDetailsElement;
+    if (!details.open && this.dossierAgreement()?.busy()) {
+      details.open = true;
+      return;
+    }
+    this.publicationTermsOpen.set(details.open);
+    if (details.open) this.publicationTermsVisited.set(true);
+    else if (
+      [
+        'dossier-agreement',
+        'dossier-assistance-source',
+        'dossier-assistance-review'
+      ].includes(this.websiteSettingsFragment() ?? '')
+    ) {
+      this.pendingSection.set(null);
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParamsHandling: 'preserve',
+        replaceUrl: true,
+        scroll: 'manual'
+      });
+    }
+  }
+
+  openPublicationObligation(obligationId: string): void {
+    if (!this.admin.hasValidAdminSession() || this.dossierToolBusy()) return;
+    const sponsorshipId = this.selectedSponsorshipId();
+    this.openPublicationTerms('dossier-agreement', false);
+    afterNextRender(
+      () => {
+        if (
+          this.selectedSponsorshipId() === sponsorshipId &&
+          this.activeTab() === 'publication'
+        )
+          this.dossierAgreement()?.selectObligation(obligationId);
+      },
+      { injector: this.injector }
+    );
   }
 
   openDossierTool(
@@ -279,20 +358,6 @@ export class AdminSponsorsPageComponent implements OnInit {
     const returnTarget = this.dossierToolReturnTarget;
     this.dossierToolReturnTarget = null;
     this.dossierTool.set(null);
-    if (
-      tool === 'agreement' &&
-      [
-        'dossier-agreement',
-        'dossier-assistance-source',
-        'dossier-assistance-review'
-      ].includes(this.websiteSettingsFragment() ?? '')
-    ) {
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParamsHandling: 'preserve',
-        replaceUrl: true
-      });
-    }
     afterNextRender(
       () => {
         if (
@@ -822,6 +887,16 @@ export class AdminSponsorsPageComponent implements OnInit {
   });
 
   constructor() {
+    effect(() => {
+      const dossier = this.progress();
+      // Capture the reading's session; changing identity alone must not relabel it.
+      const session = untracked(() => this.dossierToolSessionKey());
+      const selected = this.selectedSponsorshipId();
+      if (dossier?.contributionId === selected)
+        this.publicationTermsSnapshot.set({ session, dossier });
+      else if (this.sponsorProgress()?.state() !== 'loading')
+        this.publicationTermsSnapshot.set(null);
+    });
     afterRenderEffect(() => {
       if (
         this.reservedDossierHeight() === null ||
@@ -873,7 +948,14 @@ export class AdminSponsorsPageComponent implements OnInit {
       const sessionKey = this.dossierToolSessionKey();
       const resetTools =
         selectedId !== toolSelection || sessionKey !== toolSessionKey;
-      if (resetTools) this.visitedDossierTools.set(new Set());
+      if (resetTools) {
+        this.visitedDossierTools.set(new Set());
+        this.publicationTermsOpen.set(false);
+        this.publicationTermsVisited.set(false);
+        this.publicationTermsSnapshot.set(null);
+        if (sessionKey !== toolSessionKey && this.admin.hasValidAdminSession())
+          untracked(() => void this.sponsorProgress()?.load());
+      }
       if (resetTools || (tab !== toolTab && !this.dossierToolBusy())) {
         this.dossierTool.set(null);
         toolSelection = selectedId;
@@ -921,8 +1003,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
       untracked(() => {
         this.workflowGuidance.consumeWorkflowAgreement(request);
-        if (!modal && this.dossierTool() !== 'agreement')
-          this.openDossierTool('agreement', false, false);
+        if (!modal) this.openPublicationTerms('dossier-agreement', false);
       });
     });
     let agreementRoute = '';
@@ -951,7 +1032,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       untracked(() => {
         if (this.dossierToolBusy()) return;
         agreementRoute = key;
-        this.openDossierTool('agreement', false);
+        this.openPublicationTerms(fragment!);
       });
     });
     this.destroyRef.onDestroy(() => {

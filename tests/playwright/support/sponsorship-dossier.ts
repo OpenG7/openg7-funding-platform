@@ -25,23 +25,7 @@ export async function openPublicationSection(
     return;
   }
   if (section === 'contract' || section === 'offer') {
-    const tab = page
-      .locator('[data-og7="dossier-tabs"]')
-      .getByRole('button', { name: 'Publication', exact: true });
-    await tab.click();
-    await expect(tab).toHaveAttribute('aria-current', 'page');
-    const toggle = page.locator(
-      '[data-og7="dossier-tool-toggle"][data-og7-id="agreement"]'
-    );
-    await expect(toggle).toBeVisible();
-    if ((await toggle.getAttribute('aria-expanded')) !== 'true')
-      await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(
-      page
-        .locator('[data-og7="dossier-tool-panel"][data-og7-id="agreement"]')
-        .locator('#dossier-agreement')
-    ).toBeVisible();
+    await openPublicationAgreement(page);
     return;
   }
   if (current.searchParams.get('tab') !== 'publication')
@@ -50,6 +34,39 @@ export async function openPublicationSection(
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
   await expect(page.locator('[data-og7="publication-monitor"]')).toBeVisible();
+}
+
+/** Terms belong to Publication and are loaded only on the first disclosure. */
+export async function openPublicationAgreement(page: Page): Promise<Locator> {
+  const tab = page
+    .locator('[data-og7="dossier-tabs"]')
+    .getByRole('button', { name: 'Publication', exact: true });
+  if ((await tab.getAttribute('aria-current')) !== 'page') await tab.click();
+  await expect(tab).toHaveAttribute('aria-current', 'page');
+  const terms = page.locator('[data-og7="publication-terms"]');
+  await expect(terms).toBeVisible();
+  if ((await terms.getAttribute('open')) === null)
+    await terms.locator('[data-og7="publication-terms-toggle"]').click();
+  await expect(terms).toHaveAttribute('open', '');
+  const editor = terms.locator('[data-og7="admin-commitments"]');
+  await expect(editor).toBeVisible();
+  return editor;
+}
+
+/** Select the exact service before reaching its owner amendment/timing controls. */
+export async function openPublicationObligation(
+  page: Page,
+  obligationId: string
+): Promise<Locator> {
+  await openPublicationSection(page, 'obligations');
+  const row = page.locator(
+    `[data-og7="publication-service"][data-og7-id="${obligationId}"]`
+  );
+  await row.locator('[data-og7="publication-service-details"]').click();
+  await page.locator('[data-og7="publication-service-adjust"]').click();
+  const editor = page.locator('[data-og7="admin-commitments"]');
+  await expect(editor).toBeVisible();
+  return editor;
 }
 
 /** Settings stay in Fiche et médias; switching tabs preserves local dossier drafts. */

@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type {
+  AdminSponsorshipProgress,
   SponsorshipCommitmentRecord,
   SponsorshipPublicObservation,
   SponsorshipTimingCommandRequest
@@ -7,18 +8,24 @@ import type {
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
-import { openPublicationSection } from './support/sponsorship-dossier.js';
+import { openPublicationObligation } from './support/sponsorship-dossier.js';
 interface Context {
   fixtures(
     page: Page,
     role?: 'owner' | 'operator' | 'reader'
-  ): Promise<unknown>;
+  ): Promise<{
+    options: { progressOverrides: Partial<AdminSponsorshipProgress> };
+  }>;
   path(tab?: string, value?: string): string;
 }
 const id = '10000000-0000-4000-8000-000000000401',
   obId = '10000000-0000-4000-8000-000000000904';
-async function fixtures(page: Page, context: Context) {
-  await context.fixtures(page, 'owner');
+async function fixtures(
+  page: Page,
+  context: Context,
+  role: 'owner' | 'operator' | 'reader' = 'owner'
+) {
+  const base = await context.fixtures(page, role);
   const state: {
     commands: SponsorshipTimingCommandRequest[];
     lost: boolean;
@@ -87,6 +94,7 @@ async function fixtures(page: Page, context: Context) {
       }
     ]
   };
+  base.options.progressOverrides = { commitment: m };
   await page.route('**/admin/sponsorship-commitments**', async (route) => {
     const url = new URL(route.request().url());
     if (
@@ -111,6 +119,7 @@ async function fixtures(page: Page, context: Context) {
             timing: { ...o.timing!, durationState: 'restart_required' }
           }))
         };
+      base.options.progressOverrides = { commitment: m };
       return route.fulfill({ json: { commitment: m } });
     }
     if (!url.pathname.endsWith('/sponsorship-commitments/timing'))
@@ -159,13 +168,14 @@ async function fixtures(page: Page, context: Context) {
         }
       ]
     };
+    base.options.progressOverrides = { commitment: m };
     await route.fulfill({ json: { obligationId: obId, timing } });
   });
   return state;
 }
 async function openTimingDetails(page: Page) {
-  await openPublicationSection(page, 'contract');
   const panel = page.locator('[data-og7="sponsorship-timing"]');
+  if (!(await panel.isVisible())) await openPublicationObligation(page, obId);
   await expect(panel).toBeVisible();
   await expect(page.locator('[data-og7="commitments-refresh"]')).toBeEnabled();
   const details = panel.locator('details');
@@ -185,6 +195,33 @@ async function statement(page: Page) {
   return panel;
 }
 export function registerSponsorshipTimingTests(context: Context): void {
+  for (const [role, locale, width] of [
+    ['operator', 'fr-CA', 1280],
+    ['reader', 'en', 390]
+  ] as const) {
+    test(`sponsorship timing remains readable without owner controls for ${role} in ${locale}`, async ({
+      page
+    }) => {
+      const state = await fixtures(page, context, role);
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (language) => localStorage.setItem('openg7.language', language),
+        locale
+      );
+      await page.goto(context.path('publication'));
+      await openPublicationObligation(page, obId);
+      const timing = page.locator('[data-og7="sponsorship-timing"]');
+      await expect(timing).toBeVisible();
+      await expect(timing.locator('dl')).toContainText(
+        locale === 'en' ? 'Jan 31, 2026' : '31 janv. 2026'
+      );
+      await expect(timing.locator('input, textarea, button')).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="commitments-adjustment"]')
+      ).toHaveCount(0);
+      expect(state.commands).toHaveLength(0);
+    });
+  }
   for (const [locale, width] of [
     ['fr-CA', 1280],
     ['en', 390]
@@ -381,6 +418,12 @@ export function registerSponsorshipTimingTests(context: Context): void {
     await panel.locator('[data-og7="timing-continuity"]').check();
     await panel.locator('[data-og7="timing-attest-duration"]').click();
     await expect(panel.locator('[data-og7="timing-retry"]')).toBeVisible();
+    const terms = page.locator('[data-og7="publication-terms"]');
+    await terms.locator('[data-og7="publication-terms-toggle"]').focus();
+    await page.keyboard.press('Enter');
+    await expect(terms).toHaveAttribute('open', '');
+    await expect(panel).toBeVisible();
+    expect(state.commands).toHaveLength(1);
     const first = state.commands[0];
     state.early = true;
     await panel.locator('[data-og7="timing-retry"]').click();
