@@ -161,7 +161,9 @@ export function registerSponsorProfileTests({
         await expect(identity(page)).toHaveCount(0);
         for (const value of [publicName, website, email])
           await expect(media(page)).not.toContainText(value);
-        await expect(media(page).getByRole('img')).toHaveCount(0);
+        await expect(
+          media(page).locator('[data-og7="media-tile"] img')
+        ).toHaveCount(0);
         await expect(
           media(page).locator('[data-og7="media-gallery-empty"]')
         ).toBeVisible();

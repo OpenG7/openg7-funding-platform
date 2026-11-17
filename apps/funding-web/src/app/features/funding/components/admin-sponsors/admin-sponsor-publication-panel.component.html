@@ -5,8 +5,19 @@
   #websiteSettings
   (toggle)="expandedChange.emit(websiteSettings.open)"
 >
-  <summary #publicationSummary>
-    {{ 'admin.dossier.publicationCleanup.settingsTitle' | translate }}
+  <summary #publicationSummary data-og7="media-public-profile-summary">
+    <span class="profile-summary-title">
+      {{ 'admin.dossier.publicationCleanup.settingsTitle' | translate }}
+    </span>
+    <span class="profile-summary-subtitle">
+      {{ 'admin.dossier.publicationCleanup.settingsSubtitle' | translate }}
+    </span>
+    <span class="profile-summary-status" [attr.data-state]="visibilityState()">
+      {{
+        'admin.dossier.publicationCleanup.visibilityStates.' + visibilityState()
+          | translate
+      }}
+    </span>
   </summary>
   <article
     class="detail-card publication-editor"
@@ -15,6 +26,7 @@
     <p class="settings-help">
       {{ 'admin.dossier.publicationCleanup.settingsHelp' | translate }}
     </p>
+    <ng-content select="[profileVisibility]" />
     <section
       class="publication-scope"
       data-og7="publication-profile-settings"

@@ -49,6 +49,7 @@ const assetRow = (overrides = {}) => ({
   version,
   created_at: version,
   deleted_at: null,
+  website_selected: false,
   ...overrides
 });
 
@@ -91,7 +92,11 @@ const fixture = ({
         ? {
             id: contributionId,
             status: 'paid',
-            sponsor_review_status: 'approved'
+            sponsor_review_status: 'approved',
+            sponsor_reviewed_at: version,
+            updated_at: version,
+            sponsor_logo_url: 'https://example.invalid/existing-logo.webp',
+            sponsor_site_visibility_held: false
           }
         : contribution,
     assets,
@@ -151,6 +156,8 @@ const fixture = ({
         };
       } else if (sql.startsWith('UPDATE fund_contributions')) {
         transaction.contribution.sponsor_review_status = 'pending_review';
+        transaction.contribution.sponsor_reviewed_at = null;
+        transaction.contribution.updated_at = '2026-09-02 00:00:00+00';
       } else if (sql.startsWith('UPDATE sponsor_media_assets')) {
         transaction.assets.find((row) => row.id === parameters[0]).deleted_at =
           version;
@@ -247,8 +254,9 @@ test('media creation rolls back every business refusal without changing the doss
   }
 });
 
-test('logo replacement commits the new asset, old soft deletion and sponsor review together', async () => {
+test('private logo replacement commits its audit and soft deletion without altering approved dossier text', async () => {
   const { calls, pool, state } = fixture({ assets: [assetRow()] });
+  const dossier = structuredClone(state().contribution);
   const result = await createSponsorMediaAsset(pool, uploadInput());
   assert.equal(result.status, 'created');
   assert.equal(result.asset.id, replacementId);
@@ -263,7 +271,13 @@ test('logo replacement commits the new asset, old soft deletion and sponsor revi
       .map((row) => row.id),
     [replacementId]
   );
-  assert.equal(state().contribution.sponsor_review_status, 'pending_review');
+  assert.deepEqual(state().contribution, dossier);
+  assert.equal(result.asset.reviewStatus, 'pending_review');
+  assert.equal(result.asset.publicUrl, null);
+  assert.equal(
+    state().assets.find((row) => row.id === result.asset.id).website_selected,
+    false
+  );
   assert.deepEqual(state().audits, [
     [
       'sponsor-followup',
@@ -295,7 +309,23 @@ test('logo replacement commits the new asset, old soft deletion and sponsor revi
   assertClosed(calls, 'COMMIT');
 });
 
-test('media insertion, logo replacement and dossier review roll back together when audit is absent, empty or fails', async (t) => {
+test('a later private photo preserves the visible approved text and replays its upload receipt exactly once', async () => {
+  const { pool, state } = fixture();
+  const dossier = structuredClone(state().contribution);
+  const input = uploadInput({ kind: 'supporting_image' });
+  const first = await createSponsorMediaAsset(pool, input);
+  assert.equal(first.status, 'created');
+  assert.equal(first.asset.reviewStatus, 'pending_review');
+  assert.equal(first.asset.publicUrl, null);
+  assert.equal(state().assets[0].website_selected, false);
+  assert.deepEqual(state().contribution, dossier);
+  const afterUpload = structuredClone(state());
+  const replay = await createSponsorMediaAsset(pool, input);
+  assert.deepEqual(replay.asset, first.asset);
+  assert.deepEqual(state(), afterUpload);
+});
+
+test('media insertion and logo replacement roll back without changing dossier review when audit is absent, empty or fails', async (t) => {
   for (const scenario of [
     { auditAvailable: false },
     { auditInserted: false },

@@ -2,6 +2,8 @@
   "coordinates": "Sponsor contact details",
   "presentation": "Additional presentation (optional)",
   "presentationHelp": "The website and message are optional. An existing logo link can be edited here.",
-  "mediaSeparate": "Files and their usage rights are managed separately from submitting your information.",
+  "mediaSeparate": "You can add images without editing or resubmitting your information, even after approval. Files remain private and await review; adding them publishes nothing.",
+  "mediaRejected": "Images cannot be added to this rejected dossier. Correction and reconsideration requests remain available under Review and requests.",
+  "mediaBusy": "An operation is in progress. You can add your images when it finishes.",
   "openReview": "Review and requests"
 }

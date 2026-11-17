@@ -230,7 +230,8 @@
       [token]="token()"
       [refreshKey]="refreshKey()"
       [mediaConsentRequested]="mediaConsentRequested()"
-      [canUploadMedia]="allowed() && !readOnly() && !busy()"
+      [canUploadMedia]="mediaAllowed() && !busy()"
+      [uploadDisabledMessage]="mediaDisabledMessage()"
       (busyChange)="mediaBusy.set($event)"
     />
   </div>

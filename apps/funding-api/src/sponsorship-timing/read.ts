@@ -21,6 +21,11 @@ function durationRestartRequiredSql(alias: string): string {
   ) => `(SELECT exposure_media.id::text FROM sponsor_media_assets exposure_media WHERE ${eligibleMedia} AND exposure_media.kind='${kind}'
     ORDER BY exposure_media.sort_order,exposure_media.created_at,exposure_media.id LIMIT 1)`;
   const mediaSnapshot = `CASE WHEN jsonb_typeof(v.media_snapshot)='array' THEN v.media_snapshot ELSE '[]'::jsonb END`;
+  const recordedApprovals = `(SELECT jsonb_agg(approval ORDER BY approval->>'subjectType',approval->>'subjectId')
+    FROM jsonb_array_elements(CASE WHEN jsonb_typeof(v.source_snapshot->0->'approvals')='array'
+      THEN v.source_snapshot->0->'approvals' ELSE '[]'::jsonb END) approval
+    WHERE approval->>'subjectType' IS DISTINCT FROM 'media' OR approval->>'subjectId' IN (
+      SELECT image->>'id' FROM jsonb_array_elements(${mediaSnapshot}) image))`;
   return `(EXISTS(SELECT 1 FROM sponsorship_public_visibility_observations public_check
       JOIN sponsorship_website_exposure_observations public_anchor ON public_anchor.id=public_check.start_observation_id
       WHERE public_check.obligation_id=${alias}.id AND (public_anchor.observed_at,public_anchor.id)>=(v.observed_at,v.id)
@@ -29,9 +34,9 @@ function durationRestartRequiredSql(alias: string): string {
     EXISTS(SELECT 1 FROM fund_contributions WHERE id=${alias}.contribution_id AND (
       NOT ((${SPONSOR_WEBSITE_ELIGIBLE_SQL}) AND (${SPONSOR_WEBSITE_VISIBLE_SQL})) OR status<>'paid' OR sponsorship_refund_status<>'not_requested'
       OR updated_at IS DISTINCT FROM (v.source_snapshot->0->>'version')::timestamptz
-      OR (v.source_snapshot->0->'approvals') IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('subjectType',mc.subject_type,'subjectId',mc.subject_id,'decisionId',mc.current_decision_id)
+      OR ${recordedApprovals} IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('subjectType',mc.subject_type,'subjectId',mc.subject_id,'decisionId',mc.current_decision_id)
         ORDER BY mc.subject_type,mc.subject_id) FROM moderation_cases mc WHERE (mc.subject_type='sponsorship' AND mc.subject_id=fund_contributions.id)
-          OR (mc.subject_type='media' AND mc.subject_id IN (SELECT id FROM sponsor_media_assets WHERE contribution_id=fund_contributions.id)))))
+          OR (mc.subject_type='media' AND mc.subject_id::text IN (${firstMedia('supporting_image')},${firstMedia('logo')})))))
     OR ${firstMedia('supporting_image')} IS DISTINCT FROM (SELECT image->>'id' FROM jsonb_array_elements(${mediaSnapshot}) image WHERE image->>'kind'='supporting_image' LIMIT 1)
     OR ${firstMedia('logo')} IS DISTINCT FROM (SELECT image->>'id' FROM jsonb_array_elements(${mediaSnapshot}) image WHERE image->>'kind'='logo' LIMIT 1)
     OR EXISTS(SELECT 1 FROM jsonb_array_elements(${mediaSnapshot}) image LEFT JOIN sponsor_media_assets exposure_media ON exposure_media.id::text=image->>'id'

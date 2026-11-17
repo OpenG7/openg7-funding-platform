@@ -604,10 +604,40 @@ export class FundingAdminSponsorshipsClient {
         body: payload
       }
     );
-    if (!response.ok)
+    if (!response.ok) {
+      const failure = (await response.json().catch(() => null)) as {
+        code?: unknown;
+      } | null;
+      const known = [
+        'WEBSITE_VISIBILITY_BLOCKED',
+        'WEBSITE_VISIBILITY_CONFLICT',
+        'WEBSITE_REFRESH_REQUEST_CONFLICT',
+        'REQUIRED_ELEMENTS_MISSING',
+        'SOURCE_COMMITMENT_CHANGED',
+        'MEDIA_STORAGE_UNAVAILABLE',
+        'MEDIA_UNAVAILABLE',
+        'MEDIA_CHANGED'
+      ];
       throw new AdminDashboardRequestError(
         response.status,
-        'Website visibility could not be updated.'
+        'Website visibility could not be updated.',
+        typeof failure?.code === 'string' && known.includes(failure.code)
+          ? failure.code
+          : undefined
       );
+    }
+    if (payload.refresh) {
+      const result = (await response.json()) as {
+        updated?: boolean;
+        refresh?: SponsorshipWebsiteVisibilityRequest['refresh'];
+      };
+      if (
+        result.updated !== true ||
+        result.refresh?.requestId !== payload.refresh.requestId ||
+        result.refresh.obligationId !== payload.refresh.obligationId ||
+        result.refresh.expectedVersion !== payload.refresh.expectedVersion
+      )
+        throw new Error('WEBSITE_REFRESH_RECEIPT_MISMATCH');
+    }
   }
 }

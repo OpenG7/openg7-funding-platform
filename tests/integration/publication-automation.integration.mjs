@@ -936,6 +936,41 @@ test(
       }
     );
     await t.test(
+      'combined approval accepts an agreed text publication without any sponsor image and keeps website visibility held',
+      async () => {
+        await reset();
+        const { contributionId, job } = await pendingProposal();
+        await activate();
+        await service.command(await combinedApproval(job), 'reviewer');
+        const accepted = await record(job.id);
+        assert.equal(accepted.status, 'approved');
+        assert.equal(accepted.sponsors[0].reviewStatus, 'approved');
+        assert.equal(accepted.mediaId, null);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT COUNT(*)::int AS count FROM sponsor_media_assets WHERE contribution_id=$1',
+              [contributionId]
+            )
+          ).rows[0].count,
+          0
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT sponsor_site_visibility_held FROM fund_contributions WHERE id=$1',
+              [contributionId]
+            )
+          ).rows[0].sponsor_site_visibility_held,
+          true
+        );
+        assert.equal(
+          (await listPublicSponsorships(pool)).sponsorships.length,
+          0
+        );
+      }
+    );
+    await t.test(
       'combined acceptance keeps profiles and media private until a separate website publication decision',
       async () => {
         await reset();
@@ -945,7 +980,7 @@ test(
         });
         await assert.rejects(
           service.command(await combinedApproval(job), 'reviewer'),
-          { code: 'SPONSOR_MEDIA_REQUIRED' }
+          { code: 'CONNECTION_REQUIRED' }
         );
         const mediaId = await presentation(contributionId);
         await pool.query(

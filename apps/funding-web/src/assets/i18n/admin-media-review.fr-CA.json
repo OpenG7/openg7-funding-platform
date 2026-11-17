@@ -1,6 +1,60 @@
 {
   "admin": {
     "mediaReview": {
+      "experience": {
+        "prepare": "Préparation des contenus",
+        "emptyTitle": "Ajoutez vos premiers médias",
+        "emptyHelp": "Importez les photos et logos du commanditaire pour préparer leur utilisation dans les prestations.",
+        "addPhotos": "Ajouter des photos",
+        "addLogo": "Ajouter un logo",
+        "formats": "JPEG, PNG et WebP",
+        "noMedia": "Aucun média dans ce dossier",
+        "toolsLater": "Les outils de recherche et de gestion apparaîtront lorsque des fichiers seront ajoutés.",
+        "reviewTitle": "Vos médias sont prêts à être examinés",
+        "reviewHelp": "{{count}} média(s) attendent une décision. L’approbation ne publie aucun contenu.",
+        "libraryTitle": "Bibliothèque du commanditaire",
+        "libraryHelp": "Consultez les médias et préparez leurs prochaines utilisations.",
+        "organize": "Rechercher et organiser",
+        "category": "Catégorie",
+        "noResultsHelp": "Modifiez les filtres pour retrouver les médias de ce dossier.",
+        "clearFilters": "Réinitialiser les filtres",
+        "assigned": "{{count}} affectation(s)",
+        "approveContinue": "Approuver et continuer",
+        "cancel": "Annuler",
+        "technicalDetails": "Détails techniques et provenance",
+        "steps": {
+          "add": "Ajouter",
+          "addHelp": "Importer les photos et logos.",
+          "review": "Examiner",
+          "reviewHelp": "Vérifier et approuver les contenus admissibles.",
+          "prepare": "Préparer l’utilisation",
+          "prepareHelp": "Affecter les ressources aux prestations."
+        },
+        "assistant": {
+          "empty": "Aucun média reçu.",
+          "next": "Prochaine action",
+          "add": "Ajoutez les premières photos du commanditaire dans l’espace d’import.",
+          "afterImport": "Vous pourrez ensuite examiner les contenus et préparer leur utilisation.",
+          "authorization": "{{count}} média(s) nécessitent une autorisation.",
+          "consentHelp": "Une demande commune peut couvrir les photos en attente. L’envoi ne vaut pas consentement.",
+          "rightsHelp": "Consultez les autorisations dans l’inspecteur. Des droits retirés ou ceux d’un logo demandent une vérification distincte.",
+          "review": "{{count}} média(s) attendent une décision.",
+          "reviewHelp": "Examinez les fichiers ou utilisez Tout approuver pour vérifier les médias admissibles avant de confirmer.",
+          "available": "Des médias approuvés sont disponibles.",
+          "prepare": "Préparez leurs affectations et la fiche publique. Chaque utilisation conserve son autorisation.",
+          "blocked": "Aucun média n’est approuvé.",
+          "blockedHelp": "Consultez les détails des fichiers pour comprendre les décisions et les corrections possibles.",
+          "more": "Détails et prochaines utilisations"
+        },
+        "status": {
+          "review": "À examiner",
+          "approved": "Approuvé",
+          "authorization": "Autorisation requise",
+          "correction": "Correction demandée",
+          "rejected": "Refusé",
+          "blocked": "Bloqué"
+        }
+      },
       "title": "Revue des médias",
       "uploadKind": "Type de fichier",
       "photo": "Photo",
@@ -217,7 +271,7 @@
       },
       "library": {
         "title": "Fiche et médias",
-        "subtitle": "Bibliothèque intelligente · Préparation des contenus pour les prestations",
+        "subtitle": "Préparation des contenus de la commandite",
         "services": "{{count}} prestation(s)",
         "viewsLabel": "Vues de la bibliothèque",
         "views": {
@@ -227,8 +281,8 @@
           "corrections": "Corrections et demandes"
         },
         "identityMissing": "Des renseignements du dossier sont incomplets. Les coordonnées se gèrent dans Identité.",
-        "submissionPending": "La transmission du formulaire commanditaire reste attendue. Une correction administrative ne la remplace pas.",
-        "completeIdentity": "Compléter dans Identité",
+        "submissionPending": "Formulaire commanditaire en attente · La préparation des médias peut se poursuivre.",
+        "completeIdentity": "Voir Identité",
         "correctionsHelp": "Retrouvez ici le choix de photo et la correction demandés par le commanditaire. Les décisions et leur explication restent enregistrées dans Funding. Pour une intervention sur le contenu d’un média, ouvrez son inspection puis les options de modération.",
         "returnMedia": "Revenir aux médias",
         "noDossier": "Aucun dossier commanditaire actif.",
@@ -343,6 +397,7 @@
       "acceptanceWithdrawn": "Le commanditaire a retiré son autorisation. Ce média ne peut pas être approuvé.",
       "decisionRecordedHelp": "Votre décision, son auteur et sa date sont enregistrés automatiquement.",
       "consentRequest": {
+        "photos": "Photos concernées",
         "open": "Demander le consentement des photos",
         "title": "Demander le consentement des photos",
         "intro": "Un seul lien permet au commanditaire d’examiner les photos de ce dossier en attente de consentement et de donner son accord.",
@@ -360,7 +415,7 @@
           "authorization": "Autorisation requise"
         },
         "consentAction": "Autorisation requise — Demander le consentement des photos en attente d’un premier accord",
-        "assistantTitle": "Assistant · Comprendre les états",
+        "assistantTitle": "Assistant OpenG7",
         "assistantHelp": "Les autorisations et les contrôles déterminent les médias admissibles. Tout approuver prépare l’ensemble du dossier, photos et logos. Les filtres et votre sélection ne limitent pas cette action.",
         "preparing": "Vérification de tous les médias du dossier…",
         "executing": "Vérification du résultat de l’approbation…",

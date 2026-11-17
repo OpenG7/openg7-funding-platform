@@ -107,7 +107,7 @@ test('incomplete dossier markers use confirmed payment and explicit extensions, 
       {
         ...record,
         detailsSubmittedAt: '2026-09-01',
-        hasSupportingImage: false
+        hasContactEmail: false
       },
       null,
       now
@@ -126,6 +126,22 @@ test('incomplete dossier markers use confirmed payment and explicit extensions, 
       'inactive'
     );
 });
+test('an absent photo alone never triggers an information reminder or an overdue dossier decision', () => {
+  for (const ageDays of [7, 14, 30, 300]) {
+    const textOnly = {
+      ...record,
+      paidAt: new Date(now.getTime() - ageDays * 86400000).toISOString(),
+      detailsSubmittedAt: '2026-09-01',
+      hasSupportingImage: false
+    };
+    for (const extension of [null, '2026-09-28'])
+      assert.equal(
+        sponsorshipFollowupState(textOnly, extension, now).state,
+        'complete'
+      );
+  }
+});
+
 test('readers can consult interventions, only operators and owners can append them', () => {
   for (const path of [
     '/admin/sponsorships/interventions',

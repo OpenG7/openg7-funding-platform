@@ -3,16 +3,47 @@ import type { Locator, Page } from '@playwright/test';
 import type { AdminController } from './admin-controller.js';
 import { expect } from './test.js';
 
+/** Library search, ordering and filters are disclosed only when there are media. */
+export async function openMediaLibraryTools(page: Page): Promise<Locator> {
+  const tools = page.locator('[data-og7="media-library-tools"]');
+  await expect(tools).toBeVisible();
+  if ((await tools.getAttribute('open')) === null)
+    await tools.locator(':scope > summary').click();
+  await expect(tools).toHaveAttribute('open', '');
+  return tools;
+}
+
+/** Technical metadata and existing analysis stay behind the inspector disclosure. */
+export async function openMediaInspectorDetails(page: Page): Promise<Locator> {
+  const details = page.locator('[data-og7="media-inspector-details"]');
+  await expect(details).toBeVisible();
+  if ((await details.getAttribute('open')) === null)
+    await details.locator(':scope > summary').click();
+  await expect(details).toHaveAttribute('open', '');
+  return details;
+}
+
 /** Reach the owning workspace after the individual Publication monitor refactor. */
 export async function openPublicationSection(
   page: Page,
-  section: 'controls' | 'contract' | 'navigation' | 'obligations' | 'offer'
+  section:
+    | 'controls'
+    | 'contract'
+    | 'navigation'
+    | 'obligations'
+    | 'offer'
+    | 'profile'
+    | 'settings'
 ): Promise<void> {
   const current = new URL(page.url());
   const id =
     current.searchParams.get('sponsorshipId') ??
     current.searchParams.get('workshopSponsorshipId');
   expect(id).toBeTruthy();
+  if (section === 'profile' || section === 'settings') {
+    await openSponsorshipWebsiteSettings(page);
+    return;
+  }
   if (section === 'controls') {
     if (
       current.pathname !== '/admin/fundraiser/preflight' ||

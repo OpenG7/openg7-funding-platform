@@ -9,6 +9,7 @@ import { effectiveRefundsSql } from './fund-refund-projection.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
 import { listSponsorshipFulfilmentEvidence } from './sponsorship-fulfilment.repository.js';
+import { isWebsiteRefreshPassage } from './sponsorship-website-refresh.repository.js';
 import {
   loadSponsorshipEvidenceFacts,
   qualifiedSponsorshipEvidenceIds
@@ -27,6 +28,7 @@ export interface SponsorshipProgressFacts {
   readonly websiteVisible: boolean;
   readonly websiteHeld: boolean;
   readonly websiteVersion: string;
+  readonly websiteRefreshObligationId?: string | null;
   readonly companyName: string | null;
   readonly amountMinor: number;
   readonly refundId: string | null;
@@ -156,9 +158,20 @@ export const loadSponsorshipProgressFacts = async (
     [id]
   );
   const commitment = await loadSponsorshipCommitment(client, id);
+  const openWebsite = commitment?.obligations.find(
+    (obligation) =>
+      obligation.channel === 'website' &&
+      obligation.target === 'openg7' &&
+      !['fulfilled', 'adjusted'].includes(obligation.state)
+  );
+  const websiteRefreshObligationId =
+    openWebsite && (await isWebsiteRefreshPassage(client, id, openWebsite.id))
+      ? openWebsite.id
+      : null;
   const evidenceFacts = await loadSponsorshipEvidenceFacts(client, id);
   return {
     commitment,
+    websiteRefreshObligationId,
     qualifiedFulfilmentEvidenceIds: qualifiedSponsorshipEvidenceIds(
       commitment,
       evidenceFacts

@@ -211,18 +211,17 @@ test('sponsorship reads and mutations retain their distinct absent-database resu
   }
 });
 
-test('review preserves version, payment and presentation-photo prerequisites before writing', async () => {
+test('text review preserves version and payment prerequisites independently of presentation photos', async () => {
   const target = {
     status: 'paid',
     review_status: 'pending_review',
     version,
-    has_approved_presentation_photo: true
+    has_approved_presentation_photo: false
   };
   for (const [row, expected] of [
     [null, 'not_found'],
     [{ ...target, version: 'newer' }, 'conflict'],
-    [{ ...target, status: 'refunded' }, 'payment_not_eligible'],
-    [{ ...target, has_approved_presentation_photo: false }, 'media_required']
+    [{ ...target, status: 'refunded' }, 'payment_not_eligible']
   ]) {
     const db = database({ rows: row ? [row] : [] });
     const result = await facade.updateSponsorshipReview(db.pool, review());

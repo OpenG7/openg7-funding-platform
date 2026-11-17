@@ -44,6 +44,8 @@
     "finance": "Finances"
   },
   "states": {
+    "visualAwaited": "Visuel convenu attendu",
+    "textVisible": "Texte visible · visuel à compléter",
     "unknown": "Indisponible",
     "complete": "Terminé",
     "incomplete": "Incomplète",

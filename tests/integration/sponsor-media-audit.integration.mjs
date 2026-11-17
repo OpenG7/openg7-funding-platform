@@ -6,7 +6,7 @@ import { createSponsorMediaAsset } from '../../dist/apps/funding-api/src/sponsor
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 test(
-  'failed upload audit rolls back the new media, previous logo deletion and dossier review in PostgreSQL',
+  'private uploads preserve dossier review and roll back new media and previous logo deletion when their audit fails',
   { timeout: 90000 },
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
@@ -39,8 +39,21 @@ test(
         altText: null,
         maxSupportingImages: 3
       });
+    const dossierBeforeUpload = (
+      await pool.query('SELECT * FROM fund_contributions WHERE id=$1', [
+        contributionId
+      ])
+    ).rows[0];
     const first = await upload();
     assert.equal(first.status, 'created');
+    assert.deepEqual(
+      (
+        await pool.query('SELECT * FROM fund_contributions WHERE id=$1', [
+          contributionId
+        ])
+      ).rows[0],
+      dossierBeforeUpload
+    );
     const audit = (
       await pool.query(
         `
@@ -65,10 +78,6 @@ test(
         }
       }
     ]);
-    await pool.query(
-      "UPDATE fund_contributions SET sponsor_review_status = 'approved' WHERE id = $1",
-      [contributionId]
-    );
     const snapshot = async () => ({
       assets: (
         await pool.query(

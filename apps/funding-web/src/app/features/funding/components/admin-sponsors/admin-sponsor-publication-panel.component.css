@@ -107,6 +107,90 @@ textarea {
   font-weight: var(--admin-control-weight);
 }
 
+.publication-advanced {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.9rem;
+  background: var(--admin-panel);
+  min-width: 0;
+}
+
+.publication-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  list-style: none;
+  min-height: 4rem;
+  flex-wrap: wrap;
+}
+
+.publication-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.publication-advanced > summary::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid var(--admin-muted);
+  border-bottom: 2px solid var(--admin-muted);
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+.publication-advanced[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.profile-summary-title {
+  font-size: 1.05rem;
+}
+
+.profile-summary-subtitle {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  border-left: 1px solid var(--admin-border);
+  padding-left: 1rem;
+}
+
+.profile-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 2rem;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+
+.profile-summary-status::before {
+  content: '';
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.profile-summary-status[data-state='visible'] {
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+}
+
+.profile-summary-status[data-state='blocked'] {
+  color: var(--admin-warning);
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+}
+
+.publication-advanced > .publication-editor {
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0 0 0.9rem 0.9rem;
+}
+
 .publication-advanced > summary:focus-visible,
 .declared-tracking > summary:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -180,5 +264,18 @@ textarea {
 
   .public-preview > div {
     @apply tw:flex-wrap;
+  }
+}
+
+@media (max-width: 40rem) {
+  .profile-summary-title {
+    flex: 1 1 12rem;
+  }
+
+  .profile-summary-subtitle {
+    flex: 1 1 100%;
+    order: 3;
+    padding-left: 1.5rem;
+    border: 0;
   }
 }

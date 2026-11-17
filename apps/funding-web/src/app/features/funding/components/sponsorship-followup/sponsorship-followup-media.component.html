@@ -26,8 +26,13 @@
             : { count: photoCount(), max: limits().maxSupportingImages }
       }}
     </p>
-    <p *ngIf="!canUploadMedia()" class="media-payment-note">
-      {{ 'funding.followup.media.disabled' | translate }}
+    <p
+      *ngIf="!canUploadMedia()"
+      class="media-payment-note"
+      data-og7="followup-media-unavailable"
+      role="status"
+    >
+      {{ uploadDisabledMessage() | translate }}
     </p>
     <p *ngIf="hasApprovedLogo()">
       {{ 'funding.followup.media.approvedLogo' | translate }}

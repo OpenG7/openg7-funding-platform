@@ -16,14 +16,26 @@
   "workflowSummaryTitle": "Prochaine étape des prestations",
   "workflowSummaryHelp": "Consultez le détail des prestations, leurs échéances et leurs preuves dans l’espace Prestations de services.",
   "openCampaign": "Voir les prestations de cette commandite",
-  "settingsTitle": "Fiche publique et suivi déclaré",
+  "settingsTitle": "Fiche publique et visibilité",
   "settingsHelp": "La fiche publique et le suivi social déclaré ont des responsabilités distinctes. Leur enregistrement ne publie pas la fiche et n’autorise aucun envoi social.",
   "profileTitle": "Fiche publique",
+  "websiteMediaTitle": "Visuels sélectionnés pour le site",
+  "websiteMediaEmpty": "Aucun visuel sélectionné. La fiche textuelle peut être publiée si elle est admissible.",
+  "websiteMediaUnavailable": "La sélection de visuels n’est pas disponible pour le moment.",
+  "websiteMediaHelp": "Le choix des visuels se confirme dans l’inspecteur. Une sélection peut modifier immédiatement une fiche déjà visible.",
+  "websiteMediaManage": "Choisir dans la bibliothèque",
   "profileHelp": "Modifiez l’adresse et le résumé affichés sur la fiche. Sa visibilité se décide séparément dans la carte Site Web.",
   "declaredTitle": "Suivi social déclaré",
   "declaredHelp": "Conservez les références et les notes d’un suivi manuel ou historique. Un statut déclaré ne confirme pas une prestation livrée et ne remplace pas l’autorisation d’une publication.",
   "previewTitle": "Aperçu privé de la fiche",
   "save": "Enregistrer les modifications",
   "saveHelp": "Enregistre les champs modifiés de la fiche et du suivi déclaré. Pour autoriser un envoi, ouvrez la publication concernée.",
-  "saving": "Enregistrement…"
+  "saving": "Enregistrement…",
+  "settingsSubtitle": "Présentation sur le site · Aperçu · Paramètres",
+  "visibilityStates": {
+    "visible": "Visible",
+    "hidden": "Non visible",
+    "blocked": "À préparer",
+    "unknown": "À vérifier"
+  }
 }

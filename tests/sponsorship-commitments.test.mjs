@@ -49,8 +49,10 @@ test('offered benefits use safe integer minor units, an explicit CAD currency an
       )
     );
     assert.ok(
-      offer.benefits.every((b) =>
-        b.requiredElements.includes('approved_presentation')
+      offer.benefits.every(
+        (b) =>
+          JSON.stringify(b.requiredElements) ===
+          JSON.stringify(['company_name'])
       )
     );
   }
@@ -113,11 +115,17 @@ test('old offer canonical JSON and fingerprint stay unchanged while new image fo
   const composite = quoteSponsorshipOffer(50000, 'CAD', undefined, {
     facebook: 'collective_composite'
   });
-  assert.equal(text.version, 'sponsorship-v2');
+  assert.equal(text.version, 'sponsorship-v3');
   assert.equal(Object.hasOwn(text.benefits[0], 'format'), false);
   assert.equal(text.benefits[1].format, 'collective_text');
   assert.equal(portrait.benefits[1].format, 'individual_portrait');
   assert.equal(portrait.benefits[2].format, 'collective_text');
+  assert.deepEqual(text.benefits[0].requiredElements, ['company_name']);
+  assert.deepEqual(portrait.benefits[1].requiredElements, [
+    'company_name',
+    'approved_presentation'
+  ]);
+  assert.deepEqual(portrait.benefits[2].requiredElements, ['company_name']);
   assert.equal(
     new Set([text.fingerprint, portrait.fingerprint, composite.fingerprint])
       .size,
@@ -242,11 +250,14 @@ test('normalization isolates every recorded requirement array from later source 
   assert.equal(normalized.benefits.length, 3);
   assert.equal(normalized.benefits[0].quantity, 1);
   assert.equal(normalized.benefits[1].format, 'individual_portrait');
-  for (const benefit of normalized.benefits)
-    assert.deepEqual(benefit.requiredElements, [
-      'company_name',
-      'approved_presentation'
-    ]);
+  assert.deepEqual(
+    normalized.benefits.map((benefit) => benefit.requiredElements),
+    [
+      ['company_name'],
+      ['company_name', 'approved_presentation'],
+      ['company_name']
+    ]
+  );
   assert.equal(sponsorshipOfferFingerprint(normalized), hash);
 });
 

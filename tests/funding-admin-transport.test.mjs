@@ -27,6 +27,50 @@ const syntheticToken = 'openg7-admin-session.synthetic';
 const cookieMarker = 'openg7-admin-session.cookie';
 const baseUrl = 'https://funding.example.test/api';
 
+test('manifest thumbnails require the exact echoed media version and never fall back to an unversioned image', async (t) => {
+  const version = '2026-11-01 12:00:00.123456+00';
+  for (const returned of [version, 'different', null]) {
+    const { service } = serviceFixture(t);
+    const fetchMock = t.mock.method(
+      globalThis,
+      'fetch',
+      async (url, options) => {
+        const target = new URL(url);
+        assert.equal(
+          target.pathname,
+          '/api/admin/sponsorships/media/content/asset%20%2F'
+        );
+        assert.equal(target.searchParams.get('variant'), 'thumbnail');
+        assert.equal(target.searchParams.get('expectedVersion'), version);
+        assert.equal(options.cache, 'no-store');
+        return new Response(new Blob(['synthetic'], { type: 'image/webp' }), {
+          headers:
+            returned === null ? {} : { 'X-OpenG7-Media-Version': returned }
+        });
+      }
+    );
+    if (returned === version)
+      assert.equal(
+        (await service.mediaThumbnail('asset /', version)).type,
+        'image/webp'
+      );
+    else
+      await assert.rejects(
+        service.mediaThumbnail('asset /', version),
+        /MEDIA_PREVIEW_VERSION_UNCONFIRMED/
+      );
+    assert.equal(fetchMock.mock.callCount(), 1);
+    fetchMock.mock.restore();
+  }
+  const { service } = serviceFixture(t);
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url) => {
+    assert.equal(new URL(url).searchParams.has('expectedVersion'), false);
+    return new Response(new Blob(['legacy'], { type: 'image/webp' }));
+  });
+  assert.equal((await service.mediaThumbnail('legacy')).type, 'image/webp');
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
+
 test('information command propagates only the UUID ownership conflict and never retries', async (t) => {
   for (const code of [
     'INFORMATION_REQUEST_ID_CONFLICT',
@@ -87,6 +131,62 @@ const serviceFixture = (t, token = syntheticToken) => {
   });
   return { service: new FundingAdminService(), sessionStorage };
 };
+
+test('website refresh accepts only the exact captured receipt and never retries a POST automatically', async (t) => {
+  const command = {
+    contributionId: '10000000-0000-4000-8000-000000000401',
+    expectedVersion: 'site-v1',
+    visible: true,
+    confirmed: true,
+    refresh: {
+      requestId: '10000000-0000-4000-8000-000000000601',
+      obligationId: '10000000-0000-4000-8000-000000000501',
+      expectedVersion: 2
+    }
+  };
+  for (const [label, body, accepted] of [
+    ['exact', { updated: true, refresh: command.refresh }, true],
+    ['empty', {}, false],
+    ['not-updated', { updated: false, refresh: command.refresh }, false],
+    [
+      'other-request',
+      { updated: true, refresh: { ...command.refresh, requestId: 'another' } },
+      false
+    ],
+    [
+      'other-passage',
+      {
+        updated: true,
+        refresh: { ...command.refresh, obligationId: 'another' }
+      },
+      false
+    ],
+    [
+      'other-version',
+      { updated: true, refresh: { ...command.refresh, expectedVersion: 3 } },
+      false
+    ]
+  ])
+    await t.test(label, async (child) => {
+      const { service } = serviceFixture(child);
+      const fetchMock = child.mock.method(
+        globalThis,
+        'fetch',
+        async (_url, options) => {
+          assert.equal(options.method, 'POST');
+          assert.deepEqual(JSON.parse(options.body), command);
+          return Response.json(body);
+        }
+      );
+      const sending = service.setSponsorshipWebsiteVisibility(
+        syntheticToken,
+        command
+      );
+      if (accepted) await sending;
+      else await assert.rejects(sending, /WEBSITE_REFRESH_RECEIPT_MISMATCH/);
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+});
 
 test('expense receipt transport is a private GET with the exact UUID and never submits a mutation', async (t) => {
   const { service } = serviceFixture(t);

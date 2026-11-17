@@ -8,15 +8,21 @@ export interface MediaPreview {
 /** Private, bounded preview cache owned by one workspace and one admin session. */
 export class MediaPreviewCollection {
   readonly previews = signal<Readonly<Record<string, MediaPreview>>>({});
-  private readonly queue: { id: string; key: string; generation: number }[] =
-    [];
+  private readonly queue: {
+    id: string;
+    version: string;
+    key: string;
+    generation: number;
+  }[] = [];
   private readonly pending = new Set<string>();
   private active = 0;
   private generation = 0;
   private disposed = false;
   private retained: ReadonlySet<string> | null = null;
 
-  constructor(private readonly load: (id: string) => Promise<Blob>) {}
+  constructor(
+    private readonly load: (id: string, version: string) => Promise<Blob>
+  ) {}
 
   key(id: string, version: string): string {
     return id + ':' + version;
@@ -26,7 +32,7 @@ export class MediaPreviewCollection {
     const key = this.key(id, version);
     if (this.disposed || this.previews()[key] || this.pending.has(key)) return;
     this.pending.add(key);
-    this.queue.push({ id, key, generation: this.generation });
+    this.queue.push({ id, version, key, generation: this.generation });
     this.drain();
   }
 
@@ -68,7 +74,7 @@ export class MediaPreviewCollection {
     while (!this.disposed && this.active < 4 && this.queue.length) {
       const job = this.queue.shift()!;
       this.active++;
-      void this.load(job.id)
+      void this.load(job.id, job.version)
         .then((blob) => {
           if (
             this.disposed ||

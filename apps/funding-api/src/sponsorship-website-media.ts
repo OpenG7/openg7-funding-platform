@@ -41,12 +41,14 @@ export interface WebsiteMediaAttestation {
   readonly sources: readonly WebsiteMediaSource[];
 }
 
-/** Matches the public directory's first presentation photo and first qualified logo. */
+/** Exact optional public selections; private or ineligible assets do not gate the text. */
 export async function readWebsiteMediaSources(
   db: Db,
   contributionId: string,
-  legacyLogoUrl: string | null
+  _legacyLogoUrl: string | null
 ): Promise<WebsiteMediaSource[]> {
+  // Keep the application port compatible; a legacy URL is never media evidence.
+  void _legacyLogoUrl;
   const result = await db.query<{
     id: string;
     contribution_id: string;
@@ -75,43 +77,43 @@ export async function readWebsiteMediaSources(
     (row) => row.kind === 'supporting_image'
   );
   const logo = result.rows.find((row) => row.kind === 'logo');
-  if (!presentation || (legacyLogoUrl && !logo))
-    throw new ModerationError('MEDIA_USAGE_CONFIRMATION_REQUIRED');
-  return [presentation, ...(logo ? [logo] : [])].map((row) => {
-    if (
-      row.contribution_id !== contributionId ||
-      !/^[a-f0-9]{64}$/.test(row.checksum_sha256) ||
-      row.processed_mime_type !== 'image/webp' ||
-      !row.processed_storage_key ||
-      !Number.isSafeInteger(row.width) ||
-      row.width <= 0 ||
-      !Number.isSafeInteger(row.height) ||
-      row.height <= 0
-    )
-      throw new ModerationError('MEDIA_CHANGED');
-    const usage = normalizeSponsorMediaUsage(row.usage_rights);
-    const issue = sponsorMediaUsageIssue(usage, {
-      channel: 'website',
-      target: 'openg7',
-      transformations: ['technical'],
-      restrictionsReviewed: row.usage_restrictions_reviewed === true,
-      renderedCredit: usage.credit
-    });
-    if (issue) throw new ModerationError(issue);
-    return {
-      id: row.id,
-      contributionId: row.contribution_id,
-      kind: row.kind,
-      version: row.version,
-      checksum: row.checksum_sha256,
-      storageKey: row.processed_storage_key,
-      width: row.width,
-      height: row.height,
-      alt: row.alt_text,
-      usage,
-      restrictionsReviewed: row.usage_restrictions_reviewed === true
-    };
-  });
+  return [...(presentation ? [presentation] : []), ...(logo ? [logo] : [])].map(
+    (row) => {
+      if (
+        row.contribution_id !== contributionId ||
+        !/^[a-f0-9]{64}$/.test(row.checksum_sha256) ||
+        row.processed_mime_type !== 'image/webp' ||
+        !row.processed_storage_key ||
+        !Number.isSafeInteger(row.width) ||
+        row.width <= 0 ||
+        !Number.isSafeInteger(row.height) ||
+        row.height <= 0
+      )
+        throw new ModerationError('MEDIA_CHANGED');
+      const usage = normalizeSponsorMediaUsage(row.usage_rights);
+      const issue = sponsorMediaUsageIssue(usage, {
+        channel: 'website',
+        target: 'openg7',
+        transformations: ['technical'],
+        restrictionsReviewed: row.usage_restrictions_reviewed === true,
+        renderedCredit: usage.credit
+      });
+      if (issue) throw new ModerationError(issue);
+      return {
+        id: row.id,
+        contributionId: row.contribution_id,
+        kind: row.kind,
+        version: row.version,
+        checksum: row.checksum_sha256,
+        storageKey: row.processed_storage_key,
+        width: row.width,
+        height: row.height,
+        alt: row.alt_text,
+        usage,
+        restrictionsReviewed: row.usage_restrictions_reviewed === true
+      };
+    }
+  );
 }
 
 /** All storage I/O happens before the visibility transaction acquires any lock. */
@@ -121,12 +123,13 @@ export async function attestWebsiteMedia(
   contributionId: string,
   legacyLogoUrl: string | null
 ): Promise<WebsiteMediaAttestation> {
-  if (!storage) throw new ModerationError('MEDIA_STORAGE_UNAVAILABLE', 503);
   const sources = await readWebsiteMediaSources(
     db,
     contributionId,
     legacyLogoUrl
   );
+  if (sources.length === 0) return { contributionId, sources };
+  if (!storage) throw new ModerationError('MEDIA_STORAGE_UNAVAILABLE', 503);
   for (const source of sources) {
     let bytes: Buffer | null;
     try {
@@ -176,7 +179,17 @@ export function assertWebsiteRequiredElements(
   attestation: WebsiteMediaAttestation | null
 ): void {
   assertWebsiteMediaAttested(contributionId, displayed, attestation);
-  const present = requiredElements.every((requirement) => {
+  if (!websiteRequiredElementsPresent(requiredElements, companyName, displayed))
+    throw new ModerationError('REQUIRED_ELEMENTS_MISSING');
+}
+
+/** A missing promised image keeps the obligation open without hiding the text. */
+export function websiteRequiredElementsPresent(
+  requiredElements: SponsorshipOfferedBenefit['requiredElements'],
+  companyName: string,
+  displayed: readonly WebsiteMediaSource[]
+): boolean {
+  return requiredElements.every((requirement) => {
     switch (requirement) {
       case 'company_name':
         return companyName.trim().length > 0;
@@ -188,5 +201,4 @@ export function assertWebsiteRequiredElements(
         return false;
     }
   });
-  if (!present) throw new ModerationError('REQUIRED_ELEMENTS_MISSING');
 }

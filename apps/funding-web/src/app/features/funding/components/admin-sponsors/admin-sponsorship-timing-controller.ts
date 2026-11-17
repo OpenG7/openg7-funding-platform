@@ -9,6 +9,7 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 
 interface TimingPorts {
   canOwn(): boolean;
+  disabled?(): boolean;
   isDestroyed(): boolean;
   newRequestId(): string;
   send(
@@ -149,6 +150,7 @@ export class AdminSponsorshipTimingController {
   async submit(kind: SponsorshipTimingCommandRequest['kind']): Promise<void> {
     if (
       !this.ports.canOwn() ||
+      this.ports.disabled?.() ||
       this.ports.isDestroyed() ||
       this.busy() ||
       this.pending()
@@ -235,6 +237,7 @@ export class AdminSponsorshipTimingController {
       !request ||
       this.busy() ||
       !this.ports.canOwn() ||
+      this.ports.disabled?.() ||
       this.ports.isDestroyed()
     )
       return;

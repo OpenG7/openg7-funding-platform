@@ -451,6 +451,80 @@ test('admin previews serve only private object bytes with private no-store cache
   }
 });
 
+test('versioned private previews reject malformed or changed sources before serving bytes', async () => {
+  const encoded = encodeURIComponent(version);
+  const exact = fixture({ assetPatch: { version } });
+  const result = await exact.run(
+    `/admin/sponsorships/media/content/${assetId}?expectedVersion=${encoded}`
+  );
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.payload, image);
+  assert.equal(result.headers['X-OpenG7-Media-Version'], version);
+  assert.equal(
+    result.headers['Access-Control-Expose-Headers'],
+    'X-OpenG7-Media-Version'
+  );
+  assert.deepEqual(exact.values('get'), [assetId, assetId]);
+  assert.deepEqual(exact.values('publish'), []);
+  for (const query of ['', ' ', 'x'.repeat(129), '\n']) {
+    const invalid = fixture({ assetPatch: { version } });
+    const response = await invalid.run(
+      `/admin/sponsorships/media/content/${assetId}?expectedVersion=${encodeURIComponent(query)}`
+    );
+    assert.equal(response.status, 400);
+    assert.deepEqual(invalid.values('get'), []);
+    assert.deepEqual(invalid.values('mediaRead'), []);
+  }
+  const duplicated = fixture({ assetPatch: { version } });
+  assert.equal(
+    (
+      await duplicated.run(
+        `/admin/sponsorships/media/content/${assetId}?expectedVersion=${encoded}&expectedVersion=${encoded}`
+      )
+    ).status,
+    400
+  );
+  const stale = fixture({ assetPatch: { version: 'newer' } });
+  assert.equal(
+    (
+      await stale.run(
+        `/admin/sponsorships/media/content/${assetId}?expectedVersion=${encoded}`
+      )
+    ).status,
+    409
+  );
+  assert.deepEqual(stale.values('mediaRead'), []);
+});
+
+test('a versioned private preview refuses deletion, replacement or a different dossier while its bytes are loading', async () => {
+  for (const change of ['deleted', 'version', 'dossier']) {
+    let resolve;
+    const results = {
+      mediaRead: new Promise((done) => {
+        resolve = done;
+      })
+    };
+    const f = fixture({ results, assetPatch: { version } });
+    const request = f.run(
+      `/admin/sponsorships/media/content/${assetId}?expectedVersion=${encodeURIComponent(version)}`
+    );
+    await new Promise((done) => setImmediate(done));
+    assert.equal(f.values('mediaRead').length, 1);
+    if (change === 'deleted') results.get = null;
+    else if (change === 'version') f.asset.version = 'newer';
+    else
+      results.get = {
+        ...f.asset,
+        contributionId: '00000000-0000-4000-8000-000000000099'
+      };
+    resolve(image);
+    const result = await request;
+    assert.equal(result.status, 409);
+    assert.deepEqual(f.values('binary'), []);
+    assert.equal(result.headers['X-OpenG7-Media-Version'], undefined);
+  }
+});
+
 test('missing or unreadable media previews retain safe 404 errors', async (t) => {
   const failure = new Error('Synthetic storage failure.');
   for (const options of [

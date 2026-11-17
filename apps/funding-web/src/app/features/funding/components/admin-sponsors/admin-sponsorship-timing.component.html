@@ -113,7 +113,7 @@
         <details>
           <summary>{{ 'admin.timing.manage' | translate }}</summary>
           <p>{{ 'admin.timing.help' | translate }}</p>
-          <fieldset [disabled]="c.busy() || !!c.pending()">
+          <fieldset [disabled]="disabled() || c.busy() || !!c.pending()">
             @if (!t.originAt && t.deadlineDays !== null) {
               <label [for]="'timing-origin-' + o.id">{{
                 'admin.timing.originInput' | translate
@@ -204,7 +204,7 @@
             <p role="status">{{ 'admin.timing.retryHelp' | translate }}</p>
             <button
               type="button"
-              [disabled]="c.busy()"
+              [disabled]="disabled() || c.busy()"
               (click)="c.retry()"
               data-og7="timing-retry"
             >

@@ -1,5 +1,154 @@
 # Galerie de préparation du dossier
 
+## Révision UX du 16 novembre 2026
+
+L’audit de la refonte confirme que les quatre sous-vues utilisaient déjà le même
+inventaire et les mêmes commandes. La densité venait de leur composition : outils
+de recherche et compteurs à zéro dans un dossier vide, diagnostics sur les cartes,
+assistant et inspecteur empilés, réglages de visibilité hors du volet de la fiche.
+Les contrôleurs d’import, de revue, d’analyse, d’historique, d’affectation et de
+demande commune sont conservés. Aucune infrastructure IA ni migration n’est ajoutée
+pour cette révision UX.
+
+| Ancien accès                             | Accès dans l’interface révisée                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| Médias                                   | Bibliothèque principale, outils de recherche et filtres repliables             |
+| Présentation et visuels                  | Catégorie de la même bibliothèque; affectations et choix Web dans l’inspecteur |
+| Documents                                | Catégorie des images classées comme documents; aucun support PDF ajouté        |
+| Corrections et demandes                  | Filtre des corrections et volet secondaire des demandes du commanditaire       |
+| Paramètres publics et visibilité séparés | Un seul volet « Fiche publique et visibilité », sous la galerie                |
+
+`AdminSponsorDetailMediaComponent` porte l’en-tête compact, le rappel d’identité et
+les demandes secondaires, montées au premier dépliage puis conservées pour le
+même dossier afin de préserver le brouillon sans lecture initiale inutile.
+`MediaReviewWorkspaceComponent` compose l’espace vide
+ou la galerie et un seul panneau droit : Assistant sans média inspecté, inspecteur
+sinon. L’état vide exige une lecture réussie du dossier; chargement, erreur et
+absence de données ne sont pas assimilés à une collection vide. Les imports photos
+et logos utilisent les mêmes commandes existantes, sans accorder de droits.
+
+Une bibliothèque remplie présente les compteurs globaux réels, une seule action
+**Tout approuver** et des cartes avec un statut principal. Les outils, la sélection
+multiple, les pages 8/16/25 et les commandes avancées restent disponibles. La
+pagination apparaît seulement lorsqu’elle est utile. **Approuver et continuer**
+n’avance qu’après le reçu exact et la relecture du média approuvé côté serveur.
+Fermer l’inspection restitue l’assistant et le focus; les réponses différées restent
+bornées au dossier et à la session.
+
+`AdminSponsorPublicationPanelComponent` porte l’unique volet public. La page y
+projette les commandes de visibilité existantes et un résumé des médias réellement
+sélectionnés pour le site, issu du même inventaire. Les noms rejoignent leur
+inspecteur; aucune deuxième galerie n’est créée. Adresse 120 caractères, résumé
+500, aperçu privé, sauvegarde versionnée et suivi social déclaratif sont conservés.
+Le résumé indique l’état serveur de visibilité ou son indisponibilité.
+
+Le seul complément technique concerne les aperçus d’une demande commune : un
+cache privé distinct suit le manifeste préparé, indépendamment des filtres et des
+pages. La lecture existante accepte une `expectedVersion` optionnelle, vérifiée
+avant et après lecture du fichier; le client vérifie la version retournée. Un
+aperçu incompatible reste indisponible. Fermer la demande ou changer de dossier
+ou de session invalide les réponses différées et révoque les URL locales.
+L’API et l’interface doivent être livrées ensemble pour ces aperçus versionnés :
+une ancienne API sans écho de version laisse l’aperçu indisponible plutôt que
+d’afficher une image dont la version n’a pas été confirmée.
+
+Les palettes et contrôles administratifs existants restent utilisés, avec leurs
+variantes claire et sombre. Vision et OCR demeurent non raccordés; seules les
+analyses techniques réellement disponibles sont présentées.
+
+### Validation de cette révision
+
+- Build TypeScript racine, typecheck des tests UI et build Angular production
+  réussis; 25 routes statiques/SSR.
+- Suite Node complète : **8 024 réussites, 8 exclusions configurées, aucun échec**
+  sur 8 032 tests. Les nouveaux contrôles couvrent les versions d’aperçus, leur
+  concurrence, le transport et le cache du manifeste de consentement.
+- Playwright : **97/99** sur le lot général. Les deux échecs concernaient la
+  première vignette repoussée sous 800 px à 1536 px, à cause des outils dépliés.
+  Après correction du défaut de dépliage et du style de l’import secondaire,
+  une reprise ciblée sur le dernier build donne **28/28**, incluant ces deux cas,
+  toute la galerie, les cinq médias, les consentements filtrés, les grands dossiers
+  et la fiche publique. Aucun échec n’est laissé ouvert; les 99 parcours n’ont pas
+  été rejoués intégralement une seconde fois après ces deux attributs de template.
+- Les deux parcours Xbox donnent **2/2** avec leur contrôle strict de visibilité.
+  Le faux scrollport du volet public est supprimé; la navigation ne contourne
+  aucune confirmation. Les parcours lecteur, opérateur et propriétaire conservent
+  leurs permissions. Les contrôles Axe ciblés, clavier et focus passent.
+- Import photos et logo sans droit implicite, collection indisponible, réception
+  confirmée suivie d’une erreur de relecture et reprise, approbation partielle,
+  demande commune et versions exactes, pagination et aperçus bornés sont vérifiés.
+  Les tests de cent médias ne chargent que la page rendue, avec quatre lectures
+  de vignettes simultanées au maximum, puis vérifient 25 par page et le centième.
+- ESLint global : aucun défaut, avec la directive inutilisée préexistante de
+  `scripts/smoke-public.mjs:165`. Format, contrôles documentaires et
+  `git diff --check` réussis.
+
+Dix captures synthétiques sont regroupées localement dans
+`test-results/media-ux-review/` : vide et cinq médias FR bureau/EN mobile,
+import, confirmation, volet public fermé/ouvert et grande bibliothèque. Elles
+utilisent les palettes réelles et des scènes géométriques identifiées comme
+synthétiques, sans données ni photographies de client.
+
+Les parcours navigateur interceptent l’API; ils ne qualifient pas un envoi réel
+de courriel ou une publication. Cette révision n’exécute ni migration, ni
+déploiement, ni mutation sur un dossier métier. Les validations de persistance
+et activations relatées plus bas concernent les évolutions antérieures.
+
+### Fichiers de cette révision
+
+Cette liste compare les fichiers à l’état local avant la refonte. Les travaux
+antérieurs du workspace sont conservés; ils ne sont pas tous inclus ici.
+
+<details>
+<summary>42 fichiers</summary>
+
+```text
+apps/funding-api/src/admin-sponsorship-media.http.ts
+apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.css
+apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts
+apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-publication-panel.component.css
+apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-publication-panel.component.html
+apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-publication-panel.component.ts
+apps/funding-web/src/app/features/funding/components/media-review/media-preview-collection.ts
+apps/funding-web/src/app/features/funding/components/media-review/media-review-commands.component.html
+apps/funding-web/src/app/features/funding/components/media-review/media-review-commands.ts
+apps/funding-web/src/app/features/funding/components/media-review/media-review-common.css
+apps/funding-web/src/app/features/funding/components/media-review/media-review-consent-previews.ts
+apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.css
+apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.html
+apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.ts
+apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.html
+apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts
+apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-workspace.css
+apps/funding-web/src/app/features/funding/services/funding-admin-media-review.client.ts
+apps/funding-web/src/app/features/funding/services/funding-admin.service.ts
+apps/funding-web/src/assets/i18n/admin-media-review.en.json
+apps/funding-web/src/assets/i18n/admin-media-review.fr-CA.json
+apps/funding-web/src/assets/i18n/admin-sponsors-publication-cleanup.en.json
+apps/funding-web/src/assets/i18n/admin-sponsors-publication-cleanup.fr-CA.json
+docs/admin-sponsorship-editing.md
+docs/technical/intelligent-media-gallery.md
+docs/technical/sponsor-media-usage.md
+tests/admin-sponsor-publication-panel.test.mjs
+tests/admin-sponsorship-media-http.test.mjs
+tests/funding-admin-transport.test.mjs
+tests/media-consent-previews.test.mjs
+tests/playwright/admin-controller-journeys.spec.ts
+tests/playwright/admin-intelligent-media-gallery.ui.spec.ts
+tests/playwright/admin-sponsor-profile.ui.ts
+tests/playwright/admin-sponsors-publication-cleanup.ui.ts
+tests/playwright/admin-sponsorship-progress.spec.ts
+tests/playwright/media-review-workspace/analysis-scenarios.ts
+tests/playwright/media-review-workspace/approve-all-scenarios.ts
+tests/playwright/media-review-workspace/decision-scenarios.ts
+tests/playwright/media-review-workspace/fixture.ts
+tests/playwright/support/intelligent-media-gallery.fixtures.ts
+tests/playwright/support/sponsorship-dossier.ts
+tests/playwright/support/synthetic-media-previews.ts
+```
+
+</details>
+
 ## A. Diagnostic initial
 
 L’audit du 5 novembre 2026 porte sur le code présent dans le workspace, y compris
@@ -91,8 +240,9 @@ différés de traduction, puis libère cette réserve quand la galerie est prêt
 Cela préserve le défilement mobile sans masquer un bornage légitime. Le retour
 dans Médias ne relance plus la lecture de l’ancien panneau média.
 
-`AdminSponsorDetailMediaComponent` compose les quatre vues autour du même
-`MediaReviewWorkspaceComponent`. Recherche, type, destination préparée, revue,
+`AdminSponsorDetailMediaComponent` compose une bibliothèque et ses demandes
+secondaires autour du même `MediaReviewWorkspaceComponent`. Recherche, catégorie,
+type, destination préparée, revue,
 affectation, lot, tri, grille/liste et pagination 8/16/25 utilisent les données
 du workspace. Les sélections hors page ou filtre sont comptées explicitement.
 Les imports affichent un résultat par fichier, y compris les fichiers non envoyés.
@@ -233,8 +383,8 @@ sélection du rendu. Build, lint et typecheck UI réussis pour ce correctif.
 
 ## H. Fidélité à la maquette
 
-La galerie dominante, les quatre vues, la synthèse, les filtres, le panneau latéral
-repliable et les actions de sélection suivent la composition fournie. Le cadre
+La galerie dominante, l’espace d’import adaptatif, la synthèse, les filtres, le
+panneau contextuel et les actions de sélection suivent la composition fournie. Le cadre
 administratif et ses palettes restent ceux de Funding. Les premiers médias sont
 visibles avant 800 px de hauteur de page à 1536 px de largeur, vérifié en navigateur.
 

@@ -3,11 +3,17 @@ import type { Page } from '@playwright/test';
 import type {
   AdminSponsorshipProgress,
   AdminSponsorshipRecord,
+  SponsorMediaAsset,
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
+import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, sampledFrames, test } from './support/test.js';
-import { openPublicationSection } from './support/sponsorship-dossier.js';
+import {
+  openPublicationObligation,
+  openPublicationSection
+} from './support/sponsorship-dossier.js';
+import { openPublicationAnalysis } from './publication-decision.ui.js';
 
 const sponsorshipId = '10000000-0000-4000-8000-000000000401';
 
@@ -24,6 +30,8 @@ interface Context {
     options: {
       edited: Map<string, Partial<AdminSponsorshipRecord>>;
       progressOverrides: Partial<AdminSponsorshipProgress>;
+      media: SponsorMediaAsset[];
+      milestones: AdminSponsorshipProgress['milestones'] | null;
     };
   }>;
   path(tab?: string, value?: string): string;
@@ -31,6 +39,453 @@ interface Context {
 }
 
 export function registerSponsorPublicationCleanupTests(context: Context): void {
+  for (const [language, width] of [
+    ['fr-CA', 1280],
+    ['en', 390]
+  ] as const) {
+    test(`text-first website publication preserves the visual promise and retries its exact service check in ${language}`, async ({
+      page
+    }) => {
+      const { calls, options } = await context.fixtures(page, 'owner');
+      const original = context.recordedCommitment(50000);
+      const obligation = {
+        ...original.obligations.find((item) => item.channel === 'website')!,
+        timing: {
+          version: 1,
+          deadlineDays: 7,
+          durationDays: null,
+          originAt: null,
+          originProvenance: null,
+          dueAt: null,
+          overdue: false,
+          durationState: 'not_required' as const,
+          startObservation: null
+        }
+      };
+      const commitment: SponsorshipCommitmentRecord = {
+        ...original,
+        offer: {
+          ...original.offer!,
+          benefits: original
+            .offer!.benefits.filter((item) => item.channel === 'website')
+            .map((item) => ({ ...item, deadlineDays: 7 }))
+        },
+        obligations: [
+          {
+            ...obligation,
+            state: 'blocked',
+            blockedReason: 'required_elements_missing'
+          }
+        ]
+      };
+      options.edited.set(sponsorshipId, {
+        sponsor_review_status: 'approved',
+        sponsor_reviewed_at: '2026-11-16T12:00:00Z',
+        sponsor_public_summary: 'Synthetic approved text without an image'
+      });
+      options.milestones = [
+        {
+          id: 'payment',
+          state: 'complete',
+          reason: 'payment_recorded',
+          tab: 'overview'
+        },
+        {
+          id: 'identity',
+          state: 'complete',
+          reason: 'identity_complete',
+          tab: 'identity'
+        },
+        {
+          id: 'media',
+          state: 'pending',
+          reason: 'media_promised_pending',
+          tab: 'media'
+        },
+        {
+          id: 'review',
+          state: 'complete',
+          reason: 'review_approved',
+          tab: 'overview'
+        },
+        {
+          id: 'billing',
+          state: 'complete',
+          reason: 'invoice_issued',
+          tab: 'billing'
+        },
+        {
+          id: 'publication',
+          state: 'pending',
+          reason: 'publication_missing',
+          tab: 'publication'
+        }
+      ];
+      options.progressOverrides = {
+        reviewStatus: 'approved',
+        commitment,
+        publications: [],
+        qualifiedFulfilmentEvidenceIds: [],
+        fulfilmentEvidence: [],
+        publicationCompletion: { done: 0, total: 1 },
+        website: {
+          visible: false,
+          held: true,
+          canPublish: true,
+          refreshObligationId: null,
+          version: 'site-text-v1',
+          blockers: []
+        }
+      };
+      let mediaUnavailable = true;
+      await page.route(
+        '**/api/admin/sponsorships/media/workspace**',
+        async (route) => {
+          if (mediaUnavailable)
+            return route.fulfill({
+              status: 503,
+              json: { error: 'Synthetic media read unavailable' }
+            });
+          return route.fulfill({
+            json: {
+              contributionId: sponsorshipId,
+              revision: 'synthetic-selected-media-v1',
+              writable: true,
+              rules: [],
+              batches: [],
+              assets: options.media.map((asset) => ({
+                ...asset,
+                batchId: null,
+                ruleId: null,
+                usageSource: 'media',
+                readiness: classifySponsorMedia({
+                  usage: asset.usage,
+                  reviewStatus: asset.reviewStatus,
+                  altText: asset.altText,
+                  restrictionsReviewed: true,
+                  humanReviewed: true
+                }),
+                moderation: {
+                  state: null,
+                  level: null,
+                  contentVersion: 1,
+                  fingerprint: asset.id + ':content',
+                  currentDecisionId: null
+                },
+                websiteSelected: true
+              }))
+            }
+          });
+        }
+      );
+      const mutations: Record<string, unknown>[] = [];
+      await page.route(
+        '**/api/admin/sponsorships/website-visibility',
+        async (route) => {
+          const body = route.request().postDataJSON() as Record<
+            string,
+            unknown
+          >;
+          mutations.push(structuredClone(body));
+          if (mutations.length === 2)
+            return route.fulfill({
+              status: 503,
+              json: { error: 'Synthetic uncertain service check' }
+            });
+          const checked = !!body.refresh;
+          const evidenceId = '10000000-0000-4000-8000-000000000499';
+          options.progressOverrides = {
+            ...options.progressOverrides,
+            website: {
+              visible: true,
+              held: false,
+              canPublish: true,
+              refreshObligationId: checked ? null : obligation.id,
+              version: checked ? 'site-qualified-v10' : 'site-text-v2',
+              blockers: []
+            },
+            ...(checked
+              ? {
+                  commitment: {
+                    ...commitment,
+                    obligations: [
+                      {
+                        ...obligation,
+                        state: 'fulfilled',
+                        version: 10,
+                        fulfilmentEvidenceId: evidenceId
+                      }
+                    ]
+                  },
+                  publicationCompletion: { done: 1, total: 1 },
+                  qualifiedFulfilmentEvidenceIds: [evidenceId],
+                  fulfilmentEvidence: [
+                    {
+                      id: evidenceId,
+                      obligationId: obligation.id,
+                      deliveryId: null,
+                      channel: 'website',
+                      target: 'openg7',
+                      provenance: 'website_verified',
+                      deliveredAt: '2026-11-16T13:00:00Z',
+                      externalPostUrl: null,
+                      visibility: 'visible',
+                      visibilityObservedAt: '2026-11-16T13:00:00Z'
+                    }
+                  ]
+                }
+              : {})
+          };
+          return route.fulfill({
+            json: {
+              updated: true,
+              ...(checked ? { refresh: body.refresh } : {})
+            }
+          });
+        }
+      );
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('media'));
+      await openPublicationSection(page, 'profile');
+      const site = page.locator('[data-og7="publication-website"]');
+      const visibility = site.locator('[data-og7="website-visibility"]');
+      await expect(
+        page.locator('[data-og7="media-workspace-error"]')
+      ).toBeVisible();
+      await expect(site).toContainText(
+        language === 'en'
+          ? 'Approved text can be published without an image'
+          : 'Le texte validé peut être publié sans image'
+      );
+      await expect(site).toContainText(
+        language === 'en'
+          ? 'A promised visual remains to be delivered'
+          : 'Un visuel promis reste à livrer'
+      );
+      await expect(visibility).toBeEnabled();
+      await expect(site.locator('[data-og7="website-refresh"]')).toHaveCount(0);
+      expect(mutations).toEqual([]);
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      await visibility.click();
+      await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+      await page.keyboard.press('Escape');
+      expect(mutations).toEqual([]);
+      await visibility.click();
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect(site).toContainText(
+        language === 'en' ? 'Profile visible' : 'Fiche visible'
+      );
+      expect(mutations[0]).toEqual({
+        contributionId: sponsorshipId,
+        expectedVersion: 'site-text-v1',
+        visible: true,
+        confirmed: true
+      });
+      await openPublicationSection(page, 'obligations');
+      await openPublicationAnalysis(page);
+      const completion = page
+        .locator('[data-og7="publication-monitor"]')
+        .getByRole('progressbar');
+      await expect(completion).toHaveAttribute('value', '0');
+      await expect(completion).toHaveAttribute('max', '1');
+
+      mediaUnavailable = false;
+      options.media = [
+        {
+          id: '10000000-0000-4000-8000-000000000498',
+          contributionId: sponsorshipId,
+          kind: 'supporting_image',
+          reviewStatus: 'approved',
+          uploadedBy: 'sponsor',
+          originalFilename: 'synthetic-later-presentation.png',
+          originalMimeType: 'image/png',
+          originalSizeBytes: 68,
+          processedMimeType: 'image/webp',
+          processedSizeBytes: 68,
+          width: 1,
+          height: 1,
+          altText: 'Synthetic selected presentation',
+          sortOrder: 0,
+          publicUrl: null,
+          reviewedAt: '2026-11-16T12:30:00Z',
+          version: 'later-image-v1',
+          createdAt: '2026-11-16T12:15:00Z',
+          usage: {
+            state: 'confirmed',
+            channels: ['website'],
+            targets: ['openg7'],
+            transformations: ['technical'],
+            credit: null,
+            restrictions: null
+          },
+          usageRestrictionsReviewed: true
+        }
+      ];
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: [{ ...obligation, state: 'pending', version: 2 }]
+        },
+        website: {
+          visible: true,
+          held: false,
+          canPublish: true,
+          refreshObligationId: obligation.id,
+          version: 'site-selected-v3',
+          blockers: []
+        }
+      };
+      const refreshDossier = async () => {
+        const tools = page.locator('[data-og7="dossier-global-tools"]');
+        if ((await tools.getAttribute('open')) === null)
+          await tools.locator(':scope > summary').click();
+        const progressRead = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname ===
+            '/api/admin/sponsorships/progress'
+        );
+        await page.locator('[data-og7="dossier-refresh"]').click();
+        await (await progressRead).finished();
+        await expect(
+          page.locator('[data-og7="sponsorship-progress"]')
+        ).toHaveAttribute('aria-busy', 'false');
+      };
+      await page
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ })
+        .click();
+      await refreshDossier();
+      await page.locator('[data-og7="media-refresh"]').click();
+      await expect(
+        page.locator('[data-og7="media-workspace-error"]')
+      ).toHaveCount(0);
+      await expect(page.locator('[data-og7="media-tile"]')).toContainText(
+        language === 'en'
+          ? 'Current website selection'
+          : 'Sélection actuelle du site'
+      );
+      const editor = await openPublicationObligation(page, obligation.id);
+      const adjustment = editor.locator('[data-og7="commitments-adjustment"]');
+      const adjustmentReason = adjustment.locator(
+        '[data-og7="commitments-adjust-reason"]'
+      );
+      const timingReason = editor.locator('[data-og7="timing-reason"]');
+      await expect(adjustmentReason).toBeEnabled();
+      await adjustmentReason.fill('Synthetic retained amendment draft');
+      await editor
+        .locator('[data-og7="sponsorship-timing"] details > summary')
+        .click();
+      await expect(timingReason).toBeEnabled();
+      await timingReason.fill('Synthetic retained timing draft');
+      await editor.evaluate((element) =>
+        element.setAttribute('data-retained', 'website-check-draft')
+      );
+      await page
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ })
+        .click();
+      const check = site.locator('[data-og7="website-refresh"]');
+      await check.click();
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect(site).toContainText(
+        language === 'en'
+          ? 'The result remains unconfirmed'
+          : 'Le résultat reste à confirmer'
+      );
+      await expect(visibility).toBeDisabled();
+      await openPublicationSection(page, 'contract');
+      await expect(editor).toHaveAttribute(
+        'data-retained',
+        'website-check-draft'
+      );
+      await expect(adjustment).toBeVisible();
+      await expect(adjustmentReason).toHaveValue(
+        'Synthetic retained amendment draft'
+      );
+      await expect(adjustmentReason).toBeDisabled();
+      await expect(
+        adjustment.locator('[data-og7="commitments-adjust-kind"]')
+      ).toBeDisabled();
+      await expect(
+        adjustment.locator('[data-og7="commitments-adjust-save"]')
+      ).toBeDisabled();
+      await expect(timingReason).toHaveValue('Synthetic retained timing draft');
+      await expect(timingReason).toBeDisabled();
+      await expect(
+        editor.locator('[data-og7="timing-record-origin"]')
+      ).toBeDisabled();
+      await page
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: /^(Fiche et médias|Profile & media)$/ })
+        .click();
+      await expect(check).toBeEnabled();
+      expect(mutations[1]).toMatchObject({
+        contributionId: sponsorshipId,
+        expectedVersion: 'site-selected-v3',
+        visible: true,
+        confirmed: true,
+        refresh: {
+          obligationId: obligation.id,
+          expectedVersion: 2,
+          requestId: expect.stringMatching(/^[0-9a-f-]{36}$/)
+        }
+      });
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: [{ ...obligation, state: 'pending', version: 9 }]
+        },
+        website: {
+          visible: true,
+          held: false,
+          canPublish: true,
+          refreshObligationId: obligation.id,
+          version: 'site-parallel-v9',
+          blockers: []
+        }
+      };
+      await refreshDossier();
+      await expect(check).toHaveText(
+        language === 'en'
+          ? 'Resume this service check'
+          : 'Reprendre la vérification de cette prestation'
+      );
+      await check.click();
+      await expect(site).toContainText(
+        language === 'en'
+          ? 'Check confirmed. Consult the service and duration status'
+          : 'Vérification confirmée. Consultez l’état de la prestation et de sa durée'
+      );
+      expect(mutations).toHaveLength(3);
+      expect(mutations[2]).toEqual(mutations[1]);
+      await expect(check).toHaveCount(0);
+      await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
+      expect(calls.filter((call) => call.method !== 'GET')).toEqual([]);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="publication-website"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      await openPublicationSection(page, 'obligations');
+      await openPublicationAnalysis(page);
+      await expect(completion).toHaveAttribute('value', '1');
+      await expect(completion).toHaveAttribute('max', '1');
+    });
+  }
+
   test('publication keeps agreed services collapsed and leaves their editor unmounted by default', async ({
     page
   }) => {

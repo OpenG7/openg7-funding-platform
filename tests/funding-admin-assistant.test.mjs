@@ -116,20 +116,18 @@ test('detects a complete fiche awaiting review, not as needs-info', () => {
   );
 });
 
-test('keeps a sponsorship without a presentation photo out of review reminders', () => {
+test('a sponsorship without a presentation photo remains eligible for text review reminders', () => {
   const incomplete = sponsorship({ hasSupportingImage: false });
   const ds = dataset({ sponsorships: [incomplete] });
 
   const info = detectSponsorshipInfoItems(ds);
-  assert.equal(info.length, 1);
-  assert.match(info[0].facts.missingFields, /photo_presentation/);
-  assert.equal(detectSponsorshipReviewItems(ds).length, 0);
-  assert.equal(
+  assert.equal(info.length, 0);
+  assert.equal(detectSponsorshipReviewItems(ds).length, 1);
+  assert.ok(
     buildSponsorshipReviewReminderCandidate([incomplete], NOW, {
       minAgeDays: 1,
       maxItems: 5
-    }),
-    null
+    })
   );
 });
 
@@ -138,16 +136,17 @@ test('information and review workflows agree across payment, refund and review s
     ['pending review, complete', {}, false, true],
     ['approved, complete', { reviewStatus: 'approved' }, false, false],
     ['rejected, complete', { reviewStatus: 'rejected' }, false, false],
-    ['pending review, incomplete', { hasSupportingImage: false }, true, false],
+    ['pending review, incomplete', { hasContactEmail: false }, true, false],
+    ['pending review, no photo', { hasSupportingImage: false }, false, true],
     [
       'approved, incomplete',
-      { reviewStatus: 'approved', hasSupportingImage: false },
+      { reviewStatus: 'approved', hasContactEmail: false },
       true,
       false
     ],
     [
       'rejected, incomplete',
-      { reviewStatus: 'rejected', hasSupportingImage: false },
+      { reviewStatus: 'rejected', hasContactEmail: false },
       false,
       false
     ]
@@ -235,12 +234,12 @@ test('information and review workflows agree across payment, refund and review s
   }
 });
 
-test('required fiche fields keep the same order while website and logo remain optional for review', () => {
+test('required fiche fields keep the same order while website, photo and logo remain optional for text review', () => {
   for (const [overrides, missingFields] of [
     [{ detailsSubmittedAt: null }, ['formulaire_non_soumis']],
     [{ hasCompanyName: false }, ['nom_entreprise']],
     [{ hasContactEmail: false }, ['courriel_contact']],
-    [{ hasSupportingImage: false }, ['photo_presentation']],
+    [{ hasSupportingImage: false }, []],
     [
       {
         detailsSubmittedAt: null,
@@ -248,12 +247,7 @@ test('required fiche fields keep the same order while website and logo remain op
         hasContactEmail: false,
         hasSupportingImage: false
       },
-      [
-        'formulaire_non_soumis',
-        'nom_entreprise',
-        'courriel_contact',
-        'photo_presentation'
-      ]
+      ['formulaire_non_soumis', 'nom_entreprise', 'courriel_contact']
     ],
     [{ hasWebsite: false, hasLogo: false }, []]
   ]) {
@@ -299,7 +293,7 @@ test('required fiche fields keep the same order while website and logo remain op
 });
 
 test('a missing or malformed recipient blocks information delivery without blocking draft preparation', () => {
-  const record = sponsorship({ hasSupportingImage: false });
+  const record = sponsorship({ hasContactEmail: false });
   const ds = dataset({ sponsorships: [record] });
   for (const recipient of [
     null,

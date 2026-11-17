@@ -6,6 +6,8 @@ import type {
   SponsorMediaBatchPlanRequest
 } from '@openg7/funding-core';
 
+import { syntheticMediaPreview } from '../support/synthetic-media-previews.js';
+
 export interface MediaWorkspaceTestContext {
   fixtures(
     page: Page,
@@ -16,10 +18,6 @@ export interface MediaWorkspaceTestContext {
 }
 export const area = (page: Page) =>
   page.locator('[data-og7="media-review-workspace"]');
-const pixel = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV0cAAAAASUVORK5CYII=',
-  'base64'
-);
 
 /** Synthetic intercepted API with authoritative server manifests, never an external provider. */
 export function createMediaWorkspaceFixture(
@@ -27,7 +25,7 @@ export function createMediaWorkspaceFixture(
 ) {
   return async function fixture(
     page: Page,
-    role: 'reader' | 'operator' = 'operator'
+    role: 'reader' | 'operator' | 'owner' = 'operator'
   ) {
     await context.fixtures(page, role);
     const sample = context.asset();
@@ -60,7 +58,7 @@ export function createMediaWorkspaceFixture(
         { length: 100 },
         (_, index): SponsorMediaWorkspaceAsset => ({
           ...sample,
-          id: 'synthetic-media-' + index,
+          id: `30000000-0000-4000-8000-${String(index + 1000).padStart(12, '0')}`,
           originalFilename: `photo-${String(index + 1).padStart(3, '0')}.webp`,
           altText: `Vue synthétique ${index + 1}`,
           version: 'asset-v1',
@@ -103,7 +101,8 @@ export function createMediaWorkspaceFixture(
       thumbnails: [] as string[],
       rules: [] as Record<string, unknown>[],
       active: 0,
-      maxActive: 0
+      maxActive: 0,
+      executeGate: null as Promise<void> | null
     };
     let lastPlan: SponsorMediaBatchPlanRequest | null = null;
     await page.route('**/api/admin/sponsorships/media/workspace?**', (route) =>
@@ -112,16 +111,28 @@ export function createMediaWorkspaceFixture(
     await page.route(
       '**/api/admin/sponsorships/media/content/**',
       async (route) => {
-        const thumbnail =
-          new URL(route.request().url()).searchParams.get('variant') ===
-          'thumbnail';
+        const url = new URL(route.request().url());
+        const thumbnail = url.searchParams.get('variant') === 'thumbnail';
+        const expectedVersion = url.searchParams.get('expectedVersion');
         if (thumbnail) {
           calls.thumbnails.push(route.request().url());
           calls.active++;
           calls.maxActive = Math.max(calls.maxActive, calls.active);
         }
         await new Promise((resolve) => setTimeout(resolve, 20));
-        await route.fulfill({ contentType: 'image/png', body: pixel });
+        const assetId = url.pathname.split('/').at(-1);
+        const current = state.assets.find((asset) => asset.id === assetId);
+        await route.fulfill(
+          expectedVersion && current?.version !== expectedVersion
+            ? { status: 409, json: { code: 'MEDIA_VERSION_CONFLICT' } }
+            : {
+                contentType: 'image/png',
+                body: await syntheticMediaPreview(assetId ?? 'synthetic'),
+                ...(expectedVersion
+                  ? { headers: { 'X-OpenG7-Media-Version': expectedVersion } }
+                  : {})
+              }
+        );
         if (thumbnail) calls.active--;
       }
     );
@@ -155,6 +166,24 @@ export function createMediaWorkspaceFixture(
       async (route) => {
         const request = route.request().postDataJSON();
         calls.executes.push(request);
+        if (calls.executeGate) await calls.executeGate;
+        if (lastPlan?.action === 'approve')
+          Object.assign(state, {
+            revision: 'workspace-approved-' + calls.executes.length,
+            assets: state.assets.map((asset) => {
+              const approved = lastPlan!.assets.find(
+                (item) => item.id === asset.id
+              );
+              return approved
+                ? {
+                    ...asset,
+                    reviewStatus: 'approved',
+                    version: 'asset-v2',
+                    altText: approved.altText ?? asset.altText
+                  }
+                : asset;
+            })
+          });
         await route.fulfill({
           json: {
             requestId: request.requestId,

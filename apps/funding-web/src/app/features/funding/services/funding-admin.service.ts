@@ -1069,8 +1069,8 @@ export class FundingAdminService {
   mediaApproveAllReceipt(contributionId: string, requestId: string) {
     return this.mediaReviewClient.approveAllReceipt(contributionId, requestId);
   }
-  mediaThumbnail(assetId: string) {
-    return this.mediaReviewClient.thumbnail(assetId);
+  mediaThumbnail(assetId: string, expectedVersion?: string) {
+    return this.mediaReviewClient.thumbnail(assetId, expectedVersion);
   }
   mediaExport(
     input: import('@openg7/funding-core').SponsorMediaExportRequest

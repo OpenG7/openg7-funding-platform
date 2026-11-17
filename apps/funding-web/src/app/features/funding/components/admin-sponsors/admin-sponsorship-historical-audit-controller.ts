@@ -16,6 +16,7 @@ export interface HistoricalAuditPorts {
   scope(): 'dossier' | 'portfolio';
   identity?(): string;
   canOwn(): boolean;
+  disabled?(): boolean;
   destroyed(): boolean;
   requestId(): string;
   preview(
@@ -162,6 +163,7 @@ export class AdminSponsorshipHistoricalAuditController {
     return true;
   }
   async submit(): Promise<void> {
+    if (this.ports.disabled?.()) return;
     this.select();
     const selected = this.selected();
     if (
@@ -191,6 +193,7 @@ export class AdminSponsorshipHistoricalAuditController {
     this.select();
     if (
       this.pending() &&
+      !this.ports.disabled?.() &&
       this.ports.canOwn() &&
       !this.saving() &&
       !this.loading()
@@ -200,6 +203,7 @@ export class AdminSponsorshipHistoricalAuditController {
   private async send(
     command: SponsorshipHistoricalAuditReviewRequest
   ): Promise<void> {
+    if (this.ports.disabled?.()) return;
     const generation = this.generation,
       id = this.scopeKey();
     this.saving.set(true);

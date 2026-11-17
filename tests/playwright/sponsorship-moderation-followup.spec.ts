@@ -184,6 +184,12 @@ for (const english of [false, true]) {
     await expect(firstField).toBeDisabled();
     await page.locator('[data-og7="followup-correction"]').click();
     await expect(firstField).toBeFocused();
+    await expect(
+      page.getByLabel(english ? 'Add photos' : 'Ajouter des photos')
+    ).toBeDisabled();
+    await expect(
+      page.locator('[data-og7="followup-media-unavailable"]')
+    ).toContainText(english ? 'rejected dossier' : 'dossier refusé');
     await firstField.fill('Corrected synthetic workshop');
     await page
       .getByRole('button', {

@@ -2,6 +2,8 @@
   "coordinates": "Coordonnées du commanditaire",
   "presentation": "Présentation complémentaire (facultative)",
   "presentationHelp": "Le site Web et le message sont facultatifs. Un lien de logo existant reste modifiable ici.",
-  "mediaSeparate": "Les fichiers et leurs droits d’utilisation se gèrent séparément de la soumission de vos informations.",
+  "mediaSeparate": "Vous pouvez ajouter des images sans modifier ni soumettre à nouveau vos informations, même après approbation. Les fichiers restent privés et attendent leur validation ; leur ajout ne publie rien.",
+  "mediaRejected": "L’ajout d’images est indisponible pour ce dossier refusé. Les demandes de correction ou de réexamen restent accessibles dans Revue et demandes.",
+  "mediaBusy": "Une opération est en cours. Vous pourrez ajouter vos images lorsqu’elle sera terminée.",
   "openReview": "Revue et demandes"
 }

@@ -37,7 +37,7 @@ soldé séparément, dans la même transaction que sa preuve et son audit.
 Le site OpenG7 utilise `website_verified` après une transition de visibilité
 explicitement autorisée pour une prestation sans durée fixe, ou après
 l'attestation humaine distincte d'une durée promise. Dans les deux cas, le
-consentement, le paiement admissible, la présentation approuvée et la N0 actuelle
+consentement, le paiement admissible, les éléments réellement promis et la N0 actuelle
 sont revalidés. Une approbation de dossier seule ne constitue pas une preuve.
 Une obligation pour le site OpenG20 ne peut pas
 être soldée par la visibilité du site OpenG7. Rejouer une décision inchangée ne
@@ -45,9 +45,26 @@ solde pas un second passage.
 
 Les éléments exigés par l'accord sont vérifiés dans la sélection exacte attestée.
 Un logo approuvé pour Facebook seul, absent de l'annuaire, ne satisfait pas
-`approved_logo`. L'absence d'un élément requis renvoie `REQUIRED_ELEMENTS_MISSING`
-(409) et annule atomiquement la transition, l'audit et le solde. Le logo reste
-facultatif dans les offres qui ne l'exigent pas.
+`approved_logo`. L’absence d’un élément requis garde la prestation ouverte : une
+visibilité textuelle intermédiaire reste possible, sans preuve ni notification
+de réalisation anticipée. Le logo reste facultatif dans les offres qui ne
+l’exigent pas.
+
+Après l’ajout et la sélection du visuel, le même endpoint de visibilité accepte
+une réévaluation explicite avec `visible: true` et
+`refresh: { requestId, obligationId, expectedVersion }`, en plus de la version
+du dossier et de sa confirmation. Il vérifie cette seule obligation Web OpenG7.
+Le reçu de la migration
+[071](../../apps/funding-api/migrations/071_sponsorship_website_refresh_commands.sql)
+lie acteur, requête et paramètres ; son rejeu retrouve le résultat sans solder
+l’ordinal suivant. Un succès HTTP expose les mêmes références dans `refresh`.
+Les erreurs et réponses incertaines ne constituent pas un succès. Le client
+conserve la commande exacte jusqu’à confirmation ou refus définitif.
+La progression expose `website.refreshObligationId` uniquement pour le passage
+amorcé par la dernière transition de visibilité enregistrée. Un UUID neuf ne
+permet pas de solder le passage suivant avec le même affichage ; sans trace de
+transition, la reprise reste refusée. Les anciennes API sans ce champ ne proposent
+pas cette nouvelle commande.
 
 Une durée fixe est qualifiable uniquement pour le site OpenG7. L'affichage initial
 enregistre une observation datée avec les sources exactes, sans solder la durée.
@@ -61,6 +78,12 @@ Une horloge ou deux observations seules ne constituent jamais une preuve de
 continuité; aucun contrôle continu de disponibilité n'est livré. Les autres
 destinations gardent `duration_unsupported`. Voir les
 [échéances et durées](sponsorship-obligation-timing.md).
+
+La comparaison de continuité utilise le texte et les médias réellement exposés,
+avec leurs décisions pertinentes. Une image privée non sélectionnée ne doit pas
+interrompre une période. Les anciens snapshots restent immuables ; leur comparaison
+normalise uniquement les métadonnées de dossier et les décisions de médias non
+exposés, sans supprimer les conditions publiques ni les restrictions.
 
 Les preuves historiques déjà créées restent immuables. L'
 [audit historique](sponsorship-historical-audit.md) compare leurs faits enregistrés

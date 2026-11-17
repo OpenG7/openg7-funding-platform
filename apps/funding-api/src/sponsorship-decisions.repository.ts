@@ -12,7 +12,6 @@ import { pendingSponsorshipSocialChannels } from '../../../packages/funding-core
 
 import { normalizeSponsorFeedStatus } from './contributions-persistence-helpers.js';
 import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
-import { SPONSOR_APPROVED_PRESENTATION_SQL } from './sponsorship-media-eligibility.js';
 import {
   normalizeSponsorFeedTarget,
   parseSponsorFeedChannels
@@ -140,14 +139,12 @@ export const updateSponsorshipReview = async (
         readonly status: string;
         readonly review_status: SponsorshipReviewStatus;
         readonly version: string;
-        readonly has_approved_presentation_photo: boolean;
       }>(
         `
       SELECT
         status,
         COALESCE(sponsor_review_status, 'pending_review') AS review_status,
-        updated_at::text AS version,
-        ${SPONSOR_APPROVED_PRESENTATION_SQL} AS has_approved_presentation_photo
+        updated_at::text AS version
       FROM fund_contributions
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
@@ -183,18 +180,6 @@ export const updateSponsorshipReview = async (
       ) {
         return {
           status: 'payment_not_eligible',
-          updated: false,
-          currentVersion: targetRow.version,
-          paymentStatus: targetRow.status
-        };
-      }
-
-      if (
-        input.reviewStatus === 'approved' &&
-        !targetRow.has_approved_presentation_photo
-      ) {
-        return {
-          status: 'media_required',
           updated: false,
           currentVersion: targetRow.version,
           paymentStatus: targetRow.status
@@ -255,10 +240,6 @@ export const updateSponsorshipReview = async (
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
         AND updated_at::text = $4
-        AND (
-          $2 <> 'approved'
-          OR ${SPONSOR_APPROVED_PRESENTATION_SQL}
-        )
       RETURNING updated_at::text AS version
     `,
         [

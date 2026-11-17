@@ -141,7 +141,7 @@ test('website preflight requires the physical storage port and fails safely for 
     });
 });
 
-test('website media cannot reuse a foreign owner or a legacy logo without a qualified owned asset', async () => {
+test('website media cannot reuse a foreign owner and never promotes an unqualified legacy logo', async () => {
   await assert.rejects(
     readWebsiteMediaSources(
       db([row({ contribution_id: 'foreign-dossier' })]),
@@ -150,9 +150,42 @@ test('website media cannot reuse a foreign owner or a legacy logo without a qual
     ),
     { code: 'MEDIA_CHANGED' }
   );
-  await assert.rejects(
-    readWebsiteMediaSources(db([row()]), contributionId, 'legacy-logo-url'),
-    { code: 'MEDIA_USAGE_CONFIRMATION_REQUIRED' }
+  const sources = await readWebsiteMediaSources(
+    db([row()]),
+    contributionId,
+    'legacy-logo-url'
+  );
+  assert.deepEqual(
+    sources.map((source) => source.kind),
+    ['supporting_image']
+  );
+});
+
+test('a text-only public selection has an exact empty attestation without a storage dependency', async () => {
+  const attestation = await attestWebsiteMedia(
+    db([]),
+    undefined,
+    contributionId,
+    'unqualified-legacy-logo'
+  );
+  assert.deepEqual(attestation, { contributionId, sources: [] });
+  assertWebsiteRequiredElements(
+    contributionId,
+    ['company_name'],
+    'Synthetic text sponsor',
+    [],
+    attestation
+  );
+  assert.throws(
+    () =>
+      assertWebsiteRequiredElements(
+        contributionId,
+        ['company_name', 'approved_presentation'],
+        'Synthetic promised image',
+        [],
+        attestation
+      ),
+    { code: 'REQUIRED_ELEMENTS_MISSING' }
   );
 });
 

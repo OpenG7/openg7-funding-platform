@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import sharp from 'sharp';
 
@@ -8,6 +8,10 @@ import {
   updateSponsorshipReview
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
+import {
+  createSponsorMediaAsset,
+  getApprovedPublicSponsorMedia
+} from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import {
   approveFixtureSubject,
@@ -15,7 +19,7 @@ import {
 } from './support/moderation-fixture.mjs';
 
 test(
-  'review and website visibility require an active approved presentation photo, including at the review write',
+  'text approval is independent of media while website publication and later images stay explicitly authorized',
   { timeout: 90000 },
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
@@ -26,10 +30,6 @@ test(
       .webp()
       .toBuffer();
     const checksum = createHash('sha256').update(bytes).digest('hex');
-    const objects = new Map();
-    const storage = {
-      readPrivateObject: async (key) => objects.get(key) ?? null
-    };
     const seed = async (name, media) => {
       const {
         rows: [row]
@@ -63,7 +63,6 @@ test(
             checksum
           ]
         );
-        objects.set(`processed/${row.id}`, bytes);
         if (media.status === 'approved' && !media.deleted)
           await approveFixtureSubject(pool, {
             type: 'media',
@@ -87,65 +86,42 @@ test(
         (sponsor) => sponsor.company_name === name
       );
 
-    for (const [name, media, eligible] of [
-      ['No photo', null, false],
-      ['Approved logo only', { kind: 'logo', status: 'approved' }, false],
-      [
-        'Pending photo',
-        { kind: 'supporting_image', status: 'pending_review' },
-        false
-      ],
-      [
-        'Rejected photo',
-        { kind: 'supporting_image', status: 'rejected' },
-        false
-      ],
+    for (const [name, media] of [
+      ['No photo', null],
+      ['Approved logo only', { kind: 'logo', status: 'approved' }],
+      ['Pending photo', { kind: 'supporting_image', status: 'pending_review' }],
+      ['Rejected photo', { kind: 'supporting_image', status: 'rejected' }],
       [
         'Deleted photo',
-        { kind: 'supporting_image', status: 'approved', deleted: true },
-        false
+        { kind: 'supporting_image', status: 'approved', deleted: true }
       ],
-      ['Approved photo', { kind: 'supporting_image', status: 'approved' }, true]
+      ['Approved photo', { kind: 'supporting_image', status: 'approved' }]
     ]) {
       await t.test(name, async () => {
         const row = await seed(name, media);
         const result = await approve(pool, row);
-        assert.equal(result.status, eligible ? 'updated' : 'media_required');
-        assert.equal(result.updated, eligible);
+        assert.equal(result.status, 'updated');
+        assert.equal(result.updated, true);
         assert.equal(
           await directoryHas(name),
           false,
           'review never releases website visibility'
         );
-        if (eligible) {
-          assert.equal(
-            await setSponsorshipWebsiteVisibility(
-              pool,
-              {
-                contributionId: row.id,
-                expectedVersion: result.currentVersion,
-                visible: true,
-                confirmed: true
-              },
-              'fixture-admin',
-              storage
-            ),
-            'updated'
-          );
-        } else {
-          // A legacy approved dossier still loses eligibility when its photo is absent or revoked.
-          await pool.query(
-            "UPDATE fund_contributions SET sponsor_review_status = 'approved', sponsor_site_visibility_held = FALSE WHERE id = $1",
-            [row.id]
-          );
-        }
-        assert.equal(await directoryHas(name), eligible);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT sponsor_site_visibility_held FROM fund_contributions WHERE id = $1',
+              [row.id]
+            )
+          ).rows[0].sponsor_site_visibility_held,
+          true
+        );
       });
     }
 
     for (const revocation of ['deleted', 'rejected']) {
       await t.test(
-        `photo ${revocation} after a prior dossier read still prevents approval`,
+        `photo ${revocation} after a prior dossier read does not prevent unchanged text approval`,
         async () => {
           const row = await seed(`Revoked ${revocation}`, {
             kind: 'supporting_image',
@@ -159,8 +135,6 @@ test(
               )
             ).rows[0];
           const before = await read();
-          // A UI read does not authorize the later command: its transaction
-          // rechecks presentation eligibility after the independent edit commits.
           await pool.query(
             revocation === 'deleted'
               ? 'UPDATE sponsor_media_assets SET deleted_at = NOW() WHERE contribution_id = $1'
@@ -168,10 +142,121 @@ test(
             [row.id]
           );
           const result = await approve(pool, row);
-          assert.equal(result.status, 'media_required');
-          assert.equal(result.updated, false);
-          assert.deepEqual(await read(), before);
+          assert.equal(result.status, 'updated');
+          assert.equal(result.updated, true);
+          assert.equal((await read()).sponsor_review_status, 'approved');
+          assert.equal(
+            (await read()).sponsor_company_name,
+            before.sponsor_company_name
+          );
           assert.equal(await directoryHas(`Revoked ${revocation}`), false);
+        }
+      );
+    }
+
+    await t.test(
+      'later private media preserves visible text, exact source version and existing editorial approval',
+      async () => {
+        const name = 'Visible text before images';
+        const row = await seed(name, null);
+        const approved = await approve(pool, row);
+        assert.equal(approved.status, 'updated');
+        assert.equal(
+          await setSponsorshipWebsiteVisibility(
+            pool,
+            {
+              contributionId: row.id,
+              expectedVersion: approved.currentVersion,
+              visible: true,
+              confirmed: true
+            },
+            'fixture-admin'
+          ),
+          'updated'
+        );
+        const snapshot = async () => ({
+          contribution: (
+            await pool.query('SELECT * FROM fund_contributions WHERE id=$1', [
+              row.id
+            ])
+          ).rows[0],
+          moderation: (
+            await pool.query(
+              "SELECT * FROM moderation_cases WHERE subject_type='sponsorship' AND subject_id=$1",
+              [row.id]
+            )
+          ).rows[0],
+          directory: (await listPublicSponsorships(pool)).sponsorships.find(
+            (sponsor) => sponsor.company_name === name
+          )
+        });
+        const before = await snapshot();
+        assert.ok(before.directory);
+        for (const kind of ['supporting_image', 'logo']) {
+          const media = await createSponsorMediaAsset(pool, {
+            id: randomUUID(),
+            contributionId: row.id,
+            kind,
+            uploadedBy: 'sponsor',
+            auditActor: 'synthetic-uploader',
+            storageDriver: 'local',
+            originalFilename: 'synthetic.png',
+            originalMimeType: 'image/png',
+            originalSizeBytes: 100,
+            originalStorageKey: randomUUID() + '/original.png',
+            processedSizeBytes: 80,
+            processedStorageKey: randomUUID() + '/processed.webp',
+            checksumSha256: '0'.repeat(64),
+            width: 1,
+            height: 1,
+            altText: null,
+            maxSupportingImages: 3
+          });
+          assert.equal(media.status, 'created');
+          assert.equal(media.asset.reviewStatus, 'pending_review');
+          assert.equal(media.asset.publicUrl, null);
+          assert.equal(
+            await getApprovedPublicSponsorMedia(pool, media.asset.id),
+            null
+          );
+          const stored = (
+            await pool.query(
+              'SELECT website_selected,public_storage_key FROM sponsor_media_assets WHERE id=$1',
+              [media.asset.id]
+            )
+          ).rows[0];
+          assert.deepEqual(stored, {
+            website_selected: false,
+            public_storage_key: null
+          });
+          assert.deepEqual(await snapshot(), before);
+        }
+      }
+    );
+
+    for (const field of ['sponsor_company_name', 'sponsor_logo_url']) {
+      await t.test(
+        `changing ${field} still invalidates the exact dossier authorization`,
+        async () => {
+          const row = await seed(`Reviewed ${field}`, null);
+          const approved = await approve(pool, row);
+          assert.equal(approved.status, 'updated');
+          const changed = (
+            await pool.query(
+              `UPDATE fund_contributions SET ${field}=$2,updated_at=clock_timestamp() WHERE id=$1 RETURNING id,updated_at::text AS version`,
+              [
+                row.id,
+                field === 'sponsor_logo_url'
+                  ? 'https://example.invalid/replacement.webp'
+                  : 'Changed company'
+              ]
+            )
+          ).rows[0];
+          assert.equal((await approve(pool, row)).status, 'conflict');
+          await assert.rejects(approve(pool, changed), {
+            code: 'MODERATION_RESTRICTED'
+          });
+          assert.equal(await directoryHas(`Reviewed ${field}`), false);
         }
       );
     }

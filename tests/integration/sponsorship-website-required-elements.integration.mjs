@@ -89,7 +89,8 @@ test(
               benefits: current.benefits.map((benefit) => ({
                 ...benefit,
                 requiredElements: [
-                  ...benefit.requiredElements,
+                  'company_name',
+                  'approved_presentation',
                   ...(requiredLogo ? ['approved_logo'] : [])
                 ]
               }))
@@ -150,14 +151,14 @@ test(
           .obligations[0];
         assert.equal(obligation.state, 'blocked');
         assert.equal(obligation.blockedReason, 'required_elements_missing');
-        await assert.rejects(
-          setSponsorshipWebsiteVisibility(
+        assert.equal(
+          await setSponsorshipWebsiteVisibility(
             pool,
             await command(required.id),
             fixtureModerationActor,
             storage
           ),
-          { code: 'REQUIRED_ELEMENTS_MISSING', status: 409 }
+          'updated'
         );
         assert.equal(
           (
@@ -166,7 +167,7 @@ test(
               [required.id]
             )
           ).rows[0].held,
-          true
+          false
         );
         assert.deepEqual(
           await listSponsorshipFulfilmentEvidence(pool, required.id),
@@ -179,7 +180,7 @@ test(
               [required.id]
             )
           ).rows[0].count,
-          0
+          1
         );
       }
     );
@@ -199,7 +200,18 @@ test(
         assert.equal(
           await setSponsorshipWebsiteVisibility(
             pool,
-            await command(required.id),
+            {
+              ...(await command(required.id)),
+              refresh: {
+                requestId: randomUUID(),
+                obligationId: (
+                  await loadSponsorshipCommitment(pool, required.id)
+                ).obligations[0].id,
+                expectedVersion: (
+                  await loadSponsorshipCommitment(pool, required.id)
+                ).obligations[0].version
+              }
+            },
             fixtureModerationActor,
             storage
           ),

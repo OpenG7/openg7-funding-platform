@@ -486,6 +486,7 @@
                   ) {
                     <openg7-admin-sponsorship-commitments
                       [dossier]="dossier"
+                      [disabled]="actionsDisabled()"
                       [embedded]="true"
                       (changed)="loadSponsorships(true)"
                     />
@@ -549,84 +550,13 @@
 
               <section
                 id="dossier-website-settings"
-                class="detail-body admin-focus-target"
+                class="detail-body public-profile-section admin-focus-target"
                 tabindex="-1"
                 *ngIf="activeTab() === 'media'"
                 [attr.aria-label]="
-                  'admin.dossier.publicationBridge.advanced' | translate
+                  'admin.dossier.publicationCleanup.settingsTitle' | translate
                 "
               >
-                @if (progress()?.website; as site) {
-                  <section class="detail-card" data-og7="publication-website">
-                    <h3>
-                      {{
-                        'admin.dossier.publicationBridge.site.title' | translate
-                      }}
-                    </h3>
-                    <p>
-                      {{
-                        'admin.dossier.publicationBridge.site.status.' +
-                          (site.visible
-                            ? 'visible'
-                            : site.canPublish
-                              ? 'hidden'
-                              : 'blocked') | translate
-                      }}
-                    </p>
-                    @if (site.visible) {
-                      <a
-                        class="admin-button"
-                        routerLink="/commanditaires"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {{
-                          'admin.dossier.publicationBridge.site.view'
-                            | translate
-                        }}
-                      </a>
-                    }
-                    @if (canManage()) {
-                      <button
-                        class="admin-button"
-                        type="button"
-                        data-og7="website-visibility"
-                        [disabled]="
-                          actionsDisabled() ||
-                          (!site.visible && !site.canPublish)
-                        "
-                        [openg7AutomaticPrepare]="'sponsor.website.visibility'"
-                        [automaticFor]="selected.id"
-                        automaticExecutionMode="confirmation_required"
-                        (automaticPrepare)="
-                          publicationWorkflow.changeWebsiteVisibility(
-                            selected,
-                            !site.visible
-                          )
-                        "
-                        (click)="
-                          publicationWorkflow.changeWebsiteVisibility(
-                            selected,
-                            !site.visible
-                          )
-                        "
-                      >
-                        {{
-                          (site.visible
-                            ? 'admin.dossier.publicationBridge.site.hide'
-                            : 'admin.dossier.publicationBridge.site.publish'
-                          ) | translate
-                        }}
-                      </button>
-                    }
-                    @if (
-                      publicationWorkflow.websiteMessages()[selected.id];
-                      as message
-                    ) {
-                      <p role="status">{{ message }}</p>
-                    }
-                  </section>
-                }
                 <openg7-admin-sponsor-publication-panel
                   [sponsorship]="selected"
                   [draft]="publicationWorkflow.publicationDraftFor(selected.id)"
@@ -680,8 +610,199 @@
                       $event.event
                     )
                   "
+                  [visibilityState]="
+                    progress()?.contributionId === selected.id &&
+                    progress()?.website
+                      ? progress()?.website?.visible
+                        ? 'visible'
+                        : progress()?.website?.canPublish
+                          ? 'hidden'
+                          : 'blocked'
+                      : 'unknown'
+                  "
                   (save)="publicationWorkflow.savePublication(selected)"
-                />
+                >
+                  <ng-container profileVisibility>
+                    <section
+                      class="detail-card"
+                      data-og7="publication-website-media"
+                    >
+                      <h3>
+                        {{
+                          'admin.dossier.publicationCleanup.websiteMediaTitle'
+                            | translate
+                        }}
+                      </h3>
+                      @if (websiteSelectedMedia(); as media) {
+                        @if (media.length) {
+                          <ul>
+                            @for (item of media; track item.id) {
+                              <li>
+                                <button
+                                  type="button"
+                                  class="admin-button"
+                                  [attr.data-og7-id]="item.id"
+                                  (click)="inspectWebsiteMedia(item.id)"
+                                >
+                                  {{ item.name }}
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        } @else {
+                          <p>
+                            {{
+                              'admin.dossier.publicationCleanup.websiteMediaEmpty'
+                                | translate
+                            }}
+                          </p>
+                        }
+                      } @else {
+                        <p>
+                          {{
+                            'admin.dossier.publicationCleanup.websiteMediaUnavailable'
+                              | translate
+                          }}
+                        </p>
+                      }
+                      <p>
+                        {{
+                          'admin.dossier.publicationCleanup.websiteMediaHelp'
+                            | translate
+                        }}
+                      </p>
+                      <a
+                        class="admin-button"
+                        routerLink="/admin/fundraiser/sponsors"
+                        [queryParams]="{
+                          sponsorshipId: selected.id,
+                          tab: 'media'
+                        }"
+                        queryParamsHandling="merge"
+                        fragment="dossier-media-gallery"
+                      >
+                        {{
+                          'admin.dossier.publicationCleanup.websiteMediaManage'
+                            | translate
+                        }}
+                      </a>
+                    </section>
+                    @if (
+                      progress()?.contributionId === selected.id
+                        ? progress()?.website
+                        : null;
+                      as site
+                    ) {
+                      <section
+                        class="detail-card"
+                        data-og7="publication-website"
+                      >
+                        <h3>
+                          {{
+                            'admin.dossier.publicationBridge.site.title'
+                              | translate
+                          }}
+                        </h3>
+                        <p>
+                          {{
+                            'admin.dossier.publicationBridge.site.textHelp'
+                              | translate
+                          }}
+                        </p>
+                        <p>
+                          {{
+                            'admin.dossier.publicationBridge.site.status.' +
+                              (site.visible
+                                ? 'visible'
+                                : site.canPublish
+                                  ? 'hidden'
+                                  : 'blocked') | translate
+                          }}
+                        </p>
+                        @if (site.visible) {
+                          <a
+                            class="admin-button"
+                            routerLink="/commanditaires"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {{
+                              'admin.dossier.publicationBridge.site.view'
+                                | translate
+                            }}
+                          </a>
+                        }
+                        @if (canManage()) {
+                          <button
+                            class="admin-button"
+                            type="button"
+                            data-og7="website-visibility"
+                            [disabled]="
+                              actionsDisabled() ||
+                              websiteRefreshDisabled() ||
+                              (!site.visible && !site.canPublish)
+                            "
+                            [openg7AutomaticPrepare]="'sponsor.website.visibility'"
+                            [automaticFor]="selected.id"
+                            automaticExecutionMode="confirmation_required"
+                            (automaticPrepare)="
+                              publicationWorkflow.changeWebsiteVisibility(
+                                selected,
+                                !site.visible
+                              )
+                            "
+                            (click)="
+                              publicationWorkflow.changeWebsiteVisibility(
+                                selected,
+                                !site.visible
+                              )
+                            "
+                          >
+                            {{
+                              (site.visible
+                                ? 'admin.dossier.publicationBridge.site.hide'
+                                : 'admin.dossier.publicationBridge.site.publish'
+                              ) | translate
+                            }}
+                          </button>
+                          @if (
+                            publicationWorkflow.websiteRefreshTarget(
+                              selected
+                            ) ||
+                            publicationWorkflow.pendingWebsiteRefresh(
+                              selected.id
+                            )
+                          ) {
+                            <button
+                              type="button"
+                              class="admin-button"
+                              data-og7="website-refresh"
+                              [disabled]="websiteRefreshDisabled()"
+                              (click)="
+                                publicationWorkflow.refreshWebsite(selected)
+                              "
+                            >
+                              {{
+                                (publicationWorkflow.pendingWebsiteRefresh(
+                                  selected.id
+                                )
+                                  ? 'admin.dossier.publicationBridge.site.retryRefresh'
+                                  : 'admin.dossier.publicationBridge.site.refresh'
+                                ) | translate
+                              }}
+                            </button>
+                          }
+                        }
+                        @if (
+                          publicationWorkflow.websiteMessages()[selected.id];
+                          as message
+                        ) {
+                          <p role="status">{{ message }}</p>
+                        }
+                      </section>
+                    }
+                  </ng-container>
+                </openg7-admin-sponsor-publication-panel>
               </section>
 
               @if (isFinanceTab()) {

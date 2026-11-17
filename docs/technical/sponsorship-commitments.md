@@ -12,6 +12,13 @@ before Stripe. Confirmed payment activates obligations once; payment, consent,
 moderation, visibility and publication remain independent. Existing financial
 facts, issued invoices and queued email bodies are preserved.
 
+New `sponsorship-v3` quotes require `company_name` for Website and collective-text
+benefits; images are optional enrichment for those formats. Portraits, composites
+and collections retain their approved-presentation requirement. Older snapshots,
+fingerprints and accepted requirements remain unchanged. An image promised by an
+older offer remains due even while an intermediate text-only Website profile is
+visible. No historical offer is reinterpreted from the current price list.
+
 Historical qualification establishes what must be delivered from the original
 agreement. Its documentary reference is evidence of that agreement, not evidence
 of an already successful publication. A dossier with an accepted offer follows

@@ -36,6 +36,142 @@ const draftValues = (companyName: string) => ({
 });
 
 for (const english of [false, true]) {
+  test(`approved sponsorship accepts later private images without editing text and preserves its draft ${english ? 'EN @mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    const calls = await mock(page, {
+      current: { ...fixture(), reviewStatus: 'approved' }
+    });
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    );
+    let mediaReads = 0;
+    let uploads = 0;
+    const assets: SponsorMediaAsset[] = [];
+    await page.route('**/api/sponsorship-followup/media**', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.includes('/content/'))
+        return route.fulfill({ contentType: 'image/png', body: png });
+      if (!pathname.endsWith('/media')) return route.fallback();
+      if (request.method() === 'POST') {
+        uploads++;
+        const uploaded: SponsorMediaAsset = {
+          id: `synthetic-later-image-${uploads}`,
+          contributionId: 'synthetic-sponsorship',
+          kind: 'supporting_image',
+          reviewStatus: 'pending_review',
+          uploadedBy: 'sponsor',
+          originalFilename: `later-image-${uploads}.png`,
+          originalMimeType: 'image/png',
+          originalSizeBytes: png.length,
+          processedMimeType: 'image/webp',
+          processedSizeBytes: png.length,
+          width: 1,
+          height: 1,
+          altText: 'Synthetic later image',
+          sortOrder: uploads - 1,
+          publicUrl: null,
+          reviewedAt: null,
+          version: `synthetic-later-image-v${uploads}`,
+          createdAt: '2026-11-16T12:00:00Z'
+        };
+        assets.push(uploaded);
+        return json(route, { uploaded: true, asset: uploaded }, 201);
+      }
+      mediaReads++;
+      return json(route, {
+        assets,
+        limits: {
+          maxUploadBytes: 8 * 1024 * 1024,
+          maxSupportingImages: 3,
+          acceptedMimeTypes: ['image/png']
+        }
+      });
+    });
+    await visit(page, english);
+    const companyInput = page.getByLabel(
+      english ? 'Company name' : "Nom de l'entreprise",
+      { exact: false }
+    );
+    const photos = page.getByLabel(
+      english ? 'Add photos' : 'Ajouter des photos'
+    );
+    await expect(companyInput).toBeDisabled();
+    await expect(photos).toBeEnabled();
+    await expect(
+      page.locator('[data-og7="followup-media-section"]')
+    ).toContainText(
+      english ? 'adding them publishes nothing' : 'leur ajout ne publie rien'
+    );
+    const emptyDraft = structuredClone(calls.draft());
+    await photos.setInputFiles({
+      name: 'later-image-1.png',
+      mimeType: 'image/png',
+      buffer: png
+    });
+    await confirmAcceptanceMediaUsage(page);
+    await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
+    await expect(companyInput).toBeDisabled();
+    expect(uploads).toBe(1);
+    expect(mediaReads).toBe(2);
+    expect(calls.posts()).toBe(0);
+    expect(calls.reads()).toBe(1);
+    expect(calls.draft()).toEqual(emptyDraft);
+
+    await page
+      .getByRole('button', {
+        name: english ? 'Edit my information' : 'Modifier mes informations',
+        exact: true
+      })
+      .click();
+    await companyInput.fill('Synthetic text draft remains private');
+    await expect(draftStatus(page)).toContainText(
+      english ? 'Draft saved.' : 'Brouillon enregistré.'
+    );
+    const textDraft = structuredClone(calls.draft());
+    await photos.setInputFiles({
+      name: 'later-image-2.png',
+      mimeType: 'image/png',
+      buffer: png
+    });
+    await confirmAcceptanceMediaUsage(page);
+    await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(2);
+    await expect(companyInput).toHaveValue(
+      'Synthetic text draft remains private'
+    );
+    await expect(companyInput).toBeEnabled();
+    expect(mediaReads).toBe(3);
+    expect(uploads).toBe(2);
+    expect(calls.draft()).toEqual(textDraft);
+    expect(calls.posts()).toBe(0);
+    expect(calls.reads()).toBe(1);
+    expect(
+      assets.every(
+        (asset) =>
+          asset.reviewStatus === 'pending_review' && asset.publicUrl === null
+      )
+    ).toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="followup-media-section"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
+}
+
+for (const english of [false, true]) {
   test(`refresh updates media review and availability without replacing the private draft ${english ? 'EN @mobile' : 'FR desktop'}`, async ({
     page
   }) => {

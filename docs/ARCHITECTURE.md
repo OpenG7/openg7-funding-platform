@@ -124,7 +124,8 @@ Chaque feed a sa destination/pause; une simulation ne publie pas de commanditair
 
 Les paiements confirmés avec consentement peuvent alimenter la préparation privée
 avant revue. L'acceptation humaine peut approuver les dossiers et l'envoi dans une
-transaction auditée, avec IDs/versions et photo approuvée, sans ouvrir leur
+transaction auditée, avec IDs/versions et les médias requis par le format et
+l’engagement, sans ouvrir leur
 visibilité publique. Refus persistants, modifications humaines et autorisations
 existantes sont préservés. Voir les [règles métier](development/sponsorship-rules.md)
 et le [runbook](operations/publication-automation.md).

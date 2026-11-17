@@ -70,14 +70,14 @@ const scenarios = [
     label: 'empty media collection',
     assets: [],
     counts: [0, 0, 0, 0],
-    state: 'blocked',
+    state: 'not_required',
     imageApproved: false
   },
   {
-    label: 'approved logo alone cannot replace a presentation photo',
+    label: 'an approved optional logo completes its own review',
     assets: [['logo', 'approved']],
     counts: [1, 1, 0, 0],
-    state: 'blocked',
+    state: 'complete',
     imageApproved: false
   },
   {
@@ -88,10 +88,10 @@ const scenarios = [
     imageApproved: false
   },
   {
-    label: 'rejected presentation photo stays blocked',
+    label: 'a rejected optional image does not block approved text',
     assets: [['supporting_image', 'rejected']],
     counts: [1, 0, 0, 1],
-    state: 'blocked',
+    state: 'complete',
     imageApproved: false
   },
   {
@@ -162,7 +162,7 @@ test('assistant context and dossier progress share media facts while keeping rev
     );
     assert.equal(
       context.nextStep,
-      scenario.state === 'complete' ? 'prepare_publication' : 'review_media',
+      pending > 0 ? 'review_media' : 'prepare_publication',
       scenario.label
     );
     assert.doesNotMatch(JSON.stringify(context), /private-fixture-filename/);
@@ -173,26 +173,18 @@ test('assistant context and dossier progress share media facts while keeping rev
       scenario.state,
       scenario.label
     );
-    assert.equal(
-      progress.publicEligible,
-      scenario.imageApproved,
-      scenario.label
-    );
+    assert.equal(progress.publicEligible, true, scenario.label);
     assert.equal(
       progress.publicationBlockers.includes('media'),
-      !scenario.imageApproved,
+      false,
       scenario.label
     );
     assert.equal(
       progress.website.blockers.includes('media'),
-      !scenario.imageApproved,
+      false,
       scenario.label
     );
-    assert.equal(
-      progress.website.canPublish,
-      scenario.imageApproved,
-      scenario.label
-    );
+    assert.equal(progress.website.canPublish, true, scenario.label);
     assert.equal(JSON.stringify(source), before, scenario.label);
   }
 });

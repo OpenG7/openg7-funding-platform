@@ -96,6 +96,73 @@ const facts = (rest = {}) => {
 };
 const step = (dossier, id) => dossier.milestones.find((s) => s.id === id);
 
+test('a text offer has no missing-media task and approval stays the next prerequisite', () => {
+  const commitment = committed(5000);
+  const result = buildSponsorshipProgress(
+    source({}, { media: [] }),
+    facts({ amountMinor: 5000, commitment })
+  );
+  assert.equal(step(result, 'media').state, 'not_required');
+  assert.equal(result.next.reason, 'review_pending');
+  assert.equal(result.website.canPublish, false);
+  assert.deepEqual(result.website.blockers, ['review']);
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 1 });
+});
+
+test('an unqualified agreement cannot make an empty media collection a completed or unnecessary step', () => {
+  for (const commitment of [
+    null,
+    { state: 'needs_confirmation', offer: null, obligations: [] }
+  ]) {
+    const result = buildSponsorshipProgress(
+      source({ reviewStatus: 'approved' }, { media: [] }),
+      { ...facts(), commitment }
+    );
+    assert.equal(step(result, 'media').state, 'pending');
+    assert.equal(
+      step(result, 'media').reason,
+      'media_requirements_unconfirmed'
+    );
+    assert.equal(step(result, 'publication').state, 'blocked');
+    assert.equal(result.publicationCompletion.done, 0);
+  }
+});
+
+test('a historical image promise permits intermediate text but keeps its original passage unfulfilled', () => {
+  const commitment = committed(5000);
+  commitment.offer.version = 'sponsorship-v2';
+  commitment.offer.benefits[0].requiredElements = [
+    'company_name',
+    'approved_presentation'
+  ];
+  commitment.obligations[0].state = 'blocked';
+  commitment.obligations[0].blockedReason = 'required_elements_missing';
+  const before = JSON.stringify(commitment);
+  const hidden = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }, { media: [] }),
+    facts({ amountMinor: 5000, commitment })
+  );
+  assert.equal(hidden.website.canPublish, true);
+  assert.deepEqual(hidden.website.blockers, []);
+  assert.equal(step(hidden, 'media').state, 'pending');
+  assert.equal(step(hidden, 'media').reason, 'media_promised_pending');
+  assert.equal(hidden.next.reason, 'website_publication_required');
+  const visible = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }, { media: [] }),
+    facts({
+      amountMinor: 5000,
+      commitment,
+      websiteVisible: true,
+      websiteHeld: false
+    })
+  );
+  assert.equal(step(visible, 'publication').state, 'partial');
+  assert.equal(step(visible, 'publication').reason, 'website_text_visible');
+  assert.equal(visible.next.reason, 'media_promised_pending');
+  assert.deepEqual(visible.publicationCompletion, { done: 0, total: 1 });
+  assert.equal(JSON.stringify(commitment), before);
+});
+
 test('workflow keeps an authorized channel waiting when another promise has a missing required logo', () => {
   const commitment = committed();
   const linkedin = commitment.obligations.find(
@@ -439,7 +506,6 @@ test('publication blockers explain the missing prerequisites without approving a
   assert.deepEqual(result.publicationBlockers, [
     'consent',
     'review',
-    'media',
     'payment',
     'refund',
     'hidden'
@@ -448,7 +514,6 @@ test('publication blockers explain the missing prerequisites without approving a
     'consent',
     'review',
     'identity',
-    'media',
     'payment',
     'refund'
   ]);
@@ -482,8 +547,8 @@ test('a qualified promise requiring a missing logo blocks publication without re
   );
   assert.equal(step(result, 'publication').state, 'blocked');
   assert.equal(step(result, 'publication').reason, 'publication_blocked');
-  assert.equal(result.next.reason, 'publication_blocked');
-  assert.equal(result.next.tab, 'publication');
+  assert.equal(result.next.reason, 'website_publication_required');
+  assert.equal(result.next.tab, 'media');
   assert.deepEqual(result.publicationBlockers, ['media']);
   assert.deepEqual(result.publicationCompletion, { done: 0, total: 3 });
   assert.equal(result.commitment.state, 'active');

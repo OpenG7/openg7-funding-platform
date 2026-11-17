@@ -72,13 +72,7 @@ export async function loadAdminPilotageState(
             ? 'CONNECTION_REQUIRED'
             : Date.parse(p.scheduledAt) <= Date.now()
               ? 'SCHEDULE_EXPIRED'
-              : p.sponsors.some(
-                    (s) =>
-                      s.reviewStatus === 'pending_review' &&
-                      !s.presentationApproved
-                  )
-                ? 'SPONSOR_MEDIA_REQUIRED'
-                : null;
+              : null;
       decisions.push({
         id: 'publication:' + p.id,
         domain: 'publications',
@@ -195,11 +189,9 @@ export async function loadAdminPilotageState(
             id: 'sponsor.approve',
             blocked: !sponsor
               ? 'READ_ONLY'
-              : !sponsor.photo
-                ? 'SPONSOR_MEDIA_REQUIRED'
-                : sponsor.status !== 'paid'
-                  ? 'PAYMENT_REQUIRED'
-                  : null
+              : sponsor.status !== 'paid'
+                ? 'PAYMENT_REQUIRED'
+                : null
           },
           { id: 'sponsor.reject', blocked: sponsor ? null : 'READ_ONLY' }
         ];

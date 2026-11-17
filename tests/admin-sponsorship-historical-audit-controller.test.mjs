@@ -41,6 +41,7 @@ function fixture() {
     scope: 'dossier',
     identity: 'synthetic-owner-session',
     owner: true,
+    disabled: false,
     destroyed: false,
     failure: null,
     readFailure: null,
@@ -56,6 +57,7 @@ function fixture() {
     scope: () => state.scope,
     identity: () => state.identity,
     canOwn: () => state.owner,
+    disabled: () => state.disabled,
     destroyed: () => state.destroyed,
     requestId: () =>
       `10000000-0000-4000-8000-${String(++state.nonces).padStart(12, '0')}`,
@@ -90,6 +92,36 @@ function prepare(c) {
   c.reason.set('Synthetic private review reason');
   c.confirmation.set(true);
 }
+test('an external lock keeps the audit readable and retains its draft and exact uncertain review', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  const selected = c.selected();
+  state.disabled = true;
+  await c.submit();
+  assert.equal(state.commands.length, 0);
+  assert.equal(state.nonces, 0);
+  assert.equal(c.selected(), selected);
+  assert.equal(c.reason(), 'Synthetic private review reason');
+  state.disabled = false;
+  state.failure = new TypeError('Synthetic lost response');
+  await c.submit();
+  const pending = c.pending();
+  state.disabled = true;
+  await c.load();
+  await c.retry();
+  assert.equal(state.commands.length, 1);
+  assert.equal(c.pending(), pending);
+  assert.equal(c.selected(), selected);
+  assert.ok(c.data());
+  state.disabled = false;
+  state.failure = null;
+  await c.retry();
+  assert.deepEqual(state.commands[1], state.commands[0]);
+  assert.equal(state.nonces, 1);
+  assert.equal(c.pending(), null);
+});
+
 test('closing an unsubmitted review clears its draft without changing the inventory or issuing a command', async () => {
   const { c, state } = fixture();
   c.filter.set('duration_unverified');

@@ -54,6 +54,13 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [071](../../apps/funding-api/migrations/071_sponsorship_website_refresh_commands.sql)
+ajoute les reçus immuables des réévaluations Web explicites, bornées à une
+obligation et à un acteur. Elle ne publie rien et ne modifie aucune offre ou preuve
+historique. Appliquer avant la nouvelle API puis actualiser les grants du rôle
+applicatif avec le runner. Seules les bases jetables sont utilisées pour sa
+validation locale ; son application à une base métier reste une opération séparée.
+
 La migration [069](../../apps/funding-api/migrations/069_publication_workshop.sql)
 ajoute le registre des changements source, les missions immuables, les propositions
 privées et les reçus d’adoption de l’[Atelier de publication](../technical/publication-workshop.md).

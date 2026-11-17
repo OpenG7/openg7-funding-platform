@@ -254,10 +254,25 @@ export const createAdminSponsorshipMediaHttpHandler = ({
       if (!ensureAdminAccess(request, response)) {
         return true;
       }
-      const variant = new URL(
-        request.url ?? '/',
-        publicBaseOrigin
-      ).searchParams.get('variant');
+      const contentQuery = new URL(request.url ?? '/', publicBaseOrigin)
+        .searchParams;
+      const variant = contentQuery.get('variant');
+      const expectedVersion = contentQuery.get('expectedVersion');
+      if (expectedVersion !== null)
+        response.setHeader('Cache-Control', 'private, no-store');
+      if (
+        expectedVersion !== null &&
+        (!isValidAdminExpectedVersion(expectedVersion) ||
+          expectedVersion.length > 128 ||
+          /[\u0000-\u001f\u007f]/.test(expectedVersion) ||
+          contentQuery.getAll('expectedVersion').length !== 1)
+      ) {
+        writeJson(request, response, 400, {
+          code: 'INVALID_MEDIA_VERSION',
+          error: 'Invalid media version.'
+        });
+        return true;
+      }
       if (variant !== null && variant !== 'thumbnail') {
         writeJson(request, response, 400, {
           code: 'INVALID_MEDIA_VARIANT',
@@ -267,6 +282,18 @@ export const createAdminSponsorshipMediaHttpHandler = ({
       }
       try {
         const asset = await getSponsorMediaStorageRecord(adminMediaContentId);
+        if (
+          asset &&
+          expectedVersion !== null &&
+          (asset.version !== expectedVersion ||
+            asset.id.toLowerCase() !== adminMediaContentId.toLowerCase())
+        ) {
+          writeJson(request, response, 409, {
+            code: 'MEDIA_VERSION_CONFLICT',
+            error: 'The media version has changed.'
+          });
+          return true;
+        }
         const image = asset
           ? await sponsorMediaStorage.readPrivateObject(
               asset.processedStorageKey
@@ -282,8 +309,30 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           variant === 'thumbnail'
             ? await sponsorMediaThumbnail(image, asset.checksumSha256)
             : image;
+        if (expectedVersion !== null) {
+          const current =
+            await getSponsorMediaStorageRecord(adminMediaContentId);
+          if (
+            !current ||
+            current.id !== asset.id ||
+            current.version !== expectedVersion ||
+            current.contributionId !== asset.contributionId
+          ) {
+            writeJson(request, response, 409, {
+              code: 'MEDIA_VERSION_CONFLICT',
+              error: 'The media version has changed.'
+            });
+            return true;
+          }
+        }
         writeBinary(request, response, 200, content, 'image/webp', {
-          'Cache-Control': 'private, no-store'
+          'Cache-Control': 'private, no-store',
+          ...(expectedVersion !== null
+            ? {
+                'X-OpenG7-Media-Version': expectedVersion,
+                'Access-Control-Expose-Headers': 'X-OpenG7-Media-Version'
+              }
+            : {})
         });
       } catch (error) {
         reportFailure('Failed to load admin sponsor media preview.', error);

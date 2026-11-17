@@ -76,7 +76,8 @@ export class MediaReviewCommands {
   );
   constructor(
     readonly c: MediaReviewWorkspaceController,
-    private readonly contributionId: () => string
+    private readonly contributionId: () => string,
+    private readonly approved?: (assetId: string) => void
   ) {}
   reset(): void {
     this.form.set(null);
@@ -153,12 +154,24 @@ export class MediaReviewCommands {
       // The explicit review-panel button confirms this displayed file and its exact metadata.
       this.humanReviewed.set(true);
       await this.c.execute();
+      const receipt = this.c.receipt();
       if (
         ticket === this.reviewSerial &&
         this.acceptedReview() === target &&
         !this.c.plan()
-      )
+      ) {
+        const confirmed =
+          receipt?.status === 'completed' &&
+          receipt.action === 'approve' &&
+          receipt.planId === plan.id &&
+          receipt.items.length === 1 &&
+          receipt.items[0]?.id === target.id &&
+          this.c.data()?.contributionId === target.contributionId &&
+          this.c.inspected()?.id === target.id &&
+          this.c.inspected()?.reviewStatus === 'approved';
         this.reset();
+        if (confirmed) this.approved?.(target.id);
+      }
     } finally {
       if (ticket === this.reviewSerial) this.reviewSubmitting.set(false);
     }

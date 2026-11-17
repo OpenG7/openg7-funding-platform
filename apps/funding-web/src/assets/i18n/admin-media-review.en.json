@@ -1,6 +1,60 @@
 {
   "admin": {
     "mediaReview": {
+      "experience": {
+        "prepare": "Content preparation",
+        "emptyTitle": "Add your first media",
+        "emptyHelp": "Import the sponsor’s photos and logos to prepare their use in sponsorship services.",
+        "addPhotos": "Add photos",
+        "addLogo": "Add a logo",
+        "formats": "JPEG, PNG and WebP",
+        "noMedia": "No media in this dossier",
+        "toolsLater": "Search and management tools will appear once files have been added.",
+        "reviewTitle": "Your media are ready for review",
+        "reviewHelp": "{{count}} media item(s) await a decision. Approval does not publish content.",
+        "libraryTitle": "Sponsor media library",
+        "libraryHelp": "Browse media and prepare their next uses.",
+        "organize": "Search and organize",
+        "category": "Category",
+        "noResultsHelp": "Change the filters to find media in this dossier.",
+        "clearFilters": "Reset filters",
+        "assigned": "{{count}} assignment(s)",
+        "approveContinue": "Approve and continue",
+        "cancel": "Cancel",
+        "technicalDetails": "Technical details and provenance",
+        "steps": {
+          "add": "Add",
+          "addHelp": "Import photos and logos.",
+          "review": "Review",
+          "reviewHelp": "Check and approve eligible content.",
+          "prepare": "Prepare use",
+          "prepareHelp": "Assign resources to services."
+        },
+        "assistant": {
+          "empty": "No media received.",
+          "next": "Next action",
+          "add": "Add the sponsor’s first photos in the import area.",
+          "afterImport": "You can then review the content and prepare its use.",
+          "authorization": "{{count}} media item(s) need permission.",
+          "consentHelp": "One request can cover the photos awaiting permission. Sending it does not establish consent.",
+          "rightsHelp": "Check permissions in the inspector. Withdrawn permissions and logo rights require a separate review.",
+          "review": "{{count}} media item(s) await a decision.",
+          "reviewHelp": "Review individual files or use Approve all to check eligible media before confirming.",
+          "available": "Approved media are available.",
+          "prepare": "Prepare assignments and the public profile. Each use keeps its own authorization.",
+          "blocked": "No media are approved.",
+          "blockedHelp": "Open file details to understand decisions and possible corrections.",
+          "more": "Details and next uses"
+        },
+        "status": {
+          "review": "To review",
+          "approved": "Approved",
+          "authorization": "Permission required",
+          "correction": "Correction requested",
+          "rejected": "Rejected",
+          "blocked": "Blocked"
+        }
+      },
       "title": "Media review",
       "uploadKind": "File type",
       "photo": "Photo",
@@ -217,7 +271,7 @@
       },
       "library": {
         "title": "Profile and media",
-        "subtitle": "Intelligent library · Preparing content for promised services",
+        "subtitle": "Prepare sponsorship content",
         "services": "{{count}} service(s)",
         "viewsLabel": "Library views",
         "views": {
@@ -227,8 +281,8 @@
           "corrections": "Corrections and requests"
         },
         "identityMissing": "Some dossier information is incomplete. Manage contact details in Identity.",
-        "submissionPending": "The sponsor has not submitted their form yet. An administrative correction does not replace submission.",
-        "completeIdentity": "Complete in Identity",
+        "submissionPending": "Sponsor form pending · Media preparation can continue.",
+        "completeIdentity": "View Identity",
         "correctionsHelp": "Review the sponsor’s photo preference and correction request here. Decisions and their explanations remain recorded in Funding. To address the content of a specific media file, open its inspector and moderation options.",
         "returnMedia": "Return to media",
         "noDossier": "No active sponsorship dossier.",
@@ -343,6 +397,7 @@
       "acceptanceWithdrawn": "The sponsor has withdrawn their permission. This media cannot be approved.",
       "decisionRecordedHelp": "Your decision, its author and its date are recorded automatically.",
       "consentRequest": {
+        "photos": "Photos covered",
         "open": "Request consent for photos",
         "title": "Request consent for photos",
         "intro": "One link lets the sponsor review and consent to the photos in this dossier awaiting authorization.",
@@ -360,7 +415,7 @@
           "authorization": "Permission required"
         },
         "consentAction": "Permission required — Request initial consent for the pending photos",
-        "assistantTitle": "Assistant · Understand the states",
+        "assistantTitle": "OpenG7 Assistant",
         "assistantHelp": "Permissions and checks determine which media are eligible. Approve all prepares every photo and logo in this dossier. Filters and your selection do not limit this action.",
         "preparing": "Checking all media in the dossier…",
         "executing": "Checking the approval result…",

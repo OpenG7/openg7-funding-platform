@@ -67,6 +67,7 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
 export class AdminSponsorshipCommitmentsComponent {
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly embedded = input(false);
+  readonly disabled = input(false);
   readonly changed = output<void>();
   readonly assistanceReview = viewChild(PreparationAssistanceReviewComponent);
   readonly documentingClauseId = signal('');
@@ -100,6 +101,7 @@ export class AdminSponsorshipCommitmentsComponent {
   readonly c = new AdminSponsorshipCommitmentsController({
     dossier: () => this.dossier(),
     canOwn: () => this.canOwn(),
+    disabled: () => this.disabled(),
     isDestroyed: () => this.destroy.destroyed,
     newRequestId: () => crypto.randomUUID(),
     get: (id) => this.admin.getSponsorshipCommitment(id),
@@ -118,7 +120,7 @@ export class AdminSponsorshipCommitmentsComponent {
     }
   });
   readonly locked = computed(
-    () => this.c.loading() || this.busy() || !this.canOwn()
+    () => this.disabled() || this.c.loading() || this.busy() || !this.canOwn()
   );
   readonly busy = computed(
     () =>

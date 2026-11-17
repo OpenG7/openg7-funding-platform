@@ -11,6 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from '../support/test.js';
+import { openMediaLibraryTools } from '../support/sponsorship-dossier.js';
 import {
   adminController,
   installAdminController
@@ -51,6 +52,17 @@ function mixedInventory(state: SponsorMediaWorkspace): void {
     readiness: { state: 'blocked', reasons: ['MEDIA_INVALID'] }
   });
   Object.assign(state, { assets });
+}
+
+/** Product example: two accepted photos, two candidates, one without permission. */
+function fivePhotoInventory(state: SponsorMediaWorkspace): void {
+  mixedInventory(state);
+  for (const asset of state.assets)
+    Object.assign(asset, { kind: 'supporting_image' });
+  Object.assign(state.assets[4]!, {
+    reviewStatus: 'approved',
+    readiness: { state: 'ready', reasons: [] }
+  });
 }
 
 async function approveAllFixture(page: Page, state: SponsorMediaWorkspace) {
@@ -230,16 +242,24 @@ export function registerApproveAllMediaTests(
 ): void {
   const fixture = createMediaWorkspaceFixture(context);
   for (const [language, width] of [
-    ['fr-CA', 1440],
+    ['fr-CA', 1920],
     ['en', 390]
   ] as const) {
     test(`approve all prepares the whole dossier with one confirmation and preserves excluded media ${language}`, async ({
       page
     }, info) => {
       const { state, calls: legacy } = await fixture(page);
-      mixedInventory(state);
+      fivePhotoInventory(state);
       const unchanged = structuredClone(state.assets.slice(2));
       const requests = await approveAllFixture(page, state);
+      await page.addInitScript(
+        (theme) =>
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          ),
+        language === 'fr-CA' ? 'night' : 'mineral'
+      );
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(context.path('media'));
       const english = language === 'en';
@@ -249,6 +269,48 @@ export function registerApproveAllMediaTests(
             name: 'Switch administration language to English'
           })
           .click();
+      await expect(area(page).locator('[data-og7="media-tile"]')).toHaveCount(
+        5
+      );
+      const cards = area(page).locator('[data-og7="media-tile"]');
+      for (const card of await cards.all())
+        await expect(
+          card.locator('[data-og7="media-primary-status"]')
+        ).toHaveCount(1);
+      await expect(
+        cards.locator(
+          '[data-og7="media-primary-status"][data-state="approved"]'
+        )
+      ).toHaveCount(2);
+      await expect(
+        cards.locator('[data-og7="media-primary-status"][data-state="review"]')
+      ).toHaveCount(2);
+      await expect(
+        cards.locator(
+          '[data-og7="media-primary-status"][data-state="authorization"]'
+        )
+      ).toHaveCount(1);
+      const assistant = area(page).locator('[data-og7="media-assistant"]');
+      await expect(
+        assistant.getByRole('button', {
+          name: english
+            ? 'Request consent for photos'
+            : 'Demander le consentement des photos',
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(
+        assistant.locator('[data-og7="media-approve-all-open"]')
+      ).toHaveCount(0);
+      for (const card of await cards.all()) {
+        await card.scrollIntoViewIfNeeded();
+        await expect(card.locator('img')).toHaveAttribute('src', /^blob:/);
+      }
+      await cards.first().scrollIntoViewIfNeeded();
+      await area(page).screenshot({
+        path: info.outputPath(`five-photos-${language}-${width}.png`)
+      });
+      await openMediaLibraryTools(page);
       await area(page)
         .locator('[data-og7="media-search"]')
         .fill(state.assets[2]!.originalFilename);
@@ -272,6 +334,12 @@ export function registerApproveAllMediaTests(
       ).toHaveText('5');
       await expect(
         area(page).locator('[data-og7="media-count-approved"]')
+      ).toHaveText('2');
+      await expect(
+        area(page).locator('[data-og7="media-count-review"]')
+      ).toHaveText('3');
+      await expect(
+        area(page).locator('[data-og7="media-count-consent"]')
       ).toHaveText('1');
       await expect(
         area(page).locator('[data-og7="media-count-consent-action"]')
@@ -300,8 +368,8 @@ export function registerApproveAllMediaTests(
       await expect(hook(page, 'summary')).toBeVisible();
       await expect(hook(page, 'summary')).toHaveText(
         english
-          ? '5 media: 2 eligible, 1 already approved, 1 blocked, 1 not processable.'
-          : '5 média(s) : 2 admissible(s), 1 déjà approuvé(s), 1 bloqué(s), 1 non traitable(s).'
+          ? '5 media: 2 eligible, 2 already approved, 1 blocked, 0 not processable.'
+          : '5 média(s) : 2 admissible(s), 2 déjà approuvé(s), 1 bloqué(s), 0 non traitable(s).'
       );
       await expect(panel).toContainText(
         english
@@ -351,13 +419,13 @@ export function registerApproveAllMediaTests(
       ).toHaveCount(2);
       await expect(
         hook(page, 'results').locator('[data-state="already_approved"]')
-      ).toHaveCount(1);
+      ).toHaveCount(2);
       await expect(
         hook(page, 'results').locator('[data-state="blocked"]')
       ).toHaveCount(1);
       await expect(
         hook(page, 'results').locator('[data-state="not_processable"]')
-      ).toHaveCount(1);
+      ).toHaveCount(0);
       expect(state.assets.slice(2)).toEqual(unchanged);
       expect(
         state.assets
@@ -384,7 +452,7 @@ export function registerApproveAllMediaTests(
       ...state.assets,
       {
         ...state.assets[0]!,
-        id: 'synthetic-media-100',
+        id: '30000000-0000-4000-8000-000000001100',
         originalFilename: 'last-logo.webp',
         kind: 'logo' as const
       }

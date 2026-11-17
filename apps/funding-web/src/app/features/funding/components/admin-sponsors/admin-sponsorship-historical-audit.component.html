@@ -639,7 +639,7 @@
                 {{ 'admin.historicalAudit.conclusion' | translate }}
                 <select
                   class="admin-select"
-                  [disabled]="busy()"
+                  [disabled]="disabled() || busy()"
                   (change)="setConclusion($event)"
                 >
                   @for (conclusion of conclusions; track conclusion) {
@@ -665,7 +665,7 @@
                   rows="3"
                   maxlength="2000"
                   [value]="c.pending()?.reason ?? c.reason()"
-                  [disabled]="busy()"
+                  [disabled]="disabled() || busy()"
                   (input)="setReason($event)"
                 ></textarea>
               </label>
@@ -677,7 +677,7 @@
                       ? c.pending()?.confirmation === selected.evidenceId
                       : c.confirmation()
                   "
-                  [disabled]="busy()"
+                  [disabled]="disabled() || busy()"
                   (change)="setConfirmation($event)"
                 />
                 {{ 'admin.historicalAudit.confirmation' | translate }}
@@ -688,6 +688,7 @@
                   class="admin-button audit-action"
                   data-og7-id="historical-audit-save"
                   [disabled]="
+                    disabled() ||
                     !c.confirmation() ||
                     !c.reason().trim() ||
                     c.saving() ||
@@ -769,7 +770,7 @@
               type="button"
               class="admin-button audit-action"
               data-og7-id="historical-audit-retry"
-              [disabled]="c.saving() || c.loading()"
+              [disabled]="disabled() || c.saving() || c.loading()"
               (click)="c.retry()"
             >
               <openg7-admin-icon name="refresh" />{{

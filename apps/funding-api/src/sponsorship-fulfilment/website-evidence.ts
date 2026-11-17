@@ -10,10 +10,12 @@ import {
   SPONSOR_WEBSITE_VISIBLE_SQL
 } from '../sponsorship-website-eligibility.js';
 import { assert } from '../publication-automation/policy.js';
+import { isWebsiteRefreshPassage } from '../sponsorship-website-refresh.repository.js';
 import {
   readWebsiteMediaSources,
   assertWebsiteMediaAttested,
   assertWebsiteRequiredElements,
+  websiteRequiredElementsPresent,
   type WebsiteMediaAttestation
 } from '../sponsorship-website-media.js';
 
@@ -28,6 +30,61 @@ export interface WebsiteEvidenceSnapshot {
   readonly fingerprint: string;
 }
 
+/** Old observations may include unrelated private-media decisions. Ignore only
+ * those entries when comparing the exact displayed content, never its versions,
+ * public selections, rights or sponsorship authorization. */
+function durationSnapshotFingerprint(
+  snapshot: Pick<WebsiteEvidenceSnapshot, 'message' | 'sources' | 'media'>
+): string {
+  const ids = new Set(
+    Array.isArray(snapshot.media)
+      ? snapshot.media.flatMap((image) =>
+          image && typeof image === 'object' && typeof image.id === 'string'
+            ? [image.id]
+            : []
+        )
+      : []
+  );
+  const sources = Array.isArray(snapshot.sources)
+    ? snapshot.sources.map((source) => {
+        if (
+          !source ||
+          typeof source !== 'object' ||
+          !Array.isArray(source.approvals)
+        )
+          return source;
+        return {
+          ...source,
+          approvals: source.approvals.filter((approval: unknown) => {
+            if (!approval || typeof approval !== 'object') return true;
+            const value = approval as Record<string, unknown>;
+            return (
+              value.subjectType !== 'media' ||
+              ids.has(value.subjectId as string)
+            );
+          })
+        };
+      })
+    : snapshot.sources;
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === 'object')
+      return Object.fromEntries(
+        Object.entries(value)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, item]) => [key, canonical(item)])
+      );
+    return value;
+  };
+  return createHash('sha256')
+    .update(
+      JSON.stringify(
+        canonical({ message: snapshot.message, sources, media: snapshot.media })
+      )
+    )
+    .digest('hex');
+}
+
 /** Current controlled artifacts plus their authorizations; this is an instantaneous observation. */
 export async function captureWebsiteEvidenceSnapshot(
   db: Db,
@@ -35,6 +92,7 @@ export async function captureWebsiteEvidenceSnapshot(
   requiredElements: SponsorshipOfferedBenefit['requiredElements'],
   attestation: WebsiteMediaAttestation
 ): Promise<WebsiteEvidenceSnapshot> {
+  const displayed = await readWebsiteMediaSources(db, contributionId, null);
   const result = await db.query<{
     id: string;
     company: string;
@@ -50,17 +108,12 @@ export async function captureWebsiteEvidenceSnapshot(
     (SELECT jsonb_agg(jsonb_build_object('subjectType',mc.subject_type,'subjectId',mc.subject_id,'decisionId',mc.current_decision_id)
       ORDER BY mc.subject_type,mc.subject_id) FROM moderation_cases mc
       WHERE (mc.subject_type='sponsorship' AND mc.subject_id=fund_contributions.id)
-        OR (mc.subject_type='media' AND mc.subject_id IN (SELECT id FROM sponsor_media_assets WHERE contribution_id=fund_contributions.id))) AS approvals
+        OR (mc.subject_type='media' AND mc.subject_id=ANY($2::uuid[]))) AS approvals
     FROM fund_contributions WHERE id=$1::uuid`,
-    [contributionId]
+    [contributionId, displayed.map((image) => image.id)]
   );
   const source = result.rows[0];
   assert(source?.eligible, 'SOURCE_NOT_ELIGIBLE');
-  const displayed = await readWebsiteMediaSources(
-    db,
-    contributionId,
-    source.logo_url
-  );
   assertWebsiteRequiredElements(
     contributionId,
     requiredElements,
@@ -184,11 +237,14 @@ export async function completeWebsiteExposureDuration(
   assert(observationLock.rows[0]?.locked, 'DURATION_OBSERVATION_IN_PROGRESS');
   const start = await db.query<{
     content_fingerprint: string;
+    message: string;
+    sources: unknown;
+    media: unknown;
     elapsed: boolean;
     sequential: boolean;
     uninterrupted: boolean;
   }>(
-    `SELECT v.content_fingerprint,
+    `SELECT v.content_fingerprint,v.message,v.source_snapshot AS sources,v.media_snapshot AS media,
     v.observed_at+t.duration_days*INTERVAL '24 hours' <= clock_timestamp() AS elapsed,
     NOT EXISTS(SELECT 1 FROM sponsorship_public_visibility_observations public_check
       JOIN sponsorship_website_exposure_observations public_anchor ON public_anchor.id=public_check.start_observation_id
@@ -215,7 +271,9 @@ export async function completeWebsiteExposureDuration(
   assert(start.rows[0].uninterrupted, 'DURATION_SOURCE_CHANGED');
   assert(start.rows[0].sequential, 'DURATION_PERIOD_OVERLAP');
   assert(
-    start.rows[0].content_fingerprint === input.snapshot.fingerprint,
+    start.rows[0].content_fingerprint === input.snapshot.fingerprint ||
+      durationSnapshotFingerprint(start.rows[0]) ===
+        durationSnapshotFingerprint(input.snapshot),
     'DURATION_SOURCE_CHANGED'
   );
   assert(start.rows[0].elapsed, 'DURATION_NOT_ELAPSED');
@@ -258,13 +316,21 @@ export async function completeWebsiteExposureDuration(
   );
 }
 
-/** Only the explicit visibility command for the real OpenG7 directory calls this port. */
+export type WebsiteFulfilmentResult =
+  | 'not_applicable'
+  | 'missing_requirements'
+  | 'fulfilled'
+  | 'observed'
+  | 'unchanged';
+
+/** Explicit visibility or an exact, versioned refresh; never a media upload. */
 export async function recordWebsiteFulfilment(
   db: Db,
   contributionId: string,
   actor: string,
-  attestation: WebsiteMediaAttestation
-): Promise<void> {
+  attestation: WebsiteMediaAttestation,
+  target?: { readonly obligationId: string; readonly expectedVersion: number }
+): Promise<WebsiteFulfilmentResult> {
   const result = await db.query<{
     id: string;
     company: string;
@@ -291,14 +357,41 @@ export async function recordWebsiteFulfilment(
   );
   assertWebsiteMediaAttested(contributionId, displayed, attestation);
   const commitment = await loadSponsorshipCommitment(db, contributionId);
-  if (commitment?.state !== 'active') return;
-  const obligation = commitment.obligations.find(
-    (o) =>
-      o.channel === 'website' &&
-      o.target === 'openg7' &&
-      ['pending', 'blocked'].includes(o.state)
-  );
-  if (!obligation) return;
+  if (commitment?.state !== 'active') return 'not_applicable';
+  const obligation = target
+    ? commitment.obligations.find((o) => o.id === target.obligationId)
+    : commitment.obligations.find(
+        (o) =>
+          o.channel === 'website' &&
+          o.target === 'openg7' &&
+          ['pending', 'blocked'].includes(o.state)
+      );
+  if (!obligation) return 'not_applicable';
+  if (target) {
+    assert(
+      obligation.contributionId === contributionId &&
+        obligation.channel === 'website' &&
+        obligation.target === 'openg7',
+      'SOURCE_COMMITMENT_CHANGED'
+    );
+    assert(
+      obligation.version === target.expectedVersion,
+      'SOURCE_COMMITMENT_CHANGED'
+    );
+    if (obligation.state === 'fulfilled' || obligation.state === 'adjusted')
+      return 'unchanged';
+    // A refresh completes the passage opened by visibility; a new request UUID
+    // must never turn the same placement into a following ordinal.
+    const firstOpen = commitment.obligations.find(
+      (entry) =>
+        entry.channel === 'website' &&
+        entry.target === 'openg7' &&
+        ['pending', 'blocked'].includes(entry.state)
+    );
+    if (firstOpen?.id !== obligation.id) return 'not_applicable';
+    if (!(await isWebsiteRefreshPassage(db, contributionId, obligation.id)))
+      return 'not_applicable';
+  }
   // Visibility remains available to eligible historical dossiers after a
   // partial refund. Blocked commercial work must not receive a fulfilment proof.
   if (
@@ -307,11 +400,19 @@ export async function recordWebsiteFulfilment(
       obligation.blockedReason ?? ''
     )
   )
-    return;
+    return 'not_applicable';
   const benefit = commitment.offer?.benefits.find(
     (b) => b.id === obligation.benefitId
   );
   assert(benefit, 'SOURCE_COMMITMENT_CHANGED');
+  if (
+    !websiteRequiredElementsPresent(
+      benefit.requiredElements,
+      source.company,
+      displayed
+    )
+  )
+    return 'missing_requirements';
   const snapshot = await captureWebsiteEvidenceSnapshot(
     db,
     contributionId,
@@ -321,6 +422,24 @@ export async function recordWebsiteFulfilment(
   // An instantaneous controlled placement begins observation, never duration fulfilment.
   if (benefit.durationDays !== null) {
     if (obligation.target === 'openg7') {
+      const previous = await db.query<{
+        content_fingerprint: string;
+        message: string;
+        sources: unknown;
+        media: unknown;
+      }>(
+        `SELECT content_fingerprint,message,source_snapshot AS sources,media_snapshot AS media FROM sponsorship_website_exposure_observations
+         WHERE obligation_id=$1::uuid AND contribution_id=$2::uuid AND obligation_version=$3
+         ORDER BY observed_at DESC,id DESC LIMIT 1`,
+        [obligation.id, contributionId, obligation.version]
+      );
+      if (
+        previous.rows[0] &&
+        (previous.rows[0].content_fingerprint === snapshot.fingerprint ||
+          durationSnapshotFingerprint(previous.rows[0]) ===
+            durationSnapshotFingerprint(snapshot))
+      )
+        return 'unchanged';
       await observeWebsiteExposure(
         db,
         obligation.id,
@@ -329,8 +448,9 @@ export async function recordWebsiteFulfilment(
         actor,
         snapshot
       );
+      return 'observed';
     }
-    return;
+    return 'not_applicable';
   }
   // One visibility transition is one passage, even when a historical agreement promises several.
   await fulfil(db, {
@@ -350,4 +470,5 @@ export async function recordWebsiteFulfilment(
     media: snapshot.media,
     actor
   });
+  return 'fulfilled';
 }

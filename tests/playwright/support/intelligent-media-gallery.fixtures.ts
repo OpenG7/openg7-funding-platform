@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type {
   SponsorMediaBatchPlanRequest,
+  SponsorMediaAnalysisRun,
   SponsorMediaWorkspaceAsset,
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
@@ -22,10 +23,11 @@ export const galleryObligationIds = [
 export async function intelligentGalleryFixture(
   page: Page,
   options: {
-    role?: 'reader' | 'operator';
+    role?: 'reader' | 'operator' | 'owner';
     language?: 'fr-CA' | 'en';
     count?: number;
     missingIdentity?: boolean;
+    documentIndexes?: readonly number[];
   } = {}
 ) {
   let base!: Awaited<ReturnType<typeof controllerJourneysFixtures>>;
@@ -43,6 +45,7 @@ export async function intelligentGalleryFixture(
     asset: () => base.media[0]!
   });
   const { state, calls } = await fixture(page, options.role ?? 'operator');
+  const uploadTemplate = structuredClone(state.assets[0]!);
   const commitmentId = '20000000-0000-4000-8000-000000000800';
   const commitment: SponsorshipCommitmentRecord = {
     id: commitmentId,
@@ -145,7 +148,52 @@ export async function intelligentGalleryFixture(
           vision: 'not_configured',
           ocr: 'not_configured'
         },
-        runs: []
+        runs: (options.documentIndexes ?? []).flatMap(
+          (index): SponsorMediaAnalysisRun[] => {
+            const asset = state.assets[index];
+            if (!asset) return [];
+            const capabilities = {
+              technical: 'local',
+              vision: 'not_configured',
+              ocr: 'not_configured'
+            } as const;
+            return [
+              {
+                id: 'synthetic-recorded-document-' + index,
+                assetId: asset.id,
+                checksum: 'synthetic-recorded-document-checksum',
+                adapterVersion: 'synthetic-recorded-classification',
+                state: 'succeeded',
+                stale: false,
+                errorCode: null,
+                createdAt: '2026-11-05T12:00:00Z',
+                finishedAt: '2026-11-05T12:00:01Z',
+                suggestion: {
+                  adapterVersion: 'synthetic-recorded-classification',
+                  checksum: 'synthetic-recorded-document-checksum',
+                  capabilities,
+                  technical: {
+                    width: asset.width,
+                    height: asset.height,
+                    sizeBytes: asset.processedSizeBytes,
+                    mimeType: 'image/webp'
+                  },
+                  altText: asset.altText,
+                  classification: 'document',
+                  signals: [],
+                  limitations: []
+                },
+                review: {
+                  version: 1,
+                  decision: 'accepted',
+                  draft: { classification: 'document', altText: asset.altText },
+                  actor: 'synthetic-operator',
+                  createdAt: '2026-11-05T12:01:00Z'
+                }
+              }
+            ];
+          }
+        )
       }
     })
   );
@@ -154,7 +202,27 @@ export async function intelligentGalleryFixture(
     exports: Record<string, unknown>[];
     writes: string[];
     conflictNextPlan: boolean;
-  } = { uploads: [], exports: [], writes: [], conflictNextPlan: false };
+    workspaceStatus: number;
+    workspaceReads: number;
+  } = {
+    uploads: [],
+    exports: [],
+    writes: [],
+    conflictNextPlan: false,
+    workspaceStatus: 200,
+    workspaceReads: 0
+  };
+  await page.route('**/api/admin/sponsorships/media/workspace?**', (route) => {
+    commands.workspaceReads++;
+    return route.fulfill(
+      commands.workspaceStatus === 200
+        ? { json: state }
+        : {
+            status: commands.workspaceStatus,
+            json: { code: 'SYNTHETIC_MEDIA_UNAVAILABLE' }
+          }
+    );
+  });
   let lastPlan: SponsorMediaBatchPlanRequest | null = null;
   await page.route(
     '**/api/admin/sponsorships/media/batch/plan',
@@ -245,11 +313,42 @@ export async function intelligentGalleryFixture(
   await page.route('**/api/admin/sponsorships/media/upload', async (route) => {
     const body = route.request().postDataBuffer()?.toString() ?? '';
     commands.uploads.push(body);
-    await route.fulfill(
-      body.includes('bad-file.png')
-        ? { status: 400, json: { error: 'MEDIA_INVALID' } }
-        : { json: { uploaded: true, asset: state.assets[1] } }
-    );
+    if (body.includes('bad-file.png'))
+      return route.fulfill({ status: 400, json: { error: 'MEDIA_INVALID' } });
+    const asset: SponsorMediaWorkspaceAsset = {
+      ...uploadTemplate,
+      id: 'synthetic-import-' + commands.uploads.length,
+      version: 'synthetic-import-v1',
+      originalFilename:
+        /filename="([^"]+)"/.exec(body)?.[1] ?? 'synthetic-image.png',
+      kind: /name="kind"\r?\n\r?\nlogo/.test(body)
+        ? 'logo'
+        : 'supporting_image',
+      reviewStatus: 'pending_review',
+      uploadedBy: 'admin',
+      sortOrder: state.assets.length,
+      usageSource: 'media',
+      ruleId: null,
+      usageAcceptance: undefined,
+      usage: {
+        state: 'needs_confirmation',
+        channels: [],
+        targets: [],
+        transformations: [],
+        credit: null,
+        restrictions: null
+      },
+      readiness: {
+        state: 'blocked',
+        reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+      },
+      websiteSelected: false
+    };
+    Object.assign(state, {
+      assets: [...state.assets, asset],
+      revision: 'workspace-import-' + commands.uploads.length
+    });
+    return route.fulfill({ json: { uploaded: true, asset } });
   });
   await page.route('**/api/admin/sponsorships/media/export', async (route) => {
     commands.exports.push(route.request().postDataJSON());

@@ -544,9 +544,7 @@ const sponsorQuery = (sql) => {
     };
   if (sql.startsWith('SELECT c.id,c.updated_at::text'))
     return {
-      rows: [
-        { id: sponsorId, version: sponsorVersion, presentation_approved: true }
-      ],
+      rows: [{ id: sponsorId, version: sponsorVersion }],
       rowCount: 1
     };
 };
