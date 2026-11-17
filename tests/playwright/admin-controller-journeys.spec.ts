@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
 import {
   adminController,
   type AdminController
@@ -630,6 +631,45 @@ for (const consent of [false, true]) {
     };
     const pad = adminController(page);
     await page.goto(path('media'));
+    await expect(hook(page, 'media-workspace-error')).toBeVisible();
+    try {
+      await openSponsorshipWebsiteSettings(page, pad);
+    } catch (error) {
+      const geometry = await hook(
+        page,
+        'media-public-profile-summary'
+      ).evaluate((summary) => {
+        const ancestors = [];
+        for (
+          let element: HTMLElement | null = summary as HTMLElement;
+          element;
+          element = element.parentElement
+        ) {
+          const style = getComputedStyle(element);
+          ancestors.push({
+            tag: element.tagName,
+            hook: element.getAttribute('data-og7'),
+            rect: element.getBoundingClientRect().toJSON(),
+            clientHeight: element.clientHeight,
+            scrollHeight: element.scrollHeight,
+            scrollTop: element.scrollTop,
+            overflowY: style.overflowY,
+            open: element.getAttribute('open')
+          });
+        }
+        return {
+          scrollY,
+          innerHeight,
+          scrollHeight: document.scrollingElement?.scrollHeight,
+          ancestors
+        };
+      });
+      await test.info().attach('website-summary-geometry.json', {
+        body: JSON.stringify(geometry, null, 2),
+        contentType: 'application/json'
+      });
+      throw error;
+    }
     const site = hook(page, 'publication-website');
     const publish = site.locator('[data-og7="website-visibility"]');
     await expect(

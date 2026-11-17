@@ -51,6 +51,7 @@ type PendingCommand =
 export interface AdminSponsorshipCommitmentsPorts {
   dossier(): AdminSponsorshipProgress;
   canOwn(): boolean;
+  disabled?(): boolean;
   isDestroyed(): boolean;
   newRequestId(): string;
   get(id: string): Promise<{ commitment: SponsorshipCommitmentRecord | null }>;
@@ -122,7 +123,12 @@ export class AdminSponsorshipCommitmentsController {
     );
   }
   private permitted(): boolean {
-    return this.ports.canOwn() && !this.ports.isDestroyed() && !this.saving();
+    return (
+      this.ports.canOwn() &&
+      !this.ports.disabled?.() &&
+      !this.ports.isDestroyed() &&
+      !this.saving()
+    );
   }
   async load(): Promise<void> {
     if (this.loading() || this.saving() || this.ports.isDestroyed()) return;
@@ -504,6 +510,7 @@ export class AdminSponsorshipCommitmentsController {
       this.assistanceStale() ||
       !state.capabilities.canApply ||
       !this.ports.canOwn() ||
+      this.ports.disabled?.() ||
       state.commitment.version !== this.data()?.version
     )
       return false;

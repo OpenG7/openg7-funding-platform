@@ -165,7 +165,7 @@
         <div class="accepted-review-actions">
           <button
             type="button"
-            class="admin-button primary"
+            class="admin-button admin-button--primary"
             [disabled]="
               !commands().canApproveAcceptedReview() ||
               !view().previewUrl() ||
@@ -222,7 +222,7 @@
         (input)="commands().batchName.set(view().value($event))" /></label
     ><button
       type="button"
-      class="admin-button primary"
+      class="admin-button admin-button--primary"
       [disabled]="!commands().c.canWrite() || !commands().batchName().trim()"
       (click)="commands().createBatch()"
     >
@@ -416,7 +416,7 @@
       >
       <button
         type="button"
-        class="admin-button primary"
+        class="admin-button admin-button--primary"
         [disabled]="
           !commands().humanReviewed() ||
           !commands().c.canWrite() ||

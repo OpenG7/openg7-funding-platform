@@ -488,7 +488,17 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
               : 200;
         writeJson(request, response, status, {
           outcome,
-          code: `WEBSITE_VISIBILITY_${outcome.toUpperCase()}`
+          code: `WEBSITE_VISIBILITY_${outcome.toUpperCase()}`,
+          ...(input.refresh && status === 200
+            ? {
+                updated: true,
+                refresh: {
+                  requestId: input.refresh.requestId,
+                  obligationId: input.refresh.obligationId,
+                  expectedVersion: input.refresh.expectedVersion
+                }
+              }
+            : {})
         });
       } catch (error) {
         if (error instanceof ModerationError) {

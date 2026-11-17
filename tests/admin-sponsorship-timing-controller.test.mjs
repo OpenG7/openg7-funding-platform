@@ -7,6 +7,7 @@ const observationId = '10000000-0000-4000-8000-000000000902';
 function fixture() {
   const state = {
     owner: true,
+    disabled: false,
     destroyed: false,
     changed: 0,
     requests: 0,
@@ -45,6 +46,7 @@ function fixture() {
   };
   const c = new AdminSponsorshipTimingController({
     canOwn: () => state.owner,
+    disabled: () => state.disabled,
     isDestroyed: () => state.destroyed,
     newRequestId: () =>
       `20000000-0000-4000-8000-${String(++state.requests).padStart(12, '0')}`,
@@ -76,6 +78,32 @@ function fixture() {
   };
   return { c, state, obligation, sent, fill };
 }
+test('an external lock preserves timing fields and its captured uncertain command until replay is allowed', async () => {
+  const f = fixture();
+  f.fill();
+  f.state.disabled = true;
+  await f.c.submit('duration');
+  assert.equal(f.sent.length, 0);
+  assert.equal(f.state.requests, 0);
+  assert.equal(f.c.reason(), 'Synthetic justified statement');
+  f.state.disabled = false;
+  f.state.error = new TypeError('Synthetic lost response');
+  await f.c.submit('duration');
+  const pending = f.c.pending();
+  f.state.disabled = true;
+  f.c.select(f.obligation);
+  await f.c.retry();
+  assert.equal(f.sent.length, 1);
+  assert.equal(f.c.pending(), pending);
+  assert.equal(f.c.confirmation(), id);
+  f.state.disabled = false;
+  f.state.error = null;
+  await f.c.retry();
+  assert.deepEqual(f.sent[1], f.sent[0]);
+  assert.equal(f.state.requests, 1);
+  assert.equal(f.c.pending(), null);
+});
+
 test('timing captures exact owner confirmation and timing version separately from commercial version', async () => {
   const f = fixture();
   f.fill();

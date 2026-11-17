@@ -80,7 +80,11 @@ non refusées et disposant de leur empreinte originale. Les autorisations retir�
 les logos et les anciens fichiers sans empreinte originale sont exclus.
 
 Le message présente son destinataire, son texte et la liste versionnée des photos
-dans son contexte de confirmation. Il utilise l’adresse de paiement qui possède
+dans son contexte de confirmation. Les aperçus suivent ce manifeste préparé, même
+si les photos sont hors filtre ou hors page dans la galerie. Leur lecture privée
+contrôle la version exacte avant et après l’accès au fichier; un échec ne substitue
+pas une autre version. Les réponses différées sont invalidées et les URL locales révoquées à la fermeture ou au
+changement de session ou de dossier. Le message utilise l’adresse de paiement qui possède
 déjà l’accès au suivi privé ; une adresse de contact différente ne reçoit pas
 implicitement cet accès au dossier. Préparer ou annuler ne crée aucun courriel,
 jeton ou accord. Après confirmation explicite, un seul courriel contient un seul
@@ -262,21 +266,21 @@ exige une nouvelle confirmation. Tout autre conflit, résultat incertain ou
 
 Routes sous `/api/admin/sponsorships/media`, avec aliases sans `/api` :
 
-| Route                                                   | Contrat                                                                                                                                                                                 |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /workspace?contributionId=…`                       | Médias, règles effectives, provenance, lots, révision, capacité d'écriture, obligations et associations préparatoires; preuve privée omise pour le lecteur.                             |
-| `POST /rules`                                           | UUID, dossier/révision, portée, droits, preuve, IDs couverts et confirmation de la portée.                                                                                              |
-| `POST /batches`                                         | UUID, dossier/révision, nom et confirmation du dossier.                                                                                                                                 |
-| `POST /batch/plan`                                      | UUID, action, dossier/révision et sélection IDs/versions ; contenu candidat et raisons selon l'action.                                                                                  |
-| `POST /batch/execute`                                   | UUID, plan, confirmation du plan et `humanReviewed: true`.                                                                                                                              |
-| `POST /approve-all/plan`                                | UUID, dossier et révision attendue ; inventaire complet, catégories et résumé `kind: approve_all`.                                                                                      |
-| `POST /approve-all/execute`                             | UUID confirmé, plan, confirmation égale à l’ID du plan et `humanReviewed: true` ; résultat par média, éventuellement partiel.                                                           |
-| `GET /approve-all/receipt?contributionId=…&requestId=…` | Reçu du dossier et de l’acteur, `found/result`, `kind: approve_all` ; lecture seule avant toute reprise explicite.                                                                      |
-| `GET /receipt?contributionId=…&requestId=…`             | Réconciliation d'une commande appartenant à l'acteur ; aucune relance automatique.                                                                                                      |
-| `GET /workspace/history`                                | Historique paginé du dossier ou média, réservé aux opérateurs/propriétaires.                                                                                                            |
-| `GET /content/:id?variant=thumbnail`                    | WebP privé borné, contrôlant le checksum de la source.                                                                                                                                  |
-| `POST /upload`                                          | Multipart : UUID stable, dossier, type et fichier. Le reçu est atomique avec la création ; le même UUID et payload ne dupliquent pas le média.                                          |
-| `POST /export`                                          | Copie privée WebP traitée, opérateur/propriétaire; UUID, dossier, média, version attendue et confirmation égale à l’ID du média. Contrôle du contenu, reçu et audit; aucun lien public. |
+| Route                                                   | Contrat                                                                                                                                                                                              |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /workspace?contributionId=…`                       | Médias, règles effectives, provenance, lots, révision, capacité d'écriture, obligations et associations préparatoires; preuve privée omise pour le lecteur.                                          |
+| `POST /rules`                                           | UUID, dossier/révision, portée, droits, preuve, IDs couverts et confirmation de la portée.                                                                                                           |
+| `POST /batches`                                         | UUID, dossier/révision, nom et confirmation du dossier.                                                                                                                                              |
+| `POST /batch/plan`                                      | UUID, action, dossier/révision et sélection IDs/versions ; contenu candidat et raisons selon l'action.                                                                                               |
+| `POST /batch/execute`                                   | UUID, plan, confirmation du plan et `humanReviewed: true`.                                                                                                                                           |
+| `POST /approve-all/plan`                                | UUID, dossier et révision attendue ; inventaire complet, catégories et résumé `kind: approve_all`.                                                                                                   |
+| `POST /approve-all/execute`                             | UUID confirmé, plan, confirmation égale à l’ID du plan et `humanReviewed: true` ; résultat par média, éventuellement partiel.                                                                        |
+| `GET /approve-all/receipt?contributionId=…&requestId=…` | Reçu du dossier et de l’acteur, `found/result`, `kind: approve_all` ; lecture seule avant toute reprise explicite.                                                                                   |
+| `GET /receipt?contributionId=…&requestId=…`             | Réconciliation d'une commande appartenant à l'acteur ; aucune relance automatique.                                                                                                                   |
+| `GET /workspace/history`                                | Historique paginé du dossier ou média, réservé aux opérateurs/propriétaires.                                                                                                                         |
+| `GET /content/:id?variant=thumbnail&expectedVersion=…`  | WebP privé borné, contrôlant le checksum de la source. Version optionnelle pour les aperçus de demande : contrôle avant/après lecture et écho `X-OpenG7-Media-Version`; désaccord refusé sans image. |
+| `POST /upload`                                          | Multipart : UUID stable, dossier, type et fichier. Le reçu est atomique avec la création ; le même UUID et payload ne dupliquent pas le média.                                                       |
+| `POST /export`                                          | Copie privée WebP traitée, opérateur/propriétaire; UUID, dossier, média, version attendue et confirmation égale à l’ID du média. Contrôle du contenu, reçu et audit; aucun lien public.              |
 
 Les actions de lot proposées sont accepter, refuser, supprimer, déplacer dans un
 lot du même dossier, sélectionner ou retirer du site. Le contrat API conserve

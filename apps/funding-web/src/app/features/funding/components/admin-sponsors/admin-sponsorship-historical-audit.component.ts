@@ -49,6 +49,7 @@ export class AdminSponsorshipHistoricalAuditComponent {
   readonly contributionId = input('');
   readonly scope = input<'dossier' | 'portfolio'>('dossier');
   readonly canOwn = input.required<boolean>();
+  readonly disabled = input(false);
   readonly labels = inject(AdminSponsorsQualityI18nService);
   private readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
@@ -66,6 +67,7 @@ export class AdminSponsorshipHistoricalAuditComponent {
     scope: () => this.scope(),
     identity: () => this.identityKey(),
     canOwn: () => this.canOwn(),
+    disabled: () => this.disabled(),
     destroyed: () => this.destroy.destroyed,
     requestId: () => crypto.randomUUID(),
     preview: (query) => this.admin.historicalSponsorshipAudit(query),

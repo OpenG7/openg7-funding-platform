@@ -16,10 +16,7 @@ import {
   approveModeratedSubject,
   recordAdverseModeration
 } from '../moderation-legacy.js';
-import {
-  ModerationError,
-  moderationApprovedSql
-} from '../moderation/policy.js';
+import { ModerationError } from '../moderation/policy.js';
 
 import {
   audit,
@@ -390,9 +387,8 @@ async function executeCommand(
             await db.query<{
               id: string;
               version: string;
-              presentation_approved: boolean;
             }>(
-              `SELECT c.id,c.updated_at::text AS version,EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND m.deleted_at IS NULL) AS presentation_approved FROM fund_contributions c WHERE c.id=ANY($1::uuid[]) AND c.sponsor_review_status='pending_review' ORDER BY c.id`,
+              `SELECT c.id,c.updated_at::text AS version FROM fund_contributions c WHERE c.id=ANY($1::uuid[]) AND c.sponsor_review_status='pending_review' ORDER BY c.id`,
               [sources.map((s) => s.contribution_id)]
             )
           ).rows;
@@ -419,10 +415,6 @@ async function executeCommand(
               confirmed.some((c) => c.id === s.id && c.version === s.version)
             ),
             'VERSION_CONFLICT'
-          );
-          assert(
-            pending.every((s) => s.presentation_approved),
-            'SPONSOR_MEDIA_REQUIRED'
           );
           await assertSponsorshipContent(db, row);
           for (const sponsor of confirmed.filter(

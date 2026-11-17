@@ -11,7 +11,7 @@ import {
   type SponsorshipOfferFormatOptions
 } from './sponsorship-publication-formats.js';
 
-export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v2';
+export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v3';
 export type SponsorshipObligationChannel = 'website' | 'facebook' | 'linkedin';
 export type SponsorshipObligationTarget = 'openg7' | 'openg20';
 export interface SponsorshipOfferedBenefit {
@@ -91,7 +91,11 @@ export const createSponsorshipOfferSnapshot = (
         channel,
         target: 'openg7',
         quantity: 1,
-        requiredElements: ['company_name', 'approved_presentation'],
+        requiredElements:
+          channel === 'website' ||
+          (formats?.[channel] ?? 'collective_text') === 'collective_text'
+            ? ['company_name']
+            : ['company_name', 'approved_presentation'],
         deadlineDays: null,
         durationDays: null,
         ...(channel === 'website'

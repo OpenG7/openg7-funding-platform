@@ -963,9 +963,9 @@
           "media": {
             "who": "Sponsor for files; operator or owner for review.",
             "step1": "Open Media and check available files, their legibility and alternative text.",
-            "step2": "If a presentation image is missing, ask the sponsor to add it through their follow-up page.",
+            "step2": "Check whether the offer requires a visual. A missing optional image does not block approved text.",
             "step3": "Examine pending media and approve or reject each using the review controls.",
-            "condition": "At least one presentation image is approved and no media remain pending review."
+            "condition": "Received media have been reviewed and promised visuals are approved. A text offer without media is marked “Not required”."
           },
           "review": {
             "who": "Operator or owner.",
@@ -983,7 +983,7 @@
           },
           "publication": {
             "who": "Operator or owner authorized to prepare and approve publication.",
-            "step1": "Check consent, review, the approved image and financial eligibility in Publication.",
+            "step1": "Check consent, text review, the visuals required by the offer and financial eligibility in Publication.",
             "step2": "Explicitly publish the website profile when ready. Then review the content, destination and schedule of each social post before authorizing it.",
             "step3": "Follow publication statuses; a draft or schedule does not confirm delivery. Examine failures or cancellations before retrying.",
             "condition": "The website profile is visible and every social publication included in the amount is confirmed. A simulation does not count as delivery."
@@ -1097,7 +1097,12 @@
         "identity_missing": "Contact details to complete: company name or contact email missing. Use “Edit identity and contact details” in the Identity tab.",
         "identity_submission_pending": "Contact details are present. The sponsor can submit their form through their private follow-up link, or an administrator can save the contact details to complete the Identity step.",
         "media_approved": "Presentation image approved; no media awaiting review.",
-        "media_review": "Review the media and approve a presentation image.",
+        "media_review": "Review received images. Reviewing a private image does not block authorized text.",
+        "media_not_required": "No image is required for this offer’s text services.",
+        "media_requirements_unconfirmed": "Visual requirements remain to be confirmed with this dossier’s commitments.",
+        "media_promised_pending": "Promised visual awaited. The text profile can be published after approval.",
+        "website_text_visible": "Text visible — the promised visual is still awaited.",
+        "website_publication_required": "Authorize the profile publication, with or without selected images.",
         "review_approved": "Administrative review approved.",
         "review_rejected": "Dossier refused. Check the decision and history.",
         "review_pending": "Perform the administrative review.",
@@ -1229,6 +1234,13 @@
           "publish": "Publish profile on the website",
           "hide": "Hide profile from the website",
           "confirmPublish": "Publish this profile in the public sponsor directory? This decision does not schedule any social post.",
+          "textHelp": "Approved text can be published without an image. Images added later remain private until reviewed and selected. A promised visual remains to be delivered.",
+          "refresh": "Check the service with selected media",
+          "confirmRefresh": "Check this website service against the currently selected text and media? This keeps the profile visible and creates no additional passage.",
+          "retryRefresh": "Resume this service check",
+          "refreshUncertain": "The result remains unconfirmed. Resume the check with the same request before making another decision.",
+          "refreshSaved": "Check confirmed. Consult the service and duration status to see what remains to be delivered.",
+          "refreshBlocked": "This service’s conditions are not yet met. Check the promised visual and its selection; authorized text remains visible.",
           "confirmHide": "Hide this profile from the public directory? Social posts already sent will remain recorded.",
           "saving": "Updating visibility…",
           "saved": "Profile visibility has been updated.",

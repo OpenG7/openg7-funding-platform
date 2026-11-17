@@ -734,6 +734,39 @@ test('website decisions pass exact version/visibility/actor and preserve every s
   assert.deepEqual(f.values('report'), []);
 });
 
+test('website refresh echoes the exact durable command only after a successful service outcome', async (t) => {
+  const input = {
+    ...visibility,
+    refresh: {
+      requestId: '11111111-1111-4111-8111-111111111112',
+      obligationId: '11111111-1111-4111-8111-111111111113',
+      expectedVersion: 7
+    }
+  };
+  for (const [visibilityOutcome, status] of [
+    ['updated', 200],
+    ['unchanged', 200],
+    ['blocked', 409],
+    ['conflict', 409],
+    ['not_found', 404]
+  ])
+    await t.test(visibilityOutcome, async () => {
+      const f = fixture({ visibilityOutcome });
+      const result = await f.run('website-visibility', {
+        body: JSON.stringify(input)
+      });
+      assert.equal(result.status, status);
+      assert.deepEqual(f.values('visibility'), [{ input, actor }]);
+      if (status === 200) {
+        assert.equal(result.payload.updated, true);
+        assert.deepEqual(result.payload.refresh, input.refresh);
+      } else {
+        assert.equal(result.payload.updated, undefined);
+        assert.equal(result.payload.refresh, undefined);
+      }
+    });
+});
+
 test('publication metadata normalizes optional text and distinct channels, then audits authoritative channels', async () => {
   const f = fixture();
   const result = await f.run('publication', { contentType: 'text/plain' });

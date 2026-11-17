@@ -327,9 +327,28 @@ for (const locale of ['fr-CA', 'en']) {
     );
     const cleanup = catalogs[locale].admin.dossier.publicationCleanup;
     assert.equal(
-      root.querySelector('summary').textContent.trim(),
+      root.querySelector('.profile-summary-title').textContent.trim(),
       cleanup.settingsTitle
     );
+    assert.equal(
+      root.querySelector('.profile-summary-subtitle').textContent.trim(),
+      cleanup.settingsSubtitle
+    );
+    const visibility = root.querySelector('.profile-summary-status');
+    assert.equal(visibility.getAttribute('data-state'), 'unknown');
+    assert.equal(
+      visibility.textContent.trim(),
+      cleanup.visibilityStates.unknown
+    );
+    for (const state of ['visible', 'hidden', 'blocked']) {
+      view.componentRef.setInput('visibilityState', state);
+      view.detectChanges();
+      assert.equal(visibility.getAttribute('data-state'), state);
+      assert.equal(
+        visibility.textContent.trim(),
+        cleanup.visibilityStates[state]
+      );
+    }
     assert.equal(
       root
         .querySelector('[data-og7="publication-profile-settings"] h3')

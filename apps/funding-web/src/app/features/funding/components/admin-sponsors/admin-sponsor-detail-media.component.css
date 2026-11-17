@@ -5,8 +5,8 @@
 .detail-body {
   display: grid;
   min-width: 0;
-  gap: 0.65rem;
-  padding: 0.8rem;
+  gap: 1rem;
+  padding: 1rem;
 }
 .media-summary,
 .library-heading,
@@ -31,18 +31,19 @@
 .library-icon {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
   flex: 0 0 auto;
   border-radius: 0.8rem;
   background: var(--admin-selected);
+  border: 1px solid var(--admin-border);
   color: var(--admin-accent);
   font-size: 1.6rem;
 }
 .section-title {
   margin: 0;
   font-family: var(--admin-heading-font-family);
-  font-size: clamp(1.2rem, 1.7vw, 1.5rem);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
   font-weight: 700;
 }
 .muted-copy {
@@ -81,47 +82,39 @@
   margin: 0;
   flex: 1 1 20rem;
 }
-.library-views {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--admin-border);
-}
-.library-views button {
-  max-width: 100%;
-  white-space: normal;
-  min-height: 2.25rem;
-  padding: 0.3rem 0.7rem;
-}
-.library-views [aria-pressed='true'] {
-  background: var(--admin-accent);
-  color: var(--admin-accent-contrast, white);
-  border-color: var(--admin-accent);
-}
-.library-workspace[hidden] {
-  display: none;
+.identity-alert > openg7-admin-icon {
+  font-size: 1.2rem;
 }
 .media-gallery {
   min-width: 0;
 }
 .corrections-view {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.85rem;
+  background: var(--admin-subtle);
+  min-width: 0;
+}
+.corrections-view > summary {
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: var(--admin-control-weight);
+}
+.corrections-view > summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
+}
+.corrections-content {
   display: grid;
   gap: 1rem;
-}
-.corrections-view > button {
-  justify-self: start;
+  padding: 0 1rem 1rem;
 }
 @media (max-width: 40rem) {
   .dossier-summary {
     width: 100%;
   }
-  .library-views {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .library-views button {
+  .identity-alert > .admin-button {
+    width: 100%;
     justify-content: center;
-    min-height: 2.75rem;
   }
 }

@@ -33,9 +33,6 @@ export const missingFicheFields = (
   if (!record.hasContactEmail) {
     missing.push('courriel_contact');
   }
-  if (!record.hasSupportingImage) {
-    missing.push('photo_presentation');
-  }
   return missing;
 };
 

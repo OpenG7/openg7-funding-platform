@@ -455,6 +455,12 @@ export class AdminSponsorsPageComponent implements OnInit {
     AdminSponsorshipProgressComponent
   );
   private readonly sponsorLibrary = viewChild(AdminSponsorDetailMediaComponent);
+  readonly websiteSelectedMedia = computed(
+    () => this.sponsorLibrary()?.websiteSelectedMedia() ?? null
+  );
+  inspectWebsiteMedia(id: string): void {
+    this.sponsorLibrary()?.inspectMedia(id);
+  }
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly moderation = inject(FundingModerationService);
@@ -482,6 +488,18 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.state() === 'loading' ||
       this.actionState() !== null ||
       this.admin.mediaMutationBusy() ||
+      !!this.publicationWorkflow?.pendingWebsiteRefresh(
+        this.selectedSponsorshipId() ?? ''
+      ) ||
+      this.versionConflict()
+  );
+  readonly websiteRefreshDisabled = computed(
+    () =>
+      !this.canManage() ||
+      this.state() === 'loading' ||
+      this.actionState() !== null ||
+      this.admin.mediaMutationBusy() ||
+      this.dossierToolBusy() ||
       this.versionConflict()
   );
   private readonly route = inject(ActivatedRoute);
@@ -590,6 +608,14 @@ export class AdminSponsorsPageComponent implements OnInit {
   });
   readonly publicationWorkflow = new AdminSponsorPublicationWorkflow({
     ...this.sponsorSelectionPorts,
+    identityKey: () =>
+      `${this.admin.sessionGeneration()}:${this.admin.identity()?.id ?? 'token'}:${this.admin.identity()?.sessionId ?? 'token'}:${this.admin.identity()?.role ?? 'owner'}`,
+    currentAction: () => this.actionState(),
+    canReplayWebsite: (sponsorship) =>
+      !this.destroyRef.destroyed &&
+      !this.websiteRefreshDisabled() &&
+      this.selectedSponsorship()?.id === sponsorship.id &&
+      this.selectedSponsorship()?.version === sponsorship.version,
     admin: {
       updateSponsorshipPublication: (token, payload) =>
         this.admin.updateSponsorshipPublication(token, payload),

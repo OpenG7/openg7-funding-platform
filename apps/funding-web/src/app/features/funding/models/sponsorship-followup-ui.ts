@@ -12,6 +12,13 @@ export type SponsorshipDetailsDraft = Omit<
 export const canEditSponsorshipDetails = (status: string): boolean =>
   ['paid', 'refunded', 'disputed'].includes(status);
 
+/** Upload controls do not inherit a text-correction or publication permission. */
+export const canUploadSponsorshipMedia = (
+  followup: Pick<SponsorshipFollowupResponse, 'paymentStatus' | 'reviewStatus'>
+): boolean =>
+  canEditSponsorshipDetails(followup.paymentStatus) &&
+  followup.reviewStatus !== 'rejected';
+
 export const normalizeSponsorshipDetails = (
   value: SponsorshipDetailsDraft
 ): SponsorshipDetailsDraft => ({

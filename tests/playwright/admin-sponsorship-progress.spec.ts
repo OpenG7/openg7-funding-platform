@@ -4815,6 +4815,7 @@ for (const width of [1280, 390]) {
     };
     await page.setViewportSize({ width, height: 844 });
     await page.goto(path('media'));
+    await openSponsorshipWebsiteSettings(page);
     const site = page.locator('[data-og7="publication-website"]');
     const action = site.locator('[data-og7="website-visibility"]');
     await expect(site).toContainText('Fiche masquée');
@@ -4915,6 +4916,7 @@ test('website readers can inspect confirmed visibility in media without mutation
   await page.addInitScript(() => localStorage.setItem('openg7.language', 'en'));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(path('media'));
+  await openSponsorshipWebsiteSettings(page);
   const site = page.locator('[data-og7="publication-website"]');
   await expect(site).toContainText('Profile visible');
   await expect(site.locator('[data-og7="website-visibility"]')).toHaveCount(0);
@@ -4946,6 +4948,7 @@ test('website visibility errors retain confirmed state and missing prerequisites
   };
   options.mutationStatus = 503;
   await page.goto(path('media'));
+  await openSponsorshipWebsiteSettings(page);
   const site = page.locator('[data-og7="publication-website"]');
   await site.locator('[data-og7="website-visibility"]').click();
   await page.locator('[data-og7="confirm-action"]').click();
@@ -4961,6 +4964,7 @@ test('website visibility errors retain confirmed state and missing prerequisites
     }
   };
   await page.reload();
+  await openSponsorshipWebsiteSettings(page);
   await expect(site.locator('[data-og7="website-visibility"]')).toBeDisabled();
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })

@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { pendingSponsorshipSocialChannels } from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
+  SponsorshipWebsiteVisibilityRequest,
   SponsorFeedChannel,
   SponsorFeedTarget
 } from '@openg7/funding-core';
@@ -22,9 +23,174 @@ export class AdminSponsorPublicationWorkflow {
   >({});
   readonly publicationMessages = signal<Record<string, string>>({});
   readonly websiteMessages = signal<Record<string, string>>({});
+  private readonly websiteRefreshes = signal<
+    Record<
+      string,
+      {
+        command: SponsorshipWebsiteVisibilityRequest;
+        identity: string;
+      }
+    >
+  >({});
   private disposed = false;
 
   constructor(private readonly ports: AdminSponsorPublicationPorts) {}
+
+  private websiteIdentity(): string {
+    return this.ports.identityKey?.() ?? this.ports.adminToken();
+  }
+
+  pendingWebsiteRefresh(
+    id: string
+  ): SponsorshipWebsiteVisibilityRequest | null {
+    const pending = this.websiteRefreshes()[id];
+    return pending?.identity === this.websiteIdentity()
+      ? pending.command
+      : null;
+  }
+
+  websiteRefreshTarget(sponsorship: AdminSponsorshipRecord) {
+    const progress = this.ports.progress();
+    if (
+      progress?.contributionId !== sponsorship.id ||
+      !progress.website?.visible ||
+      !progress.website.canPublish ||
+      !progress.website.refreshObligationId
+    )
+      return null;
+    return (
+      progress.commitment?.obligations.find(
+        (obligation) =>
+          obligation.channel === 'website' &&
+          obligation.target === 'openg7' &&
+          obligation.id === progress.website!.refreshObligationId &&
+          (obligation.state === 'pending' ||
+            (obligation.state === 'blocked' &&
+              ['required_elements_missing', 'duration_unsupported'].includes(
+                obligation.blockedReason ?? ''
+              )))
+      ) ?? null
+    );
+  }
+
+  async refreshWebsite(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (
+      this.disposed ||
+      !this.ports.isCurrentSelection(sponsorship.id) ||
+      !(
+        this.ports.canReplayWebsite?.(sponsorship) ??
+        this.ports.canActOn(sponsorship)
+      )
+    )
+      return;
+    let command = this.pendingWebsiteRefresh(sponsorship.id);
+    const identity = this.websiteIdentity();
+    const revision = this.ports.selectionRevision();
+    if (!command) {
+      const target = this.websiteRefreshTarget(sponsorship);
+      const site = this.ports.progress()?.website;
+      if (!target || !site || !this.ports.canActOn(sponsorship)) return;
+      if (
+        !(await this.ports.confirm(
+          this.ports.t('admin.dossier.publicationBridge.site.confirmRefresh'),
+          sponsorship.sponsor_company_name ?? sponsorship.id
+        ))
+      )
+        return;
+      const current = this.websiteRefreshTarget(sponsorship);
+      if (
+        !this.isCurrent(sponsorship.id, revision) ||
+        identity !== this.websiteIdentity() ||
+        !this.ports.canActOn(sponsorship) ||
+        current?.id !== target.id ||
+        current.version !== target.version ||
+        this.ports.progress()?.website?.version !== site.version
+      )
+        return;
+      command = {
+        contributionId: sponsorship.id,
+        expectedVersion: site.version,
+        visible: true,
+        confirmed: true,
+        refresh: {
+          requestId: crypto.randomUUID(),
+          obligationId: target.id,
+          expectedVersion: target.version
+        }
+      };
+      this.websiteRefreshes.update((values) => ({
+        ...values,
+        [sponsorship.id]: { command: command!, identity }
+      }));
+    }
+    const captured = command;
+    const operation = 'website-refresh:' + captured.refresh!.requestId;
+    this.ports.setActionState(operation);
+    this.setWebsiteMessage(
+      sponsorship.id,
+      this.ports.t('admin.dossier.publicationBridge.site.saving')
+    );
+    const clear = () =>
+      this.websiteRefreshes.update((values) => {
+        if (
+          values[sponsorship.id]?.command.refresh?.requestId !==
+          captured.refresh?.requestId
+        )
+          return values;
+        const next = { ...values };
+        delete next[sponsorship.id];
+        return next;
+      });
+    try {
+      await this.ports.admin.setSponsorshipWebsiteVisibility(
+        this.ports.adminToken(),
+        captured
+      );
+      clear();
+      if (
+        !this.isCurrent(sponsorship.id, revision) ||
+        identity !== this.websiteIdentity()
+      )
+        return;
+      await this.ports.reloadSponsorships();
+      if (this.isCurrent(sponsorship.id, revision))
+        this.setWebsiteMessage(
+          sponsorship.id,
+          this.ports.t('admin.dossier.publicationBridge.site.refreshSaved')
+        );
+    } catch (error) {
+      const definite =
+        error instanceof AdminDashboardRequestError &&
+        [400, 403, 404, 409, 422].includes(error.status);
+      if (definite) clear();
+      if (
+        !this.isCurrent(sponsorship.id, revision) ||
+        identity !== this.websiteIdentity()
+      )
+        return;
+      this.ports.messageFromError(error, '');
+      this.setWebsiteMessage(
+        sponsorship.id,
+        this.ports.t(
+          definite
+            ? error instanceof AdminDashboardRequestError &&
+              [
+                'WEBSITE_VISIBILITY_BLOCKED',
+                'REQUIRED_ELEMENTS_MISSING'
+              ].includes(error.code ?? '')
+              ? 'admin.dossier.publicationBridge.site.refreshBlocked'
+              : error instanceof AdminDashboardRequestError &&
+                  error.status === 409
+                ? 'admin.dossier.conflict'
+                : 'admin.dossier.publicationBridge.site.failed'
+            : 'admin.dossier.publicationBridge.site.refreshUncertain'
+        )
+      );
+    } finally {
+      if (!this.ports.currentAction || this.ports.currentAction() === operation)
+        this.ports.setActionState(null);
+    }
+  }
 
   reconcile(
     previous: readonly AdminSponsorshipRecord[],
@@ -61,7 +227,12 @@ export class AdminSponsorPublicationWorkflow {
     const progress = this.ports.progress();
     const site =
       progress?.contributionId === sponsorship.id ? progress.website : null;
-    if (!site || !this.canActOn(sponsorship) || (visible && !site.canPublish))
+    if (
+      !site ||
+      !this.canActOn(sponsorship) ||
+      (visible && !site.canPublish) ||
+      (this.ports.canReplayWebsite && !this.ports.canReplayWebsite(sponsorship))
+    )
       return;
     const revision = this.ports.selectionRevision();
     if (
@@ -82,7 +253,8 @@ export class AdminSponsorPublicationWorkflow {
       !this.canActOn(sponsorship) ||
       current?.contributionId !== sponsorship.id ||
       current.website?.version !== site.version ||
-      (visible && !current.website.canPublish)
+      (visible && !current.website.canPublish) ||
+      (this.ports.canReplayWebsite && !this.ports.canReplayWebsite(sponsorship))
     )
       return;
 
@@ -371,10 +543,15 @@ export class AdminSponsorPublicationWorkflow {
 
   dispose(): void {
     this.disposed = true;
+    this.websiteRefreshes.set({});
   }
 
   private canActOn(sponsorship: AdminSponsorshipRecord): boolean {
-    return !this.disposed && this.ports.canActOn(sponsorship);
+    return (
+      !this.disposed &&
+      !this.pendingWebsiteRefresh(sponsorship.id) &&
+      this.ports.canActOn(sponsorship)
+    );
   }
 
   private isCurrent(id: string, revision: number): boolean {

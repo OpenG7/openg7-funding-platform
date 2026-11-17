@@ -24,6 +24,7 @@ const id = '10000000-0000-4000-8000-000000000045',
 function fixture() {
   const state = {
     owner: true,
+    disabled: false,
     destroyed: false,
     dossier: {
       contributionId: id,
@@ -95,6 +96,7 @@ function fixture() {
   const c = new AdminSponsorshipCommitmentsController({
     dossier: () => state.dossier,
     canOwn: () => state.owner,
+    disabled: () => state.disabled,
     isDestroyed: () => state.destroyed,
     newRequestId: () =>
       `30000000-0000-4000-8000-${String(++state.nonces).padStart(12, '0')}`,
@@ -127,6 +129,54 @@ function fixture() {
   };
   return { c, state, calls, fill };
 }
+test('an external lock preserves qualification drafts and exact uncertain retries without revoking ownership', async () => {
+  const f = fixture();
+  f.fill();
+  const draft = structuredClone(f.c.benefits());
+  f.state.disabled = true;
+  await f.c.qualify();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.state.nonces, 0);
+  assert.deepEqual(f.c.benefits(), draft);
+  f.state.disabled = false;
+  f.state.failure = new TypeError('Synthetic lost response');
+  await f.c.qualify();
+  const pending = f.c.pending();
+  f.state.disabled = true;
+  await f.c.load();
+  await f.c.retry();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.c.pending(), pending);
+  assert.deepEqual(f.c.benefits(), draft);
+  f.state.disabled = false;
+  f.state.failure = null;
+  await f.c.retry();
+  assert.deepEqual(f.calls[1].payload, f.calls[0].payload);
+  assert.equal(f.state.nonces, 1);
+  assert.equal(f.c.pending(), null);
+});
+
+test('an external lock also blocks confirmed commercial amendments', async () => {
+  const f = fixture();
+  f.fill();
+  await f.c.qualify();
+  f.c.chooseObligation(obId);
+  f.c.adjustment.set('waiver');
+  f.c.waiverAcknowledged.set(true);
+  f.c.reason.set('Synthetic explicit amendment');
+  f.c.confirmation.set(obId);
+  const before = f.c.data();
+  f.state.disabled = true;
+  await f.c.adjust();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.c.data(), before);
+  assert.equal(f.c.pending(), null);
+  assert.equal(f.c.confirmation(), obId);
+  f.state.disabled = false;
+  await f.c.adjust();
+  assert.equal(f.calls.length, 2);
+});
+
 function assistanceSelection() {
   const item = {
     id: 'clause-1',

@@ -128,14 +128,23 @@ export class FundingAdminMediaReviewClient {
     }
     return response.json() as Promise<SponsorMediaUploadResult>;
   }
-  async thumbnail(assetId: string): Promise<Blob> {
+  async thumbnail(assetId: string, expectedVersion?: string): Promise<Blob> {
     const response = await this.session.requestAdminJson(
       '/admin/sponsorships/media/content/' +
         encodeURIComponent(assetId) +
-        '?variant=thumbnail',
+        '?' +
+        new URLSearchParams({
+          variant: 'thumbnail',
+          ...(expectedVersion !== undefined ? { expectedVersion } : {})
+        }),
       { auth: 'saved', cache: 'no-store', headers: { Accept: 'image/webp' } }
     );
     if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    if (
+      expectedVersion !== undefined &&
+      response.headers.get('X-OpenG7-Media-Version') !== expectedVersion
+    )
+      throw new Error('MEDIA_PREVIEW_VERSION_UNCONFIRMED');
     return response.blob();
   }
   async export(input: SponsorMediaExportRequest): Promise<Blob> {

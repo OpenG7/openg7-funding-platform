@@ -46,6 +46,7 @@ import {
 export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly token = input.required<string>();
   readonly canUploadMedia = input(false);
+  readonly uploadDisabledMessage = input('funding.followup.media.disabled');
   readonly mediaConsentRequested = input(false);
   readonly refreshKey = input(0);
   readonly busyChange = output<boolean>();

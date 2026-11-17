@@ -69,11 +69,16 @@ export const loadSponsorshipCommitment = async (
     NOT EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b CROSS JOIN LATERAL jsonb_array_elements_text(b->'requiredElements') requirement
       WHERE b->>'id'=ob.benefit_id AND (
         (requirement='company_name' AND NULLIF(btrim(c.sponsor_company_name),'') IS NULL) OR
-        (requirement='approved_presentation' AND NOT (${SPONSOR_APPROVED_PRESENTATION_SQL.replaceAll('fund_contributions.id', 'c.id')})) OR
+        (requirement='approved_presentation' AND NOT (CASE WHEN ob.channel='website' THEN EXISTS(
+          SELECT 1 FROM sponsor_media_assets media WHERE media.contribution_id=c.id AND media.deleted_at IS NULL
+            AND media.kind='supporting_image' AND media.review_status='approved' AND media.public_url IS NOT NULL
+            AND media.website_selected IS TRUE AND ${confirmedMediaUsageSql('media', 'website', 'openg7')}
+            AND ${moderationApprovedSql('media', 'media.id')})
+          ELSE (${SPONSOR_APPROVED_PRESENTATION_SQL.replaceAll('fund_contributions.id', 'c.id')}) END)) OR
         (requirement='approved_logo' AND NOT EXISTS(SELECT 1 FROM sponsor_media_assets media
           WHERE media.contribution_id=c.id AND media.deleted_at IS NULL AND media.review_status='approved'
             AND media.kind='logo' AND ${moderationApprovedSql('media', 'media.id')}
-            AND (ob.channel<>'website' OR (media.public_url IS NOT NULL AND ${confirmedMediaUsageSql('media', 'website', 'openg7')})))))) AS "requirementsMet"
+            AND (ob.channel<>'website' OR (media.public_url IS NOT NULL AND media.website_selected IS TRUE AND ${confirmedMediaUsageSql('media', 'website', 'openg7')})))))) AS "requirementsMet"
     FROM sponsorship_obligations ob JOIN sponsorship_commitments m ON m.id=ob.commitment_id
     JOIN sponsorship_offers o ON o.id=m.offer_id JOIN fund_contributions c ON c.id=ob.contribution_id
     WHERE ob.commitment_id=$1::uuid ORDER BY ob.channel,ob.target,ob.ordinal,ob.id`,

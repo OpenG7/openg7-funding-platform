@@ -89,6 +89,8 @@ export interface AdminSponsorshipProgress {
   readonly commitment?: SponsorshipCommitmentRecord | null;
   /** Absent on older servers: never infer visibility from review or feed status. */
   readonly website?: {
+    /** Exact open passage begun by the current visibility decision; absent on older APIs. */
+    readonly refreshObligationId?: string | null;
     readonly visible: boolean;
     readonly held: boolean;
     readonly canPublish: boolean;
@@ -139,6 +141,12 @@ export interface AdminSponsorshipProgress {
   }[];
 }
 export interface SponsorshipWebsiteVisibilityRequest {
+  /** Explicit reconciliation of the same open passage after later media selection. */
+  readonly refresh?: {
+    readonly requestId: string;
+    readonly obligationId: string;
+    readonly expectedVersion: number;
+  };
   readonly contributionId: string;
   readonly expectedVersion: string;
   readonly visible: boolean;

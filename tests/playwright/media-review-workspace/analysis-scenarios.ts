@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from '../support/test.js';
+import { openMediaInspectorDetails } from '../support/sponsorship-dossier.js';
 
 import {
   area,
@@ -105,7 +106,11 @@ export function registerMediaWorkspaceAnalysisTests(
     expect(maxActive).toBe(1);
     expect(commands[0].requestId).not.toBe(commands[1].requestId);
     await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
-    await expect(tiles.first()).toContainText('Analyse disponible');
+    await tiles.first().getByRole('button').click();
+    await openMediaInspectorDetails(page);
+    const analysis = area(page).locator('[data-og7="media-analysis"]');
+    await analysis.locator(':scope > summary').click();
+    await expect(analysis).toContainText('Analyse disponible');
   });
 
   test('media workspace saved analysis draft survives late reads, closing and reload before acceptance', async ({
@@ -170,6 +175,7 @@ export function registerMediaWorkspaceAnalysisTests(
       .first()
       .getByRole('button')
       .click();
+    await openMediaInspectorDetails(page);
     await analysis.locator('summary').click();
     await alt.fill('Human correction preserved across reload');
     await analysis
@@ -197,6 +203,7 @@ export function registerMediaWorkspaceAnalysisTests(
       .getByRole('button')
       .click();
     await expect(alt).toHaveValue('Human correction preserved across reload');
+    await openMediaInspectorDetails(page);
     await analysis.locator('summary').click();
     await expect(
       analysis.locator('[data-og7="media-analysis-classification"]')
@@ -266,6 +273,7 @@ export function registerMediaWorkspaceAnalysisTests(
     const inspector = area(page).locator('[data-og7="media-inspector"]'),
       alt = inspector.locator('[data-og7="media-inspector-alt"]');
     await alt.fill('Newer local unsaved description');
+    await openMediaInspectorDetails(page);
     await inspector.locator('[data-og7="media-analysis"] summary').click();
     releaseRead();
     await expect(
@@ -322,11 +330,15 @@ export function registerMediaWorkspaceAnalysisTests(
     await expect.poll(() => reads).toBe(1);
     await tile.getByRole('checkbox').check();
     await area(page).locator('[data-og7="media-batch-analyze"]').click();
-    await expect(tile).toContainText('Analyse en attente');
+    await tile.getByRole('button').click();
+    await openMediaInspectorDetails(page);
+    const analysis = area(page).locator('[data-og7="media-analysis"]');
+    await analysis.locator(':scope > summary').click();
+    await expect(analysis).toContainText('Analyse en attente');
     releaseInitialRead();
     await expect
       .poll(() => reads, { timeout: 10000 })
       .toBeGreaterThanOrEqual(2);
-    await expect(tile).toContainText('Analyse disponible');
+    await expect(analysis).toContainText('Analyse disponible');
   });
 }

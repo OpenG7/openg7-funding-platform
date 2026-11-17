@@ -1,8 +1,4 @@
 import {
-  SPONSOR_APPROVED_PRESENTATION_SQL,
-  SPONSOR_VISIBLE_PRESENTATION_SQL
-} from './sponsorship-media-eligibility.js';
-import {
   moderationApprovedSql,
   moderationVisibleSql
 } from './moderation/policy.js';
@@ -16,10 +12,8 @@ const sponsorWebsiteBusinessSql = `
   AND NULLIF(btrim(fund_contributions.sponsor_company_name), '') IS NOT NULL`;
 
 export const SPONSOR_WEBSITE_ELIGIBLE_SQL = `${sponsorWebsiteBusinessSql}
-  AND ${moderationApprovedSql('sponsorship', 'fund_contributions.id')}
-  AND ${SPONSOR_APPROVED_PRESENTATION_SQL}`;
+  AND ${moderationApprovedSql('sponsorship', 'fund_contributions.id')}`;
 
 export const SPONSOR_WEBSITE_VISIBLE_SQL = `(${sponsorWebsiteBusinessSql}
-  AND ${moderationVisibleSql('sponsorship', 'fund_contributions.id')}
-  AND ${SPONSOR_VISIBLE_PRESENTATION_SQL})
+  AND ${moderationVisibleSql('sponsorship', 'fund_contributions.id')})
   AND COALESCE((to_jsonb(fund_contributions)->>'sponsor_site_visibility_held')::boolean, FALSE) IS FALSE`;

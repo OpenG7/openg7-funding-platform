@@ -254,8 +254,8 @@ its reasons and local notification rehearsal. It does not publish website profil
 4. Review the **exact** text (maximum 2,900 UTF-16 code units), optional approved
    image, destination account, simulation/live mode and date. Approve each final
    draft once. **Accept and schedule** also approves the explicitly listed pending
-   sponsors in the same transaction. Their approved presentation photo remains a
-   prerequisite; incomplete dossiers are linked from the review panel.
+   sponsors in the same transaction. Images required by the recorded offer and
+   chosen format remain prerequisites for their exact delivery.
    News, achievements and campaign updates can also be composed.
 5. Resume the feed. The server sends due, authorized content, including when the
    browser is closed. Editing revokes authorization. The cockpit shows exceptions,
@@ -534,7 +534,7 @@ and media snapshot. Stale versions return 409. Workers recheck consent, review,
 payment, hidden status, source content, batch schedule, media hash and destination.
 Preparation accepts paid, consenting sponsors with review pending or approved.
 Sending requires approval. Combined acceptance lists sponsor IDs and dossier
-versions explicitly; stale details, revoked consent, missing presentation media
+versions explicitly; stale details, revoked consent, missing required media
 or failed destination checks roll back the entire decision. Each sponsor approval
 and delivery authorization is audited. Approved content is never silently rebuilt.
 

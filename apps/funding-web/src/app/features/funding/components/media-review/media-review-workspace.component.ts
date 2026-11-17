@@ -55,6 +55,7 @@ import { MediaReviewCommandsComponent } from './media-review-commands.component.
 import { MediaReviewAnalysisComponent } from './media-review-analysis.component.js';
 import { MediaReviewHistoryComponent } from './media-review-history.component.js';
 import { MediaReviewApproveAll } from './media-review-approve-all.js';
+import { MediaReviewConsentPreviews } from './media-review-consent-previews.js';
 
 /** Funding organism: paged gallery, one inspector and server-planned, explicitly confirmed commands. */
 @Component({
@@ -107,6 +108,13 @@ export class MediaReviewWorkspaceComponent {
   readonly targetObligationId = signal('');
   readonly consentRequestOpened = signal(false);
   readonly consentRequestBusy = signal(false);
+  private readonly consentRequestContext =
+    viewChild<AdminAssistantContextComponent>('mediaConsentContext');
+  readonly consentPreviews = new MediaReviewConsentPreviews((id, version) =>
+    this.admin.mediaThumbnail(id, version)
+  );
+  private inspectorOpener: HTMLElement | null = null;
+  private inspectorNavigation = 0;
   private consentRequestOpener: HTMLElement | null = null;
   private approveAllOpener: HTMLElement | null = null;
   private approveAllPreviewOpener: HTMLElement | null = null;
@@ -172,8 +180,33 @@ export class MediaReviewWorkspaceComponent {
     admin: this.admin,
     controller: this.c
   });
-  readonly commands = new MediaReviewCommands(this.c, () =>
-    this.contributionId()
+  readonly commands = new MediaReviewCommands(
+    this.c,
+    () => this.contributionId(),
+    (id) => this.continueAfterApproval(id)
+  );
+  readonly hasMedia = computed(() => this.c.assets().length > 0);
+  readonly isKnownEmpty = computed(
+    () =>
+      this.c.data()?.contributionId === this.contributionId() &&
+      !this.c.loading() &&
+      !this.c.error() &&
+      !this.c.assets().length
+  );
+  readonly inspectionLocked = computed(
+    () =>
+      (this.disabled() && this.admin.identity()?.role !== 'reader') ||
+      this.admin.mediaMutationBusy() ||
+      this.c.busy() ||
+      this.c.uncertain() ||
+      this.analysis.busy() ||
+      this.upload.busy() ||
+      this.exportBusy() ||
+      this.consentRequestBusy() ||
+      this.approveAll.busy() ||
+      this.approveAll.unresolved() ||
+      this.commands.form() !== null ||
+      this.commands.reviewSubmitting()
   );
   readonly approveAll = new MediaReviewApproveAll({
     admin: this.admin,
@@ -392,7 +425,10 @@ export class MediaReviewWorkspaceComponent {
         void session;
         const authenticated = this.browser && this.admin.hasValidAdminSession();
         this.c.setScope('');
+        ++this.inspectorNavigation;
+        this.inspectorOpener = null;
         if (authenticated) this.c.setScope(id);
+        this.c.libraryView.set(this.libraryView());
         this.approveAll.setScope(
           authenticated ? id : '',
           identity + ':' + session
@@ -400,6 +436,7 @@ export class MediaReviewWorkspaceComponent {
         this.approveAllOpener = null;
         this.approveAllPreviewOpener = null;
         this.thumbnails.clear();
+        this.consentPreviews.clear();
         this.fullPreview.clear();
         this.commands.reset();
         this.consentRequestOpened.set(false);
@@ -468,6 +505,24 @@ export class MediaReviewWorkspaceComponent {
           this.approveAll.busy()
       )
     );
+    effect(() => {
+      const opened = this.consentRequestOpened();
+      const delivery = opened
+        ? this.consentRequestContext()?.prepared()?.delivery
+        : null;
+      const id = this.contributionId();
+      const identity = `${this.admin.sessionGeneration()}:${this.scopeIdentity()}:${this.admin.identity()?.sessionId ?? 'token'}`;
+      const authenticated = this.browser && this.admin.hasValidAdminSession();
+      const currentAssets = this.c.assets();
+      untracked(() =>
+        this.consentPreviews.setManifest(
+          opened && authenticated ? delivery : null,
+          id,
+          identity,
+          currentAssets
+        )
+      );
+    });
     effect((cleanup) => {
       const processing = this.analysis
         .runs()
@@ -510,6 +565,7 @@ export class MediaReviewWorkspaceComponent {
       this.history.dispose();
       this.c.dispose();
       this.thumbnails.dispose();
+      this.consentPreviews.dispose();
       this.fullPreview.dispose();
       this.approveAll.dispose();
       observer?.disconnect();
@@ -529,17 +585,28 @@ export class MediaReviewWorkspaceComponent {
     return this.c.counts()[filter as MediaReviewFilter] ?? 0;
   }
   status(asset: SponsorMediaWorkspaceAsset): string {
-    return this.t(
-      'filters.' +
-        (asset.reviewStatus === 'approved' || asset.reviewStatus === 'rejected'
-          ? asset.reviewStatus
-          : asset.readiness.state)
-    );
+    return this.t('experience.status.' + this.statusKey(asset));
+  }
+  statusKey(asset: SponsorMediaWorkspaceAsset): string {
+    if (asset.reviewStatus === 'rejected') return 'rejected';
+    if (asset.moderation.state === 'correction_requested') return 'correction';
+    if (asset.usage?.state !== 'confirmed')
+      return asset.usage?.state === 'withdrawn' ? 'blocked' : 'authorization';
+    if (asset.reviewStatus === 'approved') return 'approved';
+    return asset.readiness.state === 'blocked' ? 'blocked' : 'review';
   }
   assetName(id: string): string {
     return (
       this.c.assets().find((asset) => asset.id === id)?.originalFilename ??
       this.t('inspector')
+    );
+  }
+  consentPhotoName(id: string, version: string): string {
+    return (
+      this.c
+        .assets()
+        .find((asset) => asset.id === id && asset.version === version)
+        ?.originalFilename ?? this.t('previewUnavailable')
     );
   }
   size(bytes: number): string {
@@ -583,9 +650,15 @@ export class MediaReviewWorkspaceComponent {
       this.c.page.set(1);
     }
   }
-  openUpload(): void {
+  openUpload(kind: 'supporting_image' | 'logo' = 'supporting_image'): void {
+    if (!this.browser || !this.c.canWrite()) return;
+    this.upload.kind.set(kind);
     this.host.nativeElement
-      .querySelector<HTMLInputElement>('[data-og7="media-upload-files"]')
+      .querySelector<HTMLInputElement>(
+        kind === 'logo'
+          ? '[data-og7="media-upload-logo"]'
+          : '[data-og7="media-upload-files"]'
+      )
       ?.click();
   }
   reviewIssues(): void {
@@ -779,6 +852,7 @@ export class MediaReviewWorkspaceComponent {
   }
   closeMediaConsentRequest(): void {
     if (this.consentRequestBusy()) return;
+    this.consentPreviews.clear();
     const opener = this.consentRequestOpener,
       contributionId = this.contributionId(),
       session = this.admin.sessionGeneration();
@@ -966,15 +1040,170 @@ export class MediaReviewWorkspaceComponent {
     if (this.filters.includes(filter as MediaReviewFilter))
       this.setFilter(filter as MediaReviewFilter);
   }
+  setLibraryView(event: Event): void {
+    const view = this.value(event);
+    if (['media', 'presentation', 'documents', 'corrections'].includes(view)) {
+      this.c.libraryView.set(view as MediaLibraryView);
+      this.c.page.set(1);
+    }
+  }
+  showAllMedia(): void {
+    this.c.libraryView.set('media');
+    this.c.page.set(1);
+  }
+  resetLibraryFilters(): void {
+    this.showAllMedia();
+    this.c.filter.set('all');
+    this.c.search.set('');
+    this.c.kindFilter.set('all');
+    this.c.destinationFilter.set('all');
+    this.c.assignmentFilter.set('all');
+    this.c.batchFilter.set('');
+  }
   setSearch(event: Event): void {
     this.c.search.set(this.value(event));
     this.c.page.set(1);
   }
   inspect(asset: SponsorMediaWorkspaceAsset): void {
+    const current = this.c
+      .assets()
+      .find((item) => item.id === asset.id && item.version === asset.version);
+    if (
+      !current ||
+      current.contributionId !== this.contributionId() ||
+      this.c.data()?.contributionId !== this.contributionId() ||
+      this.inspectionLocked()
+    )
+      return;
+    if (this.browser && this.c.inspectedId() !== asset.id)
+      this.inspectorOpener = this.document.activeElement as HTMLElement | null;
     this.c.inspectedId.set(asset.id);
-    afterNextRender(() => this.inspector()?.nativeElement.focus(), {
-      injector: this.injector
-    });
+    this.focusInspector(asset.id);
+  }
+  closeInspector(): void {
+    if (this.inspectionLocked()) return;
+    const id = this.c.inspectedId(),
+      opener = this.inspectorOpener,
+      contributionId = this.contributionId(),
+      session = this.admin.sessionGeneration(),
+      identity = this.scopeIdentity(),
+      navigation = ++this.inspectorNavigation;
+    this.c.inspectedId.set(null);
+    this.inspectorOpener = null;
+    if (!this.browser || !id) return;
+    afterNextRender(
+      {
+        read: () => {
+          if (
+            this.destroyed ||
+            this.inspectorNavigation !== navigation ||
+            this.contributionId() !== contributionId ||
+            this.admin.sessionGeneration() !== session ||
+            this.scopeIdentity() !== identity ||
+            this.c.inspectedId()
+          )
+            return;
+          const tile = Array.from(
+            this.host.nativeElement.querySelectorAll<HTMLElement>(
+              '[data-og7="media-tile"]'
+            )
+          ).find((element) => element.dataset['og7Id'] === id);
+          const target =
+            opener?.isConnected &&
+            !opener.matches(':disabled') &&
+            !opener.closest('[hidden],[inert],[aria-hidden="true"]') &&
+            opener.getClientRects().length
+              ? opener
+              : (tile?.querySelector<HTMLElement>('.tile-open') ??
+                this.host.nativeElement.querySelector<HTMLElement>(
+                  '[data-og7="media-gallery"]'
+                ));
+          target?.focus();
+        }
+      },
+      { injector: this.injector }
+    );
+  }
+  selectInspectedForAssignment(): void {
+    const asset = this.c.inspected();
+    if (!asset || !this.c.canWrite() || this.inspectionLocked()) return;
+    const id = asset.id,
+      contributionId = this.contributionId(),
+      session = this.admin.sessionGeneration(),
+      navigation = ++this.inspectorNavigation;
+    this.c.selectedIds.set([id]);
+    if (!this.browser) return;
+    afterNextRender(
+      {
+        read: () => {
+          if (
+            !this.destroyed &&
+            this.inspectorNavigation === navigation &&
+            this.contributionId() === contributionId &&
+            this.admin.sessionGeneration() === session &&
+            this.c.inspectedId() === id
+          )
+            this.host.nativeElement
+              .querySelector<HTMLElement>(
+                '[data-og7="media-preparation-target"]'
+              )
+              ?.focus();
+        }
+      },
+      { injector: this.injector }
+    );
+  }
+  private focusInspector(id: string): void {
+    if (!this.browser) return;
+    const contributionId = this.contributionId(),
+      session = this.admin.sessionGeneration(),
+      identity = this.scopeIdentity(),
+      navigation = ++this.inspectorNavigation;
+    afterNextRender(
+      {
+        read: () => {
+          if (
+            !this.destroyed &&
+            this.inspectorNavigation === navigation &&
+            this.contributionId() === contributionId &&
+            this.admin.sessionGeneration() === session &&
+            this.scopeIdentity() === identity &&
+            this.c.inspectedId() === id &&
+            this.c.inspected()?.contributionId === contributionId
+          )
+            this.inspector()?.nativeElement.focus();
+        }
+      },
+      { injector: this.injector }
+    );
+  }
+  private continueAfterApproval(id: string): void {
+    if (
+      this.c.inspectedId() !== id ||
+      this.c.data()?.contributionId !== this.contributionId() ||
+      this.c.inspected()?.reviewStatus !== 'approved'
+    )
+      return;
+    const assets = this.c.filtered(),
+      currentIndex = assets.findIndex((asset) => asset.id === id),
+      remaining = [
+        ...assets.slice(currentIndex + 1),
+        ...assets.slice(0, Math.max(0, currentIndex))
+      ],
+      next = remaining.find(
+        (asset) =>
+          asset.id !== id &&
+          asset.reviewStatus === 'pending_review' &&
+          asset.moderation.state !== 'correction_requested'
+      );
+    if (!next) {
+      this.closeInspector();
+      return;
+    }
+    const index = assets.findIndex((asset) => asset.id === next.id);
+    this.c.page.set(Math.floor(index / this.c.pageSize()) + 1);
+    this.c.inspectedId.set(next.id);
+    this.focusInspector(next.id);
   }
   async refresh(): Promise<void> {
     await Promise.all([this.c.load(), this.analysis.loadAnalyses()]);

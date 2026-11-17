@@ -20,13 +20,14 @@ contenu, consentement et admissibilité restent inchangés; cette observation ne
 crée aucune approbation pour un nouvel envoi. Une restriction ou modification
 invalide ce maintien. Voir le [contrat de modération](operations/sponsorship-moderation.md).
 
-Une fiche exige le consentement public, l’approbation administrative, un nom d’entreprise et une image de présentation approuvée non supprimée. Les montants individuels restent absents sans consentement d’affichage du montant. Les contacts, notes administratives et références Stripe ne font pas partie de la projection.
+Une fiche textuelle exige le consentement public, l’approbation administrative et un nom d’entreprise. L’image peut être ajoutée ultérieurement : elle reste privée jusqu’à sa revue et sa sélection explicite pour le site. Les montants individuels restent absents sans consentement d’affichage du montant. Les contacts, notes administratives et références Stripe ne font pas partie de la projection.
 
-Le [prérequis SQL de photo approuvée](../apps/funding-api/src/sponsorship-media-eligibility.ts)
-est commun à la revue administrative et à l'annuaire. La revue le vérifie lors de
-la lecture du dossier puis dans la mise à jour : le retrait ou le refus d'une photo
-entre ces étapes empêche l'approbation. Les autres critères de revue et de visibilité
-restent propres à chaque parcours.
+La visibilité textuelle et la réalisation commerciale sont distinctes. Une offre
+ancienne exigeant une photo conserve cet engagement : sa fiche peut devenir
+visible en texte, mais sa prestation reste ouverte jusqu’à la présence du visuel
+convenu dans la sélection publique vérifiée. Les médias sélectionnés conservent
+leurs contrôles de modération, droits, version et fichiers. Une sélection vide
+ne demande aucun accès au stockage d’images.
 
 La fiche doit aussi être libérée du maintien privé. Une nouvelle approbation de
 revue conserve désormais ce maintien : l’administrateur choisit **Publier la fiche
@@ -82,6 +83,11 @@ un nouvel ajout. Un fichier refusé reste identifié par son nom et son erreur.
 
 Les droits, la revue et la sélection d'exposition Web sont distincts. L'acceptation
 administrative d'une nouvelle photo ne l'ajoute pas automatiquement au site.
+**Ajouter une image** reste accessible dans un suivi approuvé, sans resoumettre
+le texte. Un dépôt privé ne remet plus le dossier entier en revue et ne libère
+aucun maintien privé. Les limites, les droits et la validité de l’accès demeurent
+applicables ; un dossier refusé n’acquiert aucun droit média par sa correction
+textuelle. Une réponse d’upload incertaine se reprend avec la même requête.
 Voir la [revue des médias](technical/sponsor-media-usage.md#revue-par-lot-et-héritage).
 
 `yarn images:sponsors` génère deux variantes WebP (960 et 1920 pixels) à partir du PNG du bandeau. Le navigateur choisit la variante par `srcset`. Les logos et photos des fiches sont différés; une erreur de logo affiche les initiales et une photo indisponible est retirée.

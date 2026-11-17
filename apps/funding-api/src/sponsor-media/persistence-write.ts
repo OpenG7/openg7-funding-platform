@@ -228,16 +228,8 @@ export const createSponsorMediaAsset = async (
         input.originalChecksumSha256 ?? null
       ]
     );
-    if (input.uploadedBy === 'sponsor') {
-      await client.query(
-        `UPDATE fund_contributions
-         SET sponsor_review_status = 'pending_review',
-             sponsor_reviewed_at = NULL,
-             updated_at = NOW()
-         WHERE id = $1::uuid`,
-        [input.contributionId]
-      );
-    }
+    // A private asset is reviewed and selected independently of the dossier text.
+    // Uploading it does not change that text or its existing authorization.
     const audited = await insertAdminAuditLog(client, {
       actor: input.auditActor,
       action: 'sponsorship.media.upload',

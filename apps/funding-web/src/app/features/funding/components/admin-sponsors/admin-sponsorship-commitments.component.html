@@ -494,6 +494,7 @@
                 <openg7-admin-sponsorship-timing
                   [obligation]="o"
                   [canOwn]="canOwn()"
+                  [disabled]="disabled()"
                   (changed)="c.load(); changed.emit()"
                 />
               }
@@ -834,6 +835,7 @@
           <openg7-admin-sponsorship-timing
             [obligation]="o"
             [canOwn]="canOwn()"
+            [disabled]="disabled()"
             (changed)="c.load(); changed.emit()"
           />
         }
@@ -1008,7 +1010,7 @@
         </details>
         <button
           type="button"
-          [disabled]="c.saving() || c.loading()"
+          [disabled]="disabled() || c.saving() || c.loading()"
           (click)="c.retry()"
           data-og7="commitments-retry"
         >
@@ -1022,5 +1024,6 @@
   <openg7-admin-sponsorship-historical-audit
     [contributionId]="dossier().contributionId"
     [canOwn]="canOwn()"
+    [disabled]="disabled()"
   />
 }

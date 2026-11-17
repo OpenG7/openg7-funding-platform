@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminAssistantContextResponse,
   AdminAssistantPrepareRequest,
@@ -9,6 +10,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from '../support/test.js';
+import { openMediaLibraryTools } from '../support/sponsorship-dossier.js';
 
 import {
   area,
@@ -244,6 +246,15 @@ export function registerMediaWorkspaceDecisionTests(
               name: 'Switch administration language to English'
             })
             .click();
+        if (entry === 'dossier') {
+          await openMediaLibraryTools(page);
+          await area(page)
+            .locator('[data-og7="media-search"]')
+            .fill(state.assets[20]!.originalFilename);
+          await expect(
+            area(page).locator('[data-og7="media-tile"]')
+          ).toHaveCount(1);
+        }
         if (entry === 'pending') {
           await area(page)
             .locator('[data-og7="media-tile"]')
@@ -273,6 +284,19 @@ export function registerMediaWorkspaceDecisionTests(
         const panel = drawer.locator('[data-og7="media-consent-request"]');
         const form = panel.locator('[data-og7="assistant-information-form"]');
         await expect(form).toBeVisible();
+        const photos = panel.locator(
+          '[data-og7="media-consent-photos"] [data-og7-id]'
+        );
+        await expect(photos).toHaveCount(requests.mediaSnapshot.length);
+        expect(
+          await photos.evaluateAll((items) =>
+            items.map((item) => item.getAttribute('data-og7-id'))
+          )
+        ).toEqual(requests.mediaSnapshot.map((photo) => photo.id));
+        for (const photo of await photos.all()) {
+          await expect(photo.locator('img')).toBeVisible();
+          await expect(photo.locator('img')).toHaveAttribute('src', /^blob:/);
+        }
         expect(requests.preparations).toEqual([
           {
             type: 'sponsorship_media_consent_request',
@@ -670,10 +694,31 @@ export function registerMediaWorkspaceDecisionTests(
       await dialog.screenshot({
         path: info.outputPath(`platform-media-review-${language}-${width}.png`)
       });
+      let releaseApproval!: () => void;
+      calls.executeGate = new Promise((resolve) => {
+        releaseApproval = resolve;
+      });
       await approve.click();
+      await expect.poll(() => calls.executes.length).toBe(1);
+      await expect(
+        inspector.getByRole('heading', {
+          name: selected.originalFilename,
+          exact: true
+        })
+      ).toBeVisible();
+      expect(state.assets[0]!.reviewStatus).toBe('pending_review');
+      releaseApproval();
+      calls.executeGate = null;
       await expect(
         area(page).locator('[data-og7="media-batch-receipt"]')
       ).toBeVisible();
+      await expect(
+        inspector.getByRole('heading', {
+          name: state.assets[1]!.originalFilename,
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(inspector).toBeFocused();
       expect(calls.rules).toEqual([]);
       expect(calls.plans).toHaveLength(1);
       expect(calls.plans[0]).toMatchObject({
@@ -885,7 +930,7 @@ export function registerMediaWorkspaceDecisionTests(
   });
 
   for (const [language, width] of [
-    ['fr-CA', 1440],
+    ['fr-CA', 1920],
     ['en', 390]
   ] as const) {
     test(`media workspace pages 100 files with one inspector and bounded private thumbnails ${language}`, async ({
@@ -900,18 +945,24 @@ export function registerMediaWorkspaceDecisionTests(
             name: 'Switch administration language to English'
           })
           .click();
-      await area(page)
-        .locator('[data-og7="media-page-size"]')
-        .selectOption('25');
       await expect(area(page).locator('[data-og7="media-tile"]')).toHaveCount(
-        25
+        8
       );
       await expect(
         area(page).locator('[data-og7="media-usage-editor"]')
       ).toHaveCount(0);
       await expect(
         area(page).locator('[data-og7="media-inspector"]')
-      ).toHaveCount(1);
+      ).toBeHidden();
+      await expect(
+        area(page).locator('[data-og7="media-assistant"]')
+      ).toBeVisible();
+      const visibleCards = area(page).locator('[data-og7="media-tile"]');
+      for (const card of await visibleCards.all()) {
+        await card.scrollIntoViewIfNeeded();
+        await expect(card.locator('img')).toHaveAttribute('src', /^blob:/);
+      }
+      await visibleCards.first().scrollIntoViewIfNeeded();
       await area(page)
         .locator('[data-og7="media-tile"]')
         .first()
@@ -924,7 +975,7 @@ export function registerMediaWorkspaceDecisionTests(
         area(page).locator('[data-og7="media-inspector-alt"]')
       ).toHaveValue('Vue synthétique 1');
       expect(calls.maxActive).toBeLessThanOrEqual(4);
-      expect(calls.thumbnails.length).toBeLessThanOrEqual(25);
+      expect(calls.thumbnails.length).toBeLessThanOrEqual(8);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -941,10 +992,17 @@ export function registerMediaWorkspaceDecisionTests(
           `media-workspace-viewport-${language}-${width}.png`
         )
       });
+      await area(page)
+        .locator('[data-og7="media-page-size"]')
+        .selectOption('25');
+      await expect(area(page).locator('[data-og7="media-tile"]')).toHaveCount(
+        25
+      );
       await area(page).locator('[data-og7="media-next-page"]').click();
       await expect(
         area(page).locator('[data-og7="media-tile"]').first()
       ).toContainText('photo-026.webp');
+      await openMediaLibraryTools(page);
       await area(page).locator('[data-og7="media-search"]').fill('photo-100');
       await expect(area(page).locator('[data-og7="media-tile"]')).toHaveCount(
         1
@@ -1295,9 +1353,10 @@ export function registerMediaWorkspaceDecisionTests(
 
   test('media workspace reader can inspect with the keyboard while all writes and private history stay unavailable', async ({
     page
-  }) => {
+  }, info) => {
     const { state, calls } = await fixture(page, 'reader');
     addPlatformAcceptance(state.assets[0]!);
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(context.path('media'));
     const tile = area(page)
       .locator('[data-og7="media-tile"]')
@@ -1308,6 +1367,9 @@ export function registerMediaWorkspaceDecisionTests(
     await expect(
       area(page).locator('[data-og7="media-full-preview"] img')
     ).toBeVisible();
+    await expect(
+      area(page).locator('[data-og7="media-full-preview"] img')
+    ).toHaveAttribute('src', /^blob:/);
     await expect(
       area(page).locator('[data-og7="media-inspector-alt"]')
     ).toBeDisabled();
@@ -1325,6 +1387,25 @@ export function registerMediaWorkspaceDecisionTests(
     await expect(
       page.locator('[data-og7="media-acceptance-review"]')
     ).toHaveCount(0);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="media-review-workspace"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    await area(page).screenshot({
+      path: info.outputPath('media-reader-inspector-mobile.png')
+    });
+    await area(page).locator('[data-og7="media-inspector-close"]').focus();
+    await page.keyboard.press('Enter');
+    await expect(
+      area(page).locator('[data-og7="media-inspector"]')
+    ).toBeHidden();
+    await expect(
+      area(page).locator('[data-og7="media-assistant"]')
+    ).toBeVisible();
+    await expect(tile).toBeFocused();
   });
 
   test('empty media workspace offers no rights grant or future inheritance', async ({

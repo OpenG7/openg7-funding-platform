@@ -54,6 +54,10 @@ export interface AdminSponsorReviewPorts extends AdminSponsorSelectionPorts {
 }
 
 export interface AdminSponsorPublicationPorts extends AdminSponsorSelectionPorts {
+  /** Stable session identity; a captured command cannot cross an owner session. */
+  identityKey?(): string;
+  currentAction?(): string | null;
+  canReplayWebsite?(sponsorship: AdminSponsorshipRecord): boolean;
   admin: Pick<
     FundingAdminService,
     'updateSponsorshipPublication' | 'setSponsorshipWebsiteVisibility'

@@ -39,6 +39,25 @@ export const buildSponsorshipAssistantContext = (
   const { hasApprovedPresentation, ...media } = summarizeSponsorshipMedia(
     source.media
   );
+  const requiredMedia =
+    record.commitment?.offer?.benefits
+      .filter((benefit) =>
+        record.commitment?.obligations.some(
+          (obligation) =>
+            obligation.benefitId === benefit.id &&
+            obligation.channel === benefit.channel &&
+            obligation.target === benefit.target &&
+            !['fulfilled', 'adjusted'].includes(obligation.state)
+        )
+      )
+      .flatMap((benefit) => benefit.requiredElements) ?? [];
+  const missingRequiredMedia =
+    (requiredMedia.includes('approved_presentation') &&
+      !hasApprovedPresentation) ||
+    (requiredMedia.includes('approved_logo') &&
+      !source.media.some(
+        (asset) => asset.kind === 'logo' && asset.reviewStatus === 'approved'
+      ));
   const publicationWorkflow = projectSponsorshipPublicationWorkflow(
     record.commitment,
     source.publications ?? [],
@@ -56,12 +75,12 @@ export const buildSponsorshipAssistantContext = (
   else if (record.paymentStatus !== 'paid') nextStep = 'check_payment';
   else if (record.reviewStatus === 'rejected') nextStep = 'review_rejection';
   else if (missingFields.length) nextStep = 'complete_information';
-  else if (media.pending || !hasApprovedPresentation) nextStep = 'review_media';
   else if (record.reviewStatus === 'pending_review')
     nextStep = 'review_sponsorship';
   else if (!source.consent) nextStep = 'confirm_consent';
   else if (record.commitment?.state !== 'active' || !record.commitment.offer)
     nextStep = 'qualify_commitment';
+  else if (media.pending || missingRequiredMedia) nextStep = 'review_media';
   else if (
     preparationChannels.length &&
     !['uncertain', 'error'].includes(publicationWorkflow.state) &&

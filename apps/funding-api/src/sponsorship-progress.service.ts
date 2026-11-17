@@ -49,10 +49,42 @@ export const buildSponsorshipProgress = (
   );
   const { hasApprovedPresentation: imageApproved, pending: pendingMedia } =
     summarizeSponsorshipMedia(source.media);
-  const mediaComplete = imageApproved && pendingMedia === 0;
   const paid = ['paid', 'refunded', 'disputed'].includes(record.paymentStatus);
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
   const commitment = facts.commitment;
+  const openWebsite =
+    commitment?.obligations.some(
+      (obligation) =>
+        obligation.channel === 'website' &&
+        obligation.target === 'openg7' &&
+        !['fulfilled', 'adjusted'].includes(obligation.state)
+    ) ?? false;
+  const openBenefits = new Set(
+    commitment?.obligations
+      .filter(
+        (obligation) => !['fulfilled', 'adjusted'].includes(obligation.state)
+      )
+      .map((obligation) => obligation.benefitId)
+  );
+  const mediaRequirements =
+    commitment?.offer?.benefits
+      .filter((benefit) => openBenefits.has(benefit.id))
+      .flatMap((benefit) => benefit.requiredElements) ?? [];
+  const presentationRequired = mediaRequirements.includes(
+    'approved_presentation'
+  );
+  const logoRequired = mediaRequirements.includes('approved_logo');
+  const mediaRequired = presentationRequired || logoRequired;
+  const requiredMediaMissing =
+    (presentationRequired && !imageApproved) ||
+    (logoRequired &&
+      !source.media.some(
+        (asset) => asset.kind === 'logo' && asset.reviewStatus === 'approved'
+      ));
+  const mediaComplete = !requiredMediaMissing && pendingMedia === 0;
+  const mediaRequirementsUnknown =
+    (commitment?.state !== 'active' || !commitment.offer) &&
+    source.media.length === 0;
   const {
     qualified,
     websiteRequired,
@@ -82,7 +114,6 @@ export const buildSponsorshipProgress = (
     ...(!consent ? ['consent'] : []),
     ...(record.reviewStatus !== 'approved' ? ['review'] : []),
     ...(target === 'website' && !record.hasCompanyName ? ['identity'] : []),
-    ...(!imageApproved ? ['media'] : []),
     ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
     ...(refundBlocksPublication ? ['refund'] : []),
     ...(target === 'social' && ['hidden'].includes(record.feedStatus)
@@ -90,7 +121,11 @@ export const buildSponsorshipProgress = (
       : [])
   ];
   const publicationBlockers = [
-    ...new Set([...visibilityBlockers('social'), ...obligationBlockers])
+    ...new Set([
+      ...visibilityBlockers('social'),
+      ...obligationBlockers,
+      ...(requiredMediaMissing ? ['media'] : [])
+    ])
   ];
   const websiteBlockers = visibilityBlockers('website');
   const publicationWorkflow = projectSponsorshipPublicationWorkflow(
@@ -173,12 +208,24 @@ export const buildSponsorshipProgress = (
     },
     {
       id: 'media',
-      state: mediaComplete
-        ? 'complete'
-        : pendingMedia > 0
-          ? 'pending'
-          : 'blocked',
-      reason: mediaComplete ? 'media_approved' : 'media_review',
+      state: mediaRequirementsUnknown
+        ? 'pending'
+        : !mediaRequired &&
+            !source.media.length &&
+            commitment?.state === 'active'
+          ? 'not_required'
+          : mediaComplete
+            ? 'complete'
+            : 'pending',
+      reason: mediaRequirementsUnknown
+        ? 'media_requirements_unconfirmed'
+        : !mediaRequired && !source.media.length
+          ? 'media_not_required'
+          : requiredMediaMissing && !pendingMedia
+            ? 'media_promised_pending'
+            : mediaComplete
+              ? 'media_approved'
+              : 'media_review',
       tab: 'media'
     },
     {
@@ -231,12 +278,16 @@ export const buildSponsorshipProgress = (
                 ? 'error'
                 : publicationCancelled
                   ? 'cancelled'
-                  : publicationBlocked
-                    ? 'blocked'
-                    : (websiteRequired && facts.websiteVisible) ||
-                        facts.publications.some(published)
-                      ? 'partial'
-                      : 'pending',
+                  : openWebsite &&
+                      facts.websiteVisible &&
+                      websiteBlockers.length === 0
+                    ? 'partial'
+                    : publicationBlocked
+                      ? 'blocked'
+                      : (websiteRequired && facts.websiteVisible) ||
+                          facts.publications.some(published)
+                        ? 'partial'
+                        : 'pending',
       reason: publicationUncertain
         ? 'publication_uncertain'
         : publicationWorkflow.reason === 'fulfilment_unverified'
@@ -251,20 +302,40 @@ export const buildSponsorshipProgress = (
                   ? 'publication_cancelled'
                   : !consent
                     ? 'consent_missing'
-                    : publicationBlocked
-                      ? 'publication_blocked'
-                      : [
-                            'publication_preparation_required',
-                            'website_publication_required'
-                          ].includes(publicationWorkflow.reason)
-                        ? 'publication_pending'
-                        : publicationWorkflow.reason,
+                    : openWebsite &&
+                        facts.websiteVisible &&
+                        websiteBlockers.length === 0 &&
+                        requiredMediaMissing
+                      ? 'website_text_visible'
+                      : publicationBlocked
+                        ? 'publication_blocked'
+                        : [
+                              'publication_preparation_required',
+                              'website_publication_required'
+                            ].includes(publicationWorkflow.reason)
+                          ? 'publication_pending'
+                          : publicationWorkflow.reason,
       tab: 'publication'
     }
   ];
-  const outstanding = milestones.find(
-    (m) => m.state !== 'complete' && m.state !== 'not_required'
-  );
+  // Reviewing optional or deferred images must not hide the next text-publication action.
+  const outstanding =
+    milestones.find(
+      (m) =>
+        m.id !== 'media' && m.state !== 'complete' && m.state !== 'not_required'
+    ) ??
+    milestones.find(
+      (m) =>
+        m.id === 'media' && m.state !== 'complete' && m.state !== 'not_required'
+    );
+  const textWebsiteNext =
+    openWebsite && qualified && websiteBlockers.length === 0
+      ? facts.websiteVisible
+        ? requiredMediaMissing
+          ? { reason: 'media_promised_pending', tab: 'media' as const }
+          : null
+        : { reason: 'website_publication_required', tab: 'media' as const }
+      : null;
   const emailIncident =
     facts.failedEmails.find((email) => email.status !== 'uncertain') ??
     facts.failedEmails[0];
@@ -285,9 +356,11 @@ export const buildSponsorshipProgress = (
               }
             : record.reviewStatus === 'rejected'
               ? { reason: 'review_rejected', tab: 'overview' as const }
-              : outstanding
-                ? { reason: outstanding.reason, tab: outstanding.tab }
-                : { reason: 'complete', tab: 'overview' as const };
+              : textWebsiteNext
+                ? textWebsiteNext
+                : outstanding
+                  ? { reason: outstanding.reason, tab: outstanding.tab }
+                  : { reason: 'complete', tab: 'overview' as const };
   return {
     qualifiedFulfilmentEvidenceIds: facts.qualifiedFulfilmentEvidenceIds ?? [],
     publicationWorkflow,
@@ -306,11 +379,11 @@ export const buildSponsorshipProgress = (
       paid &&
       consent &&
       record.reviewStatus === 'approved' &&
-      record.hasCompanyName &&
-      imageApproved,
+      record.hasCompanyName,
     feedStatus: record.feedStatus,
     publicationCompletion,
     website: {
+      refreshObligationId: facts.websiteRefreshObligationId ?? null,
       visible: facts.websiteVisible,
       held: facts.websiteHeld,
       canPublish: websiteBlockers.length === 0,

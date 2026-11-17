@@ -64,8 +64,8 @@ exige la réconciliation et conserve les références disponibles.
 
 La préparation privée (migration 023) accepte paiement confirmé et consentement
 même avec revue en attente. « Accepter et programmer » peut réunir approbation du
-commanditaire et autorisation de publication : IDs/versions explicites, photo
-approuvée, transaction et audit de chaque décision. La fiche nouvellement approuvée
+commanditaire et autorisation de publication : IDs/versions explicites, médias
+requis par le format et l’engagement, transaction et audit de chaque décision. La fiche approuvée
 reste masquée jusqu'à une décision de visibilité séparée. Un refus de publication
 ne refuse pas le commanditaire et ne doit pas être annulé par le planificateur.
 Préserver modifications humaines et autorisations existantes. Migrations 022/023
@@ -82,8 +82,8 @@ et activation live contrôlées; feeds initialement en pause, worker désactivé
   dossiers admissibles. Respecter aussi le maintien privé après approbation sociale.
 - Suppression/remplacement audités, nettoyage sûr des objets orphelins, stratégie
   de sauvegarde et migration du stockage.
-- Logo et au moins une image selon les règles produit : valider les exigences
-  côté API avant publication, pas uniquement dans le formulaire.
+- Texte Web publiable sans image après validation; visuel promis dû.
+  Ajout privé sans révoquer le texte; exposition après revue et sélection.
 
 Voir les guides [commanditaires](../public-sponsors.md) et
 [stockage OVH](../operations/ovh-object-storage.md) pour leurs contrats et opérations.

@@ -963,9 +963,9 @@
           "media": {
             "who": "Commanditaire pour les fichiers ; opérateur ou propriétaire pour leur revue.",
             "step1": "Ouvrir Médias et vérifier les fichiers disponibles, leur lisibilité et leur texte alternatif.",
-            "step2": "Si une image de présentation manque, demander au commanditaire de l’ajouter depuis son suivi.",
+            "step2": "Vérifier si l’offre exige un visuel. Une image facultative absente ne bloque pas le texte validé.",
             "step3": "Examiner les médias en attente puis approuver ou refuser chacun avec les contrôles de revue.",
-            "condition": "Au moins une image de présentation est approuvée et aucun média ne reste en attente de revue."
+            "condition": "Les médias reçus sont examinés et les visuels convenus sont approuvés. Une offre textuelle sans média est indiquée « Non requis »."
           },
           "review": {
             "who": "Opérateur ou propriétaire.",
@@ -983,7 +983,7 @@
           },
           "publication": {
             "who": "Opérateur ou propriétaire autorisé à préparer et approuver la publication.",
-            "step1": "Vérifier le consentement, la revue, l’image approuvée et l’admissibilité financière dans Publication.",
+            "step1": "Vérifier le consentement, la revue du texte, les visuels requis par l’offre et l’admissibilité financière dans Publication.",
             "step2": "Publier explicitement la fiche sur le site lorsqu’elle est prête. Vérifier ensuite le contenu, la destination et l’horaire de chaque publication sociale avant de l’autoriser.",
             "step3": "Suivre les états de publication ; un brouillon ou une planification ne confirme pas la livraison. Examiner les échecs ou annulations avant une reprise.",
             "condition": "La fiche est visible sur le site et chaque publication sociale prévue par le montant est confirmée. Une simulation ne compte pas comme une livraison."
@@ -1095,7 +1095,12 @@
         "identity_missing": "Coordonnées à compléter : nom de l’entreprise ou courriel du contact manquant. Utilisez « Modifier l’identité et les coordonnées » dans l’onglet Identité.",
         "identity_submission_pending": "Coordonnées renseignées. Le commanditaire peut transmettre son formulaire depuis son lien privé de suivi, ou l’administration peut enregistrer les coordonnées pour terminer l’étape Identité.",
         "media_approved": "Image de présentation approuvée; aucune revue de média en attente.",
-        "media_review": "Vérifier les médias et approuver une image de présentation.",
+        "media_review": "Examiner les images reçues. La revue d’une image privée ne bloque pas le texte autorisé.",
+        "media_not_required": "Aucune image n’est requise pour les prestations textuelles de cette offre.",
+        "media_requirements_unconfirmed": "Les exigences visuelles restent à confirmer avec les engagements de ce dossier.",
+        "media_promised_pending": "Visuel convenu attendu. La fiche textuelle peut être publiée après validation.",
+        "website_text_visible": "Texte visible — le visuel convenu reste à fournir.",
+        "website_publication_required": "Autoriser la publication de la fiche, avec ou sans image sélectionnée.",
         "review_approved": "Revue administrative approuvée.",
         "review_rejected": "Dossier refusé. Consulter la décision et son historique.",
         "review_pending": "Effectuer la revue administrative.",
@@ -1229,6 +1234,13 @@
           "publish": "Publier la fiche sur le site",
           "hide": "Masquer la fiche du site",
           "confirmPublish": "Publier cette fiche dans l’annuaire public des commanditaires ? Cette décision ne programme aucun envoi social.",
+          "textHelp": "Le texte validé peut être publié sans image. Toute image ajoutée ensuite reste privée jusqu’à sa validation et sa sélection. Un visuel promis reste à livrer.",
+          "refresh": "Vérifier la prestation avec les médias sélectionnés",
+          "confirmRefresh": "Vérifier cette prestation Web avec le texte et les médias actuellement sélectionnés ? Cette action conserve la fiche visible et ne crée aucun passage supplémentaire.",
+          "retryRefresh": "Reprendre la vérification de cette prestation",
+          "refreshUncertain": "Le résultat reste à confirmer. Reprenez la vérification avec la même requête avant toute nouvelle décision.",
+          "refreshSaved": "Vérification confirmée. Consultez l’état de la prestation et de sa durée pour connaître ce qui reste à réaliser.",
+          "refreshBlocked": "Les conditions de cette prestation ne sont pas encore remplies. Vérifiez le visuel convenu et sa sélection ; le texte autorisé reste visible.",
           "confirmHide": "Masquer cette fiche de l’annuaire public ? Les publications sociales déjà envoyées restent conservées.",
           "saving": "Mise à jour de la visibilité…",
           "saved": "La visibilité de la fiche a été mise à jour.",

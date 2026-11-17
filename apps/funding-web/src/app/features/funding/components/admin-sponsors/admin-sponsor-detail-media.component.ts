@@ -76,6 +76,7 @@ import type { MediaLibraryView } from '../media-review/media-review-workspace.co
         </header>
         @if (identityIncomplete() || submissionPending()) {
           <aside class="identity-alert" data-og7="media-identity-alert">
+            <openg7-admin-icon name="info" />
             <p>
               {{
                 t(
@@ -91,27 +92,11 @@ import type { MediaLibraryView } from '../media-review/media-review-workspace.co
               data-og7="media-open-identity"
               (click)="identityRequested.emit()"
             >
+              <openg7-admin-icon name="external" />
               {{ t('library.completeIdentity') }}
             </button>
           </aside>
         }
-        <nav
-          class="library-views"
-          [attr.aria-label]="t('library.viewsLabel')"
-          data-og7="media-library-views"
-        >
-          @for (item of views; track item) {
-            <button
-              type="button"
-              class="admin-button"
-              [attr.aria-pressed]="view() === item"
-              [attr.data-og7-id]="item"
-              (click)="view.set(item)"
-            >
-              {{ t('library.views.' + item) }}
-            </button>
-          }
-        </nav>
         @if (identity().contributionId; as contributionId) {
           <div
             id="dossier-media-gallery"
@@ -131,24 +116,29 @@ import type { MediaLibraryView } from '../media-review/media-review-workspace.co
               (inspectRequested)="inspectRequested.emit()"
             />
           </div>
-          @if (view() === 'corrections') {
-            <section class="corrections-view" data-og7="media-corrections-view">
+          <details
+            #requests
+            class="corrections-view"
+            data-og7="media-corrections-view"
+            [open]="requestsOpened()"
+            (toggle)="
+              requestsOpened.set(requests.open);
+              requests.open && requestsVisited.set(true)
+            "
+          >
+            <summary>{{ t('library.views.corrections') }}</summary>
+            <div class="corrections-content">
               <p class="muted-copy">{{ t('library.correctionsHelp') }}</p>
-              <openg7-admin-sponsor-media-preference
-                [contributionId]="contributionId"
-                [disabled]="identity().mediaBusy || workspaceBusy()"
-                (busyChange)="preferenceBusy.set($event)"
-                (changed)="moderationChanged.emit()"
-              />
-              <button
-                type="button"
-                class="admin-button"
-                (click)="view.set('media')"
-              >
-                {{ t('library.returnMedia') }}
-              </button>
-            </section>
-          }
+              @if (requestsVisited()) {
+                <openg7-admin-sponsor-media-preference
+                  [contributionId]="contributionId"
+                  [disabled]="identity().mediaBusy || workspaceBusy()"
+                  (busyChange)="preferenceBusy.set($event)"
+                  (changed)="moderationChanged.emit()"
+                />
+              }
+            </div>
+          </details>
         } @else {
           <p class="muted-copy">{{ t('library.noDossier') }}</p>
         }
@@ -177,17 +167,28 @@ export class AdminSponsorDetailMediaComponent {
     () => this.dossier()?.commitment?.obligations.length ?? 0
   );
   readonly view = signal<MediaLibraryView>('media');
-  readonly views: readonly MediaLibraryView[] = [
-    'media',
-    'presentation',
-    'documents',
-    'corrections'
-  ];
   readonly preferenceBusy = signal(false);
+  readonly requestsVisited = signal(false);
+  readonly requestsOpened = signal(false);
   readonly workspaceBusy = signal(false);
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   private readonly workspace = viewChild(MediaReviewWorkspaceComponent);
+  readonly websiteSelectedMedia = computed(() => {
+    const workspace = this.workspace();
+    const data = workspace?.c.data();
+    if (
+      !workspace ||
+      !data ||
+      data.contributionId !== this.identity().contributionId ||
+      workspace.c.loading() ||
+      workspace.c.error()
+    )
+      return null;
+    return data.assets
+      .filter((asset) => asset.websiteSelected)
+      .map((asset) => ({ id: asset.id, name: asset.originalFilename }));
+  });
   /** The wrapper and its separately translated workspace must both have settled. */
   readonly layoutReady = computed(() => {
     if (this.languageError()) return true;
@@ -221,6 +222,8 @@ export class AdminSponsorDetailMediaComponent {
       this.scopeId();
       untracked(() => {
         this.view.set('media');
+        this.requestsVisited.set(false);
+        this.requestsOpened.set(false);
         this.preferenceBusy.set(false);
         this.workspaceBusy.set(false);
       });
@@ -235,6 +238,17 @@ export class AdminSponsorDetailMediaComponent {
   }
   focusGallery(): void {
     this.view.set('media');
+    this.workspace()?.showAllMedia();
+  }
+  inspectMedia(id: string): void {
+    const workspace = this.workspace();
+    const asset = workspace?.c.assets().find((item) => item.id === id);
+    if (
+      workspace &&
+      asset &&
+      asset.contributionId === this.identity().contributionId
+    )
+      workspace.inspect(asset);
   }
   private async loadLanguage(language: 'fr-CA' | 'en'): Promise<void> {
     const generation = ++this.generation;

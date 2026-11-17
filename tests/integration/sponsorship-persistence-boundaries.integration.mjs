@@ -239,10 +239,10 @@ test(
           reviewStatus: 'approved',
           reviewNote: 'PRIVATE REVIEW NOTE'
         };
-        assert.equal(
-          (await updateSponsorshipReview(pool, request)).status,
-          'media_required'
-        );
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
+        const approved = await updateSponsorshipReview(pool, request);
+        assert.equal(approved.status, 'updated');
+        assert.deepEqual((await listPublicSponsorships(pool)).sponsorships, []);
         const media = await pool.query(
           `INSERT INTO sponsor_media_assets
           (contribution_id, kind, review_status, original_filename, original_mime_type,
@@ -258,9 +258,6 @@ test(
           type: 'media',
           id: media.rows[0].id
         });
-        await approveFixtureSubject(pool, { type: 'sponsorship', id });
-        const approved = await updateSponsorshipReview(pool, request);
-        assert.equal(approved.status, 'updated');
         assert.equal(
           (await updateSponsorshipReview(pool, request)).status,
           'conflict'

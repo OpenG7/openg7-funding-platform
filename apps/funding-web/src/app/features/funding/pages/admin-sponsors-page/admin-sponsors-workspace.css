@@ -167,6 +167,11 @@
 :host .detail-body {
   @apply tw:p-admin-card tw:gap-admin-section;
 }
+
+/* The disclosure grows in the page; it must not form a second scrollport. */
+:host .detail-body.public-profile-section {
+  overflow: visible;
+}
 :host .has-dossier .admin-page-header {
   @apply tw:hidden;
 }

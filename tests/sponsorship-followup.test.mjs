@@ -4,9 +4,29 @@ import test from 'node:test';
 
 import {
   sameSponsorshipDetails,
+  canUploadSponsorshipMedia,
   followupAccessExpired,
   SponsorshipFollowupError
 } from '../dist/apps/funding-web/src/app/features/funding/models/sponsorship-followup-ui.js';
+
+test('media uploads remain available after approval and never inherit rejected text-correction rights', () => {
+  for (const paymentStatus of ['paid', 'refunded', 'disputed']) {
+    for (const reviewStatus of ['pending_review', 'approved'])
+      assert.equal(
+        canUploadSponsorshipMedia({ paymentStatus, reviewStatus }),
+        true
+      );
+    assert.equal(
+      canUploadSponsorshipMedia({ paymentStatus, reviewStatus: 'rejected' }),
+      false
+    );
+  }
+  for (const paymentStatus of ['pending', 'failed', 'expired'])
+    assert.equal(
+      canUploadSponsorshipMedia({ paymentStatus, reviewStatus: 'approved' }),
+      false
+    );
+});
 
 test('unchanged follow-up details ignore whitespace and empty optional fields without ignoring meaningful changes', () => {
   const saved = {

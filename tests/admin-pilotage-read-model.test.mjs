@@ -157,8 +157,8 @@ const fixture = (options = {}) => {
               sponsor_review_status: s.sponsor_review_status,
               status: s.payment_status,
               version: s.updated_at,
-              media_id: 'synthetic-media',
-              photo: true
+              media_id: s.has_supporting_image ? 'synthetic-media' : null,
+              photo: s.has_supporting_image
             }))
         };
       }
@@ -480,7 +480,23 @@ test('private email content requires explicit selection of a matching email card
   );
 });
 
-test('approval guards keep connection, schedule, sponsor media and review precedence', async () => {
+test('sponsor text approval is available without a presentation photo', async () => {
+  const f = fixture({
+    sponsors: [sponsor('text-only', { has_supporting_image: false })]
+  });
+  const card = (await f.load()).decisions.find(
+    (d) => d.targetId === 'text-only'
+  );
+  assert.ok(card);
+  assert.equal(card.sponsor.presentationId, null);
+  assert.equal(card.sponsor.presentationApproved, false);
+  assert.equal(
+    card.actions.find((action) => action.id === 'sponsor.approve').blocked,
+    null
+  );
+});
+
+test('approval guards keep connection, schedule and review precedence without requiring a photo for text', async () => {
   const f = fixture({
     deliveries: [
       delivery('connection', {
@@ -506,7 +522,7 @@ test('approval guards keep connection, schedule, sponsor media and review preced
   for (const [id, blocked] of [
     ['connection', 'CONNECTION_REQUIRED'],
     ['schedule', 'SCHEDULE_EXPIRED'],
-    ['media', 'SPONSOR_MEDIA_REQUIRED'],
+    ['media', null],
     ['review', 'REVIEW_REQUIRED']
   ]) {
     const card = state.decisions.find((d) => d.targetId === id);

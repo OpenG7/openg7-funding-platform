@@ -86,6 +86,7 @@ const fixture = (record = sponsor(), locale = null) => {
   const errors = [];
   const translations = [];
   const ports = {
+    currentAction: () => state.action,
     admin: {
       async updateSponsorshipPublication(token, payload) {
         calls.push({ kind: 'publication', token, payload });
@@ -167,6 +168,100 @@ const fixture = (record = sponsor(), locale = null) => {
     leaveAndReturn
   };
 };
+
+function makeVisiblePassage(f) {
+  f.state.progress.website.visible = true;
+  f.state.progress.website.refreshObligationId =
+    '10000000-0000-4000-8000-000000000501';
+  f.state.progress.website.held = false;
+  f.state.progress.commitment = {
+    obligations: [
+      {
+        id: '10000000-0000-4000-8000-000000000501',
+        channel: 'website',
+        target: 'openg7',
+        state: 'pending',
+        version: 2
+      }
+    ]
+  };
+}
+
+test('an uncertain website check retries the captured passage and UUID after current versions change', async () => {
+  const f = fixture();
+  makeVisiblePassage(f);
+  const commands = [];
+  f.ports.admin.setSponsorshipWebsiteVisibility = async (_token, command) => {
+    commands.push(structuredClone(command));
+    if (commands.length === 1) throw new TypeError('Synthetic lost receipt');
+  };
+  await f.workflow.refreshWebsite(f.state.records[0]);
+  assert.ok(f.workflow.pendingWebsiteRefresh('synthetic-sponsor'));
+  assert.equal(f.confirmations.length, 1);
+  f.state.progress.website.version = 'new-site-version';
+  f.state.progress.commitment.obligations[0].id =
+    '10000000-0000-4000-8000-000000000502';
+  f.state.progress.commitment.obligations[0].version = 7;
+  await f.workflow.refreshWebsite(f.state.records[0]);
+  assert.deepEqual(commands[1], commands[0]);
+  assert.equal(
+    commands[1].refresh.obligationId,
+    '10000000-0000-4000-8000-000000000501'
+  );
+  assert.match(commands[1].refresh.requestId, /^[a-f0-9-]{36}$/);
+  assert.equal(f.confirmations.length, 1);
+  assert.equal(f.workflow.pendingWebsiteRefresh('synthetic-sponsor'), null);
+});
+
+test('a new website check requires the server capability for the same passage', async () => {
+  for (const capability of [
+    undefined,
+    null,
+    '10000000-0000-4000-8000-000000000502'
+  ]) {
+    const f = fixture();
+    makeVisiblePassage(f);
+    f.state.progress.website.refreshObligationId = capability;
+    await f.workflow.refreshWebsite(f.state.records[0]);
+    assert.equal(f.workflow.websiteRefreshTarget(f.state.records[0]), null);
+    assert.equal(f.calls.length, 0);
+    assert.equal(f.confirmations.length, 0);
+  }
+});
+
+test('a captured website check cannot cross a session or overwrite another action lock', async () => {
+  const f = fixture();
+  makeVisiblePassage(f);
+  let identity = 'owner-session-1';
+  f.ports.identityKey = () => identity;
+  const response = deferred();
+  f.ports.admin.setSponsorshipWebsiteVisibility = async () => response.promise;
+  const sending = f.workflow.refreshWebsite(f.state.records[0]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(f.workflow.pendingWebsiteRefresh('synthetic-sponsor'));
+  identity = 'owner-session-2';
+  f.state.action = 'another-session-action';
+  response.reject(new TypeError('Synthetic lost receipt'));
+  await sending;
+  assert.equal(f.workflow.pendingWebsiteRefresh('synthetic-sponsor'), null);
+  assert.equal(f.state.action, 'another-session-action');
+  assert.equal(f.reloads.length, 0);
+});
+
+test('a definite website version conflict releases the captured check without claiming success', async () => {
+  const f = fixture();
+  makeVisiblePassage(f);
+  f.ports.admin.setSponsorshipWebsiteVisibility = async () => {
+    throw new AdminDashboardRequestError(409, 'Synthetic conflict');
+  };
+  await f.workflow.refreshWebsite(f.state.records[0]);
+  assert.equal(f.workflow.pendingWebsiteRefresh('synthetic-sponsor'), null);
+  assert.equal(f.reloads.length, 0);
+  assert.equal(
+    f.workflow.websiteMessages()['synthetic-sponsor'],
+    'admin.dossier.conflict'
+  );
+});
 
 test('saving a publication sends the existing trimmed contract with the dossier version and shared lock', async () => {
   const f = fixture();

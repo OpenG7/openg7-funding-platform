@@ -32,6 +32,7 @@ import { AdminSponsorshipTimingController } from './admin-sponsorship-timing-con
 export class AdminSponsorshipTimingComponent {
   readonly obligation = input.required<SponsorshipObligation>();
   readonly canOwn = input(false);
+  readonly disabled = input(false);
   readonly changed = output<void>();
   private readonly admin = inject(FundingAdminService);
   private readonly destroy = inject(DestroyRef);
@@ -39,6 +40,7 @@ export class AdminSponsorshipTimingComponent {
   readonly language = inject(FundingI18nService).currentLanguage;
   readonly c = new AdminSponsorshipTimingController({
     canOwn: () => this.canOwn(),
+    disabled: () => this.disabled(),
     isDestroyed: () => this.destroy.destroyed,
     newRequestId: () => crypto.randomUUID(),
     send: (request) => this.admin.sponsorshipTimingCommand(request),

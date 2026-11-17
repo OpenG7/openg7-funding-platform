@@ -29,6 +29,7 @@ export function nextDossierSection(
   next: AdminSponsorshipProgress['next']
 ): DossierSection | null {
   if (next.reason === 'complete') return null;
+  if (next.reason === 'website_publication_required') return 'website-settings';
   if (next.tab !== 'overview') return next.tab;
   if (next.reason === 'review_pending' || next.reason === 'review_rejected')
     return 'review';

@@ -314,14 +314,19 @@ export function projectSponsorOverview(
     identity:
       identity?.state === 'blocked' ? 'incomplete' : milestoneStatus(identity),
     media:
-      mediaMilestone?.state === 'pending'
-        ? 'toReview'
-        : mediaMilestone?.state === 'blocked'
-          ? 'missing'
-          : milestoneStatus(mediaMilestone),
-    publication: dossier?.publicationWorkflow
-      ? workflowStatus(dossier.publicationWorkflow)
-      : milestoneStatus(milestones.get('publication')),
+      mediaMilestone?.reason === 'media_promised_pending'
+        ? 'visualAwaited'
+        : mediaMilestone?.state === 'pending'
+          ? 'toReview'
+          : mediaMilestone?.state === 'blocked'
+            ? 'missing'
+            : milestoneStatus(mediaMilestone),
+    publication:
+      milestones.get('publication')?.reason === 'website_text_visible'
+        ? 'textVisible'
+        : dossier?.publicationWorkflow
+          ? workflowStatus(dossier.publicationWorkflow)
+          : milestoneStatus(milestones.get('publication')),
     review:
       reviewStatus === 'approved'
         ? 'approved'

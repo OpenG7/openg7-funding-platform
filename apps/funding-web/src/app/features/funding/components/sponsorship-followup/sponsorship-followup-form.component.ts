@@ -35,6 +35,7 @@ import type {
 
 import {
   canEditSponsorshipDetails,
+  canUploadSponsorshipMedia,
   normalizeSponsorshipDetails,
   sameSponsorshipDetails,
   sponsorshipDetailsFromFollowup,
@@ -144,6 +145,16 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
       (this.followup().reviewStatus === 'approved' &&
         !this.editing() &&
         !this.correctionAllowed())
+  );
+  readonly mediaAllowed = computed(() =>
+    canUploadSponsorshipMedia(this.followup())
+  );
+  readonly mediaDisabledMessage = computed(() =>
+    this.followup().reviewStatus === 'rejected'
+      ? 'funding.followup.journey.mediaRejected'
+      : this.busy()
+        ? 'funding.followup.journey.mediaBusy'
+        : 'funding.followup.media.disabled'
   );
   readonly changed = computed(() => {
     this.revision();

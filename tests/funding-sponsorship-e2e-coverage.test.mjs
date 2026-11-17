@@ -384,7 +384,6 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
       'sponsor_review_status = $2',
       'payment_not_eligible',
       'media_required',
-      'has_approved_presentation_photo',
       'targetRow.review_status !=='
     ],
     'admin review repository'

@@ -43,6 +43,9 @@ export class AdminSponsorPublicationPanelComponent {
   readonly canSave = input(false);
   readonly saving = input(false);
   readonly stateLabel = input('');
+  readonly visibilityState = input<
+    'visible' | 'hidden' | 'blocked' | 'unknown'
+  >('unknown');
   readonly slugError = input('');
   readonly promisedChannels = input<readonly SponsorshipPublicationChannel[]>(
     []

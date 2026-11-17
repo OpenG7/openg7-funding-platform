@@ -46,7 +46,7 @@ test('deterministic next step respects independent payment, refund, media, revie
     [source({ reviewStatus: 'rejected' }), 'review_rejection'],
     [
       source({ hasSupportingImage: false }, { media: [] }),
-      'complete_information'
+      'review_sponsorship'
     ],
     [
       source(
@@ -55,7 +55,7 @@ test('deterministic next step respects independent payment, refund, media, revie
           media: [{ kind: 'supporting_image', reviewStatus: 'pending_review' }]
         }
       ),
-      'review_media'
+      'review_sponsorship'
     ],
     [source(), 'review_sponsorship'],
     [
@@ -199,17 +199,61 @@ test('public context omits recipients and request eligibility requires a usable 
     /demo@example/
   );
   assert.equal(
-    canRequestSponsorshipInformation(source({ hasSupportingImage: false })),
+    canRequestSponsorshipInformation(source({ hasContactEmail: false })),
     true
   );
   for (const item of [
     source(),
-    source({ hasSupportingImage: false, reviewStatus: 'rejected' }),
-    source({ hasSupportingImage: false, paymentStatus: 'pending' }),
-    source({ hasSupportingImage: false }, { recipient: null })
+    source({ hasSupportingImage: false }),
+    source({ hasContactEmail: false, reviewStatus: 'rejected' }),
+    source({ hasContactEmail: false, paymentStatus: 'pending' }),
+    source({ hasContactEmail: false }, { recipient: null })
   ])
     assert.equal(canRequestSponsorshipInformation(item), false);
   assert.equal((await getAdminAssistantContext(null)).status, 'unavailable');
+});
+
+test('text publication preparation stays available without images and explicit open media commitments remain actionable', () => {
+  const textOnly = source(
+    { reviewStatus: 'approved', hasSupportingImage: false },
+    { media: [] }
+  );
+  assert.equal(
+    buildSponsorshipAssistantContext(textOnly).nextStep,
+    'prepare_publication'
+  );
+  assert.deepEqual(
+    buildSponsorshipAssistantContext(textOnly).missingFields,
+    []
+  );
+  for (const element of ['approved_presentation', 'approved_logo']) {
+    const input = structuredClone(textOnly);
+    input.record.commitment.offer.benefits[0].requiredElements.push(element);
+    assert.equal(
+      buildSponsorshipAssistantContext(input).nextStep,
+      'review_media'
+    );
+    input.record.reviewStatus = 'pending_review';
+    assert.equal(
+      buildSponsorshipAssistantContext(input).nextStep,
+      'review_sponsorship'
+    );
+    input.record.reviewStatus = 'approved';
+    input.record.commitment.obligations[0].state = 'adjusted';
+    assert.equal(
+      buildSponsorshipAssistantContext(input).nextStep,
+      'prepare_publication'
+    );
+  }
+  assert.equal(
+    buildSponsorshipAssistantContext(
+      source(
+        { reviewStatus: 'approved' },
+        { media: [{ kind: 'logo', reviewStatus: 'pending_review' }] }
+      )
+    ).nextStep,
+    'review_media'
+  );
 });
 
 test('consent requests allow complete dossiers but require missing consent and an actionable sponsor contact', () => {

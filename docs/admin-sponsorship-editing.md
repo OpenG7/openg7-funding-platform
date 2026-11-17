@@ -4,8 +4,9 @@ Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Mod
 
 **Identité** possède les coordonnées, les consentements et la transmission du
 formulaire commanditaire. **Fiche et médias** possède la bibliothèque privée du
-dossier actif : galerie, ressources de présentation, documents pris en charge et
-corrections. Aucun formulaire d’identité n’est répété dans la galerie; une alerte
+dossier actif : galerie, ressources de présentation, images classées comme documents
+et corrections. Les catégories utilisent la même bibliothèque; les demandes du
+commanditaire sont dans un volet secondaire. Aucun formulaire d’identité n’est répété dans la galerie; une alerte
 contextuelle rejoint la section propriétaire lorsque nécessaire. L’en-tête et les
 outils globaux du dossier restent accessibles. Voir la
 [cartographie et les capacités de la galerie](technical/intelligent-media-gallery.md).
@@ -124,7 +125,9 @@ conservent leurs confirmations et contrôles API.
 Dans **Publication**, le suivi individuel présente l’état, les exceptions et les
 prestations du dossier. Leurs détails rejoignent les preuves dans Campagnes et les
 parcours de travail du Comptoir. La fiche publique et le suivi social déclaré sont
-dans **Fiche et médias** ; leur sauvegarde conserve le workflow versionné existant.
+dans le volet repliable **Fiche publique et visibilité**, sous la galerie de
+**Fiche et médias**. Il regroupe leur aperçu privé, les visuels sélectionnés et les
+commandes de visibilité; leur sauvegarde conserve le workflow versionné existant.
 Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
 `/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
 dans un dossier reste borné à ce dossier.
@@ -139,6 +142,16 @@ en cours ou à réconcilier. **À propos de cet audit** conserve les explication
 portée et de pagination, avec les totaux globaux dans le portefeuille seulement.
 Les dates restent affichées à Toronto. La dernière conclusion administrative
 reste distincte des constats ; aucun constat ni examen n’autorise une publication.
+
+La fiche Web peut être validée puis publiée sans image. **Fiche et médias**
+explique ce parcours ; les images ajoutées ultérieurement restent privées jusqu’à
+leur validation et leur sélection. Un visuel prévu par l’offre reste **Visuel
+convenu attendu**, sans empêcher la publication du texte. Le compteur global
+conserve les étapes réellement terminées ; la visibilité ne constitue pas un
+solde commercial. Après sélection du visuel, **Vérifier la prestation avec les
+médias sélectionnés** cible une obligation Web précise, sans masquer la fiche.
+Une réponse incertaine conserve sa requête et propose sa reprise exacte ; les
+autres décisions du dossier attendent sa résolution.
 
 ## Identité et coordonnées
 

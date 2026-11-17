@@ -53,10 +53,6 @@ select {
 .notice.success {
   color: var(--admin-success);
 }
-.primary {
-  background: var(--admin-accent);
-  color: var(--admin-accent-contrast, white);
-}
 .danger {
   color: var(--admin-danger);
 }

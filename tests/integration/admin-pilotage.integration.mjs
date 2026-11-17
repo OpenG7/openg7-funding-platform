@@ -187,7 +187,7 @@ test(
       }
     );
     await t.test(
-      'sponsor review stays private, requires photo and compares version',
+      'sponsor text review stays private, requires editorial approval and compares version without a photo',
       async () => {
         const sponsorId = randomUUID();
         await pool.query(
@@ -214,12 +214,12 @@ test(
             d.targetId === sponsorId && d.kind === 'sponsorship_needs_review'
         );
         assert.ok(card);
-        assert.equal(card.actions[0].blocked, 'SPONSOR_MEDIA_REQUIRED');
+        assert.equal(card.actions[0].blocked, null);
         const failed = await pilot.command(
           command('sponsor.approve', sponsorId, card.version),
           actor
         );
-        assert.equal(failed.code, 'SPONSOR_MEDIA_REQUIRED');
+        assert.equal(failed.code, 'MODERATION_DECISION_REQUIRED');
         const rejected = await pilot.command(
           command('sponsor.reject', sponsorId, card.version, {
             reason: 'Fixture review declined',
