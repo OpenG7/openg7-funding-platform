@@ -40,10 +40,10 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  color: white;
-  background: linear-gradient(145deg, #0879ff, #1599dc);
+  color: var(--admin-accent);
+  background: var(--admin-selected);
   border-radius: 0.8rem;
-  box-shadow: 0 5px 16px rgb(0 94 210 / 12%);
+  box-shadow: var(--admin-shadow);
 }
 .preflight-mark svg {
   width: 2.1rem;
