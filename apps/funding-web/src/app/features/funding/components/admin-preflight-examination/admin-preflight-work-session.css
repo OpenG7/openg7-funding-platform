@@ -67,15 +67,6 @@
   padding: 0.3rem 0;
   color: var(--admin-muted);
 }
-.work-next:not(:disabled),
-.work-next:not(:disabled):hover {
-  background: #0748ca;
-  border-color: #0748ca;
-  color: #fff;
-}
-.work-next:not(:disabled):hover {
-  background: #063da9;
-}
 .work-session-summary {
   display: flex;
   align-items: center;

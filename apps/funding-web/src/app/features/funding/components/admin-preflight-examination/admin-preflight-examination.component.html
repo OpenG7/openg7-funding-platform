@@ -1037,7 +1037,7 @@
             <p>{{ t('reason.noAutomaticReturn') }}</p>
             <div>
               <button
-                class="admin-button primary"
+                class="admin-button admin-button--primary"
                 type="submit"
                 data-og7="examination-submit"
                 [disabled]="!canDecide()"
@@ -1184,7 +1184,7 @@
           } @else if (work.current()?.status !== 'active') {
             @if (work.current()?.status === 'finished') {
               <button
-                class="admin-button work-next"
+                class="admin-button admin-button--primary"
                 type="button"
                 data-og7="work-session-start-new"
                 [disabled]="continuationBlocked()"
@@ -1251,7 +1251,7 @@
               </div>
             </details>
             <button
-              class="admin-button work-next"
+              class="admin-button admin-button--primary"
               type="button"
               data-og7="work-session-next"
               [disabled]="continuationBlocked()"

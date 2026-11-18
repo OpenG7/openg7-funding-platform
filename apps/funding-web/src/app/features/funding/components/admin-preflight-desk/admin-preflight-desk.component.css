@@ -314,8 +314,8 @@ h5 {
   height: 2rem;
   border-radius: 50%;
   flex: none;
-  background: #e8f1ff;
-  color: #005ecf;
+  background: var(--admin-selected);
+  color: var(--admin-accent);
   font-size: 1.6rem;
   font-weight: 750;
   font-family: Arial, sans-serif;
@@ -363,15 +363,8 @@ h5 {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.examine-button:not(:disabled) {
+.examine-button {
   justify-self: start;
-  background: linear-gradient(#0566df, #0044b6);
-  border-color: #0053c5;
-  color: white;
-}
-.examine-button:not(:disabled):hover {
-  background: #003d9b;
-  color: white;
 }
 .blockers,
 .proof {
@@ -458,19 +451,19 @@ h5 {
 }
 .distribution span[data-stage='to_prepare'],
 .dot[data-stage='to_prepare'] {
-  background: #258cff;
+  background: var(--desk-blue);
 }
 .distribution span[data-stage='to_review'],
 .dot[data-stage='to_review'] {
-  background: #f1bd00;
+  background: var(--desk-yellow);
 }
 .distribution span[data-stage='to_deliver'],
 .dot[data-stage='to_deliver'] {
-  background: #9970e4;
+  background: var(--desk-violet);
 }
 .distribution span[data-stage='delivered'],
 .dot[data-stage='delivered'] {
-  background: #28b86b;
+  background: var(--desk-green);
 }
 .distribution-labels {
   display: grid;
@@ -517,7 +510,7 @@ h5 {
 }
 .review-panel {
   padding: 1.25rem;
-  border: 2px solid #79a9ed;
+  border: 2px solid var(--admin-accent);
   border-radius: 1rem;
   background: var(--admin-panel);
   display: grid;
