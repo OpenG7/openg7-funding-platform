@@ -31,9 +31,25 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
               <openg7-admin-badge [tone]="tone(item)">{{
                 'admin.attention.priority.' + item.severity | translate
               }}</openg7-admin-badge>
-              <h3>{{ 'admin.attention.types.' + item.type | translate }}</h3>
+              <h3>{{ titleKey(item) | translate }}</h3>
             </div>
-            <p>{{ 'admin.attention.reasons.' + item.type | translate }}</p>
+            <p>{{ reasonKey(item) | translate }}</p>
+            @if (mediaCount(item, 'reviewCount'); as count) {
+              <small data-og7="attention-media-review-count">{{
+                'admin.attention.mediaReview.reviewCount' | translate: { count }
+              }}</small>
+            }
+            @if (mediaCount(item, 'authorizationRequiredCount'); as count) {
+              <small data-og7="attention-media-authorization-count">{{
+                'admin.attention.mediaReview.authorizationCount'
+                  | translate: { count }
+              }}</small>
+            }
+            @if (mediaCount(item, 'missingAltCount'); as count) {
+              <small data-og7="attention-media-missing-alt">{{
+                'admin.attention.mediaReview.missingAlt' | translate: { count }
+              }}</small>
+            }
             <small
               >{{
                 item.facts['reference'] ||
@@ -62,6 +78,16 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
                 {{ date('' + receivedAt) }}</small
               >
             }
+            @if (
+              item.type === 'sponsorship_media_review' &&
+                item.facts['changedAt'];
+              as changedAt
+            ) {
+              <small data-og7="attention-media-changed-at"
+                >{{ 'admin.attention.mediaReview.since' | translate }}
+                {{ date('' + changedAt) }}</small
+              >
+            }
           </div>
           <div class="task-actions">
             @if (
@@ -77,7 +103,7 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
                 {{ 'admin.inspector.kinds.stripe' | translate }}
               </button>
             }
-            @if (showLink()) {
+            @if (showLink() || item.type === 'sponsorship_media_review') {
               <a
                 class="admin-button"
                 [routerLink]="destination(item)"
@@ -87,7 +113,7 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
                     : 'admin.attention.open'
                   ) | translate) +
                   ' · ' +
-                  ('admin.attention.types.' + item.type | translate) +
+                  (titleKey(item) | translate) +
                   ' · ' +
                   (item.facts['reference'] ||
                     item.emailQueueId ||
@@ -127,6 +153,31 @@ export class AdminAttentionListComponent {
   readonly returnTo = input('/admin/fundraiser/attention');
   private readonly router = inject(Router);
   private readonly i18n = inject(FundingI18nService);
+  titleKey(item: AdminAttentionItem): string {
+    return item.type === 'sponsorship_media_review'
+      ? item.facts['phase'] === 'waiting'
+        ? 'admin.attention.mediaReview.waitingTitle'
+        : 'admin.attention.mediaReview.reviewTitle'
+      : 'admin.attention.types.' + item.type;
+  }
+  reasonKey(item: AdminAttentionItem): string {
+    return item.type === 'sponsorship_media_review' &&
+      item.facts['phase'] === 'waiting'
+      ? 'admin.attention.mediaReview.waitingReason'
+      : 'admin.attention.reasons.' + item.type;
+  }
+  mediaCount(
+    item: AdminAttentionItem,
+    key: 'reviewCount' | 'authorizationRequiredCount' | 'missingAltCount'
+  ): number {
+    const count = item.facts[key];
+    return item.type === 'sponsorship_media_review' &&
+      typeof count === 'number' &&
+      Number.isSafeInteger(count) &&
+      count > 0
+      ? count
+      : 0;
+  }
   tone(item: AdminAttentionItem): AdminBadgeTone {
     return item.severity === 'urgent'
       ? 'danger'

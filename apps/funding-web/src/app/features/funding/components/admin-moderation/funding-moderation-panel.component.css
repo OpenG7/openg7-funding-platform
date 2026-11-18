@@ -1,16 +1,139 @@
 @reference '../../../../../styles/tailwind.css';
 
-.moderation-fields {
-  @apply tw:grid tw:gap-4;
+openg7-admin-drawer {
+  display: contents;
 }
-label {
-  @apply tw:grid;
-  gap: 0.35rem;
+
+.moderation-fields,
+.moderation-summary {
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+}
+.moderation-fields h3,
+.moderation-fields p {
+  @apply tw:m-0;
+}
+.moderation-section-heading {
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap;
+}
+.moderation-version,
+.moderation-content-type,
+.moderation-policy,
+.moderation-help,
+.moderation-empty {
+  @apply tw:text-admin-muted;
+}
+.moderation-fields .moderation-content-type {
+  margin-block: 0.5rem 1rem;
+}
+.moderation-field {
+  @apply tw:grid tw:gap-2 tw:min-w-0;
+}
+.moderation-preview-fields {
+  @apply tw:grid tw:gap-4 tw:m-0 tw:min-w-0;
+}
+.moderation-preview-field {
+  @apply tw:grid tw:gap-x-4 tw:gap-y-1 tw:min-w-0;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+}
+.moderation-preview-long,
+.moderation-preview-group {
+  grid-template-columns: minmax(0, 1fr);
+}
+.moderation-preview-field > dt {
+  @apply tw:text-admin-muted;
+}
+.moderation-preview-field > dd {
+  @apply tw:m-0 tw:whitespace-pre-wrap tw:wrap-anywhere tw:min-w-0;
+}
+.moderation-preview-text {
+  padding: 1rem;
+  background: var(--admin-panel-raised);
+  border-radius: var(--admin-radius-control);
+}
+.moderation-preview-group > dd {
+  white-space: normal;
+  padding-inline-start: 1rem;
+  border-inline-start: 1px solid var(--admin-border);
+}
+.moderation-raw {
+  margin-block-start: 1.25rem;
+}
+summary {
+  @apply tw:cursor-pointer tw:wrap-anywhere;
+  padding-block: 0.5rem;
+  color: var(--admin-accent);
+}
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }
 pre {
-  @apply tw:whitespace-pre-wrap tw:wrap-anywhere tw:overflow-auto;
-  max-height: 20rem;
+  @apply tw:whitespace-pre-wrap tw:wrap-anywhere tw:m-0;
+  padding: 1rem;
+  background: var(--admin-panel-raised);
+  border-radius: var(--admin-radius-control);
+  font-size: 0.875em;
 }
-footer {
-  @apply tw:flex tw:gap-3 tw:flex-wrap;
+.moderation-context,
+.moderation-summary {
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--admin-border);
+}
+.moderation-context > p {
+  margin-block-start: 0.75rem;
+}
+.moderation-check {
+  @apply tw:grid tw:gap-3 tw:items-start tw:cursor-pointer;
+  grid-template-columns: 1.125rem minmax(0, 1fr);
+  min-height: 2.75rem;
+  padding-block: 0.5rem;
+}
+.moderation-check > input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2em 0 0;
+  accent-color: var(--admin-accent);
+}
+.moderation-check > span {
+  @apply tw:wrap-anywhere;
+}
+.moderation-confirmation {
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--admin-border);
+}
+.moderation-action {
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-2 tw:font-semibold;
+}
+.moderation-level {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.875em;
+}
+.moderation-independent {
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+  padding: 0.75rem 1rem;
+  border-radius: var(--admin-radius-control);
+}
+.moderation-footer {
+  @apply tw:flex tw:gap-3 tw:flex-wrap tw:justify-end;
+  padding: 1rem 1.2rem;
+  background: var(--admin-panel);
+  border-block-start: 1px solid var(--admin-border);
+}
+@media (max-width: 600px) {
+  .moderation-preview-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .moderation-footer {
+    @apply tw:p-4;
+  }
+  .moderation-footer > button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .moderation-preview-group > dd {
+    padding-inline-start: 0.5rem;
+  }
 }

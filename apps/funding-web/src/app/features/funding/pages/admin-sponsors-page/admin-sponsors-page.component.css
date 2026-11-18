@@ -4,6 +4,41 @@
   @apply tw:grid tw:gap-admin-section tw:min-w-0;
 }
 
+.review-refresh-notice {
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-4;
+  padding: 1rem;
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-card);
+}
+.review-refresh-notice > p {
+  @apply tw:m-0 tw:min-w-0;
+  flex: 1 1 18rem;
+}
+
+.dossier-authorization-notice {
+  @apply tw:flex tw:flex-wrap tw:items-start tw:gap-4;
+  padding: 1rem 1.2rem;
+  background: var(--admin-subtle);
+  border-bottom: 1px solid var(--admin-border);
+}
+.dossier-authorization-copy {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+.dossier-authorization-copy h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.dossier-authorization-copy p {
+  margin: 0.4rem 0 0;
+  overflow-wrap: anywhere;
+}
+.dossier-authorization-actions {
+  @apply tw:flex tw:flex-wrap tw:gap-2;
+}
+
 .admin-page-header,
 .sponsors-board {
   @apply tw:w-full;

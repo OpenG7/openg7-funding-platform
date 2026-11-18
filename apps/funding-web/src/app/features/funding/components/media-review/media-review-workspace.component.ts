@@ -19,6 +19,7 @@ import {
 import { Router } from '@angular/router';
 import {
   type SponsorMediaWorkspaceAsset,
+  type SponsorMediaWorkspace,
   type SponsorMediaPreparationObligation,
   type SponsorMediaExportRequest,
   getSponsorMediaActions
@@ -39,6 +40,7 @@ import type {
   ControllerAction,
   ControllerActionRequest
 } from '../../models/context-controller.models.js';
+import { projectMediaApprovalAvailability } from '../../models/admin-media-approval-availability.js';
 
 import {
   MediaReviewWorkspaceController,
@@ -88,6 +90,7 @@ export class MediaReviewWorkspaceComponent {
   readonly headingLevel = input<3 | 4>(3);
   readonly disabled = input(false);
   readonly changed = output<void>();
+  readonly workspaceRead = output<SponsorMediaWorkspace | null>();
   readonly busyChange = output<boolean>();
   readonly inspectRequested = output<void>();
   readonly i18n = inject(FundingI18nService);
@@ -250,6 +253,20 @@ export class MediaReviewWorkspaceComponent {
       ).length
     };
   });
+  readonly approvalAvailability = computed(() =>
+    projectMediaApprovalAvailability(
+      this.c.data()?.contributionId === this.contributionId() &&
+        !this.c.loading() &&
+        !this.c.error()
+        ? this.c.assets()
+        : null
+    )
+  );
+  readonly approvalUnavailable = computed(
+    () =>
+      this.approvalAvailability().pendingCount > 0 &&
+      this.approvalAvailability().eligibleCount === 0
+  );
   readonly hasPendingMediaConsent = computed(() =>
     this.c
       .assets()
@@ -463,6 +480,16 @@ export class MediaReviewWorkspaceComponent {
       });
     });
     effect(() => {
+      const data = this.c.data();
+      const current =
+        data?.contributionId === this.contributionId() &&
+        !this.c.loading() &&
+        !this.c.error()
+          ? data
+          : null;
+      untracked(() => this.workspaceRead.emit(current));
+    });
+    effect(() => {
       const asset = this.c.inspected(),
         id = asset?.id,
         version = asset?.version;
@@ -666,6 +693,23 @@ export class MediaReviewWorkspaceComponent {
     const asset = this.c.filtered()[0];
     if (asset) this.inspect(asset);
   }
+  prepareMissingAlt(): void {
+    if (this.inspectionLocked()) return;
+    const asset = this.c
+      .assets()
+      .find(
+        (item) =>
+          item.reviewStatus === 'pending_review' && !item.altText?.trim()
+      );
+    if (asset) this.inspect(asset);
+  }
+  inspectApprovalRequirements(): void {
+    if (this.inspectionLocked()) return;
+    const asset = this.c
+      .assets()
+      .find((item) => item.reviewStatus === 'pending_review');
+    if (asset) this.inspect(asset);
+  }
   inspectSuggestion(): void {
     const run = this.analysis
       .runs()
@@ -771,7 +815,11 @@ export class MediaReviewWorkspaceComponent {
     }).some((action) => action.id === id && action.enabled);
   }
   private canReviewSingle(asset: SponsorMediaWorkspaceAsset): boolean {
-    return asset.reviewStatus !== 'rejected';
+    return (
+      asset.reviewStatus !== 'rejected' &&
+      asset.usage?.state === 'confirmed' &&
+      asset.readiness.state !== 'blocked'
+    );
   }
   startMediaReview(asset: SponsorMediaWorkspaceAsset): void {
     const current = this.c.inspected();
@@ -784,7 +832,11 @@ export class MediaReviewWorkspaceComponent {
     this.commands.openAcceptedReview(current);
   }
   async openApproveAll(): Promise<void> {
-    if (!this.approveAll.canOpen()) return;
+    if (
+      !this.approveAll.canOpen() ||
+      (this.approvalUnavailable() && !this.approveAll.unresolved())
+    )
+      return;
     this.approveAllOpener = this.document.activeElement as HTMLElement | null;
     await this.approveAll.prepare();
   }

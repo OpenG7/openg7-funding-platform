@@ -155,6 +155,10 @@ export class AdminSponsorshipPublicationComponent {
         )) ||
       null
   );
+  readonly detailRows = computed(() => {
+    const row = this.selected();
+    return row ? [row] : [];
+  });
   readonly deskPath = '/admin/fundraiser/preflight';
   readonly sponsorsPath = '/admin/fundraiser/sponsors';
   readonly automationPath = '/admin/fundraiser/publications/automation';
@@ -292,6 +296,18 @@ export class AdminSponsorshipPublicationComponent {
           timeZone: 'America/Toronto'
         }).format(parsed)
       : '—';
+  }
+
+  observedDate(value: string | null | undefined): string | null {
+    return value && Number.isFinite(Date.parse(value))
+      ? this.date(value)
+      : null;
+  }
+
+  showEvidence(details: HTMLDetailsElement): void {
+    if (!this.selected()) return;
+    details.open = true;
+    details.querySelector<HTMLElement>(':scope > summary')?.focus();
   }
 
   icon(row: PublicationMonitorRow): AdminIconName {

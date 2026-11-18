@@ -1102,6 +1102,7 @@ const attention: AdminWorkQueueResponse = {
   typeCounts: {
     sponsorship_needs_info: 0,
     sponsorship_needs_review: 0,
+    sponsorship_media_review: 0,
     sponsorship_needs_commitment: 0,
     sponsorship_needs_fulfilment: 0,
     sponsorship_refund_followup: 0,

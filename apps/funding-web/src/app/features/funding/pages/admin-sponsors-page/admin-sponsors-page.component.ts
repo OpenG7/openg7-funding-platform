@@ -34,6 +34,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipRecord,
   AdminSponsorshipProgress,
+  SponsorMediaWorkspace,
   SponsorFeedStatus,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
@@ -44,6 +45,7 @@ import type {
   SponsorshipApprovalFeedback
 } from '../../models/admin-sponsor-workflow.ports.js';
 import { AdminSponsorPresentationProjection } from '../../models/admin-sponsor-presentation.projection.js';
+import { projectDossierAuthorizationNotice } from '../../models/admin-dossier-authorization-notice.js';
 import {
   projectSponsorOverview,
   type OverviewDestination
@@ -427,6 +429,37 @@ export class AdminSponsorsPageComponent implements OnInit {
     });
   }
 
+  mediaWorkspaceRead(
+    workspace: SponsorMediaWorkspace | null,
+    contributionId: string
+  ): void {
+    const selected = this.selectedSponsorship();
+    if (
+      this.destroyRef.destroyed ||
+      this.selectedSponsorshipId() !== contributionId ||
+      selected?.id !== contributionId
+    )
+      return;
+    if (workspace === null) {
+      this.mediaWorkflow.sponsorMediaReadState.update((current) => ({
+        ...current,
+        [contributionId]: 'loading'
+      }));
+      return;
+    }
+    const session = this.dossierToolSessionKey();
+    if (
+      !this.admin.hasValidAdminSession() ||
+      this.state() !== 'ready' ||
+      this.publicationTermsSnapshot()?.session !== session ||
+      this.publicationTermsSnapshot()?.dossier.contributionId !==
+        contributionId ||
+      session !== this.dossierToolSessionKey()
+    )
+      return;
+    this.mediaWorkflow.adoptMediaWorkspace(selected, workspace);
+  }
+
   inspectGalleryServices(): void {
     const selected = this.selectedSponsorship();
     const dossier = this.progress();
@@ -488,6 +521,9 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.state() === 'loading' ||
       this.actionState() !== null ||
       this.admin.mediaMutationBusy() ||
+      (this.reviewWorkflow?.refreshRequired()?.id != null &&
+        this.reviewWorkflow.refreshRequired()?.id ===
+          this.selectedSponsorshipId()) ||
       !!this.publicationWorkflow?.pendingWebsiteRefresh(
         this.selectedSponsorshipId() ?? ''
       ) ||
@@ -595,13 +631,18 @@ export class AdminSponsorsPageComponent implements OnInit {
     moderate: (subject, level, initial) =>
       this.moderation.requestDecision(subject, level, initial),
     canManage: () => this.canManage(),
+    currentReviewStatus: (id) =>
+      this.state() === 'ready'
+        ? (this.sponsorships().find((item) => item.id === id)
+            ?.sponsor_review_status ?? null)
+        : null,
     paymentEligibilityMessage: (sponsorship) =>
       this.paymentEligibilityMessage(sponsorship),
     openRejectionPanel: (sponsorship) => this.openRejectionPanel(sponsorship),
     beginApprovalFeedback: (id) =>
       this.listController.beginApprovalFeedback(id),
-    finishApprovalFeedback: (attempt, phase) =>
-      this.listController.finishApprovalFeedback(attempt, phase),
+    finishApprovalFeedback: (attempt, phase, autoHide) =>
+      this.listController.finishApprovalFeedback(attempt, phase, autoHide),
     pulseSelection: (id) => this.listController.pulseSelection(id),
     refundWorkflowStatusLabel: (status) =>
       this.historyProjection.refundWorkflowStatusLabel(status)
@@ -775,6 +816,21 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly selectedSponsorDetailHeader = computed(() => {
     const selected = this.selectedSponsorship();
     return selected ? this.presentationProjection.header(selected) : null;
+  });
+  readonly selectedDossierAuthorizationNotice = computed(() => {
+    const selected = this.selectedSponsorship();
+    if (!selected || this.state() !== 'ready') return null;
+    return projectDossierAuthorizationNotice({
+      contributionId: selected.id,
+      dossier:
+        this.sponsorProgress()?.state() === 'ready' ? this.progress() : null,
+      media:
+        this.mediaWorkflow.sponsorMediaReadState()[selected.id] === 'ready'
+          ? (this.mediaWorkflow.sponsorMedia()[selected.id] ?? null)
+          : null,
+      canManage: this.canManage(),
+      canReview: this.reviewWorkflow.canApproveSponsorship(selected)
+    });
   });
   readonly selectedSponsorOverview = computed(() => {
     const selected = this.selectedSponsorship();
@@ -1213,6 +1269,32 @@ export class AdminSponsorsPageComponent implements OnInit {
   loadSponsorships(preserveDrafts = false): Promise<void> {
     return this.listController.loadSponsorships(preserveDrafts);
   }
+
+  async refreshRecordedReview(trigger: EventTarget | null): Promise<void> {
+    const button = trigger as HTMLElement | null;
+    const document = button?.ownerDocument;
+    const restoreFocus = document?.activeElement === button;
+    const revision = this.listController.selectionRevision();
+    const id = this.selectedSponsorshipId();
+    await this.loadSponsorships(true);
+    if (!restoreFocus || !document) return;
+    afterNextRender(
+      () => {
+        if (
+          this.destroyRef.destroyed ||
+          revision !== this.listController.selectionRevision() ||
+          id !== this.selectedSponsorshipId() ||
+          (document.activeElement !== document.body &&
+            document.activeElement !== button)
+        )
+          return;
+        if (!this.reviewWorkflow.refreshRequired() && this.state() === 'ready')
+          this.sponsorDetailPanel?.nativeElement.focus({ preventScroll: true });
+        else if (button?.isConnected) button.focus({ preventScroll: true });
+      },
+      { injector: this.injector }
+    );
+  }
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
     if (!this.reviewWorkflow.openRejectionPanel(sponsorship)) return;
     this.setActiveTab('publication');
@@ -1396,6 +1478,8 @@ export class AdminSponsorsPageComponent implements OnInit {
     sponsorship: AdminSponsorshipRecord
   ): string {
     if (!this.canManage()) return '';
+    if (this.reviewWorkflow.refreshRequired()?.id === sponsorship.id)
+      return this.i18n.t('admin.messages.review_recorded_refresh_required');
     if (this.state() === 'loading')
       return this.i18n.t('admin.publicationDecision.unavailable.loading');
     if (this.versionConflict())
@@ -1460,6 +1544,11 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
 
   private messageFromError(error: unknown, fallback: string): string {
+    if (
+      error instanceof AdminDashboardRequestError &&
+      error.code === 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED'
+    )
+      return this.i18n.t('admin.messages.sponsorship_service_update_required');
     if (error instanceof AdminDashboardRequestError && error.status === 409) {
       this.versionConflict.set(true);
       return this.i18n.t('admin.dossier.conflict');

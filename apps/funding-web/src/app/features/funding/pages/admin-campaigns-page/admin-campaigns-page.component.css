@@ -272,8 +272,9 @@ small {
 }
 .next-step {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
+  justify-items: start;
   gap: 0.75rem 1.25rem;
   margin: 1.25rem 1.25rem 0;
   padding: 1rem 1.25rem;
@@ -283,10 +284,15 @@ small {
 .next-step p {
   margin-top: 0.35rem;
 }
+.next-step .eyebrow {
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
 .next-step .muted {
   font-size: var(--admin-caption-size);
 }
-.next-step > a {
+.next-step > a,
+.next-step > button {
   max-width: 100%;
   white-space: normal;
 }
@@ -340,33 +346,70 @@ small {
   outline: 3px solid var(--admin-focus);
   outline-offset: 4px;
 }
-.detail-columns {
+.detail-facts {
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  padding: 1.25rem;
+}
+.detail-notice,
+.proof-summary {
+  margin: 1.25rem;
+}
+.detail-notice.warning,
+.proof-observation.warning {
+  color: var(--admin-warning);
+}
+.proof-delivered {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+}
+.proof-delivered > openg7-admin-icon {
+  align-self: center;
+  color: var(--admin-success);
+}
+.proof-observation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  align-items: start;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+}
+.observation-date {
+  font-size: var(--admin-caption-size);
+}
+.detail-disclosures {
+  padding-inline: 1.25rem;
+}
+.detail-disclosure {
+  border-top: 1px solid var(--admin-border);
+  min-width: 0;
+}
+.detail-disclosure > summary {
+  padding: 1rem 0.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.detail-disclosure > summary:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: -2px;
+}
+.disclosure-state {
+  margin-inline-start: 0.65rem;
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+  font-weight: 400;
 }
 .preparation-panel,
-.content-panel {
+.content-panel,
+.proof-panel {
   display: grid;
   gap: 1rem;
   min-width: 0;
-  padding: 1.25rem;
+  padding: 0 0.25rem 1.25rem;
 }
-.preparation-panel {
-  border-right: 1px solid var(--admin-border);
+.preparation-scope {
+  font-weight: 600;
 }
-.content-panel > h3,
-.preparation-panel > h3 {
-  color: var(--admin-accent);
-}
-.preview-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-}
-.preview-heading span,
 .preview-scope {
   color: var(--admin-muted);
   font-size: var(--admin-caption-size);
@@ -399,18 +442,9 @@ small {
   padding-block: 1.5rem;
 }
 .proof-panel {
-  display: grid;
-  min-width: 0;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--admin-border);
   overflow-wrap: anywhere;
-}
-.proof-panel h4 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 .proof-facts > div,
 .proof-observation {
@@ -424,15 +458,14 @@ small {
   color: var(--admin-muted);
   font-weight: 400;
 }
-.proof-observation {
-  display: grid;
-  gap: 0.6rem;
-  padding-block-start: 1rem;
-  border-top: 1px solid var(--admin-border);
+.detail-footer {
+  padding: 0 1.5rem 1.25rem;
 }
-.proof-observation h5 {
-  margin: 0;
-  font-size: inherit;
+.detail-footer a {
+  display: inline-block;
+  padding-block: 0.5rem;
+  overflow-wrap: anywhere;
+  text-underline-offset: 0.2em;
 }
 .selection-hint {
   display: flex;
@@ -469,13 +502,6 @@ small {
     display: block;
     margin-bottom: 0.25rem;
   }
-  .detail-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .preparation-panel {
-    border-right: 0;
-    border-bottom: 1px solid var(--admin-border);
-  }
 }
 @media (max-width: 640px) {
   .filters,
@@ -498,16 +524,9 @@ small {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-@container services (max-width: 64rem) {
-  .detail-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .preparation-panel {
-    border-right: 0;
-    border-bottom: 1px solid var(--admin-border);
-  }
-  .next-step {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: start;
+@media (pointer: coarse) {
+  .detail-disclosure > summary,
+  .detail-footer a {
+    min-height: 44px;
   }
 }

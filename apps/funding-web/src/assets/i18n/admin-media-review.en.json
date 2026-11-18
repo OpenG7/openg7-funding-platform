@@ -403,6 +403,15 @@
         "intro": "One link lets the sponsor review and consent to the photos in this dossier awaiting authorization.",
         "noAgreement": "Review the message and its recipient before confirming delivery. The request grants no rights and approves no photo."
       },
+      "approvalAvailability": {
+        "waitingTitle": "Waiting for the sponsor",
+        "waitingHelp": "Media approval is waiting for the sponsor’s consent. This pending authorization remains visible in the dossier until it is recorded.",
+        "blockedTitle": "Checks required before approval",
+        "blockedHelp": "No media is currently eligible for bulk approval. Inspect the files to see what needs attention.",
+        "missingAlt": "{{count}} alternative text description(s) to prepare before approval.",
+        "prepareAlt": "Prepare descriptions",
+        "inspect": "View required checks"
+      },
       "approveAll": {
         "open": "Approve all",
         "help": "Approves eligible media. The others remain pending.",
@@ -454,6 +463,7 @@
         },
         "errors": {
           "prepareFailed": "The dossier could not be checked. Refresh before trying again.",
+          "serviceOutdated": "Bulk media approval is not available on this server. The service needs to be updated before trying again.",
           "executeFailed": "The confirmation could not be prepared. Nothing was submitted.",
           "uncertain": "The response was not confirmed. Check the receipt without starting a new approval.",
           "receiptNotFound": "No receipt is available for this request. The lock is retained; check again.",

@@ -472,6 +472,93 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
     });
   }
 
+for (const language of ['fr-CA', 'en'] as const)
+  for (const phase of ['review', 'waiting'] as const)
+    test(`Assistant preserves the ${phase} media filter and dossier destination in ${language}`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page);
+      const media: AdminAttentionItem = {
+        ...sponsorship,
+        id: 'sponsorship_media_review:' + sponsorshipId,
+        type: 'sponsorship_media_review',
+        severity: phase === 'review' ? 'today' : 'informational',
+        adminUrl:
+          '/admin/fundraiser/sponsors?sponsorshipId=' +
+          sponsorshipId +
+          '&tab=media',
+        facts: {
+          reference: 'DEMO-301',
+          phase,
+          reviewCount: phase === 'review' ? 1 : 0,
+          authorizationRequiredCount: phase === 'waiting' ? 1 : 0,
+          missingAltCount: phase === 'review' ? 1 : 0,
+          changedAt: at,
+          daysWaiting: 0,
+          tab: 'media'
+        },
+        suggestedActions: []
+      };
+      const reads: URL[] = [];
+      await page.route('**/api/admin/attention?**', async (route) => {
+        const url = new URL(route.request().url());
+        reads.push(url);
+        await route.fulfill({
+          json: {
+            ...response(url, [media]),
+            typeCounts: { sponsorship_media_review: 1 },
+            overview: {
+              recommendations: phase === 'review' ? [media] : [],
+              emailGroups: []
+            }
+          }
+        });
+      });
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.goto(base + '?type=sponsorship_media_review');
+      const category = page.locator(
+        '[data-og7="assistant-categories"] [data-og7-id="sponsorship_media_review"]'
+      );
+      await expect(category).toHaveAttribute('aria-pressed', 'true');
+      await expect(category).toContainText(
+        language === 'fr-CA' ? 'Revue des médias' : 'Media review'
+      );
+      expect(reads[0]?.searchParams.get('type')).toBe(
+        'sponsorship_media_review'
+      );
+      const queue = page.locator('[data-og7="assistant-items"]');
+      await expect(queue.locator(':scope > li')).toHaveCount(1);
+      await queue.getByRole('button').click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).not.toContainText('admin.attention.');
+      if (phase === 'waiting') {
+        await expect(dialog).toContainText(
+          language === 'fr-CA'
+            ? 'L’autorisation d’utilisation de ces médias est attendue.'
+            : 'Permission to use these media is pending.'
+        );
+        await expect(dialog).not.toContainText(
+          language === 'fr-CA'
+            ? 'Des médias autorisés attendent une revue humaine'
+            : 'Authorized media in this dossier need human review'
+        );
+      }
+      const destination = new URL(
+        (await dialog.getByRole('link').first().getAttribute('href')) ?? '',
+        page.url()
+      );
+      expect(destination.pathname).toBe('/admin/fundraiser/sponsors');
+      expect(destination.searchParams.get('sponsorshipId')).toBe(sponsorshipId);
+      expect(destination.searchParams.get('tab')).toBe('media');
+      expect(destination.searchParams.get('returnTo')).toContain(
+        'type=sponsorship_media_review'
+      );
+      expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+    });
+
 test('Assistant categories and queue actions fit their available space', async ({
   page
 }) => {

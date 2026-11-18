@@ -74,6 +74,21 @@ h5 {
   gap: 0.9rem;
   min-width: 0;
 }
+.approval-availability {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: 0.75rem;
+  background: var(--admin-warning-bg);
+}
+.approval-availability p {
+  margin-block: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.approval-availability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
 .approve-all-candidates {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));

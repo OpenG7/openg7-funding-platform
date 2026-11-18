@@ -420,7 +420,8 @@ export class AdminSponsorListController {
   }
   finishApprovalFeedback(
     attempt: SponsorshipApprovalFeedback,
-    phase: 'success' | 'error'
+    phase: 'success' | 'error',
+    autoHide = true
   ): void {
     if (
       this.disposed ||
@@ -429,10 +430,11 @@ export class AdminSponsorListController {
     )
       return;
     this.approvalFeedback.set({ ...attempt, phase });
-    this.approvalFeedbackTimer = setTimeout(
-      () => this.clearApprovalFeedback(),
-      3000
-    );
+    if (autoHide)
+      this.approvalFeedbackTimer = setTimeout(
+        () => this.clearApprovalFeedback(),
+        3000
+      );
   }
   clearApprovalFeedback(): void {
     if (this.approvalFeedbackTimer) clearTimeout(this.approvalFeedbackTimer);

@@ -535,10 +535,111 @@ p {
 }
 .service-details {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
+  min-width: 0;
 }
 .service-details h3 {
   font-size: 1.15rem;
+}
+.detail-identity,
+.detail-next,
+.detail-section {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.detail-context,
+.detail-disclosure-state {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
+.detail-next {
+  padding: 1rem;
+  background: var(--admin-subtle);
+  border-radius: var(--admin-radius-control);
+  justify-items: start;
+}
+.detail-eyebrow {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+  font-weight: 600;
+}
+.detail-next h4 {
+  font-size: 1rem;
+}
+.service-details .admin-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.detail-facts {
+  margin: 0;
+}
+.detail-facts:empty {
+  display: none;
+}
+.detail-proof-summary {
+  display: grid;
+  gap: 0.5rem;
+}
+.detail-proof-summary > p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.detail-proof-summary > p > openg7-admin-icon {
+  align-self: center;
+  color: var(--admin-success);
+}
+.detail-observation {
+  margin-top: 0.25rem;
+  font-size: var(--admin-caption-size);
+}
+.detail-disclosure {
+  min-width: 0;
+  border-top: 1px solid var(--admin-border);
+}
+.detail-disclosure > summary {
+  padding: 1rem 0.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.detail-disclosure > summary:focus-visible {
+  outline-offset: -2px;
+}
+.detail-disclosure-state {
+  margin-inline-start: 0.5rem;
+  font-weight: 400;
+}
+.detail-section {
+  padding: 0 0.25rem 1rem;
+}
+.detail-content {
+  display: grid;
+  gap: 0.5rem;
+}
+.detail-content h4 {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
+.detail-content p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.detail-content + .detail-content {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--admin-border);
+}
+.detail-media {
+  width: 100%;
+  height: auto;
+  max-height: 14rem;
+  object-fit: contain;
+}
+.detail-accesses {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: start;
 }
 .service-details dl > div {
   display: grid;
@@ -552,6 +653,11 @@ p {
 }
 .service-details dt {
   font-weight: 650;
+}
+@media (pointer: coarse) {
+  .detail-disclosure > summary {
+    min-height: 44px;
+  }
 }
 .detail-warning {
   color: var(--admin-warning);

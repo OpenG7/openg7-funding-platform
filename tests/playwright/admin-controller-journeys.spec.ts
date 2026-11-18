@@ -5,7 +5,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
-import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
+import {
+  openPublicationServiceDetailSection,
+  openSponsorshipWebsiteSettings
+} from './support/sponsorship-dossier.js';
 import {
   adminController,
   type AdminController
@@ -486,6 +489,7 @@ test('Xbox historical qualification and an explicit waiver preserve accepted ter
   await pad.activate(
     service.locator('[data-og7="publication-service-details"]')
   );
+  await openPublicationServiceDetailSection(page, 'preparation', pad);
   await pad.activate(hook(page, 'publication-service-adjust'));
   await pad.select(
     panel.locator('[data-og7="commitments-adjust-kind"]'),

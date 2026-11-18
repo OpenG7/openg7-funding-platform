@@ -40,12 +40,15 @@ export interface AdminSponsorReviewPorts extends AdminSponsorSelectionPorts {
   admin: Pick<FundingAdminService, 'reviewSponsorship'>;
   confirm(message: string, detail?: string): Promise<boolean>;
   canManage(): boolean;
+  /** Last successfully reloaded server status; null while unavailable. */
+  currentReviewStatus(id: string): SponsorshipReviewStatus | null;
   paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string;
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void;
   beginApprovalFeedback(id: string | null): SponsorshipApprovalFeedback | null;
   finishApprovalFeedback(
     attempt: SponsorshipApprovalFeedback,
-    phase: 'success' | 'error'
+    phase: 'success' | 'error',
+    autoHide?: boolean
   ): void;
   pulseSelection(id: string): void;
   refundWorkflowStatusLabel(

@@ -581,6 +581,126 @@ test('an obsolete refresh cannot overwrite a newer read state for the same dossi
   }
 });
 
+test('a current workspace supersedes an older legacy read without restoring missing consent or errors', async (t) => {
+  for (const outcome of ['success', 'failure']) {
+    await t.test(outcome, async (t) => {
+      const f = fixture(t);
+      const older = deferred();
+      const pendingAsset = {
+        ...mediaAsset('asset'),
+        usage: { state: 'needs_confirmation' }
+      };
+      const current = [
+        {
+          ...pendingAsset,
+          version: 'asset-v3',
+          usage: { state: 'confirmed' }
+        }
+      ];
+      f.ports.admin.getSponsorMedia = () => older.promise;
+      const pending = f.workflow.loadSponsorMedia(f.selected.id);
+      assert.equal(
+        f.workflow.sponsorMediaReadState()[f.selected.id],
+        'loading'
+      );
+      assert.equal(
+        f.workflow.adoptMediaWorkspace(f.selected, {
+          contributionId: f.selected.id,
+          assets: current
+        }),
+        true
+      );
+      assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+      assert.equal(f.workflow.sponsorMedia()[f.selected.id], current);
+      if (outcome === 'success') older.resolve({ assets: [pendingAsset] });
+      else older.reject(new Error('obsolete legacy read failure'));
+      await pending;
+      assert.equal(f.workflow.sponsorMedia()[f.selected.id], current);
+      assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+      assert.deepEqual(f.workflow.sponsorMediaPreviewUrls(), {});
+      assert.deepEqual(f.calls, []);
+      assert.deepEqual(f.created, []);
+    });
+  }
+});
+
+test('workspace adoption rejects disposed, unauthorized, changed selections and obsolete dossier versions', async (t) => {
+  for (const guard of ['disposed', 'permission', 'selection', 'version']) {
+    await t.test(guard, async (t) => {
+      const f = fixture(t);
+      const assets = [mediaAsset('current')];
+      f.workflow.sponsorMedia.set({ [f.selected.id]: assets });
+      f.workflow.sponsorMediaReadState.set({ [f.selected.id]: 'ready' });
+      if (guard === 'disposed') f.workflow.dispose();
+      if (guard === 'permission') f.state.allowed = false;
+      if (guard === 'selection') f.state.selected = sponsorship('another');
+      if (guard === 'version')
+        f.state.selected = sponsorship(f.selected.id, 'new-version');
+      const before = f.workflow.sponsorMediaReadState();
+      assert.equal(
+        f.workflow.adoptMediaWorkspace(f.selected, {
+          contributionId: f.selected.id,
+          assets: [mediaAsset('obsolete')]
+        }),
+        false
+      );
+      assert.equal(f.workflow.sponsorMedia()[f.selected.id], assets);
+      assert.equal(f.workflow.sponsorMediaReadState(), before);
+      assert.deepEqual(f.calls, []);
+    });
+  }
+});
+
+test('workspace adoption rejects another dossier, duplicate media and missing media versions', async (t) => {
+  for (const invalid of ['dossier', 'media-dossier', 'duplicate', 'version']) {
+    await t.test(invalid, async (t) => {
+      const f = fixture(t);
+      const cached = [mediaAsset('cached')];
+      const asset = mediaAsset('candidate');
+      const workspace = { contributionId: f.selected.id, assets: [asset] };
+      if (invalid === 'dossier') workspace.contributionId = 'another';
+      if (invalid === 'media-dossier') asset.contributionId = 'another';
+      if (invalid === 'duplicate') workspace.assets.push({ ...asset });
+      if (invalid === 'version') asset.version = ' ';
+      f.workflow.sponsorMedia.set({ [f.selected.id]: cached });
+      assert.equal(
+        f.workflow.adoptMediaWorkspace(f.selected, workspace),
+        false
+      );
+      assert.equal(f.workflow.sponsorMedia()[f.selected.id], cached);
+      assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'error');
+      assert.deepEqual(f.calls, []);
+    });
+  }
+});
+
+test('workspace adoption releases old previews and invalidates unfinished preview responses', async (t) => {
+  const f = fixture(t);
+  const preview = deferred();
+  const legacy = [mediaAsset('first'), mediaAsset('pending')];
+  f.ports.admin.getSponsorMedia = async () => ({ assets: legacy });
+  f.ports.admin.getSponsorMediaPreview = (_token, id) =>
+    id === 'pending' ? preview.promise : Promise.resolve(new Blob(['first']));
+  const pending = f.workflow.loadSponsorMedia(f.selected.id);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.created.length, 1);
+  const current = [mediaAsset('current')];
+  assert.equal(
+    f.workflow.adoptMediaWorkspace(f.selected, {
+      contributionId: f.selected.id,
+      assets: current
+    }),
+    true
+  );
+  preview.resolve(new Blob(['obsolete']));
+  await pending;
+  assert.equal(f.workflow.sponsorMedia()[f.selected.id], current);
+  assert.equal(f.workflow.sponsorMediaReadState()[f.selected.id], 'ready');
+  assert.deepEqual(f.workflow.sponsorMediaPreviewUrls(), {});
+  assert.equal(f.created.length, 1);
+  assert.deepEqual(f.revoked, ['blob:synthetic-1']);
+});
+
 test('SSR and absent browser URL APIs skip private previews without blocking metadata', async (t) => {
   for (const mode of ['ssr', 'missing-url-api', 'missing-url-global']) {
     await t.test(mode, async (t) => {

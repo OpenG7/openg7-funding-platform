@@ -105,6 +105,27 @@ distinctes de la revue administrative et de la publication. Le paramètre de sec
 ne réduit ni n’élargit les droits du lien privé existant. Les fichiers ajoutés
 après la demande ne sont pas couverts par le snapshot de cette demande.
 
+Lorsque leurs droits sont confirmés, les médias non supprimés qui attendent encore
+une revue rejoignent **À traiter** sous `sponsorship_media_review`, avec un
+élément stable par dossier. Le dossier doit être payé, sans remboursement demandé
+et non refusé. Une description manquante reste signalée : la présence dans cette
+file invite à examiner les fichiers, sans les rendre prêts à approuver.
+
+Si aucun de ces médias n’a de droits confirmés mais qu’un accord reste à
+confirmer, le dossier apparaît comme une attente informative d’autorisation.
+Cette attente ne prouve pas qu’une demande a été envoyée; les droits retirés
+n’y sont pas assimilés à un accord attendu. La réception d’un accord, même
+plusieurs jours après la demande, remet le dossier à traiter pour la revue humaine
+dans l’onglet Médias.
+
+Le suivi est recalculé à partir des faits persistés, sans nouveau registre de
+tâches ni traitement planifié. La tâche disparaît lorsque plus aucun média ne
+remplit ses critères. L’administration ouverte relit la file et ses compteurs;
+une application fermée retrouve les faits à sa prochaine ouverture. Ces lectures
+ne déclenchent ni approbation, ni sélection Web, ni publication ou courriel.
+Le fonctionnement de la file et de son actualisation est décrit dans
+l’[aperçu administratif](../admin-assistant-overview.md#retour-des-medias-a-revoir).
+
 La migration additive
 [`070_sponsor_media_terms_acceptance.sql`](../../apps/funding-api/migrations/070_sponsor_media_terms_acceptance.sql)
 ajoute le registre et son raccordement aux historiques. Appliquer la migration et
@@ -221,6 +242,35 @@ consommer une page, un filtre ou la sélection du navigateur, et sans troncature
 au plafond de 100 de l’ancien lot. Il fige un plan `kind: approve_all`, ses
 versions et les catégories `eligible`, `blocked`, `already_approved` et
 `not_processable`, avec nombres et raisons vérifiés.
+
+Avant l’ouverture du plan, un inventaire complet et fraîchement chargé permet
+d’annoncer les approbations qui attendent une autorisation. Si aucun média à
+revoir ne peut être présenté à l’approbation, le résumé affiche les prérequis
+restants et remplace l’invitation **Tout approuver** par les actions utiles,
+notamment la demande de consentement. Une attente de consentement n’atteste
+jamais qu’une demande a déjà été envoyée. Les médias encore admissibles d’un
+inventaire mixte conservent leur parcours d’approbation.
+
+Les descriptions absentes restent indiquées et peuvent être préparées pendant
+l’attente du consentement ; leur nombre vient du texte alternatif enregistré,
+car un blocage de droits peut masquer ce motif dans `readiness.reasons`.
+La saisie dans l’inspecteur reste un brouillon local tant qu’elle n’a pas été
+validée par son parcours existant ; **Tout approuver** continue de vérifier les
+descriptions enregistrées côté serveur.
+L’attente de publication de la fiche et celle des droits média restent
+distinctes de la revue administrative de la fiche. Le dossier n’en déduit pas
+qu’aucune intervention administrative n’est possible. Un chargement en cours,
+une erreur ou un contrat incomplet ne vaut pas un inventaire sans média
+admissible. Tout reçu d’approbation à vérifier reste accessible, même si aucun
+média courant ne peut plus être approuvé. Le plan serveur demeure l’autorité sur
+l’admissibilité finale et les octets effectivement disponibles.
+
+L’API doit proposer ces routes à jour. Pendant la préparation du plan, un HTTP
+404 sans code ou un HTTP 405 sans code ou avec `METHOD_NOT_ALLOWED` affiche
+une demande de mise à jour du service. Actualiser la page n’ajoute pas les routes
+manquantes au serveur. Les refus de droits 403, les conflits de révision 409 et
+les 404 métier restent distincts. Cet échec de préparation ne déclenche ni
+exécution ni reprise d’une approbation.
 
 Le résumé montre les aperçus réellement chargés des admissibles, leur texte
 alternatif existant et leurs restrictions intégrales. L’agrandissement reste

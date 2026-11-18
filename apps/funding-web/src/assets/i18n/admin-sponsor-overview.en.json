@@ -1,5 +1,15 @@
 {
   "statistics": "Dossier statistics",
+  "authorization": {
+    "title": "Authorizations awaited",
+    "publicConsent": "Public profile: the sponsor’s consent is required before it can be displayed.",
+    "mediaConsent": "{{count}} media item(s) await usage permission before approval.",
+    "missingAlt": "You can still prepare {{count}} alternative text description(s).",
+    "reviewAvailable": "The profile’s administrative review remains available, separately from the authorizations awaited.",
+    "openIdentity": "View profile consent",
+    "openMedia": "View media awaiting permission",
+    "openReview": "Review profile"
+  },
   "actions": { "identity_missing": "Complete the sponsor’s contact details" },
   "stats": {
     "steps": "Resolved steps",

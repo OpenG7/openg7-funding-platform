@@ -587,6 +587,14 @@ export class MediaReviewApproveAll {
     )
       this.error.set('forbidden');
     else if (
+      fallback === 'prepareFailed' &&
+      error instanceof AdminDashboardRequestError &&
+      ((error.status === 404 && !error.code) ||
+        (error.status === 405 &&
+          (!error.code || error.code === 'METHOD_NOT_ALLOWED')))
+    )
+      this.error.set('serviceOutdated');
+    else if (
       error instanceof AdminDashboardRequestError &&
       error.status === 409 &&
       !this.unresolved()

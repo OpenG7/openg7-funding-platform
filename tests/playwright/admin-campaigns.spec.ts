@@ -18,6 +18,14 @@ const obligationId = (ordinal: number) =>
   `10000000-0000-4000-8000-${String(5000 + ordinal).padStart(12, '0')}`;
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 
+async function openDetailDisclosure(page: Page, name: string): Promise<void> {
+  const disclosure = hook(page, name);
+  if (!(await disclosure.evaluate((element) => element.hasAttribute('open')))) {
+    await disclosure.locator(':scope > summary').click();
+  }
+  await expect(disclosure).toHaveJSProperty('open', true);
+}
+
 async function openAdvancedFilters(page: Page): Promise<void> {
   const filters = hook(page, 'campaigns-advanced-filters');
   if (!(await filters.evaluate((element) => element.hasAttribute('open')))) {
@@ -395,8 +403,12 @@ test('campaigns show approved preparation first and upcoming promises without se
   await delivered.focus();
   await page.keyboard.press('Enter');
   await expect(delivered).toHaveAttribute('aria-pressed', 'true');
-  await expect(hook(page, 'campaign-preparation')).toBeVisible();
+  await expect(hook(page, 'campaign-preparation-details')).toHaveJSProperty(
+    'open',
+    false
+  );
   await expect(hook(page, 'campaign-detail')).toContainText('Atelier livré');
+  await openDetailDisclosure(page, 'campaign-proof-details');
   await expect(
     hook(page, 'campaign-detail').getByRole('link', {
       name: /Consulter la publication livrée/
@@ -412,11 +424,12 @@ test('campaigns show approved preparation first and upcoming promises without se
     `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication&obligationId=delivered-facebook&deliveryId=synthetic-delivery`
   );
   await expect.poll(() => fixture.preparations).toContain(deliveredId);
+  await openDetailDisclosure(page, 'campaign-preparation-details');
   const agreement = hook(page, 'campaign-preparation').locator(
     '[data-og7="preparation-receipt-details"]'
   );
   await expect(agreement).toHaveJSProperty('open', false);
-  await agreement.locator('summary').click();
+  await agreement.locator(':scope > summary').click();
   await expect(agreement).toHaveJSProperty('open', true);
   await expect(agreement).toContainText('synthetic-preparation-v3');
   await expect(agreement).toContainText('Version complète');
@@ -534,6 +547,21 @@ for (const language of ['fr-CA', 'en'] as const) {
         )
       ).toHaveCount(0);
       await deliveredRow.click();
+      await expect(hook(page, 'campaign-proof-summary')).toBeVisible();
+      const readProof = hook(page, 'campaign-read-proof');
+      const secondaryColor = await hook(page, 'campaign-return-list').evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      await expect(readProof).toHaveCSS('background-color', secondaryColor);
+      await readProof.focus();
+      await page.keyboard.press('Enter');
+      await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+        'open',
+        true
+      );
+      await expect(
+        hook(page, 'campaign-proof-details').locator(':scope > summary')
+      ).toBeFocused();
       await expect(hook(page, 'campaign-proof-reference')).toHaveText(
         delivered.proof!.id
       );
@@ -543,6 +571,17 @@ for (const language of ['fr-CA', 'en'] as const) {
       await waivedRow.focus();
       await page.keyboard.press('Enter');
       await expect(waivedRow).toHaveAttribute('aria-pressed', 'true');
+      await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+        'open',
+        false
+      );
+      await expect(hook(page, 'campaign-proof-summary')).toHaveCount(0);
+      await expect(readProof).toHaveCSS('background-color', secondaryColor);
+      await readProof.focus();
+      await page.keyboard.press('Enter');
+      await expect(
+        hook(page, 'campaign-proof-details').locator(':scope > summary')
+      ).toBeFocused();
       await expect(hook(page, 'campaign-proof')).toContainText(
         language === 'en'
           ? 'A waiver was recorded for this promised service. It does not constitute delivery.'
@@ -552,23 +591,16 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(hook(page, 'campaign-proof').getByRole('link')).toHaveCount(
         0
       );
-      await expect(
-        hook(page, 'campaign-detail').getByRole('link', {
-          name:
-            language === 'en'
-              ? 'Open the publication dossier'
-              : 'Ouvrir le dossier de publication',
-          exact: true
-        })
-      ).toHaveAttribute(
+      await expect(hook(page, 'campaign-open-owner')).toHaveAttribute(
         'href',
         `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication&obligationId=${waived.id}`
       );
       await expect.poll(() => fixture.preparations).toContain(deliveredId);
+      await openDetailDisclosure(page, 'campaign-preparation-details');
       const preparationDetails = hook(page, 'campaign-preparation').locator(
         '[data-og7="preparation-receipt-details"]'
       );
-      await preparationDetails.locator('summary').click();
+      await preparationDetails.locator(':scope > summary').click();
       await expect(preparationDetails).toContainText(
         currentPreparation.version
       );
@@ -679,6 +711,21 @@ for (const language of ['fr-CA', 'en'] as const) {
         await expect(row).toHaveAttribute('aria-pressed', 'true');
       };
       await select('delivered-facebook');
+      await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+        'open',
+        false
+      );
+      await expect(hook(page, 'campaign-proof-reference')).toBeHidden();
+      await expect(hook(page, 'campaign-proof-delivered-at')).toBeVisible();
+      await expect(hook(page, 'campaign-proof-visibility')).toBeVisible();
+      await expect(hook(page, 'campaign-proof-observed-at')).toBeVisible();
+      await hook(page, 'campaign-detail').screenshot({
+        path: testInfo.outputPath(
+          `campaign-evidence-compact-${language}-${viewport.width}.png`
+        ),
+        animations: 'disabled'
+      });
+      await openDetailDisclosure(page, 'campaign-proof-details');
       const proof = hook(page, 'campaign-proof');
       await expect(hook(page, 'campaign-proof-reference')).toHaveText(
         historicalProof.id
@@ -738,6 +785,13 @@ for (const language of ['fr-CA', 'en'] as const) {
         .toBe(true);
 
       await select('observed-unknown');
+      await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+        'open',
+        false
+      );
+      await expect(hook(page, 'campaign-proof-visibility')).toBeVisible();
+      await expect(hook(page, 'campaign-proof-observed-at')).toBeVisible();
+      await openDetailDisclosure(page, 'campaign-proof-details');
       await expect(hook(page, 'campaign-proof-visibility')).toHaveText(
         language === 'en'
           ? 'Current visibility needs verification'
@@ -750,6 +804,13 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(hook(page, 'campaign-proof-no-observation')).toHaveCount(0);
 
       await select('delivered-website');
+      await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+        'open',
+        false
+      );
+      await expect(hook(page, 'campaign-proof-delivered-at')).toBeVisible();
+      await expect(hook(page, 'campaign-proof-no-observation')).toBeVisible();
+      await openDetailDisclosure(page, 'campaign-proof-details');
       await expect(hook(page, 'campaign-proof-source')).toHaveText(
         language === 'en'
           ? 'Website fulfilment attested'
@@ -774,6 +835,8 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(proof.getByRole('link')).toHaveCount(0);
 
       await select('declared-only');
+      await openDetailDisclosure(page, 'campaign-content-details');
+      await openDetailDisclosure(page, 'campaign-proof-details');
       await expect(hook(page, 'campaign-content')).toContainText(declaredUrl);
       await expect(proof).toContainText(
         language === 'en'
@@ -873,10 +936,11 @@ test('a campaign deep link selects its exact twenty-sixth obligation before pagi
     page: '1'
   });
   await expect.poll(() => fixture.preparations).toContain(futureId);
+  await openDetailDisclosure(page, 'campaign-preparation-details');
   const agreement = hook(page, 'campaign-preparation').locator(
     '[data-og7="preparation-receipt-details"]'
   );
-  await agreement.locator('summary').focus();
+  await agreement.locator(':scope > summary').focus();
   await page.keyboard.press('Enter');
   await expect(agreement).toHaveJSProperty('open', true);
   await expect(agreement).toContainText('synthetic-preparation-v2');
@@ -1135,6 +1199,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       '[data-og7="campaign-row"][data-og7-id="upcoming-website"]'
     );
     await selected.click();
+    await openDetailDisclosure(page, 'campaign-preparation-details');
     const approve = hook(page, 'campaign-preparation').locator(
       '[data-og7="preparation-receipt-approve"]'
     );
@@ -1266,7 +1331,50 @@ for (const { language, width, title } of [
     );
     await hook(page, 'campaign-row').first().focus();
     await page.keyboard.press('Enter');
-    await expect(hook(page, 'campaign-detail')).toContainText('Projet local');
+    await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
+    const disclosures = [
+      'campaign-content-details',
+      'campaign-preparation-details',
+      'campaign-proof-details'
+    ];
+    for (const name of disclosures) {
+      await expect(hook(page, name)).toHaveJSProperty('open', false);
+      await expect(hook(page, name).locator(':scope > summary')).toBeVisible();
+    }
+    await expect(hook(page, 'campaign-content-preview')).toBeHidden();
+    await expect(hook(page, 'campaign-preparation')).toBeHidden();
+    await expect(hook(page, 'campaign-proof')).toBeHidden();
+    await expect(
+      hook(page, 'campaign-detail').getByText(
+        language === 'en'
+          ? 'Collective text recognition'
+          : 'Reconnaissance collective en texte',
+        { exact: true }
+      )
+    ).toBeVisible();
+    await expect(
+      hook(page, 'campaign-detail').getByText(
+        language === 'en' ? 'Due date' : 'Échéance',
+        { exact: true }
+      )
+    ).toBeVisible();
+    await expect.poll(() => fixture.preparations).toContain(approvedId);
+    await page.screenshot({
+      path: test
+        .info()
+        .outputPath(`campaigns-compact-${language}-${width}.png`),
+      fullPage: true
+    });
+    for (const name of disclosures) {
+      const summary = hook(page, name).locator(':scope > summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(hook(page, name)).toHaveJSProperty('open', true);
+      await expect(summary).toBeFocused();
+    }
+    await expect(hook(page, 'campaign-content-preview')).toContainText(
+      'Contenu synthétique à autoriser.'
+    );
     await expect(
       hook(page, 'campaign-preparation').locator(
         '[data-og7="preparation-receipt"]'
@@ -1276,7 +1384,7 @@ for (const { language, width, title } of [
       '[data-og7="preparation-receipt-details"]'
     );
     await expect(agreement).toHaveJSProperty('open', false);
-    await agreement.locator('summary').focus();
+    await agreement.locator(':scope > summary').focus();
     await page.keyboard.press('Enter');
     await expect(agreement).toHaveJSProperty('open', true);
     await expect(agreement).toContainText('synthetic-preparation-v1');
@@ -1288,6 +1396,18 @@ for (const { language, width, title } of [
       .include('[data-og7="campaigns-page"]')
       .analyze();
     expect(accessibility.violations).toEqual([]);
+    const otherPassage = hook(page, 'campaign-row').nth(1);
+    await otherPassage.focus();
+    await page.keyboard.press('Enter');
+    await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
+    for (const name of disclosures) {
+      await expect(hook(page, name)).toHaveJSProperty('open', false);
+    }
+    await hook(page, 'campaign-row').first().click();
+    for (const name of disclosures) {
+      await expect(hook(page, name)).toHaveJSProperty('open', false);
+    }
+    await expect(hook(page, 'campaign-content-preview')).toBeHidden();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth + 1
@@ -1403,6 +1523,8 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.keyboard.press('Enter');
       await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
       await expect(selected).toHaveAttribute('aria-pressed', 'true');
+      await expect(hook(page, 'campaign-content-preview')).toBeHidden();
+      await openDetailDisclosure(page, 'campaign-content-details');
       await expect(hook(page, 'campaign-content-preview')).toContainText(
         'Contenu synthétique à autoriser.'
       );
@@ -1420,6 +1542,14 @@ for (const language of ['fr-CA', 'en'] as const) {
         'href',
         `/admin/fundraiser/publications/automation?sponsorshipId=${approvedId}&obligationId=${fixture.rows[0]!.id}&deliveryId=synthetic-current-delivery`
       );
+      const secondaryColor = await hook(page, 'campaign-return-list').evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      await expect(hook(page, 'campaign-open-delivery')).toHaveCSS(
+        'background-color',
+        secondaryColor
+      );
+      await expect(hook(page, 'campaign-open-owner')).toBeVisible();
       await expect(
         hook(page, 'campaign-content-preview').getByRole('img')
       ).toHaveCount(0);
@@ -1475,31 +1605,271 @@ for (const language of ['fr-CA', 'en']) {
       const approve = hook(page, 'campaign-preparation').locator(
         '[data-og7="preparation-receipt-approve"]'
       );
-      await expect(approve).toBeEnabled();
+      await expect(approve).toBeHidden();
+      const openPreparation = hook(page, 'campaign-open-preparation');
+      await expect(openPreparation).toBeVisible();
+      await expect(openPreparation).toBeEnabled();
       const primaryColor = await hook(page, 'campaigns-apply').evaluate(
         (element) => getComputedStyle(element).backgroundColor
       );
       const secondaryColor = await hook(page, 'campaign-return-list').evaluate(
         (element) => getComputedStyle(element).backgroundColor
       );
-      await expect(approve).not.toHaveCSS('background-color', secondaryColor);
+      await expect(openPreparation).toHaveCSS('background-color', primaryColor);
       const owner = hook(page, 'campaign-open-owner');
-      await expect(owner).toHaveCSS('background-color', secondaryColor);
-      const next = hasDelivery ? hook(page, 'campaign-open-delivery') : owner;
-      if (hasDelivery)
-        await expect(next).toHaveCSS('background-color', secondaryColor);
+      await expect(owner).toBeVisible();
+      await expect(
+        hook(page, 'campaign-next-step').getByRole('link')
+      ).toHaveCount(0);
       expect(fixture.mutations).toEqual([]);
 
+      await openPreparation.focus();
+      await page.keyboard.press('Enter');
+      const preparationDetails = hook(page, 'campaign-preparation-details');
+      await expect(preparationDetails).toHaveJSProperty('open', true);
+      await expect(
+        preparationDetails.locator(':scope > summary')
+      ).toBeFocused();
+      await expect(openPreparation).toHaveCSS(
+        'background-color',
+        secondaryColor
+      );
+      await expect(approve).toBeVisible();
+      await expect(approve).toBeEnabled();
+      await expect(approve).not.toHaveCSS('background-color', secondaryColor);
+      expect(fixture.mutations).toEqual([]);
       await approve.click();
+      await expect(hook(page, 'confirm-action')).toBeVisible();
+      expect(fixture.mutations).toEqual([]);
       await hook(page, 'confirm-action').click();
       await expect(approve).toBeHidden();
+      const next = hasDelivery
+        ? hook(page, 'campaign-open-delivery')
+        : hook(page, 'campaign-primary-owner');
       await expect(next).toHaveCSS('background-color', primaryColor);
+      await expect(owner).toBeVisible();
+      await expect(openPreparation).toHaveCount(0);
       expect(fixture.mutations).toEqual([
         'POST /api/admin/sponsorships/preparation/approve'
       ]);
     });
   }
 }
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`delivery incidents keep their review action ahead of preparation in ${language}`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, language);
+    fixture.identity.role = 'operator';
+    fixture.allowPreparationApproval = true;
+    fixture.rows = (['uncertain', 'error'] as const).map((state, index) => {
+      const row = promise(`incident-${state}`, index ? futureId : approvedId);
+      const incident = {
+        ...row,
+        preparation: {
+          ...row.preparation,
+          status: 'ready' as const,
+          blockers: []
+        },
+        workflow: {
+          ...row.workflow,
+          state,
+          reason:
+            state === 'uncertain'
+              ? 'publication_uncertain'
+              : 'publication_failed',
+          deliveryId: `synthetic-${state}-delivery`
+        }
+      };
+      fixture.receipts.set(row.contributionId, {
+        ...preparation(incident),
+        canApprove: true
+      });
+      return incident;
+    });
+    await page.goto(path);
+    await expect(hook(page, 'campaign-row')).toHaveCount(2);
+    const primaryColor = await hook(page, 'campaigns-apply').evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    for (const incident of fixture.rows) {
+      await page
+        .locator(`[data-og7="campaign-row"][data-og7-id="${incident.id}"]`)
+        .click();
+      await expect
+        .poll(() => fixture.preparations)
+        .toContain(incident.contributionId);
+      await expect(hook(page, 'campaign-open-delivery')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/publications/automation?sponsorshipId=${incident.contributionId}&obligationId=${incident.id}&deliveryId=${incident.workflow.deliveryId}`
+      );
+      await expect(hook(page, 'campaign-open-delivery')).toHaveCSS(
+        'background-color',
+        primaryColor
+      );
+      await expect(
+        hook(page, 'campaign-next-step').getByRole('link')
+      ).toHaveCount(1);
+      await expect(hook(page, 'campaign-open-owner')).toBeVisible();
+      await expect(hook(page, 'campaign-open-preparation')).toHaveCount(0);
+      await expect(
+        hook(page, 'campaign-next-step').locator(
+          '[data-og7="preparation-receipt-approve"]'
+        )
+      ).toHaveCount(0);
+      await expect(hook(page, 'campaign-preparation-details')).toHaveJSProperty(
+        'open',
+        false
+      );
+      await expect(hook(page, 'campaign-next-step')).toContainText(
+        incident.workflow.state === 'uncertain'
+          ? language === 'en'
+            ? 'Uncertain result · verify before retrying'
+            : 'Résultat incertain · vérifier avant toute relance'
+          : language === 'en'
+            ? 'Failed · intervention required'
+            : 'Échec · intervention requise'
+      );
+    }
+    expect(fixture.approvals).toEqual([]);
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
+test('refreshing the same service preserves its disclosures and restores focus without taking it from the search field', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(path);
+  await hook(page, 'campaign-row').first().click();
+  const disclosures = [
+    'campaign-content-details',
+    'campaign-preparation-details',
+    'campaign-proof-details'
+  ];
+  for (const name of disclosures) await openDetailDisclosure(page, name);
+  const proofSummary = hook(page, 'campaign-proof-details').locator(
+    ':scope > summary'
+  );
+  const search = hook(page, 'campaigns-search');
+  for (const focusSearchWhileLoading of [false, true]) {
+    await proofSummary.focus();
+    const readsBeforeRefresh = fixture.queries.length;
+    let release!: () => void;
+    fixture.gate = new Promise<void>((resolve) => (release = resolve));
+    try {
+      // A programmatic refresh keeps the reader's focus in the detail.
+      await hook(page, 'campaigns-refresh').evaluate((element) =>
+        (element as HTMLButtonElement).click()
+      );
+      await expect
+        .poll(() => fixture.queries.length)
+        .toBe(readsBeforeRefresh + 1);
+      await expect(hook(page, 'campaigns-loading')).toBeVisible();
+      await expect(hook(page, 'campaign-detail-heading')).toHaveCount(0);
+      if (focusSearchWhileLoading) await search.focus();
+    } finally {
+      fixture.gate = null;
+      release();
+    }
+    await expect(hook(page, 'campaigns-refresh')).toBeEnabled();
+    await expect(hook(page, 'campaign-row').first()).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    for (const name of disclosures) {
+      await expect(hook(page, name)).toHaveJSProperty('open', true);
+    }
+    await expect(focusSearchWhileLoading ? search : proofSummary).toBeFocused();
+  }
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('compact service evidence stays readable in graphite at 320px without opening its references', async ({
+  page
+}, testInfo) => {
+  const fixture = await fixtures(page);
+  const delivered = fixture.rows.find(
+    (row) => row.id === 'delivered-facebook'
+  )!;
+  fixture.rows = [
+    {
+      ...delivered,
+      proof: {
+        ...delivered.proof!,
+        visibility: 'changed',
+        visibilityObservedAt: '2026-10-19T15:42:00Z'
+      }
+    }
+  ];
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({
+        theme: 'graphite',
+        system: false,
+        density: 'comfortable'
+      })
+    );
+  });
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto(path);
+  await hook(page, 'campaign-row').click();
+  await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+    'open',
+    false
+  );
+  await expect(hook(page, 'campaign-proof-delivered-at')).toBeVisible();
+  await expect(hook(page, 'campaign-proof-visibility')).toBeVisible();
+  await expect(hook(page, 'campaign-proof-visibility')).toHaveText(
+    'Publication modifiée depuis la livraison'
+  );
+  await expect(hook(page, 'campaign-proof-observed-at')).toBeVisible();
+  await expect(hook(page, 'campaign-proof-reference')).toBeHidden();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+  await hook(page, 'campaign-detail').screenshot({
+    path: testInfo.outputPath('campaigns-compact-graphite-320.png'),
+    animations: 'disabled'
+  });
+  const accessibility = await new AxeBuilder({ page })
+    .include('[data-og7="campaign-detail"]')
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('qualified evidence with an invalid delivery date keeps the missing date visible in the compact summary', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  const delivered = fixture.rows.find(
+    (row) => row.id === 'delivered-facebook'
+  )!;
+  fixture.rows = [
+    {
+      ...delivered,
+      proof: { ...delivered.proof!, deliveredAt: 'synthetic-invalid-date' }
+    }
+  ];
+  await page.goto(path);
+  await hook(page, 'campaign-row').click();
+  await expect(hook(page, 'campaign-proof-date-missing')).toBeVisible();
+  await expect(hook(page, 'campaign-proof-date-missing')).toHaveText(
+    'À préciser'
+  );
+  await expect(hook(page, 'campaign-proof-delivered-at')).toHaveCount(0);
+  await expect(hook(page, 'campaign-proof-details')).toHaveJSProperty(
+    'open',
+    false
+  );
+  await expect(hook(page, 'campaign-proof-reference')).toBeHidden();
+  expect(fixture.mutations).toEqual([]);
+});
 
 test('campaigns require a session and preserve their return destination', async ({
   page

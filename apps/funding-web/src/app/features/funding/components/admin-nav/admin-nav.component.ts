@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
@@ -17,6 +18,7 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminWorkQueueRefreshService } from '../../services/admin-work-queue-refresh.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorsQualityI18nService } from '../../services/admin-sponsors-quality-i18n.service.js';
 import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
@@ -221,7 +223,10 @@ export class AdminNavComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   readonly collapsible = input(false);
   readonly expanded = signal(false);
+  private readonly queueRefresh = inject(AdminWorkQueueRefreshService);
+  private readonly destroy = inject(DestroyRef);
   ngOnInit(): void {
+    this.destroy.onDestroy(this.queueRefresh.connect());
     // The cockpit and queue page already load the same projection.
     const globalAssistant =
       this.router.url.startsWith('/admin/fundraiser/assistant') &&
@@ -245,6 +250,7 @@ export class AdminNavComponent implements OnInit {
         (counts.sponsorship_needs_info ?? 0) +
         (counts.sponsorship_needs_commitment ?? 0) +
         (counts.sponsorship_needs_review ?? 0) +
+        (counts.sponsorship_media_review ?? 0) +
         (counts.sponsorship_needs_fulfilment ?? 0) +
         (counts.sponsorship_refund_followup ?? 0) +
         (counts.sponsorship_credit_missing ?? 0) +

@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
 import type {
   AdminSponsorshipRecord,
-  SponsorMediaAsset
+  SponsorMediaAsset,
+  SponsorMediaWorkspace
 } from '@openg7/funding-core';
 
 import type {
@@ -447,6 +448,52 @@ export class AdminSponsorMediaWorkflow {
     if (!this.disposed && generation === this.logoGeneration) {
       this.logoPreviewUrls.set(this.previewUrls(this.logoPreviews));
     }
+  }
+
+  /** A fresh workspace supersedes legacy metadata and preview reads already in flight. */
+  adoptMediaWorkspace(
+    sponsorship: AdminSponsorshipRecord,
+    workspace: SponsorMediaWorkspace
+  ): boolean {
+    if (
+      this.disposed ||
+      !this.ports.canContinue(sponsorship) ||
+      !sponsorship.id?.trim() ||
+      !sponsorship.version?.trim()
+    )
+      return false;
+    if (
+      workspace.contributionId !== sponsorship.id ||
+      workspace.assets.some(
+        (asset) =>
+          asset.contributionId !== sponsorship.id ||
+          typeof asset.id !== 'string' ||
+          !asset.id.trim() ||
+          typeof asset.version !== 'string' ||
+          !asset.version.trim()
+      ) ||
+      new Set(workspace.assets.map((asset) => asset.id)).size !==
+        workspace.assets.length
+    ) {
+      this.sponsorMediaReadState.update((current) => ({
+        ...current,
+        [sponsorship.id]: 'error'
+      }));
+      return false;
+    }
+    ++this.mediaLoadGeneration;
+    ++this.mediaGeneration;
+    this.clearPreviews(this.mediaPreviews);
+    this.sponsorMediaPreviewUrls.set({});
+    this.sponsorMedia.update((current) => ({
+      ...current,
+      [sponsorship.id]: workspace.assets
+    }));
+    this.sponsorMediaReadState.update((current) => ({
+      ...current,
+      [sponsorship.id]: 'ready'
+    }));
+    return true;
   }
 
   async loadSponsorMedia(contributionId: string | null): Promise<void> {

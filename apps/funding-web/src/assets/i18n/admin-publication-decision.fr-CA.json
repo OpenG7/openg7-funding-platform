@@ -7,21 +7,21 @@
   },
   "help": {
     "pending_review": "Examinez la commandite et confirmez si elle peut être acceptée.",
-    "approved": "La décision administrative est enregistrée. Consultez le suivi des prestations.",
+    "approved": "La validation est enregistrée. Consultez le suivi des prestations pour les étapes restantes.",
     "rejected": "Le refus enregistré reste distinct du paiement et des prestations promises."
   },
   "state": {
     "approved": "Validation enregistrée",
     "rejected": "Refus enregistré"
   },
-  "distinction": "La validation de la commandite est distincte de l’autorisation de publication.",
-  "approve": "Accepter",
+  "distinction": "La validation de la commandite, sa visibilité publique et l’autorisation de publication sont des décisions distinctes.",
+  "approve": "Accepter la commandite",
   "reject": "Refuser",
   "returnPending": "Remettre en attente",
   "otherDecisions": "Autres décisions",
   "reason": "Motif interne du refus",
   "readOnly": "Vous pouvez consulter la décision. Votre accès ne permet pas de la modifier.",
-  "afterApproval": "Après approbation, le système poursuit la préparation des prestations selon les autorisations et les prérequis applicables.",
+  "afterApproval": "Après validation, la préparation des prestations reste soumise aux prérequis applicables.",
   "unavailable": {
     "loading": "Le dossier est en cours d’actualisation. Attendez la fin du chargement avant de décider.",
     "pending": "Une intervention est en cours sur ce dossier. Attendez son résultat avant une nouvelle décision.",

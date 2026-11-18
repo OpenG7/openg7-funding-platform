@@ -132,10 +132,22 @@ préparations explicitement approuvées dans leur version actuelle. L’approbat
 est réévaluée côté serveur à partir de la dernière approbation et des faits actuels ; une
 version périmée apparaît comme une nouvelle revue requise.
 
-Le détail reprend le [pilotage de la préparation](../operations/admin-pilotage.md#preparation-pilot),
-le contenu disponible et les liens vers les écrans propriétaires. Le paiement,
-la préparation, la revue du commanditaire, l’autorisation de publier et la
-livraison conservent chacun leur état. Une date prévue ne vaut pas autorisation.
+Le détail se lit dans une colonne. Le résumé **État et prochaine action** indique
+l’état de la prestation, la prochaine intervention et sa responsabilité. Les
+commandes d’ouverture ou d’examen rejoignent les écrans propriétaires ; les
+mutations et leurs confirmations restent dans leurs parcours existants.
+
+Trois volets regroupent la préparation du dossier, le contenu associé et les
+détails de preuve et de traçabilité. Ils sont repliés par défaut et se réinitialisent
+lors du changement de prestation. Une actualisation de la même prestation
+conserve les volets ouverts. La préparation concerne le dossier entier et ses
+prestations ; son examen reprend le
+[pilotage de la préparation](../operations/admin-pilotage.md#preparation-pilot),
+sans limiter son approbation à la prestation sélectionnée.
+
+Le paiement, la préparation, la revue du commanditaire, l’autorisation de publier
+et la livraison conservent chacun leur état. Un horaire enregistré ne prouve ni
+l’autorisation de publier ni le maintien d’une programmation active.
 Le regroupement par dossier porte sur les lignes de la page courante ; les
 filtres et le tri s’appliquent à toutes les prestations avant pagination.
 
@@ -146,8 +158,10 @@ un ancien statut « publié », une URL ou une simulation seuls ne suffisent pas
 Les preuves restent liées à leur canal, destination et occurrence ; la visibilité
 actuelle demeure une information distincte de la livraison attestée.
 
-Le détail présente séparément la preuve qualifiée et sa dernière observation
-de visibilité. La preuve conserve sa source, sa date de réalisation et sa portée :
+La livraison confirmée et la dernière observation de visibilité
+restent visibles hors des volets repliables. Une visibilité inconnue ou sans date
+d’observation reste à vérifier, sans remettre en cause la livraison confirmée.
+La preuve conserve sa source, sa date de réalisation et sa portée :
 identifiants de preuve, de prestation et de livraison éventuelle, canal et cible.
 Une preuve Web peut ne pas avoir de livraison sociale. L'observation conserve
 son état et sa date/heure, affichée dans le fuseau de Toronto. **Inconnue** avec

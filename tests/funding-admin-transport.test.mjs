@@ -132,6 +132,90 @@ const serviceFixture = (t, token = syntheticToken) => {
   return { service: new FundingAdminService(), sessionStorage };
 };
 
+test('sponsorship review decodes failure messages and codes once without replaying the approval', async (t) => {
+  const command = {
+    contributionId: 'synthetic-sponsor',
+    expectedVersion: 'synthetic-version',
+    reviewStatus: 'approved',
+    confirmation: 'synthetic-sponsor'
+  };
+  const fallback = 'Sponsorship review could not be updated.';
+  for (const [label, status, body, message, code] of [
+    [
+      'legacy media prerequisite',
+      409,
+      {
+        code: 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED',
+        message: 'Synthetic legacy media prerequisite'
+      },
+      'Synthetic legacy media prerequisite',
+      'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED'
+    ],
+    [
+      'moderation refusal',
+      403,
+      {
+        code: 'MODERATION_INDEPENDENT_REVIEW_REQUIRED',
+        error: 'Synthetic refusal'
+      },
+      'Synthetic refusal',
+      'MODERATION_INDEPENDENT_REVIEW_REQUIRED'
+    ],
+    [
+      'non-string code',
+      409,
+      { code: 7, message: 'Synthetic conflict' },
+      'Synthetic conflict',
+      undefined
+    ],
+    [
+      'message priority',
+      503,
+      { message: 'Synthetic message', error: 'Synthetic error' },
+      'Synthetic message',
+      undefined
+    ],
+    ['empty body', 503, null, fallback, undefined],
+    ['non-JSON body', 503, '<html>Unavailable</html>', fallback, undefined]
+  ]) {
+    await t.test(label, async (child) => {
+      const { service, sessionStorage } = serviceFixture(child);
+      const response =
+        typeof body === 'string'
+          ? new Response(body, { status })
+          : Response.json(body, { status });
+      const decode = child.mock.method(response, 'json');
+      child.mock.method(response, 'clone', () => {
+        throw new Error('Review failures must be decoded once');
+      });
+      const fetchMock = child.mock.method(
+        globalThis,
+        'fetch',
+        async (url, options) => {
+          assert.equal(url, `${baseUrl}/admin/sponsorships/review`);
+          assert.equal(options.method, 'POST');
+          assert.deepEqual(JSON.parse(options.body), command);
+          return response;
+        }
+      );
+      await assert.rejects(
+        service.reviewSponsorship(syntheticToken, command),
+        (error) => {
+          assert.ok(error instanceof AdminDashboardRequestError);
+          assert.equal(error.status, status);
+          assert.equal(error.message, message);
+          assert.equal(error.code, code);
+          return true;
+        }
+      );
+      assert.equal(decode.mock.callCount(), 1);
+      assert.equal(fetchMock.mock.callCount(), 1);
+      assert.equal(sessionStorage.getItem(sessionKey), syntheticToken);
+      assert.equal(service.sessionGeneration(), 0);
+    });
+  }
+});
+
 test('website refresh accepts only the exact captured receipt and never retries a POST automatically', async (t) => {
   const command = {
     contributionId: '10000000-0000-4000-8000-000000000401',
@@ -1024,7 +1108,8 @@ const explicitJsonRequests = [
       service.getWorkQueue(token, { pageSize: 1, itemId: 'sponsor /' }),
     path: '/admin/attention?pageSize=1&itemId=sponsor+%2F',
     method: 'GET',
-    cache: 'no-store'
+    cache: 'no-store',
+    expiresSession: true
   },
   {
     name: 'Stripe event',
@@ -1086,7 +1171,7 @@ test('admin JSON endpoints preserve explicit bearer/cookie authentication and ea
   }
 });
 
-test('admin JSON failures keep their error types and leave explicit sessions intact', async (t) => {
+test('admin JSON failures keep their error types and endpoint session policies', async (t) => {
   for (const request of explicitJsonRequests) {
     for (const status of [401, 403, 409, 503]) {
       await t.test(`${request.name}: ${status}`, async (t) => {
@@ -1122,12 +1207,16 @@ test('admin JSON failures keep their error types and leave explicit sessions int
             return true;
           }
         );
-        assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+        const expired = request.expiresSession && status === 401;
+        assert.equal(
+          sessionStorage.getItem(sessionKey),
+          expired ? null : explicitToken
+        );
         assert.equal(
           sessionStorage.getItem(selectionKey),
-          'synthetic-selection'
+          expired ? null : 'synthetic-selection'
         );
-        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(service.sessionGeneration(), expired ? 1 : 0);
         assert.equal(fetchMock.mock.callCount(), 1);
       });
     }
@@ -1676,6 +1765,115 @@ test('work queue keeps the latest snapshot when an older request completes or fa
       assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
       assert.equal(service.sessionGeneration(), 0);
       assert.equal(fetchMock.mock.callCount(), 2);
+    });
+  }
+});
+
+test('a current work queue refusal expires bearer and cookie sessions without replaying a refresh', async (t) => {
+  for (const token of [syntheticToken, cookieMarker]) {
+    for (const background of [false, true]) {
+      await t.test(
+        `${token}: ${background ? 'background' : 'direct'}`,
+        async (t) => {
+          const { service, sessionStorage } = serviceFixture(t, token);
+          service.identity.set(syntheticIdentity);
+          service.workQueue.set(syntheticQueue);
+          const fetchMock = t.mock.method(
+            globalThis,
+            'fetch',
+            async (url, options) => {
+              assert.equal(url, baseUrl + '/admin/attention?pageSize=1');
+              assert.equal(options.method, 'GET');
+              assert.equal(options.cache, 'no-store');
+              assert.equal(
+                options.headers.Authorization,
+                token === cookieMarker ? undefined : `Bearer ${token}`
+              );
+              return Response.json(
+                { code: 'SESSION_REVOKED' },
+                { status: 401 }
+              );
+            }
+          );
+
+          if (background)
+            assert.equal(await service.refreshWorkQueue(), undefined);
+          else
+            await assert.rejects(service.getWorkQueue(token, { pageSize: 1 }), {
+              name: 'AdminDashboardRequestError',
+              status: 401
+            });
+          assert.equal(service.workQueue(), null);
+          assert.equal(service.identity(), null);
+          assert.equal(service.sessionGeneration(), 1);
+          assert.equal(sessionStorage.getItem(sessionKey), null);
+          assert.equal(sessionStorage.getItem(expiryKey), null);
+          assert.equal(sessionStorage.getItem(selectionKey), null);
+          await service.refreshWorkQueue();
+          assert.equal(service.sessionGeneration(), 1);
+          assert.equal(fetchMock.mock.callCount(), 1);
+        }
+      );
+    }
+  }
+});
+
+test('a late work queue refusal cannot clear a newer queue, session, actor, role or token', async (t) => {
+  for (const change of ['queue', 'session', 'actor', 'role', 'token']) {
+    await t.test(change, async (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      service.identity.set(syntheticIdentity);
+      const started = Promise.withResolvers();
+      const response = Promise.withResolvers();
+      const latestQueue = { ...syntheticQueue, total: 2 };
+      const fetchMock = t.mock.method(
+        globalThis,
+        'fetch',
+        async (url, options) => {
+          assert.equal(options.method, 'GET');
+          if (url.endsWith('page=1')) {
+            started.resolve();
+            return response.promise;
+          }
+          assert.equal(url, baseUrl + '/admin/attention?page=2');
+          return Response.json(latestQueue);
+        }
+      );
+      const pending = service.getWorkQueue(syntheticToken, { page: 1 });
+      await started.promise;
+      let expectedIdentity = syntheticIdentity;
+      if (change === 'queue')
+        await service.getWorkQueue(syntheticToken, { page: 2 });
+      else {
+        if (change === 'session') {
+          service.clearAdminSession();
+          service.saveAdminToken(explicitToken);
+          sessionStorage.setItem(expiryKey, syntheticIdentity.expiresAt);
+          expectedIdentity = null;
+        } else if (change === 'actor' || change === 'role') {
+          expectedIdentity = {
+            ...syntheticIdentity,
+            ...(change === 'actor'
+              ? { id: 'replacement-account' }
+              : { role: 'reader' })
+          };
+          service.identity.set(expectedIdentity);
+        } else service.saveAdminToken(explicitToken);
+        service.workQueue.set(latestQueue);
+      }
+
+      response.resolve(Response.json({}, { status: 401 }));
+      await assert.rejects(pending, { status: 401 });
+      assert.deepEqual(service.workQueue(), latestQueue);
+      assert.equal(service.identity(), expectedIdentity);
+      assert.equal(service.sessionGeneration(), change === 'session' ? 1 : 0);
+      assert.equal(
+        sessionStorage.getItem(sessionKey),
+        change === 'session' || change === 'token'
+          ? explicitToken
+          : syntheticToken
+      );
+      assert.equal(fetchMock.mock.callCount(), change === 'queue' ? 2 : 1);
     });
   }
 });
@@ -2341,7 +2539,7 @@ const remainingMutationRequests = [
     'reviewSponsorship',
     '/sponsorships/review',
     'Sponsorship review could not be updated.',
-    { errorKind: 'status-message' }
+    { errorKind: 'status-message', exposesCode: true }
   ],
   [
     'refundSponsorship',
@@ -2573,7 +2771,9 @@ test('remaining HTTP failures retain endpoint errors and private state without r
             );
             assert.equal(
               error.code,
-              request.errorKind === 'refund' ? 'SYNTHETIC_CODE' : undefined
+              request.errorKind === 'refund' || request.exposesCode
+                ? 'SYNTHETIC_CODE'
+                : undefined
             );
             return true;
           }
@@ -2619,7 +2819,9 @@ test('remaining error decoders preserve malformed responses, error priority and 
           request.invoke(service, explicitToken, new AbortController().signal),
           {
             message: expected,
-            ...(request.errorKind === 'refund' ? { code: body.code } : {})
+            ...(request.errorKind === 'refund' || request.exposesCode
+              ? { code: body.code }
+              : {})
           }
         );
         assert.equal(service.sessionGeneration(), 0);

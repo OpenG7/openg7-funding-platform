@@ -98,6 +98,38 @@ approuvée satisfait le prérequis média de publication; l'étape de revue des 
 reste en attente tant qu'un média, y compris le logo, attend une décision. Un logo
 approuvé seul ne remplace pas la photo de présentation.
 
+<a id="retour-des-medias-a-revoir"></a>
+
+### Retour des médias à revoir
+
+Le type `sponsorship_media_review` regroupe les médias non supprimés en attente
+de revue, pour les dossiers payés, sans remboursement demandé et non refusés.
+L’identifiant `sponsorship_media_review:<contributionId>` reste stable pour le
+dossier. Le lien ouvre son onglet Médias; il ne choisit ni n’approuve un fichier.
+
+La phase `review` signale qu’au moins un média possède des droits confirmés. Une
+description absente reste comptée dans `missingAltCount` et peut encore empêcher
+l’approbation. La tâche est à traiter aujourd’hui, puis urgente après sept jours.
+Sans média aux droits confirmés, la phase `waiting` signale les confirmations de
+droits attendues; elle reste informative, hors compteurs d’action, de dossiers
+à traiter et de recommandations. Les droits retirés sont exclus de cette attente.
+Aucune phase n’atteste l’envoi d’une demande de consentement.
+
+Les faits exposent les nombres de médias à revoir, d’autorisations attendues et
+de descriptions manquantes. `changedAt`, `detectedAt` et l’ancienneté proviennent
+des dates des versions média concernées, sans inventer une date de réception du
+consentement. À chaque lecture, la file est dérivée des faits persistés; aucune
+table de tâches ni tâche planifiée supplémentaire n’est créée. Les lectures
+suivantes réévaluent sa phase ou retirent l’intervention lorsqu’elle n’a plus de
+médias à suivre.
+
+L’administration authentifiée actualise la file et les badges toutes les trente
+secondes au premier plan, ainsi qu’au retour du focus ou d’une page visible.
+La liste conserve les filtres et la saisie en cours. Une application fermée ne
+reçoit ni notification poussée ni traitement navigateur : les faits sont relus
+au prochain retour. Cette actualisation reste une lecture; les approbations,
+courriels et publications conservent leurs parcours explicites.
+
 La progression utilise les mêmes prérequis communs aux reconnaissances
 Web et sociales : consentement, revue, photo approuvée, paiement et remboursement.
 Le nom de l'entreprise reste requis pour le Web; le masquage du feed bloque les

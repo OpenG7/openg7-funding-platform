@@ -40,6 +40,7 @@ export default defineBuiltWebSuite({
     'admin-platform-journeys.spec.ts',
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',
+    'admin-media-review-return.spec.ts',
     'admin-guidance.spec.ts',
     'admin-campaigns.spec.ts',
     'admin-workflow-guide.spec.ts',
