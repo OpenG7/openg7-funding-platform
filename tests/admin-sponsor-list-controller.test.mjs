@@ -2,6 +2,7 @@ import { fundingBaseTranslations } from './support/funding-base-translations.mjs
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
 import '@angular/compiler';
 import { AdminSponsorListController } from '../dist/apps/funding-web/src/app/features/funding/services/admin-sponsor-list-controller.js';
@@ -153,6 +154,11 @@ function fixture(t, locale = null) {
     actionPending: () => controller.actionState() !== null,
     setActionState: (value) => controller.actionState.set(value),
     reloadSponsorships: () => controller.loadSponsorships(),
+    currentReviewStatus: (id) =>
+      controller.state() === 'ready'
+        ? (controller.sponsorships().find((item) => item.id === id)
+            ?.sponsor_review_status ?? null)
+        : null,
     messageFromError: ports.messageFromError,
     selectionRevision: () => controller.selectionRevision(),
     isCurrentSelection: (id) => controller.isCurrentSelection(id),
@@ -188,6 +194,7 @@ function fixture(t, locale = null) {
     browser,
     review,
     publication,
+    workflowPorts,
     closedPanels: () => closePanels
   };
 }
@@ -444,6 +451,127 @@ test('refresh reconciles real review and publication drafts against updated serv
   assert.equal(c.selectionRevision(), revision + 1);
   assert.equal(c.approvalFeedback(), null);
   assert.equal(f.media.at(-1), null);
+});
+
+test('accepted dossier leaves a pending-review filter and refreshes the related reads without a publication command', async (t) => {
+  const f = fixture(t),
+    c = f.controller;
+  const initial = sponsor();
+  let accepted = false;
+  const writes = [];
+  c.reviewFilter.set('pending_review');
+  f.ports.admin.getSponsorships = async (token, query) => {
+    f.calls.push({ token, query });
+    return accepted
+      ? result([], pagination({ totalItems: 0 }))
+      : result([initial]);
+  };
+  await c.loadSponsorships();
+  c.selectSponsorshipById(initial.id);
+  Object.assign(f.workflowPorts, {
+    moderate: async (subject, level) => moderationDecision(subject, level),
+    canActOn: (record) =>
+      c.state() === 'ready' &&
+      c.actionState() === null &&
+      c.selectedSponsorship()?.id === record.id &&
+      c.selectedSponsorship()?.version === record.version,
+    beginApprovalFeedback: (id) => c.beginApprovalFeedback(id),
+    finishApprovalFeedback: (attempt, phase) =>
+      c.finishApprovalFeedback(attempt, phase),
+    pulseSelection: (id) => c.pulseSelection(id)
+  });
+  f.workflowPorts.admin.reviewSponsorship = async (token, payload) => {
+    writes.push({ token, payload });
+    accepted = true;
+    return { updated: true, reviewStatus: 'approved', decisionState: 'active' };
+  };
+
+  await f.review.review(initial, 'approved');
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].payload.reviewStatus, 'approved');
+  assert.equal(c.state(), 'ready');
+  assert.deepEqual(c.sponsorships(), []);
+  assert.equal(c.selectedSponsorshipId(), null);
+  assert.equal(c.approvalFeedback(), null);
+  assert.equal(f.review.refreshRequired(), null);
+  assert.equal(c.assistantRefresh(), 2);
+  assert.equal(f.queue.length, 2);
+  assert.equal(f.logos.length, 2);
+  assert.equal(f.media.at(-1), null);
+  assert.equal(f.calls.at(-1).query.reviewStatus, 'pending_review');
+  assert.equal(initial.sponsor_feed_status, 'not_planned');
+});
+
+test('a page-handled list reload failure after acceptance recovers through a read without replaying the decision', async (t) => {
+  const f = fixture(t),
+    c = f.controller;
+  const initial = sponsor();
+  const approved = sponsor({
+    version: 'synthetic-v2',
+    sponsor_review_status: 'approved'
+  });
+  let accepted = false,
+    readFails = false;
+  const writes = [];
+  const refreshFailure = new Error('Synthetic post-approval read failure');
+  f.ports.admin.getSponsorships = async (token, query) => {
+    f.calls.push({ token, query });
+    if (readFails) throw refreshFailure;
+    return result([accepted ? approved : initial]);
+  };
+  await c.loadSponsorships();
+  c.selectSponsorshipById(initial.id);
+  Object.assign(f.workflowPorts, {
+    moderate: async (subject, level) => moderationDecision(subject, level),
+    canActOn: (record) =>
+      c.state() === 'ready' &&
+      c.actionState() === null &&
+      c.selectedSponsorship()?.id === record.id &&
+      c.selectedSponsorship()?.version === record.version,
+    beginApprovalFeedback: (id) => c.beginApprovalFeedback(id),
+    finishApprovalFeedback: (attempt, phase) =>
+      c.finishApprovalFeedback(attempt, phase),
+    pulseSelection: (id) => c.pulseSelection(id)
+  });
+  f.workflowPorts.admin.reviewSponsorship = async (token, payload) => {
+    writes.push({ token, payload });
+    accepted = true;
+    readFails = true;
+    return { updated: true, reviewStatus: 'approved', decisionState: 'active' };
+  };
+
+  await f.review.review(initial, 'approved');
+
+  assert.equal(c.state(), 'error');
+  assert.equal(c.selectedSponsorship(), null);
+  assert.equal(c.actionState(), null);
+  assert.equal(c.approvalFeedback(), null);
+  assert.deepEqual(f.review.refreshRequired(), {
+    id: initial.id,
+    reviewStatus: 'approved',
+    version: initial.version
+  });
+  assert.equal(
+    f.review.reviewMessageFor(initial.id),
+    'admin.messages.review_recorded_refresh_required'
+  );
+  assert.deepEqual(f.errors, [{ error: refreshFailure, fallback: '' }]);
+  assert.equal(writes.length, 1);
+  await f.review.review(initial, 'approved');
+  assert.equal(writes.length, 1);
+
+  readFails = false;
+  await c.loadSponsorships();
+
+  assert.equal(c.state(), 'ready');
+  assert.equal(c.selectedSponsorship(), approved);
+  assert.equal(c.visibleCount(), 1);
+  assert.equal(c.assistantRefresh(), 2);
+  assert.equal(f.queue.length, 2);
+  assert.equal(f.review.refreshRequired(), null);
+  assert.equal(f.review.reviewMessageFor(initial.id), '');
+  assert.equal(writes.length, 1);
 });
 
 test('route selection normalizes tabs, loads unknown dossiers and reuses loaded ones without requests', async (t) => {

@@ -12,6 +12,7 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { openPublicationAnalysis } from './publication-decision.ui.js';
+import { openPublicationServiceDetailSection } from './support/sponsorship-dossier.js';
 
 interface Context {
   fixtures(
@@ -595,6 +596,261 @@ async function monitorFixtures(
 
 /** The individual monitor reads facts; the existing owners retain all mutations. */
 export function registerPublicationMonitorTests(context: Context): void {
+  for (const [locale, width, theme] of [
+    ['fr-CA', 1536, 'mineral'],
+    ['en', 390, 'night'],
+    ['fr-CA', 320, 'graphite']
+  ] as const) {
+    test(`publication service drawer stays compact and keyboard accessible in ${locale} at ${width}px ${theme}`, async ({
+      page
+    }, testInfo) => {
+      const fixture = await monitorFixtures(page, context, 'reader');
+      await page.addInitScript(
+        ({ language, theme }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { language: locale, theme }
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(context.path('publication'));
+      const commitment = fixture.base.options.progressOverrides.commitment!;
+      const facebook = commitment.obligations.find(
+        (obligation) => obligation.channel === 'facebook'
+      )!;
+      const row = monitor(page).locator(
+        `[data-og7="publication-service"][data-og7-id="${facebook.id}"]`
+      );
+      const opener = row.locator('[data-og7="publication-service-details"]');
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog', {
+        name: locale === 'en' ? 'Service details' : 'Détails de la prestation',
+        exact: true
+      });
+      const detail = dialog.locator('[data-og7="publication-monitor-details"]');
+      await expect(detail).toBeVisible();
+      const close = dialog.getByRole('button', {
+        name: locale === 'en' ? 'Close details' : 'Fermer les détails',
+        exact: true
+      });
+      await expect(close).toBeFocused();
+      const identity = detail.locator(
+        '[data-og7="publication-detail-identity"]'
+      );
+      await expect(identity).toBeVisible();
+      await expect(identity).toContainText('Partenaire synthétique');
+      await expect(identity).toContainText('DEMO-401');
+      await expect(identity).toContainText('OpenG7');
+      await expect(identity).toContainText('Passage 1 / 1');
+      const sections = ['content', 'preparation', 'evidence'] as const;
+      for (const section of sections) {
+        const disclosure = detail.locator(
+          `[data-og7="publication-detail-${section}"]`
+        );
+        await expect(disclosure).toHaveJSProperty('open', false);
+        await expect(disclosure.locator(':scope > summary')).toBeVisible();
+      }
+      await expect(
+        detail.locator(
+          '[data-og7="publication-service-warning"][data-og7-id="preparation_simulated"]'
+        )
+      ).toBeVisible();
+      const action = detail.locator('[data-og7="publication-service-action"]');
+      await expect(action).toHaveCount(1);
+      await expect(action).toBeVisible();
+      await expect(action).toBeEnabled();
+      const secondaryColor = await close.evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      await expect(action).not.toHaveCSS('background-color', secondaryColor);
+      await dialog.screenshot({
+        path: testInfo.outputPath(
+          `publication-service-drawer-${locale}-${width}-${theme}.png`
+        ),
+        animations: 'disabled'
+      });
+      expect(
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
+      ).toEqual([]);
+      for (const section of sections) {
+        const disclosure = detail.locator(
+          `[data-og7="publication-detail-${section}"]`
+        );
+        const summary = disclosure.locator(':scope > summary');
+        await summary.focus();
+        await page.keyboard.press('Enter');
+        await expect(disclosure).toHaveJSProperty('open', true);
+        await expect(summary).toBeFocused();
+      }
+      await expect(
+        detail.locator('[data-og7="publication-detail-content"]')
+      ).toContainText('Une reconnaissance préparée à examiner.');
+      expect(fixture.writes).toEqual([]);
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+      await expect(opener).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(detail).toBeVisible();
+      for (const section of sections) {
+        await expect(
+          detail.locator(`[data-og7="publication-detail-${section}"]`)
+        ).toHaveJSProperty('open', false);
+      }
+      await openPublicationServiceDetailSection(page, 'content');
+      await page.keyboard.press('Escape');
+      const websiteId = commitment.obligations.find(
+        (obligation) => obligation.channel === 'website'
+      )!.id;
+      const website = monitor(page)
+        .locator(`[data-og7="publication-service"][data-og7-id="${websiteId}"]`)
+        .locator('[data-og7="publication-service-details"]');
+      await website.click();
+      for (const section of sections) {
+        await expect(
+          detail.locator(`[data-og7="publication-detail-${section}"]`)
+        ).toHaveJSProperty('open', false);
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      const bounds = await dialog.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+      expect(fixture.writes).toEqual([]);
+    });
+  }
+
+  for (const [locale, width, observedAt] of [
+    ['fr-CA', 1536, '2030-06-02T15:42:00.000Z'],
+    ['en', 390, null]
+  ] as const) {
+    test(`publication service drawer separates qualified delivery from current visibility in ${locale} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      const fixture = await monitorFixtures(page, context, 'reader');
+      const commitment = fixture.base.options.progressOverrides.commitment!;
+      const obligation = commitment.obligations.find(
+        (item) => item.channel === 'facebook'
+      )!;
+      const evidenceId = '10000000-0000-4000-8000-000000000460';
+      fixture.base.options.progressOverrides = {
+        ...fixture.base.options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: commitment.obligations.map((item) =>
+            item.id === obligation.id
+              ? {
+                  ...item,
+                  state: 'fulfilled',
+                  fulfilmentEvidenceId: evidenceId
+                }
+              : item
+          )
+        },
+        qualifiedFulfilmentEvidenceIds: [evidenceId],
+        fulfilmentEvidence: [
+          {
+            id: evidenceId,
+            obligationId: obligation.id,
+            deliveryId: null,
+            channel: obligation.channel,
+            target: obligation.target,
+            provenance: 'provider_verified',
+            deliveredAt: timestamp,
+            externalPostUrl: 'https://example.invalid/qualified-delivery',
+            visibility: observedAt ? 'changed' : 'unknown',
+            visibilityObservedAt: observedAt
+          }
+        ]
+      };
+      await page.addInitScript(
+        (language) => localStorage.setItem('openg7.language', language),
+        locale
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('publication'));
+      const row = monitor(page).locator(
+        `[data-og7="publication-service"][data-og7-id="${obligation.id}"]`
+      );
+      await expect(row).toHaveAttribute('data-state', 'delivered');
+      const opener = row.locator('[data-og7="publication-service-details"]');
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog', {
+        name: locale === 'en' ? 'Service details' : 'Détails de la prestation',
+        exact: true
+      });
+      const detail = dialog.locator('[data-og7="publication-monitor-details"]');
+      const evidence = detail.locator(
+        '[data-og7="publication-detail-evidence"]'
+      );
+      const proof = detail.locator('[data-og7="publication-monitor-proof"]');
+      const summary = detail.locator(
+        '[data-og7="publication-detail-proof-summary"]'
+      );
+      await expect(evidence).toHaveJSProperty('open', false);
+      await expect(proof).toBeHidden();
+      await expect(summary).toBeVisible();
+      const dateFormat = new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Toronto'
+      });
+      await expect(summary).toContainText(
+        dateFormat.format(new Date(timestamp))
+      );
+      if (observedAt) {
+        await expect(summary).toContainText('Visibilité modifiée');
+        await expect(summary).toContainText(
+          dateFormat.format(new Date(observedAt))
+        );
+      } else {
+        await expect(summary).toContainText(
+          'No dated observation is available. Current visibility still needs verification.'
+        );
+      }
+      await expect(
+        detail.locator('[data-og7="publication-service-action"]')
+      ).toHaveCount(0);
+      await dialog.screenshot({
+        path: testInfo.outputPath(
+          `publication-service-drawer-evidence-${locale}-${width}.png`
+        ),
+        animations: 'disabled'
+      });
+      const readProof = detail.locator(
+        '[data-og7="publication-detail-read-proof"]'
+      );
+      await readProof.focus();
+      await page.keyboard.press('Enter');
+      await expect(evidence).toHaveJSProperty('open', true);
+      await expect(evidence.locator(':scope > summary')).toBeFocused();
+      await expect(proof).toBeVisible();
+      await expect(proof).toContainText(evidenceId);
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'href',
+        'https://example.invalid/qualified-delivery'
+      );
+      await expect(detail.locator('a[href*="/campaigns?"]')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/campaigns?sponsorshipId=${id}&obligationId=${obligation.id}`
+      );
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+      await expect(opener).toBeFocused();
+      expect(fixture.writes).toEqual([]);
+    });
+  }
+
   for (const theme of ['mineral', 'night', 'graphite'] as const)
     for (const [locale, width] of [
       ['fr-CA', 1440],
@@ -918,6 +1174,20 @@ export function registerPublicationMonitorTests(context: Context): void {
     await expect(
       view.locator('[data-og7="publication-service"][data-state="proposal"]')
     ).toHaveCount(2);
+    await view
+      .locator('[data-og7="publication-service-details"]')
+      .first()
+      .click();
+    const detail = page.locator('[data-og7="publication-monitor-details"]');
+    await expect(
+      detail.locator('[data-og7="publication-detail-stale"]')
+    ).toBeVisible();
+    for (const section of ['content', 'preparation', 'evidence']) {
+      await expect(
+        detail.locator(`[data-og7="publication-detail-${section}"]`)
+      ).toHaveJSProperty('open', false);
+    }
+    await page.keyboard.press('Escape');
     fixture.state.readStatus = 403;
     await view.locator('[data-og7="publication-monitor-refresh"]').click();
     await expect(

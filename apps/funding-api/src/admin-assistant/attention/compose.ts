@@ -5,6 +5,7 @@ import { SEVERITY_RANK } from './shared.js';
 import {
   detectSponsorshipInfoItems,
   detectSponsorshipCommitmentItems,
+  detectSponsorshipMediaReviewItems,
   detectSponsorshipReviewItems
 } from './sponsorship.detectors.js';
 import {
@@ -35,6 +36,7 @@ export const buildAttentionItems = (
   sortAttentionItems([
     ...detectSponsorshipInfoItems(dataset),
     ...detectSponsorshipReviewItems(dataset),
+    ...detectSponsorshipMediaReviewItems(dataset),
     ...detectSponsorshipCommitmentItems(dataset),
     ...detectSponsorshipObligationItems(dataset),
     ...detectPublicationPreparationItems(dataset),

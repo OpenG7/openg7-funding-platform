@@ -84,6 +84,27 @@ export async function openPublicationAgreement(page: Page): Promise<Locator> {
   return editor;
 }
 
+/** Read one service detail without activating a publication or preparation command. */
+export async function openPublicationServiceDetailSection(
+  page: Page,
+  section: 'content' | 'preparation' | 'evidence',
+  controller?: AdminController
+): Promise<Locator> {
+  const detail = page.locator('[data-og7="publication-monitor-details"]');
+  await expect(detail).toBeVisible();
+  const disclosure = detail.locator(
+    `[data-og7="publication-detail-${section}"]`
+  );
+  const summary = disclosure.locator(':scope > summary');
+  await expect(summary).toBeVisible();
+  if ((await disclosure.getAttribute('open')) === null) {
+    if (controller) await controller.activate(summary);
+    else await summary.click();
+  }
+  await expect(disclosure).toHaveJSProperty('open', true);
+  return disclosure;
+}
+
 /** Select the exact service before reaching its owner amendment/timing controls. */
 export async function openPublicationObligation(
   page: Page,
@@ -94,6 +115,7 @@ export async function openPublicationObligation(
     `[data-og7="publication-service"][data-og7-id="${obligationId}"]`
   );
   await row.locator('[data-og7="publication-service-details"]').click();
+  await openPublicationServiceDetailSection(page, 'preparation');
   await page.locator('[data-og7="publication-service-adjust"]').click();
   const editor = page.locator('[data-og7="admin-commitments"]');
   await expect(editor).toBeVisible();

@@ -11,7 +11,10 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import type { AdminSponsorshipProgress } from '@openg7/funding-core';
+import type {
+  AdminSponsorshipProgress,
+  SponsorMediaWorkspace
+} from '@openg7/funding-core';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import type { AdminSponsorDetailIdentityView } from '../../models/admin-sponsors-ui.models.js';
@@ -112,6 +115,7 @@ import type { MediaLibraryView } from '../media-review/media-review-workspace.co
               [headingLevel]="4"
               [disabled]="identity().mediaBusy || preferenceBusy()"
               (busyChange)="workspaceBusy.set($event)"
+              (workspaceRead)="workspaceRead.emit($event)"
               (changed)="moderationChanged.emit()"
               (inspectRequested)="inspectRequested.emit()"
             />
@@ -156,6 +160,7 @@ import type { MediaLibraryView } from '../media-review/media-review-workspace.co
 })
 export class AdminSponsorDetailMediaComponent {
   readonly moderationChanged = output<void>();
+  readonly workspaceRead = output<SponsorMediaWorkspace | null>();
   readonly identityRequested = output<void>();
   readonly inspectRequested = output<void>();
   readonly identity = input.required<AdminSponsorDetailIdentityView>();

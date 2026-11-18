@@ -21,11 +21,20 @@ export interface PublicationSlotExecution {
   readonly status: 'approved' | 'publishing' | 'uncertain';
 }
 
+/** Current pending media versions; not an approval or a notification receipt. */
+export interface AttentionMediaRecord {
+  readonly contributionId: string;
+  readonly authorization: 'confirmed' | 'required';
+  readonly missingAlt: boolean;
+  readonly changedAt: string;
+}
+
 /** Everything the pure detectors need, already loaded from the repositories. */
 export interface AttentionDataset {
   readonly now: Date;
   readonly sponsorships: readonly SponsorshipAttentionRecord[];
   readonly sponsorshipsTruncated: boolean;
+  readonly media?: readonly AttentionMediaRecord[];
   readonly drafts: readonly AdminPublicationDraftRecord[];
   readonly batches: readonly AdminPublicationBatchRecord[];
   readonly slots: readonly AdminPublicationSlotRecord[];

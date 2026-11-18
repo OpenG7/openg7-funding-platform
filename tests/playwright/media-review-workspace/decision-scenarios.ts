@@ -19,6 +19,14 @@ import {
 } from './fixture.js';
 import { registerApproveAllMediaTests } from './approve-all-scenarios.js';
 
+const permissionsOpener = (page: Page, english = false) =>
+  area(page)
+    .locator('[data-og7="media-inspector"] [data-og7="context-controller"]')
+    .getByRole('button', {
+      name: english ? 'Permissions' : 'Autorisations',
+      exact: true
+    });
+
 function addPlatformAcceptance(
   asset: SponsorMediaWorkspaceAsset,
   locale: 'fr-CA' | 'en' = 'fr-CA'
@@ -261,9 +269,11 @@ export function registerMediaWorkspaceDecisionTests(
             .first()
             .getByRole('button')
             .click();
-          await area(page)
-            .locator('[data-og7="media-inspector-approve"]')
-            .click();
+          await expect(
+            area(page).locator('[data-og7="media-inspector-approve"]')
+          ).toBeDisabled();
+          await expect(page.locator('dialog[open]')).toHaveCount(0);
+          await permissionsOpener(page, english).click();
         }
         const opener = page.locator(
           `[data-og7="${entry === 'dossier' ? 'media-consent-request-open' : 'media-acceptance-request-consent'}"]`
@@ -539,9 +549,11 @@ export function registerMediaWorkspaceDecisionTests(
         .getByRole('button')
         .click();
       if (scenario === 'withdrawn' || scenario === 'logo') {
-        await area(page)
-          .locator('[data-og7="media-inspector-approve"]')
-          .click();
+        await expect(
+          area(page).locator('[data-og7="media-inspector-approve"]')
+        ).toBeDisabled();
+        await expect(page.locator('dialog[open]')).toHaveCount(0);
+        await permissionsOpener(page).click();
         await expect(
           page.locator('[data-og7="media-acceptance-review"]')
         ).toBeVisible();
@@ -575,7 +587,11 @@ export function registerMediaWorkspaceDecisionTests(
       .first()
       .getByRole('button')
       .click();
-    await area(page).locator('[data-og7="media-inspector-approve"]').click();
+    await expect(
+      area(page).locator('[data-og7="media-inspector-approve"]')
+    ).toBeDisabled();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await permissionsOpener(page).click();
     await expect(
       page.locator('[data-og7="media-acceptance-review"]')
     ).toBeVisible();
@@ -1011,7 +1027,11 @@ export function registerMediaWorkspaceDecisionTests(
         .locator('[data-og7="media-tile"]')
         .getByRole('button')
         .click();
-      await area(page).locator('[data-og7="media-inspector-approve"]').click();
+      await expect(
+        area(page).locator('[data-og7="media-inspector-approve"]')
+      ).toBeDisabled();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      await permissionsOpener(page, language === 'en').click();
       await expect(
         page.locator('[data-og7="media-acceptance-approve"]')
       ).toBeDisabled();
@@ -1059,15 +1079,17 @@ export function registerMediaWorkspaceDecisionTests(
       await tiles.nth(1).getByRole('checkbox').check();
       await tiles.first().getByRole('button').click();
       const inspector = area(page).locator('[data-og7="media-inspector"]');
-      const openers = [
-        inspector.locator('[data-og7="media-inspector-approve"]'),
-        inspector
-          .locator('[data-og7="context-controller"]')
-          .getByRole('button', {
-            name: english ? 'Permissions' : 'Autorisations',
-            exact: true
-          })
-      ];
+      await expect(
+        inspector.locator('[data-og7="media-inspector-approve"]')
+      ).toBeDisabled();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      const description = inspector.locator('[data-og7="media-inspector-alt"]');
+      await expect(description).toBeEditable();
+      await description.fill('Description prepared while consent is pending');
+      await expect(
+        inspector.locator('[data-og7="media-inspector-approve"]')
+      ).toBeDisabled();
+      const openers = [permissionsOpener(page, english)];
       for (const opener of openers) {
         await expect(opener).toBeEnabled();
         await opener.focus();
@@ -1134,7 +1156,11 @@ export function registerMediaWorkspaceDecisionTests(
         .first()
         .getByRole('button')
         .click();
-      await area(page).locator('[data-og7="media-inspector-approve"]').click();
+      await expect(
+        area(page).locator('[data-og7="media-inspector-approve"]')
+      ).toBeDisabled();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      await permissionsOpener(page).click();
       const review = page.locator('[data-og7="media-acceptance-review"]');
       await expect(review).toBeVisible();
       await expect(

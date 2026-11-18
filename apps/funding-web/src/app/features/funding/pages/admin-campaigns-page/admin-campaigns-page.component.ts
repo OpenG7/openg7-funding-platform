@@ -38,8 +38,12 @@ import {
   adminCampaignsReturnContext
 } from '../../models/admin-campaigns-navigation.js';
 import { revealControllerFocus } from '../../components/admin-controller/admin-controller-navigation.js';
+import { capturePreparationFocus } from '../../components/admin-preparation/preparation-focus.js';
 
-import { groupCampaignRows } from './admin-campaigns-controller.js';
+import {
+  campaignDetailAction,
+  groupCampaignRows
+} from './admin-campaigns-controller.js';
 
 interface CampaignFilters {
   search: string;
@@ -84,6 +88,11 @@ export class AdminCampaignsPageComponent {
   );
   private readonly rendered = signal(false);
   private routeKey = '';
+  private pendingDetailFocus: {
+    id: string;
+    session: string;
+    restore: () => void;
+  } | null = null;
   readonly channels = ['website', 'facebook', 'linkedin'] as const;
   readonly targets = ['openg7', 'openg20'] as const;
   readonly states = [
@@ -109,6 +118,14 @@ export class AdminCampaignsPageComponent {
   readonly dossierCount = computed(
     () => new Set(this.c.data()?.items.map((row) => row.contributionId)).size
   );
+  readonly detailRows = computed(() => {
+    const row = this.c.selected();
+    return row ? [row] : [];
+  });
+  readonly preparationExpanded = signal(false);
+  readonly contentExpanded = signal(false);
+  readonly proofExpanded = signal(false);
+  readonly detailAction = campaignDetailAction;
   readonly preparationRefreshKey = computed(
     () =>
       `${this.c.data()?.generatedAt ?? ''}:${this.c.selected()?.preparation.version ?? ''}`
@@ -145,6 +162,56 @@ export class AdminCampaignsPageComponent {
       this.c.sessionKey();
       untracked(() => {
         this.filters.set(this.filterDraft(this.c.query()));
+      });
+    });
+    effect(() => {
+      this.c.sessionKey();
+      this.c.selectedId();
+      this.preparationExpanded.set(false);
+      this.contentExpanded.set(false);
+      this.proofExpanded.set(false);
+    });
+    effect(() => {
+      const rendered = this.rendered();
+      const state = this.c.state();
+      const id = this.c.selectedId();
+      const session = this.c.sessionKey();
+      const row = this.c.selected();
+      untracked(() => {
+        if (!rendered) return;
+        if (!id || !session) {
+          this.pendingDetailFocus = null;
+          return;
+        }
+        if (
+          this.pendingDetailFocus &&
+          (this.pendingDetailFocus.id !== id ||
+            this.pendingDetailFocus.session !== session)
+        )
+          this.pendingDetailFocus = null;
+        if (state === 'loading' && !this.pendingDetailFocus) {
+          const restore = this.captureDetailFocus();
+          if (restore) this.pendingDetailFocus = { id, session, restore };
+        } else if (
+          state === 'ready' &&
+          row?.id === id &&
+          this.pendingDetailFocus
+        ) {
+          const pending = this.pendingDetailFocus;
+          this.pendingDetailFocus = null;
+          afterNextRender(
+            () => {
+              if (
+                this.c.selected()?.id === pending.id &&
+                this.c.sessionKey() === pending.session
+              )
+                pending.restore();
+            },
+            { injector: this.injector }
+          );
+        } else if (state !== 'loading') {
+          this.pendingDetailFocus = null;
+        }
       });
     });
     inject(DestroyRef).onDestroy(() => this.c.detach());
@@ -237,6 +304,70 @@ export class AdminCampaignsPageComponent {
       )
     ).find((item) => item.getAttribute('data-og7-id') === selectedId);
     if (row) revealControllerFocus(row);
+  }
+
+  openDetail(details: HTMLDetailsElement, row: AdminCampaignItem): void {
+    if (this.c.selected()?.id !== row.id) return;
+    details.open = true;
+    if (details.getAttribute('data-og7') === 'campaign-preparation-details')
+      this.preparationExpanded.set(true);
+    if (details.getAttribute('data-og7') === 'campaign-proof-details')
+      this.proofExpanded.set(true);
+    const summary = details.querySelector<HTMLElement>('summary');
+    if (summary) revealControllerFocus(summary);
+  }
+
+  private captureDetailFocus(): (() => void) | null {
+    const host = this.element.nativeElement;
+    const document = host.ownerDocument;
+    const active = document.activeElement;
+    const detail = host.querySelector('[data-og7="campaign-detail"]');
+    if (!active || !detail?.contains(active)) return null;
+    const preparationFocus = capturePreparationFocus(host);
+    const disclosure = active
+      .closest<HTMLElement>(
+        '[data-og7="campaign-content-details"], [data-og7="campaign-preparation-details"], [data-og7="campaign-proof-details"]'
+      )
+      ?.getAttribute('data-og7');
+    const hook =
+      disclosure ??
+      active.getAttribute('data-og7') ??
+      'campaign-detail-heading';
+    return () => {
+      if (
+        !host.isConnected ||
+        document.activeElement !== document.body ||
+        document.querySelector('dialog[open]')
+      )
+        return;
+      preparationFocus?.();
+      if (document.activeElement !== document.body) return;
+      const target = Array.from(
+        host.querySelectorAll<HTMLElement>('[data-og7]')
+      ).find((candidate) => candidate.getAttribute('data-og7') === hook);
+      const focus = disclosure
+        ? target?.querySelector<HTMLElement>(':scope > summary')
+        : target;
+      const fallback = host.querySelector<HTMLElement>(
+        '[data-og7="campaign-detail-heading"]'
+      );
+      const destination =
+        focus?.getClientRects().length &&
+        !focus.matches(':disabled,[aria-disabled="true"]')
+          ? focus
+          : fallback;
+      if (destination) revealControllerFocus(destination);
+    };
+  }
+
+  deliveryActionLabel(row: AdminCampaignItem): string {
+    if (['uncertain', 'error'].includes(row.workflow.state))
+      return this.t('detail.reviewResult');
+    return this.t(
+      row.workflow.reason === 'publication_scheduled'
+        ? 'detail.openScheduled'
+        : 'detail.openDelivery'
+    );
   }
 
   date(value: string | null | undefined): string {

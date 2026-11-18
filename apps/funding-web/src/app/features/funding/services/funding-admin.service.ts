@@ -115,7 +115,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminMediaReviewClient } from './funding-admin-media-review.client.js';
-import { FundingAdminSession } from './funding-admin-session.js';
+import {
+  AdminDashboardRequestError,
+  FundingAdminSession
+} from './funding-admin-session.js';
 import { FundingAdminPreflightDeskClient } from './funding-admin-preflight-desk.client.js';
 import { FundingAdminPreflightExaminationClient } from './funding-admin-preflight-examination.client.js';
 import { FundingAdminSponsorshipConsentClient } from './funding-admin-sponsorship-consent.client.js';
@@ -593,6 +596,18 @@ export class FundingAdminService {
     query: AdminWorkQueueQuery = {}
   ): Promise<AdminWorkQueueResponse> {
     const generation = ++this.queueGeneration;
+    const session = this.sessionGeneration();
+    const identity = this.identity();
+    const actor = `${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'token'}`;
+    const current = () => {
+      const profile = this.identity();
+      return (
+        generation === this.queueGeneration &&
+        session === this.sessionGeneration() &&
+        actor ===
+          `${profile?.id ?? 'token'}:${profile?.sessionId ?? 'token'}:${profile?.role ?? 'token'}`
+      );
+    };
     try {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(query)) {
@@ -606,11 +621,21 @@ export class FundingAdminService {
           cache: 'no-store'
         }
       );
-      if (generation === this.queueGeneration)
-        this.workQueue.set(data.available ? data : null);
+      if (current()) this.workQueue.set(data.available ? data : null);
       return data;
     } catch (error) {
-      if (generation === this.queueGeneration) this.workQueue.set(null);
+      if (current()) {
+        if (
+          error instanceof AdminDashboardRequestError &&
+          error.status === 401
+        ) {
+          // A late refusal must never revoke a replacement session or an
+          // explicit unauthenticated read's independently saved session.
+          const savedToken = this.getSavedAdminToken();
+          if (current() && token.trim() && savedToken === token.trim())
+            this.clearAdminSession();
+        } else this.workQueue.set(null);
+      }
       throw error;
     }
   }

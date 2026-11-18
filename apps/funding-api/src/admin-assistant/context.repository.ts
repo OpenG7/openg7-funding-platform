@@ -12,6 +12,7 @@ import {
 } from '../sponsorship-progress-evidence.js';
 
 import type { AttentionDataset } from './attention.service.js';
+import { listSponsorshipMediaForAttention } from './attention/media.repository.js';
 
 /** Exact ID/public-reference lookup; no global queue or materialisation cap. */
 export const loadSponsorshipAssistantDataset = async (
@@ -87,6 +88,9 @@ export const loadSponsorshipAssistantDataset = async (
     now,
     sponsorships: [record],
     sponsorshipsTruncated: false,
+    media: await listSponsorshipMediaForAttention(pool, [
+      record.contributionId
+    ]),
     drafts: drafts.drafts,
     batches: [],
     slots: [],

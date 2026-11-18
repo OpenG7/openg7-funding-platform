@@ -6,13 +6,85 @@ import {
   sponsorshipRef
 } from '../../sponsorship-admin-presentation.js';
 import {
+  isActionableSponsorship,
   isSponsorshipAwaitingReview,
   missingFicheFields,
   needsSponsorshipInformation
 } from '../../sponsorship-review-policy.js';
 
-import type { AttentionDataset } from './contracts.js';
+import type { AttentionDataset, AttentionMediaRecord } from './contracts.js';
 import { severityForAge } from './shared.js';
+
+/** Current facts keep the work visible across visits; no notification or approval is inferred. */
+export const detectSponsorshipMediaReviewItems = (
+  dataset: AttentionDataset
+): AdminAttentionItem[] => {
+  const mediaByDossier = new Map<string, AttentionMediaRecord[]>();
+  for (const asset of dataset.media ?? []) {
+    const group = mediaByDossier.get(asset.contributionId) ?? [];
+    group.push(asset);
+    mediaByDossier.set(asset.contributionId, group);
+  }
+  return dataset.sponsorships.flatMap((record) => {
+    if (!isActionableSponsorship(record) || record.reviewStatus === 'rejected')
+      return [];
+    const media = mediaByDossier.get(record.contributionId) ?? [];
+    const review = media.filter((asset) => asset.authorization === 'confirmed');
+    const waiting = media.filter((asset) => asset.authorization === 'required');
+    const current = review.length ? review : waiting;
+    if (!current.length) return [];
+    const phase = review.length ? 'review' : 'waiting';
+    const changedAt = current.map((asset) => asset.changedAt).sort()[0]!;
+    const daysWaiting = Math.max(
+      0,
+      elapsedDaysSince(dataset.now, changedAt) ?? 0
+    );
+    return [
+      {
+        id: `sponsorship_media_review:${record.contributionId}`,
+        type: 'sponsorship_media_review',
+        severity:
+          phase === 'waiting'
+            ? 'informational'
+            : daysWaiting >= 7
+              ? 'urgent'
+              : 'today',
+        title:
+          phase === 'review'
+            ? `Médias autorisés à examiner (${sponsorshipRef(record)})`
+            : `Autorisation des médias à obtenir (${sponsorshipRef(record)})`,
+        explanation:
+          phase === 'review'
+            ? `${review.length} média(s) disposent de droits confirmés et attendent une revue. Leur approbation reste une décision administrative distincte.`
+            : `${waiting.length} média(s) attendent une autorisation d’utilisation. Cet état ne confirme pas qu’une demande a été envoyée.`,
+        sponsorshipId: record.contributionId,
+        contributionId: record.contributionId,
+        detectedAt: changedAt,
+        adminUrl: sponsorshipAdminUrl(record.contributionId, 'media'),
+        facts: {
+          reference: sponsorshipRef(record),
+          phase,
+          reviewCount: review.length,
+          authorizationRequiredCount: waiting.length,
+          missingAltCount: review.filter((asset) => asset.missingAlt).length,
+          changedAt,
+          daysWaiting,
+          tab: 'media'
+        },
+        suggestedActions: [
+          {
+            actionType: 'open_sponsorship',
+            label:
+              phase === 'review'
+                ? 'Examiner les médias'
+                : 'Consulter les autorisations',
+            executionMode: 'navigate'
+          }
+        ]
+      } satisfies AdminAttentionItem
+    ];
+  });
+};
 
 // ---------------------------------------------------------------------------
 // Detector: sponsorship paid but fiche incomplete.

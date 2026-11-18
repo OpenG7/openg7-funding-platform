@@ -15,7 +15,10 @@ import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
-import { openSponsorshipWebsiteSettings } from './support/sponsorship-dossier.js';
+import {
+  openPublicationServiceDetailSection,
+  openSponsorshipWebsiteSettings
+} from './support/sponsorship-dossier.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorWorkspaceTests } from './admin-sponsor-workspace.ui.js';
@@ -1179,7 +1182,7 @@ for (const language of ['fr-CA', 'en'] as const)
         await expect(opener).toBeInViewport({ ratio: 1 });
         await page.keyboard.press('Enter');
         const decision = page.locator('[data-og7="moderation-decision"]');
-        const dialog = page.getByRole('dialog').filter({ has: decision });
+        const dialog = decision.getByRole('dialog');
         await expect(dialog).toBeVisible();
         await expect(dialog).toHaveAccessibleName(/.+/);
         const confirmation = decision.locator(
@@ -1303,6 +1306,11 @@ for (const [language, width] of [
       );
       await row.locator('[data-og7="publication-service-details"]').click();
       const details = page.locator('[data-og7="publication-monitor-details"]');
+      const evidenceDetails = details.locator(
+        '[data-og7="publication-detail-evidence"]'
+      );
+      await expect(evidenceDetails).toHaveJSProperty('open', false);
+      await openPublicationServiceDetailSection(page, 'evidence');
       const proof = details.locator('[data-og7="publication-monitor-proof"]');
       const qualified = qualification === 'qualified';
       await expect(proof).toHaveCount(qualified ? 1 : 0);
@@ -1802,7 +1810,7 @@ for (const width of [1920, 1280, 390]) {
       });
     });
     await dock.scrollIntoViewIfNeeded();
-    for (const label of ['Refuser', 'Accepter']) {
+    for (const label of ['Refuser', 'Accepter la commandite']) {
       await expect(
         dock.getByRole('button', { name: label, exact: true })
       ).toBeInViewport({ ratio: 1 });
@@ -1820,13 +1828,18 @@ for (const width of [1920, 1280, 390]) {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     const review = page.locator('#dossier-review');
-    await review.getByRole('button', { name: 'Accepter', exact: true }).focus();
+    await review
+      .getByRole('button', { name: 'Accepter la commandite', exact: true })
+      .focus();
     await review.evaluate((element) =>
       element.scrollIntoView({ block: 'center', behavior: 'instant' })
     );
     await expect(review).toBeInViewport({ ratio: 1 });
     await expect(
-      review.getByRole('button', { name: 'Accepter', exact: true })
+      review.getByRole('button', {
+        name: 'Accepter la commandite',
+        exact: true
+      })
     ).toBeInViewport({ ratio: 1 });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth)
@@ -1875,6 +1888,129 @@ const postsTo = (
   calls.filter(
     (call) => call.method === 'POST' && call.url.pathname.endsWith(suffix)
   );
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`dossier authorization waiting separates profile publication, media and remaining review in ${language}`, async ({
+    page
+  }, info) => {
+    const { options, calls } = await fixtures(page, 'operator');
+    await page.addInitScript((locale) => {
+      localStorage.setItem('openg7.language', locale);
+    }, language);
+    await page.setViewportSize({
+      width: language === 'en' ? 390 : 1440,
+      height: 1000
+    });
+    options.edited.set(id, { public_display_consent: false });
+    options.progressOverrides = { publicConsent: false };
+    options.milestones = dossier().milestones.map((step) =>
+      step.id === 'media'
+        ? { ...step, state: 'pending', reason: 'media_review' }
+        : step.id === 'publication'
+          ? { ...step, state: 'blocked', reason: 'consent_missing' }
+          : step
+    );
+    options.next = {
+      reason: 'consent_missing',
+      tab: 'identity',
+      adminUrl: path('identity')
+    };
+    options.media = [
+      {
+        ...mediaAsset(),
+        altText: null,
+        usage: { ...mediaAsset().usage!, state: 'needs_confirmation' }
+      }
+    ];
+    await page.goto(path());
+    const notice = page.locator('[data-og7="dossier-authorization-notice"]');
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText(
+      language === 'en' ? 'Authorizations awaited' : 'Autorisations attendues'
+    );
+    await expect(
+      notice.locator('[data-og7="dossier-public-consent-waiting"]')
+    ).toContainText(language === 'en' ? 'displayed' : 'diffusion');
+    await expect(
+      notice.locator('[data-og7="dossier-media-consent-waiting"]')
+    ).toContainText('1');
+    await expect(
+      notice.locator('[data-og7="dossier-authorization-missing-alt"]')
+    ).toContainText('1');
+    await expect(
+      notice.locator('[data-og7="dossier-authorization-review-available"]')
+    ).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      )
+      .toBe(true);
+    await notice.screenshot({
+      path: info.outputPath(`dossier-authorization-waiting-${language}.png`)
+    });
+    await notice
+      .locator('[data-og7="dossier-authorization-open-identity"]')
+      .click();
+    await expect(page).toHaveURL(/tab=identity/);
+    await notice
+      .locator('[data-og7="dossier-authorization-open-review"]')
+      .click();
+    await expect(page).toHaveURL(/tab=publication/);
+    expect(new URL(page.url()).hash).toBe('#dossier-review');
+    await notice
+      .locator('[data-og7="dossier-authorization-open-media"]')
+      .click();
+    await expect(page).toHaveURL(/tab=media/);
+    await expect(
+      page.locator('[data-og7="media-preparation-summary"]')
+    ).toBeVisible();
+    options.media[0] = {
+      ...options.media[0]!,
+      version: 'v2',
+      altText: 'A description prepared on the current server version'
+    };
+    await page.locator('[data-og7="media-refresh"]').first().click();
+    await expect(
+      page.locator('[data-og7="media-review-workspace"]')
+    ).toHaveAttribute('aria-busy', 'false');
+    await expect(
+      notice.locator('[data-og7="dossier-media-consent-waiting"]')
+    ).toContainText('1');
+    await expect(
+      notice.locator('[data-og7="dossier-authorization-missing-alt"]')
+    ).toHaveCount(0);
+    options.media[0] = {
+      ...options.media[0]!,
+      version: 'v3',
+      usage: { ...options.media[0]!.usage!, state: 'confirmed' }
+    };
+    await page.locator('[data-og7="media-refresh"]').first().click();
+    await expect(
+      page.locator('[data-og7="media-review-workspace"]')
+    ).toHaveAttribute('aria-busy', 'false');
+    await expect(
+      notice.locator('[data-og7="dossier-media-consent-waiting"]')
+    ).toHaveCount(0);
+    await expect(
+      notice.locator('[data-og7="dossier-public-consent-waiting"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-og7="media-approve-all-open"]')
+    ).toBeVisible();
+    options.edited.set(id, { public_display_consent: true });
+    options.progressOverrides = { publicConsent: true };
+    await page.reload();
+    await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
+    await expect(
+      page.locator('[data-og7="media-preparation-summary"]')
+    ).toBeVisible();
+    await expect(notice).toHaveCount(0);
+    expect(
+      calls.filter((call) => !['GET', 'HEAD', 'OPTIONS'].includes(call.method))
+    ).toEqual([]);
+  });
+}
 
 test('preparation activity stays accessible from Publication without adding a dashboard panel', async ({
   page
@@ -2125,7 +2261,10 @@ test('operator can review but owner controls are absent', async ({ page }) => {
   await fixtures(page, 'operator');
   await page.goto(path('publication'));
   await expect(
-    actions(page).getByRole('button', { name: 'Accepter', exact: true })
+    actions(page).getByRole('button', {
+      name: 'Accepter la commandite',
+      exact: true
+    })
   ).toBeEnabled();
   await expect(
     actions(page).getByRole('button', { name: 'Refuser', exact: true })
@@ -2206,6 +2345,289 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     expect(postsTo(calls, '/review')).toHaveLength(1);
   });
 }
+
+for (const english of [false, true]) {
+  test(`post-approval refresh updates the dossier, counters and promised services without publishing ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }, testInfo) => {
+    const { calls, options } = await fixtures(page, 'operator');
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      english ? 'en' : 'fr-CA'
+    );
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    const commitment = recordedCommitment(50000, false);
+    const obligation = commitment.obligations[0]!;
+    options.progressOverrides = {
+      commitment: {
+        ...commitment,
+        obligations: commitment.obligations.map((item) => ({
+          ...item,
+          state: 'blocked',
+          blockedReason: 'review_pending_review'
+        }))
+      },
+      publications: [],
+      publicationCompletion: { done: 0, total: 1 },
+      website: {
+        visible: false,
+        held: true,
+        canPublish: false,
+        version: 'v1',
+        blockers: ['review_pending']
+      }
+    };
+    options.reviewStatus = 200;
+    let release!: () => void;
+    options.reviewGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.goto(path('publication'));
+    const summary = page.locator('[data-og7="sponsors-summary"]');
+    const service = page.locator(
+      `[data-og7="publication-service"][data-og7-id="${obligation.id}"]`
+    );
+    await expect(summary.locator('dd')).toHaveText(['1', '0', '1']);
+    await expect(service).toHaveAttribute('data-state', 'exception');
+    const progressReads = () =>
+      calls.filter(
+        (call) =>
+          call.method === 'GET' &&
+          call.url.pathname === '/api/admin/sponsorships/progress' &&
+          call.url.searchParams.get('sponsorshipId') === id
+      ).length;
+    const beforeProgressReads = progressReads();
+    const approve = page.getByRole('button', {
+      name: english ? 'Accept sponsorship' : 'Accepter la commandite',
+      exact: true
+    });
+    await approve.click();
+    await completeModeration(page);
+    await expect(approve).toBeDisabled();
+    await expect(
+      page.locator('[data-og7="publication-decision-status"]')
+    ).toHaveCount(0);
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+
+    options.edited.set(id, {
+      sponsor_review_status: 'approved',
+      sponsor_reviewed_at: date,
+      version: 'v2'
+    });
+    options.queueCount = 0;
+    options.milestones = dossier().milestones.map((step) =>
+      step.id === 'review'
+        ? { ...step, state: 'complete', reason: 'review_approved' }
+        : step
+    );
+    options.progressOverrides = {
+      ...options.progressOverrides,
+      version: 'v2',
+      reviewStatus: 'approved',
+      commitment,
+      publicationWorkflow: {
+        state: 'action_required',
+        responsibility: 'admin',
+        reason: 'website_publication_required',
+        obligations: [
+          {
+            obligationId: obligation.id,
+            channel: 'website',
+            target: 'openg7',
+            ordinal: 1,
+            state: 'action_required',
+            responsibility: 'admin',
+            reason: 'website_publication_required',
+            deliveryId: null,
+            scheduledAt: null
+          }
+        ]
+      },
+      website: {
+        visible: false,
+        held: true,
+        canPublish: true,
+        version: 'v2',
+        blockers: []
+      }
+    };
+    release();
+
+    const status = page.locator('[data-og7="publication-decision-status"]');
+    await expect(status).toHaveAttribute('data-review-state', 'approved');
+    await expect(status).toContainText(
+      new Intl.DateTimeFormat(english ? 'en' : 'fr-CA', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Toronto'
+      }).format(new Date(date))
+    );
+    await expect(approve).toHaveCount(0);
+    await expect(summary.locator('dd')).toHaveText(['0', '1', '1']);
+    await expect.poll(progressReads).toBeGreaterThan(beforeProgressReads);
+    await expect(service).toHaveAttribute('data-state', 'disabled');
+    await expect(service).not.toHaveAttribute('data-state', 'delivered');
+    await expect(page.locator('[data-og7="dossier-header"]')).toContainText(
+      english ? 'Website · Private' : 'Site Web · Privé'
+    );
+    await expect(
+      page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
+    ).toHaveCount(0);
+    await openOtherPublicationDecisions(page);
+    const decision = page.locator('[data-og7="publication-decision"]');
+    await expect(
+      decision.getByRole('button', {
+        name: english ? 'Reject' : 'Refuser',
+        exact: true
+      })
+    ).toBeEnabled();
+    await expect(
+      decision.getByRole('button', {
+        name: english ? 'Return to pending' : 'Remettre en attente',
+        exact: true
+      })
+    ).toBeEnabled();
+    expect(
+      calls
+        .filter((call) => call.method !== 'GET')
+        .map((call) => call.url.pathname)
+    ).toEqual(['/api/admin/sponsorships/review']);
+    await page.locator('[data-og7="publication-monitor"]').screenshot({
+      path: testInfo.outputPath(`post-approval-${english ? 'en' : 'fr'}.png`)
+    });
+  });
+}
+
+for (const readFailure of ['stale', 'unavailable'] as const) {
+  test(`post-approval refresh requires a fresh read after ${readFailure} data without replaying the decision`, async ({
+    page
+  }, testInfo) => {
+    const { calls, options } = await fixtures(page, 'operator');
+    options.reviewStatus = 200;
+    let release!: () => void;
+    options.reviewGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.goto(path('publication'));
+    const approve = page.locator('[data-og7="sponsorship-approve"]');
+    await approve.click();
+    await completeModeration(page);
+    await expect(approve).toBeDisabled();
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+    if (readFailure === 'unavailable') options.listStatus = 503;
+    release();
+
+    const refresh = page.locator(
+      '[data-og7="sponsorship-review-refresh-required"]'
+    );
+    await expect(refresh).toBeVisible();
+    await expect(refresh).toContainText('Décision enregistrée');
+    await expect(
+      page.locator('[data-og7="publication-decision-status"]')
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Action confirmee: commandite acceptee.', { exact: true })
+    ).toHaveCount(0);
+    if (readFailure === 'stale') await expect(approve).toBeDisabled();
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+    await refresh.screenshot({
+      path: testInfo.outputPath(`post-approval-refresh-${readFailure}.png`)
+    });
+
+    options.listStatus = 200;
+    options.edited.set(id, {
+      sponsor_review_status: 'approved',
+      sponsor_reviewed_at: date,
+      version: 'v2'
+    });
+    await refresh
+      .locator('[data-og7="sponsorship-review-refresh-retry"]')
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(refresh).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="publication-decision-status"]')
+    ).toHaveAttribute('data-review-state', 'approved');
+    await expect(approve).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="sponsorship-dossier"]')
+    ).toBeFocused();
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+    expect(
+      calls
+        .filter((call) => call.method !== 'GET')
+        .map((call) => call.url.pathname)
+    ).toEqual(['/api/admin/sponsorships/review']);
+  });
+}
+
+test('approval decision keeps a legacy presentation-photo rejection visible without a false version conflict or retry', async ({
+  page
+}, testInfo) => {
+  const { calls } = await fixtures(page, 'operator');
+  await page.clock.install();
+  await page.route('**/api/admin/sponsorships/review', async (route) => {
+    const request = route.request();
+    calls.push({
+      url: new URL(request.url()),
+      method: request.method(),
+      body: request.postDataJSON() as Record<string, unknown>
+    });
+    await route.fulfill({
+      status: 409,
+      json: {
+        code: 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED',
+        error: 'Synthetic legacy presentation-photo requirement'
+      }
+    });
+  });
+  await page.goto(path('publication'));
+  const approve = page.locator('[data-og7="sponsorship-approve"]');
+  await expect(approve).toBeEnabled();
+  await approve.press('Enter');
+  await completeModeration(page);
+
+  const feedback = page.locator('[data-og7="publication-decision-feedback"]');
+  const message =
+    'Le service exige une photo de présentation pour cette validation. Vérifiez que le service est à jour. La commandite n’a pas été acceptée.';
+  await expect(feedback).toHaveText(message);
+  await expect(feedback).toHaveAttribute('role', 'alert');
+  await expect(approve).toHaveAttribute('data-state', 'error');
+  await expect(approve).toBeEnabled();
+  await expect(actions(page)).toHaveAttribute(
+    'data-review-state',
+    'pending_review'
+  );
+  await expect(
+    page.getByText(
+      'Le dossier a changé depuis son chargement. Actualisez-le avant de reprendre votre action.',
+      { exact: true }
+    )
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="sponsorship-review-refresh-required"]')
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="publication-decision-status"]')
+  ).toHaveCount(0);
+
+  await page.clock.fastForward(4000);
+  await expect(feedback).toBeVisible();
+  await expect(feedback).toHaveText(message);
+  await expect(feedback).toHaveAttribute('role', 'alert');
+  await expect(approve).toBeEnabled();
+  await actions(page).screenshot({
+    path: testInfo.outputPath('legacy-service-rejection.png')
+  });
+  expect(postsTo(calls, '/review')).toHaveLength(1);
+  expect(
+    calls
+      .filter((call) => call.method !== 'GET')
+      .map((call) => call.url.pathname)
+  ).toEqual(['/api/admin/sponsorships/review']);
+});
 
 for (const failure of ['http', 'not_updated'] as const) {
   test(`approval decision reports ${failure} failure without premature success and allows retry`, async ({
@@ -2312,7 +2734,10 @@ test('review controls disable redundant decisions and retain mandatory refusal c
     .getByRole('button', { name: 'Actualiser le dossier', exact: true })
     .click();
   await expect(
-    actions(page).getByRole('button', { name: 'Accepter', exact: true })
+    actions(page).getByRole('button', {
+      name: 'Accepter la commandite',
+      exact: true
+    })
   ).toHaveCount(0);
   await openOtherPublicationDecisions(page);
   await actions(page)
@@ -2618,7 +3043,10 @@ for (const blocked of [
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await expect(
-      actions(page).getByRole('button', { name: 'Accepter', exact: true })
+      actions(page).getByRole('button', {
+        name: 'Accepter la commandite',
+        exact: true
+      })
     ).toBeDisabled();
     await tabs(page)
       .getByRole('button', { name: 'Finances', exact: true })
@@ -3958,7 +4386,9 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Accepter la commandite', exact: true })
+    .click();
   await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(postsTo(calls, '/review')).toHaveLength(0);
   await completeModeration(page);
@@ -3979,6 +4409,11 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
   ).toHaveText('3');
   options.queueCount = 0;
+  options.edited.set(id, {
+    sponsor_review_status: 'approved',
+    sponsor_reviewed_at: date,
+    version: 'v2'
+  });
   release();
   await expect(
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
@@ -4004,7 +4439,10 @@ test('version conflict offers reload; pending action is disabled and retry uses 
     release = resolve;
   });
   await page.goto(path('publication'));
-  const approve = page.getByRole('button', { name: 'Accepter', exact: true });
+  const approve = page.getByRole('button', {
+    name: 'Accepter la commandite',
+    exact: true
+  });
   await approve.click();
   await completeModeration(page);
   await expect(approve).toBeDisabled();
@@ -4734,6 +5172,7 @@ for (const [deliveryStatus, deliveryMode, expected, qualified] of [
     );
     if (qualified) {
       await row.locator('[data-og7="publication-service-details"]').click();
+      await openPublicationServiceDetailSection(page, 'evidence');
       const proof = page.locator('[data-og7="publication-monitor-proof"]');
       await expect(proof).toContainText(evidenceId);
       await expect(proof.getByRole('link')).toHaveAttribute(
@@ -4872,6 +5311,7 @@ for (const width of [1280, 390]) {
     await openPublicationAnalysis(page);
     await expect(view.getByRole('progressbar')).toHaveAttribute('value', '1');
     await view.locator('[data-og7="publication-service-details"]').click();
+    await openPublicationServiceDetailSection(page, 'evidence');
     await expect(
       page.locator('[data-og7="publication-monitor-proof"]')
     ).toBeVisible();
@@ -5195,8 +5635,18 @@ for (const english of [false, true]) {
 for (const english of [false, true]) {
   test(`moderation V1 requires contextual reasons and separates private notes from external explanation ${english ? 'EN mobile' : 'FR desktop'}`, async ({
     page
-  }) => {
+  }, testInfo) => {
+    test.setTimeout(60000);
     await fixtures(page, 'operator');
+    await page.addInitScript(
+      (theme) => {
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme, system: false })
+        );
+      },
+      english ? 'mineral' : 'graphite'
+    );
     await page.setViewportSize(
       english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
     );
@@ -5215,7 +5665,14 @@ for (const english of [false, true]) {
             fingerprint: 'b'.repeat(64),
             snapshot: {
               companyName: 'Atelier Boréal',
-              message: 'Synthetic current submitted content'
+              publicName: 'Atelier Boréal public',
+              website: 'https://example.invalid',
+              publicSummary: null,
+              message: 'Synthetic current submitted content',
+              additionalContext: Array.from(
+                { length: 30 },
+                (_, index) => `Exact additional context ${index + 1}`
+              )
             },
             currentDecisionId: null
           }
@@ -5262,27 +5719,77 @@ for (const english of [false, true]) {
     await toolToggle(page, 'moderation').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
     await expect(actions.getByRole('combobox')).toHaveValue('N1');
-    await actions.locator('[data-og7="moderation-open"]').click();
-    let panel = page.locator('[data-og7="moderation-decision"]');
-    await expect(
-      panel.locator(
-        '[data-og7="moderation-primary-reason"] option[value="HATE_TARGETED"]'
-      )
-    ).toHaveCount(0);
-    await panel
-      .getByRole('button', {
-        name: english ? 'Cancel' : 'Annuler',
-        exact: true
-      })
-      .click();
+    await page.setViewportSize({ width: 320, height: 667 });
+    const documentWidthWithoutModal = await page.evaluate(
+      () => document.documentElement.scrollWidth
+    );
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    const opener = actions.locator('[data-og7="moderation-open"]');
+    const panel = page.locator('[data-og7="moderation-decision"]');
+    const confirmation = panel.locator('[data-og7="moderation-confirmation"]');
+    const submit = panel.locator('[data-og7="moderation-submit"]');
+    const confirmNames = english
+      ? [
+          ['N0', 'Confirm approval'],
+          ['N1', 'Confirm correction request'],
+          ['N2', 'Confirm suspension'],
+          ['N4', 'Confirm dossier rejection'],
+          ['N5', 'Confirm removal']
+        ]
+      : [
+          ['N0', 'Confirmer l’approbation'],
+          ['N1', 'Confirmer la demande de correction'],
+          ['N2', 'Confirmer la suspension'],
+          ['N4', 'Confirmer le refus du dossier'],
+          ['N5', 'Confirmer le retrait']
+        ];
+    for (const [level, name] of confirmNames) {
+      await actions.getByRole('combobox').selectOption(level!);
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      await expect(confirmation).toBeVisible();
+      await expect(confirmation).not.toBeChecked();
+      await expect(submit).toBeDisabled();
+      await expect(submit).toHaveAccessibleName(name!);
+      await expect(
+        panel.locator('[data-og7="moderation-decision-summary"]')
+      ).toContainText('8');
+      const preview = panel.locator('[data-og7="moderation-content-preview"]');
+      await expect(preview).toContainText('Atelier Boréal public');
+      await expect(preview).toContainText('https://example.invalid');
+      await expect(preview).toContainText(
+        'Synthetic current submitted content'
+      );
+      await expect(
+        panel.locator('[data-og7="moderation-snapshot"]')
+      ).toBeHidden();
+      if (level === 'N0') {
+        await panel.getByRole('dialog').screenshot({
+          path: testInfo.outputPath(
+            `moderation-guided-review-${english ? 'mobile' : 'desktop'}.png`
+          )
+        });
+        await confirmation.check();
+        await expect(submit).toBeEnabled();
+      }
+      if (level === 'N1') {
+        await expect(
+          panel.locator(
+            '[data-og7="moderation-primary-reason"] option[value="HATE_TARGETED"]'
+          )
+        ).toHaveCount(0);
+      }
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(opener).toBeFocused();
+    }
     expect(decisions).toHaveLength(0);
     await actions.getByRole('combobox').selectOption('N4');
-    await actions.locator('[data-og7="moderation-open"]').click();
-    panel = page.locator('[data-og7="moderation-decision"]');
-    await panel.locator('[data-og7="moderation-confirmation"]').check();
-    await expect(
-      panel.locator('[data-og7="moderation-submit"]')
-    ).toBeDisabled();
+    await opener.click();
+    await confirmation.check();
+    await expect(submit).toBeDisabled();
     await panel
       .locator('[data-og7="moderation-primary-reason"]')
       .selectOption('DEHUMANIZATION');
@@ -5296,19 +5803,93 @@ for (const english of [false, true]) {
           ? 'This submitted message dehumanizes people; please use the private reconsideration route.'
           : 'Ce message soumis déshumanise des personnes; utilisez le parcours privé de réexamen.'
       );
-    await expect(
-      panel.locator('[data-og7="moderation-confirmation"]')
-    ).not.toBeChecked();
-    await panel.locator('summary').first().click();
-    await expect(
-      panel.locator('[data-og7="moderation-snapshot"]')
-    ).toContainText('Synthetic current submitted content');
+    await expect(confirmation).not.toBeChecked();
+    const snapshot = panel.locator('[data-og7="moderation-snapshot"]');
+    await panel
+      .locator('details')
+      .filter({
+        has: page.locator('[data-og7="moderation-snapshot"]')
+      })
+      .locator('summary')
+      .click();
+    await expect(snapshot).toBeVisible();
+    await expect(snapshot).toContainText('Synthetic current submitted content');
+    await expect(snapshot).toContainText('Exact additional context 30');
+    await expect(snapshot).toContainText('"publicSummary": null');
+    expect(
+      await snapshot.evaluate((element) => ({
+        verticalOverflow: element.scrollHeight - element.clientHeight,
+        horizontalOverflow: element.scrollWidth - element.clientWidth
+      }))
+    ).toEqual({ verticalOverflow: 0, horizontalOverflow: 0 });
+    const footer = panel.locator('[data-og7="moderation-footer"]');
+    const body = panel.locator('[data-og7="admin-drawer-content"]');
+    const beforeScroll = (await footer.boundingBox())!;
+    await body.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() => body.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    const afterScroll = (await footer.boundingBox())!;
+    expect(Math.abs(afterScroll.y - beforeScroll.y)).toBeLessThanOrEqual(1);
+    await expect(confirmation).toBeInViewport({ ratio: 1 });
+    await expect(submit).toBeInViewport({ ratio: 1 });
+    expect(
+      await confirmation.evaluate((element) => {
+        const label = element.closest('label')!.getBoundingClientRect();
+        const checkbox = element.getBoundingClientRect();
+        return checkbox.left - label.left;
+      })
+    ).toBeLessThanOrEqual(8);
+    await page.setViewportSize({ width: 320, height: 667 });
+    await body.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(confirmation).toBeInViewport({ ratio: 1 });
+    await expect(submit).toBeInViewport({ ratio: 1 });
+    const smallScreen = await panel.getByRole('dialog').evaluate((dialog) => {
+      const bounds = dialog.getBoundingClientRect();
+      const body = dialog.querySelector('[data-og7="admin-drawer-content"]')!;
+      return {
+        viewport: innerWidth,
+        document: document.documentElement.scrollWidth,
+        dialogOverflow: dialog.scrollWidth - dialog.clientWidth,
+        bodyOverflow: body.scrollWidth - body.clientWidth,
+        left: bounds.left,
+        right: bounds.right
+      };
+    });
+    expect(smallScreen.dialogOverflow).toBeLessThanOrEqual(1);
+    expect(smallScreen.bodyOverflow).toBeLessThanOrEqual(1);
+    expect(smallScreen.left).toBeGreaterThanOrEqual(-1);
+    expect(smallScreen.right).toBeLessThanOrEqual(smallScreen.viewport + 1);
+    expect(smallScreen.document).toBeLessThanOrEqual(
+      documentWidthWithoutModal + 1
+    );
+    await testInfo.attach('moderation-small-screen.json', {
+      body: JSON.stringify({ documentWidthWithoutModal, ...smallScreen }),
+      contentType: 'application/json'
+    });
+    await panel.getByRole('dialog').screenshot({
+      path: testInfo.outputPath('moderation-guided-review-small.png')
+    });
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
     expect(
       (await new AxeBuilder({ page }).include('dialog[open]').analyze())
         .violations
     ).toEqual([]);
-    await panel.locator('[data-og7="moderation-confirmation"]').check();
-    await panel.locator('[data-og7="moderation-submit"]').click();
+    await confirmation.check();
+    await expect(submit).toBeEnabled();
+    await panel
+      .locator('[data-og7="moderation-internal-reason"]')
+      .fill('PRIVATE-RATIONALE-ONLY updated after review');
+    await expect(confirmation).not.toBeChecked();
+    await expect(submit).toBeDisabled();
+    await confirmation.check();
+    await submit.click();
     await expect.poll(() => decisions.length).toBe(1);
     expect(decisions[0]).toMatchObject({
       subject: { type: 'sponsorship', id },
@@ -5318,7 +5899,7 @@ for (const english of [false, true]) {
         contentFingerprint: 'b'.repeat(64),
         level: 'N4',
         primaryReason: 'DEHUMANIZATION',
-        internalReason: 'PRIVATE-RATIONALE-ONLY',
+        internalReason: 'PRIVATE-RATIONALE-ONLY updated after review',
         confirmation: id
       }
     });

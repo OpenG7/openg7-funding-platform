@@ -30,7 +30,10 @@ import {
   AdminDashboardRequestError,
   type FundingAdminSession
 } from './funding-admin-session.js';
-import { errorMessageFromResponse } from './funding-admin-response.js';
+import {
+  errorDetailsFromResponse,
+  errorMessageFromResponse
+} from './funding-admin-response.js';
 
 export interface AdminSponsorshipListQuery {
   readonly page: number;
@@ -523,12 +526,11 @@ export class FundingAdminSponsorshipsClient {
     );
 
     if (!response.ok) {
+      const error = await errorDetailsFromResponse(response);
       throw new AdminDashboardRequestError(
         response.status,
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship review could not be updated.'
-        )
+        error.message ?? 'Sponsorship review could not be updated.',
+        error.code
       );
     }
 

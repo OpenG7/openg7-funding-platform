@@ -65,9 +65,40 @@ function fivePhotoInventory(state: SponsorMediaWorkspace): void {
   });
 }
 
+function consentPendingInventory(
+  state: SponsorMediaWorkspace,
+  missingAlt = false
+): void {
+  const assets = state.assets.slice(0, 2);
+  for (const [index, asset] of assets.entries())
+    Object.assign(asset, {
+      reviewStatus: 'pending_review',
+      kind: 'supporting_image',
+      altText: missingAlt && index === 0 ? null : asset.altText,
+      usage: {
+        state: 'needs_confirmation',
+        channels: [],
+        targets: [],
+        transformations: [],
+        credit: null,
+        restrictions: null
+      },
+      usageSource: 'media',
+      ruleId: null,
+      readiness: {
+        state: 'blocked',
+        // The native readiness projection reports the blocking consent first;
+        // an absent alternative text must still be discovered from the asset.
+        reasons: ['MEDIA_USAGE_CONFIRMATION_REQUIRED']
+      }
+    });
+  Object.assign(state, { assets });
+}
+
 async function approveAllFixture(page: Page, state: SponsorMediaWorkspace) {
   const calls = {
     plans: [] as SponsorMediaApproveAllPlanRequest[],
+    planFailure: null as { status: number; code?: string } | null,
     executes: [] as SponsorMediaApproveAllExecuteRequest[],
     receipts: [] as URL[],
     dropNextResponse: false,
@@ -103,6 +134,12 @@ async function approveAllFixture(page: Page, state: SponsorMediaWorkspace) {
               : 'MEDIA_USAGE_CONFIRMATION_REQUIRED'
           ]
         };
+      if (!asset.altText?.trim())
+        return {
+          asset: structuredClone(asset),
+          classification: 'blocked',
+          reasons: ['MEDIA_ALT_TEXT_REQUIRED']
+        };
       return {
         asset: structuredClone(asset),
         classification: 'eligible',
@@ -113,6 +150,13 @@ async function approveAllFixture(page: Page, state: SponsorMediaWorkspace) {
     '**/api/admin/sponsorships/media/approve-all/plan',
     async (route) => {
       calls.plans.push(route.request().postDataJSON());
+      if (calls.planFailure)
+        return route.fulfill({
+          status: calls.planFailure.status,
+          json: calls.planFailure.code
+            ? { code: calls.planFailure.code }
+            : { error: 'Not found' }
+        });
       const candidates = classify();
       const count = (classification: string) =>
         candidates.filter((item) => item.classification === classification)
@@ -241,6 +285,83 @@ export function registerApproveAllMediaTests(
   context: MediaWorkspaceTestContext
 ): void {
   const fixture = createMediaWorkspaceFixture(context);
+  for (const [language, status, code, width] of [
+    ['fr-CA', 404, undefined, 1440],
+    ['en', 405, 'METHOD_NOT_ALLOWED', 390]
+  ] as const) {
+    test(`approve all distinguishes an unsupported preparation service and permits an explicit retry in ${language}`, async ({
+      page
+    }, info) => {
+      const { state, calls: legacy } = await fixture(page);
+      mixedInventory(state);
+      const unchanged = structuredClone(state.assets);
+      const requests = await approveAllFixture(page, state);
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('media'));
+      const english = language === 'en';
+      const outdatedMessage = english
+        ? 'Bulk media approval is not available on this server. The service needs to be updated before trying again.'
+        : 'L’approbation groupée des médias n’est pas disponible sur ce serveur. Une mise à jour du service est nécessaire avant de réessayer.';
+      const failedMessage = english
+        ? 'The dossier could not be checked. Refresh before trying again.'
+        : 'La vérification du dossier n’a pas pu être préparée. Actualisez avant de réessayer.';
+      const failures = [
+        { status, code, message: outdatedMessage },
+        { status: 404, code: 'SPONSORSHIP_NOT_FOUND', message: failedMessage },
+        {
+          status: 503,
+          code: 'MEDIA_WORKSPACE_UNAVAILABLE',
+          message: failedMessage
+        }
+      ];
+      const opener = hook(page, 'open');
+      for (const [index, failure] of failures.entries()) {
+        requests.planFailure = failure;
+        await opener.focus();
+        await page.keyboard.press('Enter');
+        await expect(hook(page, 'error')).toHaveText(failure.message);
+        await expect(hook(page, 'confirm')).toHaveCount(0);
+        await expect(hook(page, 'candidates')).toHaveCount(0);
+        expect(requests.plans).toHaveLength(index + 1);
+        expect(requests.executes).toEqual([]);
+        if (index === 0)
+          await page.locator('dialog[open]').screenshot({
+            path: info.outputPath(
+              `approve-all-service-outdated-${language}.png`
+            ),
+            animations: 'disabled'
+          });
+        await page.keyboard.press('Escape');
+        await expect(hook(page, 'panel')).toBeHidden();
+        await expect(opener).toBeFocused();
+      }
+      requests.planFailure = null;
+      expect(requests.plans).toHaveLength(failures.length);
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      await expect(hook(page, 'error')).toHaveCount(0);
+      await expect(hook(page, 'confirm')).toBeEnabled();
+      expect(requests.plans).toHaveLength(failures.length + 1);
+      expect(requests.executes).toEqual([]);
+      expect(requests.receipts).toEqual([]);
+      expect(legacy.executes).toEqual([]);
+      expect(legacy.rules).toEqual([]);
+      expect(state.assets).toEqual(unchanged);
+      expect(
+        await page.evaluate(
+          (id) =>
+            sessionStorage.getItem('openg7-media-approve-all-pending:' + id),
+          state.contributionId
+        )
+      ).toBeNull();
+      await hook(page, 'cancel').click();
+    });
+  }
+
   for (const [language, width] of [
     ['fr-CA', 1920],
     ['en', 390]
@@ -481,7 +602,7 @@ export function registerApproveAllMediaTests(
     expect(requests.executes).toHaveLength(1);
   });
 
-  test('approve all with zero eligible files has no approval confirmation', async ({
+  test('approve all with zero eligible files explains the requirements before opening a confirmation', async ({
     page
   }) => {
     const { state } = await fixture(page);
@@ -491,13 +612,217 @@ export function registerApproveAllMediaTests(
     const before = structuredClone(state.assets);
     const requests = await approveAllFixture(page, state);
     await page.goto(context.path('media'));
-    await hook(page, 'open').click();
-    await expect(hook(page, 'empty')).toBeVisible();
+    await expect(
+      area(page).locator('[data-og7="media-approval-requirements"]')
+    ).toBeVisible();
+    await expect(hook(page, 'open')).toHaveCount(0);
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
     await expect(hook(page, 'confirm')).toHaveCount(0);
+    await area(page)
+      .locator('[data-og7="media-tile"]')
+      .filter({ hasText: state.assets[2]!.originalFilename })
+      .getByRole('button')
+      .click();
+    await expect(
+      area(page).locator('[data-og7="media-inspector"]')
+    ).toContainText(state.assets[2]!.originalFilename);
+    expect(requests.plans).toEqual([]);
     expect(requests.executes).toEqual([]);
     expect(state.assets).toEqual(before);
-    await hook(page, 'cancel').click();
-    await expect(hook(page, 'open')).toBeFocused();
+  });
+
+  for (const [language, width] of [
+    ['fr-CA', 1440],
+    ['en', 390]
+  ] as const)
+    for (const missingAlt of [false, true])
+      test(`media approval waiting explains sponsor consent before confirmation with ${missingAlt ? 'missing' : 'complete'} descriptions in ${language}`, async ({
+        page
+      }, info) => {
+        const { state, calls: legacy } = await fixture(page);
+        consentPendingInventory(state, missingAlt);
+        const requests = await approveAllFixture(page, state);
+        const before = structuredClone(state.assets);
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(context.path('media'));
+        const waiting = area(page).locator(
+          '[data-og7="media-approval-waiting"]'
+        );
+        const alternative = area(page).locator(
+          '[data-og7="media-approval-missing-alt"]'
+        );
+        await expect(waiting).toBeVisible();
+        await expect(waiting).toContainText(
+          language === 'en'
+            ? 'Waiting for the sponsor'
+            : 'En attente du commanditaire'
+        );
+        await expect(hook(page, 'open')).toHaveCount(0);
+        await expect(hook(page, 'confirm')).toHaveCount(0);
+        await expect(page.locator('dialog[open]')).toHaveCount(0);
+        await expect(alternative).toHaveCount(missingAlt ? 1 : 0);
+        if (missingAlt) {
+          await expect(alternative).toContainText('1');
+          const edit = area(page).locator(
+            '[data-og7="media-approval-edit-alt"]'
+          );
+          await expect(edit).toBeEnabled();
+          await edit.click();
+          const description = area(page).locator(
+            '[data-og7="media-inspector-alt"]'
+          );
+          await expect(description).toBeEditable();
+          await description.fill('Private description prepared before consent');
+          await expect(hook(page, 'open')).toHaveCount(0);
+          await area(page)
+            .locator('[data-og7="media-inspector-close"]')
+            .click();
+        }
+        await expect(
+          area(page).locator('[data-og7="media-consent-request-open"]').first()
+        ).toBeEnabled();
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          )
+          .toBe(true);
+        expect(requests.plans).toEqual([]);
+        expect(requests.executes).toEqual([]);
+        expect(legacy.plans).toEqual([]);
+        expect(legacy.executes).toEqual([]);
+        expect(legacy.rules).toEqual([]);
+        expect(state.assets).toEqual(before);
+        await area(page)
+          .locator('[data-og7="media-preparation-summary"]')
+          .screenshot({
+            path: info.outputPath(
+              `approval-waiting-${language}-${missingAlt ? 'missing-alt' : 'complete-alt'}.png`
+            )
+          });
+
+        // Simulate a sponsor response saved by the owning API. A new read is
+        // needed before the interface may offer the approval again.
+        for (const asset of state.assets)
+          Object.assign(asset, {
+            usage: {
+              state: 'confirmed',
+              channels: ['website'],
+              targets: ['openg7'],
+              transformations: ['technical'],
+              credit: null,
+              restrictions: null
+            },
+            version: 'consent-recorded-v2',
+            readiness: {
+              state: 'needs_review',
+              reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
+            }
+          });
+        if (missingAlt) {
+          Object.assign(state.assets[1]!, { reviewStatus: 'approved' });
+          Object.assign(state.assets[0]!, {
+            readiness: {
+              state: 'needs_review',
+              reasons: [
+                'MEDIA_ALT_TEXT_REQUIRED',
+                'MEDIA_HUMAN_REVIEW_REQUIRED'
+              ]
+            }
+          });
+        }
+        Object.assign(state, { revision: 'consent-recorded-v2' });
+        await area(page).locator('[data-og7="media-refresh"]').click();
+        await expect(waiting).toHaveCount(0);
+        if (missingAlt) {
+          await expect(alternative).toBeVisible();
+          await expect(hook(page, 'open')).toHaveCount(0);
+          Object.assign(state.assets[0]!, {
+            altText: 'Persisted synthetic description after sponsor consent',
+            version: 'description-recorded-v3',
+            readiness: {
+              state: 'needs_review',
+              reasons: ['MEDIA_HUMAN_REVIEW_REQUIRED']
+            }
+          });
+          Object.assign(state, { revision: 'description-recorded-v3' });
+          await area(page).locator('[data-og7="media-refresh"]').click();
+        }
+        await expect(alternative).toHaveCount(0);
+        await expect(hook(page, 'open')).toBeEnabled();
+        expect(requests.plans).toEqual([]);
+        expect(requests.executes).toEqual([]);
+        await hook(page, 'open').click();
+        await expect(hook(page, 'confirm')).toBeEnabled();
+        expect(requests.plans).toHaveLength(1);
+        expect(requests.executes).toEqual([]);
+        expect(legacy.executes).toEqual([]);
+        await hook(page, 'cancel').click();
+      });
+
+  test('media approval waiting is never inferred from a loading or failed workspace read', async ({
+    page
+  }) => {
+    const { state, calls: legacy } = await fixture(page);
+    consentPendingInventory(state, true);
+    const requests = await approveAllFixture(page, state);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let fail = false;
+    await page.route(
+      '**/api/admin/sponsorships/media/workspace?**',
+      async (route) => {
+        await gate;
+        return route.fulfill(
+          fail
+            ? {
+                status: 503,
+                json: { error: 'Synthetic workspace unavailable' }
+              }
+            : { json: state }
+        );
+      }
+    );
+    const workspaceRequest = page.waitForRequest(
+      '**/api/admin/sponsorships/media/workspace?**'
+    );
+    try {
+      await page.goto(context.path('media'));
+      await workspaceRequest;
+      await expect(area(page)).toHaveAttribute('aria-busy', 'true');
+      await expect(
+        area(page).locator('[data-og7="media-approval-waiting"]')
+      ).toHaveCount(0);
+      await expect(
+        area(page).locator('[data-og7="media-approval-missing-alt"]')
+      ).toHaveCount(0);
+    } finally {
+      release();
+    }
+    await expect(
+      area(page).locator('[data-og7="media-approval-waiting"]')
+    ).toBeVisible();
+    fail = true;
+    await area(page).locator('[data-og7="media-refresh"]').click();
+    await expect(
+      area(page).locator('[data-og7="media-workspace-error"]')
+    ).toBeVisible();
+    await expect(
+      area(page).locator('[data-og7="media-approval-waiting"]')
+    ).toHaveCount(0);
+    await expect(
+      area(page).locator('[data-og7="media-approval-missing-alt"]')
+    ).toHaveCount(0);
+    expect(requests.plans).toEqual([]);
+    expect(requests.executes).toEqual([]);
+    expect(legacy.executes).toEqual([]);
   });
 
   test('approve all disables confirmation until every preview loads and offers one global preview retry', async ({

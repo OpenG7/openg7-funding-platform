@@ -580,6 +580,189 @@ test('only supported reviews link to an exact decision and global counts remain 
   expect(writes).toEqual([]);
 });
 
+for (const [language, width] of [
+  ['fr-CA', 1440],
+  ['en', 390]
+] as const) {
+  test(`authorized media return to the attention queue for an explicit review in ${language}`, async ({
+    page
+  }, info) => {
+    await fixtures(page);
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.setViewportSize({ width, height: 941 });
+    let phase: 'waiting' | 'review' | 'resolved' = 'waiting';
+    const changedAt = '2026-11-17T14:00:00Z';
+    const taskId = 'sponsorship_media_review:' + contributionId;
+    const writes: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/admin/') && request.method() !== 'GET')
+        writes.push(request.url());
+    });
+    await page.route('**/api/admin/attention?**', (route) => {
+      const actionable = phase === 'review';
+      const current: AdminAttentionItem = {
+        id: taskId,
+        type: 'sponsorship_media_review',
+        severity: actionable ? 'today' : 'informational',
+        title: 'Synthetic server text must use the current UI translation',
+        explanation: 'Synthetic server explanation',
+        sponsorshipId: contributionId,
+        detectedAt: changedAt,
+        adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}&tab=media`,
+        facts: {
+          reference: 'DEMO-MEDIA-251',
+          phase: actionable ? 'review' : 'waiting',
+          reviewCount: actionable ? 2 : 0,
+          authorizationRequiredCount: actionable ? 0 : 2,
+          missingAltCount: actionable ? 1 : 0,
+          changedAt,
+          daysWaiting: 0,
+          tab: 'media'
+        },
+        suggestedActions: []
+      };
+      const source = phase === 'resolved' ? [] : [current];
+      const queued = response(new URL(route.request().url()), source);
+      return route.fulfill({
+        json: {
+          ...queued,
+          generatedAt: changedAt,
+          todayTotal: actionable ? 1 : 0,
+          pendingDossierCount: actionable ? 1 : 0,
+          counts: {
+            urgent: 0,
+            today: actionable ? 1 : 0,
+            this_week: 0,
+            informational: phase === 'waiting' ? 1 : 0
+          },
+          typeCounts: { sponsorship_media_review: source.length },
+          actionCounts: { sponsorship_media_review: actionable ? 1 : 0 }
+        }
+      });
+    });
+    const returnTo =
+      '/admin/fundraiser/attention?type=sponsorship_media_review&due=all';
+    await page.goto(returnTo);
+    const english = language === 'en';
+    const task = page.locator(`[data-og7-id="${taskId}"]`);
+    const authorizedTitle = english
+      ? 'Authorized media — review to complete'
+      : 'Médias autorisés — revue à terminer';
+    await expect(page.locator('[data-og7="attention-type"]')).toHaveValue(
+      'sponsorship_media_review'
+    );
+    await expect(
+      page.locator(
+        '[data-og7="attention-type"] option[value="sponsorship_media_review"]'
+      )
+    ).toHaveText(english ? 'Media review' : 'Revue des médias');
+    await expect(task.getByRole('heading')).toHaveText(
+      english ? 'Media consent pending' : 'Consentement des médias attendu'
+    );
+    await expect(
+      task.locator('[data-og7="attention-media-authorization-count"]')
+    ).toContainText('2');
+    await expect(
+      task.locator('[data-og7="attention-media-missing-alt"]')
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="nav-count"][data-og7-id="attention"]')
+    ).toHaveCount(0);
+
+    phase = 'review';
+    await page
+      .getByRole('button', {
+        name: english ? 'Refresh tasks' : 'Actualiser les tâches',
+        exact: true
+      })
+      .click();
+    await expect(task.getByRole('heading')).toHaveText(authorizedTitle);
+    await expect(page.locator('[data-og7="attention-items"] > li')).toHaveCount(
+      1
+    );
+    await expect(
+      task.locator('[data-og7="attention-media-review-count"]')
+    ).toContainText('2');
+    await expect(
+      task.locator('[data-og7="attention-media-missing-alt"]')
+    ).toHaveText(
+      english
+        ? '1 alternative text description(s) to complete.'
+        : '1 texte(s) alternatif(s) à compléter.'
+    );
+    await expect(
+      task.locator('[data-og7="attention-media-authorization-count"]')
+    ).toHaveCount(0);
+    await expect(
+      task.locator('[data-og7="attention-media-changed-at"]')
+    ).toContainText(english ? 'Since:' : 'Depuis le :');
+    for (const owner of ['attention', 'sponsors']) {
+      await expect(
+        page.locator(`[data-og7="nav-count"][data-og7-id="${owner}"]`)
+      ).toHaveText('1');
+    }
+    await expect(
+      page.locator('[data-og7="attention-summary"] [data-priority="today"] dd')
+    ).toHaveText('1');
+    await page.goto(returnTo + '&itemId=' + taskId);
+    await expect(task.getByRole('link')).toBeVisible();
+    const focusedTarget = new URL(
+      (await task.getByRole('link').getAttribute('href'))!,
+      page.url()
+    );
+    expect(focusedTarget.pathname).toBe('/admin/fundraiser/sponsors');
+    expect(focusedTarget.searchParams.get('sponsorshipId')).toBe(
+      contributionId
+    );
+    expect(focusedTarget.searchParams.get('tab')).toBe('media');
+    await page.goto(returnTo);
+    const link = task.getByRole('link');
+    await expect(link).toHaveText(english ? 'Open' : 'Ouvrir');
+    await expect(link).toHaveAccessibleName(
+      `${english ? 'Open' : 'Ouvrir'} · ${authorizedTitle} · DEMO-MEDIA-251`
+    );
+    const target = new URL((await link.getAttribute('href'))!, page.url());
+    expect(target.pathname).toBe('/admin/fundraiser/sponsors');
+    expect(target.searchParams.get('sponsorshipId')).toBe(contributionId);
+    expect(target.searchParams.get('tab')).toBe('media');
+    expect(target.searchParams.get('returnTo')).toBe(returnTo);
+    expect(target.searchParams.has('decisionId')).toBe(false);
+    await expectAdminPageFits(page);
+    await page.locator('[data-og7="attention-panel"]').screenshot({
+      path: info.outputPath(`attention-media-review-${language}-${width}.png`)
+    });
+    await link.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/admin\/fundraiser\/sponsors\?/);
+    expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
+      contributionId
+    );
+    expect(new URL(page.url()).searchParams.get('tab')).toBe('media');
+    phase = 'resolved';
+    const returnLink = page.locator('[data-og7="return-to-attention"]');
+    if (!(await returnLink.isVisible()))
+      await page
+        .getByRole('button', {
+          name: english ? 'Open menu' : 'Ouvrir le menu',
+          exact: true
+        })
+        .click();
+    await returnLink.click();
+    await expect(page).toHaveURL(returnTo);
+    await expect(task).toHaveCount(0);
+    await expect(page.locator('[data-og7="attention-type"]')).toHaveValue(
+      'sponsorship_media_review'
+    );
+    await expect(
+      page.locator('[data-og7="nav-count"][data-og7-id="attention"]')
+    ).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+}
+
 test('invoice action is scoped and requires confirmation, opening is read-only', async ({
   page
 }) => {

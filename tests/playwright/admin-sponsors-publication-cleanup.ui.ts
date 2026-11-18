@@ -11,7 +11,8 @@ import { classifySponsorMedia } from '@openg7/funding-core';
 import { expect, sampledFrames, test } from './support/test.js';
 import {
   openPublicationObligation,
-  openPublicationSection
+  openPublicationSection,
+  openPublicationServiceDetailSection
 } from './support/sponsorship-dossier.js';
 import { openPublicationAnalysis } from './publication-decision.ui.js';
 
@@ -602,6 +603,7 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
         .locator('[data-og7="publication-service-details"]')
         .first()
         .click();
+      await openPublicationServiceDetailSection(page, 'preparation');
       const adjust = page.locator('[data-og7="publication-service-adjust"]');
       if (role === 'owner') {
         await expect(adjust).toBeEnabled();

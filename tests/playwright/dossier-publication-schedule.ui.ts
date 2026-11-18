@@ -13,6 +13,7 @@ import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
 import { openPublicationAnalysis } from './publication-decision.ui.js';
+import { openPublicationServiceDetailSection } from './support/sponsorship-dossier.js';
 
 interface Context {
   fixtures(
@@ -731,6 +732,7 @@ export function registerDossierPublicationScheduleTests(
       };
       await page.goto(context.path('publication'));
       await serviceDetails(page);
+      await openPublicationServiceDetailSection(page, 'preparation');
       const detail = page.locator('[data-og7="publication-monitor-details"]');
       const engine = detail.getByRole('link', {
         name: 'Ouvrir le moteur de publication'
@@ -879,6 +881,7 @@ export function registerDossierPublicationScheduleTests(
         `[data-og7="publication-service"][data-og7-id="${historicalObligationId}"]`
       );
       await serviceDetails(page, historicalRow);
+      await openPublicationServiceDetailSection(page, 'preparation');
       await page
         .locator('[data-og7="publication-monitor-details"]')
         .getByRole('button', { name: 'Ouvrir la livraison' })

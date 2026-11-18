@@ -7,21 +7,21 @@
   },
   "help": {
     "pending_review": "Review the sponsorship and confirm whether it can be accepted.",
-    "approved": "The administrative decision is recorded. Consult the service tracking.",
+    "approved": "The review is recorded. Check service tracking for the remaining steps.",
     "rejected": "The recorded rejection remains separate from payment and the promised services."
   },
   "state": {
     "approved": "Review recorded",
     "rejected": "Rejection recorded"
   },
-  "distinction": "Accepting the sponsorship is separate from authorizing publication.",
-  "approve": "Accept",
+  "distinction": "Sponsorship acceptance, public visibility and publication authorization are separate decisions.",
+  "approve": "Accept sponsorship",
   "reject": "Reject",
   "returnPending": "Return to pending",
   "otherDecisions": "Other decisions",
   "reason": "Internal rejection reason",
   "readOnly": "You can consult the decision. Your access does not allow you to change it.",
-  "afterApproval": "After approval, the system continues preparing the services according to the applicable authorizations and prerequisites.",
+  "afterApproval": "After acceptance, service preparation remains subject to the applicable prerequisites.",
   "unavailable": {
     "loading": "The dossier is being refreshed. Wait for loading to finish before making a decision.",
     "pending": "An action is in progress on this dossier. Wait for its result before making another decision.",

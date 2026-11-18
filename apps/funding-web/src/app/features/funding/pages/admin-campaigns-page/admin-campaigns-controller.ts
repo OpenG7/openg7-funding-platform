@@ -1,5 +1,25 @@
 import type { AdminCampaignItem } from '@openg7/funding-core';
 
+export type CampaignDetailAction =
+  'preparation' | 'proof' | 'delivery' | 'owner';
+
+/** Choose one reading destination; this projection grants no mutation or authority. */
+export function campaignDetailAction(
+  row: AdminCampaignItem,
+  canApprovePreparation: boolean
+): CampaignDetailAction {
+  if (row.workflow.state === 'uncertain' || row.workflow.state === 'error')
+    return row.workflow.deliveryId ? 'delivery' : 'owner';
+  if (row.obligationState === 'adjusted' || row.workflow.state === 'complete')
+    return 'proof';
+  if (
+    row.workflow.responsibility === 'admin' &&
+    (canApprovePreparation || row.preparation.status !== 'approved')
+  )
+    return 'preparation';
+  return row.workflow.deliveryId ? 'delivery' : 'owner';
+}
+
 /** Contiguous groups preserve every server sort, including interleaved due dates. */
 export function groupCampaignRows(
   rows: readonly AdminCampaignItem[],

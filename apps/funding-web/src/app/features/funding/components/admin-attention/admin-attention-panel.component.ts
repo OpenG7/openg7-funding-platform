@@ -7,9 +7,11 @@ import {
   OnChanges,
   OnInit,
   PLATFORM_ID,
+  effect,
   inject,
   input,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,6 +22,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminWorkQueueRefreshService } from '../../services/admin-work-queue-refresh.service.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -60,6 +63,7 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
     'sponsorship_needs_info',
     'sponsorship_needs_commitment',
     'sponsorship_needs_review',
+    'sponsorship_media_review',
     'sponsorship_needs_fulfilment',
     'sponsorship_refund_followup',
     'sponsorship_credit_missing',
@@ -83,11 +87,36 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
   private readonly router = inject(Router);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
+  private readonly queueRefresh = inject(AdminWorkQueueRefreshService);
   private initialized = false;
   private generation = 0;
+  private backgroundLoading = false;
+  private session = this.contextKey();
+
+  constructor() {
+    effect(() => {
+      const session = this.contextKey();
+      if (session === this.session) return;
+      this.session = session;
+      untracked(() => {
+        ++this.generation;
+        this.data.set(null);
+        if (!this.initialized) return;
+        if (this.admin.hasValidAdminSession()) void this.load();
+        else {
+          this.state.set('loading');
+          void this.router.navigate(['/admin/login'], {
+            queryParams: { returnUrl: this.router.url }
+          });
+        }
+      });
+    });
+  }
+
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platform)) return;
     this.initialized = true;
+    this.destroy.onDestroy(this.queueRefresh.connect(() => this.load(true)));
     if (this.compact()) {
       void this.load();
       return;
@@ -123,9 +152,26 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
   ngOnChanges(): void {
     if (this.initialized && this.compact()) void this.load();
   }
-  async load(): Promise<void> {
+  private contextKey(): string {
+    const identity = this.admin.identity();
+    return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'token'}`;
+  }
+
+  async load(quiet = false): Promise<void> {
+    if (
+      this.destroy.destroyed ||
+      (quiet && (this.backgroundLoading || this.state() === 'loading'))
+    )
+      return;
+    const background = quiet && this.state() === 'ready';
+    if (background) this.backgroundLoading = true;
     const generation = ++this.generation;
-    this.state.set('loading');
+    const session = this.contextKey();
+    const current = () =>
+      generation === this.generation &&
+      !this.destroy.destroyed &&
+      session === this.contextKey();
+    if (!background) this.state.set('loading');
     try {
       if (!this.admin.hasValidAdminSession())
         throw new AdminDashboardRequestError(401);
@@ -133,17 +179,15 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
         this.admin.getSavedAdminToken(),
         this.compact() ? { due: 'today', pageSize: 4 } : this.query()
       );
-      if (generation !== this.generation || this.destroy.destroyed) return;
+      if (!current()) return;
       this.data.set(response.available ? response : null);
       this.state.set(response.available ? 'ready' : 'unavailable');
     } catch (error) {
-      if (generation !== this.generation || this.destroy.destroyed) return;
+      if (!current()) return;
       if (error instanceof AdminDashboardRequestError && error.status === 401) {
         this.data.set(null);
+        // The session effect clears every view and redirects once.
         this.admin.clearAdminSession();
-        await this.router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: this.router.url }
-        });
       } else if (
         error instanceof AdminDashboardRequestError &&
         error.status === 403
@@ -151,6 +195,8 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
         this.data.set(null);
         this.state.set('forbidden');
       } else this.state.set('error');
+    } finally {
+      if (background) this.backgroundLoading = false;
     }
   }
   filter(key: string, value: string): void {

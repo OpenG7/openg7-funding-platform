@@ -75,7 +75,15 @@ const fixture = (t, record = sponsor()) => {
     },
     async reloadSponsorships() {
       reloads.push(state.action);
+      const command = calls.at(-1)?.payload;
+      if (command && state.record?.id === command.contributionId)
+        state.record = {
+          ...state.record,
+          sponsor_review_status: command.reviewStatus
+        };
     },
+    currentReviewStatus: (id) =>
+      state.record?.id === id ? state.record.sponsor_review_status : null,
     messageFromError: (error, fallback) => {
       errors.push({ error, fallback });
       return `central-error:${error.status ?? 'unknown'}`;
@@ -360,6 +368,10 @@ test('approval uses the version and trimmed note, keeps lock and feedback pendin
   assert.deepEqual(f.reloads, [`review:${record.id}`]);
   assert.equal(f.feedback.length, 1);
   assert.deepEqual(f.pulses, []);
+  f.state.record = sponsor({
+    sponsor_review_status: 'approved',
+    version: 'synthetic-version-2'
+  });
   reload.resolve();
   await request;
   assert.equal(f.feedback.at(-1).phase, 'success');
@@ -507,6 +519,157 @@ test('an unconfirmed approval result never announces success or reloads', async 
   assert.deepEqual(f.reloads, []);
   assert.deepEqual(f.pulses, []);
 });
+
+for (const failure of ['absorbed', 'rejected', 'mismatched']) {
+  test(`a confirmed approval with ${failure} refresh requires readback without another mutation`, async (t) => {
+    const f = fixture(t);
+    const record = f.state.record;
+    const refreshFailure = new AdminDashboardRequestError(
+      503,
+      'Synthetic refresh failure'
+    );
+    f.ports.reloadSponsorships = async () => {
+      f.reloads.push(f.state.action);
+      if (failure === 'rejected') throw refreshFailure;
+      if (failure === 'absorbed') {
+        f.state.record = null;
+        f.ports.messageFromError(refreshFailure, '');
+      } else {
+        f.state.record = sponsor({ version: record.version });
+      }
+    };
+
+    await f.workflow.review(record, 'approved');
+
+    assert.deepEqual(f.workflow.refreshRequired(), {
+      id: record.id,
+      reviewStatus: 'approved',
+      version: record.version
+    });
+    assert.equal(
+      f.workflow.reviewMessageFor(record.id),
+      'admin.messages.review_recorded_refresh_required'
+    );
+    assert.equal(f.calls.length, 1);
+    assert.deepEqual(f.reloads, [`review:${record.id}`]);
+    assert.equal(f.feedback.at(-1).attempt, null);
+    assert.equal(
+      f.feedback.some((entry) => entry.phase),
+      false
+    );
+    assert.deepEqual(f.pulses, []);
+    assert.equal(f.state.action, null);
+
+    // A stale record may become available again before the next confirmed read.
+    const stale = sponsor({ version: record.version });
+    f.state.record = stale;
+    assert.equal(f.workflow.canApproveSponsorship(stale), false);
+    await f.workflow.review(stale, 'approved');
+    assert.equal(f.calls.length, 1);
+    f.workflow.reconcile([], [stale], false);
+    assert.notEqual(f.workflow.refreshRequired(), null);
+    f.workflow.reconcile(
+      [stale],
+      [sponsor({ id: 'synthetic-other', sponsor_review_status: 'approved' })],
+      false
+    );
+    assert.notEqual(f.workflow.refreshRequired(), null);
+
+    const refreshed = sponsor({
+      sponsor_review_status: 'approved',
+      version: 'synthetic-version-3'
+    });
+    f.state.record = refreshed;
+    f.workflow.reconcile([stale], [refreshed], false);
+    assert.equal(f.workflow.refreshRequired(), null);
+    assert.equal(f.workflow.reviewMessageFor(record.id), '');
+    assert.equal(f.calls.length, 1);
+    assert.equal(
+      f.feedback.some((entry) => entry.phase),
+      false
+    );
+  });
+}
+
+test('readback of a different concurrent revision clears the refresh requirement without claiming acceptance', async (t) => {
+  const f = fixture(t, sponsor({ version: 'opaque-revision-zulu' }));
+  const record = f.state.record;
+  f.ports.reloadSponsorships = async () => {
+    f.reloads.push(f.state.action);
+    f.state.record = { ...record };
+  };
+
+  await f.workflow.review(record, 'approved');
+
+  assert.deepEqual(f.workflow.refreshRequired(), {
+    id: record.id,
+    reviewStatus: 'approved',
+    version: record.version
+  });
+  assert.equal(f.calls.length, 1);
+  assert.equal(
+    f.workflow.reviewMessageFor(record.id),
+    'admin.messages.review_recorded_refresh_required'
+  );
+
+  // Versions are opaque: this different revision intentionally sorts before it.
+  const concurrent = sponsor({
+    version: 'opaque-revision-alpha',
+    sponsor_review_status: 'rejected'
+  });
+  f.state.record = concurrent;
+  f.workflow.reconcile([record], [concurrent], false);
+
+  assert.equal(f.workflow.refreshRequired(), null);
+  assert.equal(f.workflow.reviewMessageFor(record.id), '');
+  assert.equal(f.ports.currentReviewStatus(record.id), 'rejected');
+  assert.equal(f.calls.length, 1);
+  assert.equal(
+    f.feedback.some((entry) => entry.phase),
+    false
+  );
+  assert.deepEqual(f.pulses, []);
+  assert.deepEqual(f.errors, []);
+});
+
+for (const refreshFails of [false, true]) {
+  test(`a known independent review stays accessible after ${refreshFails ? 'failed' : 'successful'} refresh without an approval success`, async (t) => {
+    const f = fixture(t);
+    const record = f.state.record;
+    f.ports.admin.reviewSponsorship = async (token, payload) => {
+      f.calls.push({ token, payload });
+      return reviewResult({
+        reviewStatus: 'pending_review',
+        decisionState: 'pending_independent_review'
+      });
+    };
+    f.ports.reloadSponsorships = async () => {
+      f.reloads.push(f.state.action);
+      if (refreshFails)
+        throw new AdminDashboardRequestError(503, 'Synthetic refresh failure');
+    };
+
+    await f.workflow.review(record, 'approved');
+
+    assert.equal(f.calls.length, 1);
+    assert.deepEqual(f.reloads, [`review:${record.id}`]);
+    assert.equal(f.workflow.refreshRequired(), null);
+    assert.equal(
+      f.workflow.reviewMessageFor(record.id),
+      'admin.moderation.independentReview'
+    );
+    assert.equal(f.feedback.at(-1).attempt, null);
+    assert.equal(
+      f.feedback.some((entry) => entry.phase),
+      false
+    );
+    assert.deepEqual(f.pulses, []);
+    assert.deepEqual(f.errors, []);
+    assert.equal(f.state.action, null);
+    assert.equal(f.ports.canActOn(record), true);
+    assert.equal(f.workflow.canApproveSponsorship(record), true);
+  });
+}
 
 test('reload reconciliation preserves dirty notes and refusals while refreshing untouched fields', (t) => {
   const f = fixture(t);
@@ -799,6 +962,103 @@ test('FR and EN use existing translations for forms, actions, note states and no
   assert.match(phrases[1], /Synthetic company/);
 });
 
+test('moderation read failures are reported without submitting and release the decision lock', async (t) => {
+  for (const status of [401, 403, 500]) {
+    const f = fixture(t);
+    const record = f.state.record;
+    const failure = new AdminDashboardRequestError(
+      status,
+      'Synthetic moderation read failure'
+    );
+    f.ports.moderate = async () => {
+      throw failure;
+    };
+
+    await assert.doesNotReject(() => f.workflow.review(record, 'approved'));
+
+    assert.equal(f.errors[0].error, failure, String(status));
+    assert.equal(
+      f.workflow.reviewMessageFor(record.id),
+      `central-error:${status}`
+    );
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.reloads, []);
+    assert.deepEqual(f.feedback, []);
+    assert.deepEqual(f.transitions, []);
+
+    f.ports.moderate = async (subject, level, initial) =>
+      moderationDecision(subject, level, initial);
+    await f.workflow.review(record, 'approved');
+    assert.equal(f.calls.length, 1, `decision lock released after ${status}`);
+    assert.equal(f.feedback.at(-1).phase, 'success');
+  }
+});
+
+test('a confirmed approval reports when dossier state changes while its decision is open', async (t) => {
+  for (const [field, value] of [
+    ['manage', false],
+    ['token', ''],
+    ['loading', true],
+    ['action', 'synthetic-other-action'],
+    ['record', sponsor({ version: 'synthetic-version-2' })]
+  ]) {
+    const f = fixture(t);
+    const record = f.state.record;
+    const gate = deferred();
+    f.ports.moderate = () => gate.promise;
+    const pending = f.workflow.review(record, 'approved');
+
+    f.state[field] = value;
+    gate.resolve(
+      moderationDecision({ type: 'sponsorship', id: record.id }, 'N0')
+    );
+    await pending;
+
+    assert.equal(
+      f.workflow.reviewMessageFor(record.id),
+      'admin.messages.review_confirmation_no_longer_valid',
+      field
+    );
+    assert.deepEqual(f.calls, [], field);
+    assert.deepEqual(f.reloads, [], field);
+    assert.deepEqual(f.feedback, [], field);
+    assert.deepEqual(f.transitions, [], field);
+    assert.equal(f.state[field], value, `preserves concurrent ${field}`);
+  }
+});
+
+test('moderation read errors after leaving a dossier do not announce a decision on that selection', async (t) => {
+  for (const outcome of ['change', 'return', 'destroyed', 'disposed']) {
+    const f = fixture(t);
+    const record = f.state.record;
+    const gate = deferred();
+    f.ports.moderate = () => gate.promise;
+    const pending = f.workflow.review(record, 'approved');
+    if (outcome === 'disposed') f.workflow.dispose();
+    else if (outcome === 'destroyed') f.state.destroyed = true;
+    else {
+      f.state.selected = 'synthetic-other';
+      f.state.revision++;
+      if (outcome === 'return') {
+        f.state.selected = record.id;
+        f.state.revision++;
+      }
+    }
+
+    gate.reject(
+      new AdminDashboardRequestError(403, 'Synthetic late moderation denial')
+    );
+    await assert.doesNotReject(() => pending);
+
+    assert.equal(f.workflow.reviewMessageFor(record.id), '', outcome);
+    assert.deepEqual(f.calls, [], outcome);
+    assert.deepEqual(f.reloads, [], outcome);
+    assert.deepEqual(f.feedback, [], outcome);
+    assert.deepEqual(f.transitions, [], outcome);
+    if (outcome === 'disposed') assert.deepEqual(f.errors, []);
+  }
+});
+
 test('decision cancellation and selection changes never submit a stale dossier approval', async (t) => {
   for (const outcome of ['cancel', 'change', 'return']) {
     const f = fixture(t);
@@ -825,6 +1085,9 @@ test('decision cancellation and selection changes never submit a stale dossier a
     );
     await pending;
     assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.reloads, []);
+    assert.deepEqual(f.feedback, []);
+    assert.equal(f.workflow.reviewMessageFor(f.state.record.id), '');
     assert.equal(f.state.action, null);
   }
 });

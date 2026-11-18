@@ -101,6 +101,30 @@ adoption, approbation, programmation et simulation ne sont jamais des livraisons
 Les exceptions passent avant la prochaine intervention; les références longues,
 versions, preuves et avertissements détaillés s’ouvrent au second niveau.
 
+Le tiroir **Détails de la prestation** regroupe les données existantes de la
+prestation sélectionnée. Son résumé présente l’état et la prochaine action, avec
+la preuve qualifiée disponible et la dernière observation de visibilité datée.
+Une visibilité sans observation datée reste à vérifier; elle ne remplace ni
+n’efface une livraison confirmée. Les avertissements, les données périmées,
+l’écart entre proposition et brouillon et les simulations restent visibles sans
+déplier un volet.
+
+Trois volets, **Contenu associé**, **Préparation et programmation** et **Preuves
+et références**, sont fermés à chaque ouverture du tiroir ou changement de
+prestation. **Contenu associé** présente le texte complet disponible de la
+proposition Preflight, du brouillon Funding ou de la livraison, sans le remplacer
+par un résumé tronqué. **Préparation et programmation** regroupe les dates
+d’adoption et de revue, l’horaire enregistré et les accès secondaires, dont
+l’ajustement de la prestation et de ses délais. **Preuves et références** conserve
+les versions d’obligation, de proposition, de source et de livraison, les
+identifiants d’audit et de preuve et le lien vers le suivi des prestations. Un
+horaire enregistré ne prouve pas qu’une programmation est encore active.
+
+Ce tiroir ne porte pas de nouvelle approbation et n’affiche pas la fiche globale
+de préparation. Les prérequis communs se traitent dans le dossier; les commandes
+d’ouverture et d’examen conservent leur cible et leur parcours propriétaires,
+avec leurs droits et confirmations existants.
+
 Une action contextuelle par prestation rejoint son responsable. Les contenus
 complets et l’adoption restent dans l’atelier réutilisé, puis Examiner assure
 la revue exacte du brouillon. Le dernier suivi connu peut rester visible après

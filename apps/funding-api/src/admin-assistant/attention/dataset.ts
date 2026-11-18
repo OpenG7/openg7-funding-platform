@@ -13,6 +13,7 @@ import {
 
 import type { AttentionDataset } from './contracts.js';
 import { loadPublicationSlotExecutions } from './publication-execution.js';
+import { listSponsorshipMediaForAttention } from './media.repository.js';
 
 async function disputedTotals(
   pool: Pool | null
@@ -35,6 +36,7 @@ async function disputedTotals(
 }
 
 export interface AttentionDatasetReaders {
+  readonly listSponsorshipMediaForAttention?: typeof listSponsorshipMediaForAttention;
   readonly loadPublicationSlotExecutions?: typeof loadPublicationSlotExecutions;
   readonly listSponsorshipsForAttention: typeof listSponsorshipsForAttention;
   readonly listAdminPublicationDrafts: typeof listAdminPublicationDrafts;
@@ -61,7 +63,8 @@ export const createAttentionDatasetLoader =
       emailQueue,
       dashboard,
       disputes,
-      publicationSlotExecutions
+      publicationSlotExecutions,
+      media
     ] = await Promise.all([
       readers.listSponsorshipsForAttention(pool, complete ? null : undefined),
       readers.listAdminPublicationDrafts(pool, { all: complete }),
@@ -70,13 +73,15 @@ export const createAttentionDatasetLoader =
       readers.listAdminEmailQueue(pool, { all: complete }),
       includeFinancialSummary ? readers.getAdminDashboard(pool) : null,
       includeFinancialSummary ? undefined : disputedTotals(pool),
-      readers.loadPublicationSlotExecutions?.(pool)
+      readers.loadPublicationSlotExecutions?.(pool),
+      readers.listSponsorshipMediaForAttention?.(pool)
     ]);
 
     return {
       now,
       sponsorships: sponsorships.items,
       sponsorshipsTruncated: sponsorships.truncated,
+      ...(media ? { media } : {}),
       drafts: drafts.drafts,
       batches: batches.batches,
       slots: slots.slots,
@@ -95,6 +100,7 @@ export const createAttentionDatasetLoader =
   };
 
 export const loadAttentionDataset = createAttentionDatasetLoader({
+  listSponsorshipMediaForAttention,
   loadPublicationSlotExecutions,
   listSponsorshipsForAttention,
   listAdminPublicationDrafts,

@@ -29,6 +29,7 @@ export { buildAttentionItems } from './attention/compose.js';
 export {
   detectSponsorshipInfoItems,
   detectSponsorshipCommitmentItems,
+  detectSponsorshipMediaReviewItems,
   detectSponsorshipReviewItems
 } from './attention/sponsorship.detectors.js';
 export {

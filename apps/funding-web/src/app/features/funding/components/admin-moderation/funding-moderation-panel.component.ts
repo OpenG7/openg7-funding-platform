@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -29,11 +30,13 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 import { fundingAdminIdentityKey } from '../../services/funding-admin-identity-key.js';
 import type { ModerationContent } from '../../services/funding-admin-moderation.client.js';
 
+import { moderationPreviewFields } from './funding-moderation-preview.js';
+
 /** Funding decision form: exact content, contextual reason and separate private/public explanations. */
 @Component({
   selector: 'openg7-funding-moderation-panel',
   standalone: true,
-  imports: [AdminDrawerComponent, TranslatePipe],
+  imports: [AdminDrawerComponent, NgTemplateOutlet, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-moderation-panel.component.html',
   styleUrls: [
@@ -59,6 +62,12 @@ export class FundingModerationPanelComponent {
   readonly confirmed = signal(false);
   readonly policyVersion = MODERATION_POLICY_VERSION;
   readonly provisions = MODERATION_EDITORIAL_PROVISIONS;
+  readonly previewFields = computed(() => {
+    const content = this.content();
+    return content
+      ? moderationPreviewFields(content.snapshot, content.subject.type)
+      : [];
+  });
   private generation = 0;
   private destroyed = false;
   readonly adverse = computed(() => this.moderation.pending()?.level !== 'N0');

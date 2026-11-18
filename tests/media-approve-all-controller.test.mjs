@@ -663,6 +663,130 @@ test('another actor receipt rejection leaves the interrupted operation unresolve
   assert.equal(storage.entries.get(storageKey), requestId);
 });
 
+test('preparation failures distinguish an unsupported service from permissions, conflicts and server failures', async (t) => {
+  for (const [status, code, expected] of [
+    [401, undefined, 'unauthorized'],
+    [403, 'MEDIA_REVIEWER_REQUIRED', 'forbidden'],
+    [404, undefined, 'serviceOutdated'],
+    [405, undefined, 'serviceOutdated'],
+    [405, 'METHOD_NOT_ALLOWED', 'serviceOutdated'],
+    [404, 'SPONSORSHIP_NOT_FOUND', 'prepareFailed'],
+    [404, 'MEDIA_NOT_FOUND', 'prepareFailed'],
+    [404, 'MEDIA_PLAN_NOT_FOUND', 'prepareFailed'],
+    [405, 'SYNTHETIC_DOMAIN_REFUSAL', 'prepareFailed'],
+    [409, 'MEDIA_VERSION_CONFLICT', 'changed'],
+    [500, 'SYNTHETIC_SERVER_FAILURE', 'prepareFailed'],
+    [503, 'MEDIA_WORKSPACE_UNAVAILABLE', 'prepareFailed']
+  ]) {
+    const f = fixture(t);
+    f.ports.admin.mediaApproveAllPlan = async (request) => {
+      f.calls.plans.push(request);
+      throw new AdminDashboardRequestError(status, 'Synthetic refusal', code);
+    };
+    await f.model.prepare();
+    await tick();
+    const label = `${status}/${code ?? 'no-code'}`;
+    assert.equal(f.model.error(), expected, label);
+    assert.equal(f.model.busy(), false, label);
+    assert.equal(f.model.plan(), null, label);
+    assert.equal(f.model.canConfirm(), false, label);
+    assert.equal(f.model.unresolved(), false, label);
+    assert.equal(f.calls.plans.length, 1, label);
+    assert.equal(f.calls.unauthorized, status === 401 ? 1 : 0, label);
+    assert.deepEqual(f.calls.executes, [], label);
+    assert.deepEqual(f.calls.thumbnails, [], label);
+    assert.equal(f.storage.entries.size, 0, label);
+    f.model.dispose();
+  }
+});
+
+test('network failures and incompatible plans keep preparation blocked without reporting an outdated service', async (t) => {
+  for (const malformed of [
+    'network',
+    'revision',
+    'expiry',
+    'candidates',
+    'summary'
+  ]) {
+    const f = fixture(t);
+    if (malformed === 'network')
+      f.ports.admin.mediaApproveAllPlan = async (request) => {
+        f.calls.plans.push(request);
+        throw new TypeError('Synthetic network failure');
+      };
+    if (malformed === 'revision') f.state.plan.revision = 'different-revision';
+    if (malformed === 'expiry') f.state.plan.expiresAt = 'invalid-date';
+    if (malformed === 'candidates') f.state.plan.candidates = null;
+    if (malformed === 'summary') f.state.plan.summary.eligible++;
+    await f.model.prepare();
+    assert.equal(f.model.error(), 'prepareFailed', malformed);
+    assert.equal(f.model.busy(), false, malformed);
+    assert.equal(f.model.plan(), null, malformed);
+    assert.equal(f.model.canConfirm(), false, malformed);
+    assert.deepEqual(f.calls.executes, [], malformed);
+    f.model.dispose();
+  }
+});
+
+test('an unsupported service can be prepared again explicitly after its update without approving media', async (t) => {
+  const f = fixture(t);
+  let updated = false;
+  f.ports.admin.mediaApproveAllPlan = async (request) => {
+    f.calls.plans.push(request);
+    if (!updated) throw new AdminDashboardRequestError(404);
+    return structuredClone(f.state.plan);
+  };
+  await f.model.prepare();
+  assert.equal(f.model.error(), 'serviceOutdated');
+  assert.equal(f.calls.plans.length, 1);
+  f.model.close();
+  updated = true;
+  await tick();
+  assert.equal(f.calls.plans.length, 1);
+  await f.model.prepare();
+  await imageLoads(f);
+  assert.equal(f.model.error(), '');
+  assert.equal(f.model.canConfirm(), true);
+  assert.equal(f.calls.plans.length, 2);
+  assert.deepEqual(f.calls.executes, []);
+  assert.equal(f.storage.entries.size, 0);
+  f.model.dispose();
+});
+
+test('missing execute or receipt endpoints keep an interrupted approval unresolved', async (t) => {
+  for (const phase of ['execute', 'receipt']) {
+    for (const status of [404, 405]) {
+      const f = fixture(t);
+      await f.model.prepare();
+      await imageLoads(f);
+      f.ports.admin.mediaApproveAllExecute = async (request) => {
+        f.calls.executes.push(request);
+        throw new AdminDashboardRequestError(status);
+      };
+      await f.model.confirm();
+      if (phase === 'receipt') {
+        f.ports.admin.mediaApproveAllReceipt = async (id, requestId) => {
+          f.calls.receipts.push({ contributionId: id, requestId });
+          throw new AdminDashboardRequestError(status);
+        };
+        await f.model.reconcile();
+      }
+      const label = `${phase}/${status}`;
+      assert.equal(
+        f.model.error(),
+        phase === 'execute' ? 'uncertain' : 'receiptUnavailable',
+        label
+      );
+      assert.equal(f.model.unresolved(), true, label);
+      assert.equal(f.model.canConfirm(), false, label);
+      assert.equal(f.model.canResume(), false, label);
+      assert.equal(f.calls.executes.length, 1, label);
+      assert.equal(f.storage.entries.size, 1, label);
+      f.model.dispose();
+    }
+  }
+});
+
 test('stale preparation responses cannot open another dossier, session or disposed controller', async (t) => {
   for (const change of ['dossier', 'session', 'dispose']) {
     const f = fixture(t);

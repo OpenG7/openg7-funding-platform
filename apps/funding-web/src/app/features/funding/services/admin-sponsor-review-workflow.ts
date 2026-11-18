@@ -19,6 +19,11 @@ export class AdminSponsorReviewWorkflow {
   readonly reviewMessages = signal<Record<string, string>>({});
   readonly noteMessages = signal<Record<string, string>>({});
   readonly rejectionDrafts = signal<Record<string, SponsorRejectionDraft>>({});
+  readonly refreshRequired = signal<{
+    readonly id: string;
+    readonly reviewStatus: SponsorshipReviewStatus;
+    readonly version: string;
+  } | null>(null);
 
   private readonly reviewMessageTimers = new Map<
     string,
@@ -35,6 +40,19 @@ export class AdminSponsorReviewWorkflow {
     preserveDrafts: boolean
   ): void {
     if (this.disposed) return;
+    const refresh = this.refreshRequired();
+    if (
+      refresh &&
+      next.some(
+        (item) =>
+          item.id === refresh.id &&
+          (item.sponsor_review_status === refresh.reviewStatus ||
+            item.version !== refresh.version)
+      )
+    ) {
+      this.refreshRequired.set(null);
+      this.setReviewMessage(refresh.id, '');
+    }
     const beforeById = new Map(previous.map((item) => [item.id, item]));
     const notes = this.reviewNotes();
     this.reviewNotes.set(
@@ -84,6 +102,7 @@ export class AdminSponsorReviewWorkflow {
     if (
       this.disposed ||
       this.awaitingDecision ||
+      this.refreshRequired()?.id === sponsorship.id ||
       !this.ports.canActOn(sponsorship) ||
       reviewStatus === sponsorship.sponsor_review_status
     )
@@ -128,15 +147,29 @@ export class AdminSponsorReviewWorkflow {
         reviewStatus === 'approved' ? 'N0' : 'N2',
         { internalReason: reviewNote }
       );
+    } catch (error) {
+      if (this.disposed) return;
+      const message = this.ports.messageFromError(
+        error,
+        this.ports.t(
+          'admin.messages.action_impossible_la_revue_n_a_pas_pu_etre_enregistree'
+        )
+      );
+      if (this.isCurrent(sponsorship.id, revision))
+        this.setReviewMessage(sponsorship.id, message);
+      return;
     } finally {
       this.awaitingDecision = false;
     }
-    if (
-      !moderationDecision ||
-      !this.isCurrent(sponsorship.id, revision) ||
-      !this.ports.canActOn(sponsorship)
-    )
+    if (!moderationDecision || !this.isCurrent(sponsorship.id, revision))
       return;
+    if (!this.ports.canActOn(sponsorship)) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.ports.t('admin.messages.review_confirmation_no_longer_valid')
+      );
+      return;
+    }
     const approvalAttempt = this.ports.beginApprovalFeedback(
       reviewStatus === 'approved' ? sponsorship.id : null
     );
@@ -145,6 +178,8 @@ export class AdminSponsorReviewWorkflow {
       p0: this.reviewActionName(reviewStatus)
     });
     this.setReviewMessage(sponsorship.id, pendingMessage);
+    let decisionRecorded = false;
+    let awaitingIndependentReview = false;
     try {
       const result = await this.ports.admin.reviewSponsorship(
         this.ports.adminToken(),
@@ -160,9 +195,20 @@ export class AdminSponsorReviewWorkflow {
       if (this.disposed) return;
       if (!result.updated)
         throw new Error('Sponsorship review was not updated.');
+      decisionRecorded = true;
+      awaitingIndependentReview =
+        result.decisionState === 'pending_independent_review';
       await this.ports.reloadSponsorships();
       if (!this.isCurrent(sponsorship.id, revision)) {
         this.clearReviewMessage(sponsorship.id, pendingMessage);
+        return;
+      }
+      if (awaitingIndependentReview) {
+        this.reportIndependentReview(sponsorship.id);
+        return;
+      }
+      if (this.ports.currentReviewStatus(sponsorship.id) !== reviewStatus) {
+        this.requireReviewRefresh(sponsorship, reviewStatus);
         return;
       }
       if (approvalAttempt)
@@ -175,6 +221,14 @@ export class AdminSponsorReviewWorkflow {
       this.ports.pulseSelection(sponsorship.id);
     } catch (error) {
       if (this.disposed) return;
+      if (decisionRecorded) {
+        if (this.isCurrent(sponsorship.id, revision)) {
+          if (awaitingIndependentReview)
+            this.reportIndependentReview(sponsorship.id);
+          else this.requireReviewRefresh(sponsorship, reviewStatus);
+        } else this.clearReviewMessage(sponsorship.id, pendingMessage);
+        return;
+      }
       const message = this.ports.messageFromError(
         error,
         this.ports.t(
@@ -185,9 +239,17 @@ export class AdminSponsorReviewWorkflow {
         this.clearReviewMessage(sponsorship.id, pendingMessage);
         return;
       }
+      const persistent =
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED';
       if (approvalAttempt)
-        this.ports.finishApprovalFeedback(approvalAttempt, 'error');
-      this.setReviewMessage(sponsorship.id, message, true);
+        this.ports.finishApprovalFeedback(
+          approvalAttempt,
+          'error',
+          !persistent
+        );
+      this.setReviewMessage(sponsorship.id, message, !persistent);
     } finally {
       this.ports.setActionState(null);
     }
@@ -471,6 +533,7 @@ export class AdminSponsorReviewWorkflow {
   canApproveSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
     return (
       this.ports.canManage() &&
+      this.refreshRequired()?.id !== sponsorship.id &&
       sponsorship.sponsor_review_status !== 'approved' &&
       sponsorship.payment_status === 'paid' &&
       !['requested', 'processing'].includes(
@@ -486,6 +549,31 @@ export class AdminSponsorReviewWorkflow {
         : status === 'rejected'
           ? 'admin.messages.refus'
           : 'admin.messages.remise_en_attente'
+    );
+  }
+
+  private requireReviewRefresh(
+    sponsorship: AdminSponsorshipRecord,
+    reviewStatus: SponsorshipReviewStatus
+  ): void {
+    this.ports.beginApprovalFeedback(null);
+    this.refreshRequired.set({
+      id: sponsorship.id,
+      reviewStatus,
+      version: sponsorship.version
+    });
+    this.setReviewMessage(
+      sponsorship.id,
+      this.ports.t('admin.messages.review_recorded_refresh_required')
+    );
+  }
+
+  private reportIndependentReview(id: string): void {
+    this.ports.beginApprovalFeedback(null);
+    this.setReviewMessage(
+      id,
+      this.ports.t('admin.moderation.independentReview'),
+      true
     );
   }
 

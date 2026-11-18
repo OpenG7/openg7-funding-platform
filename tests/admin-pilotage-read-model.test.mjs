@@ -141,6 +141,8 @@ const fixture = (options = {}) => {
       if (sql.includes('AS has_email_messages'))
         return { rows: [{ has_email_messages: true }] };
       if (sql.includes('AS exists')) return { rows: [{ exists: true }] };
+      if (sql.includes('sponsor_media_effective_usage(a.id) AS usage_rights'))
+        return { rows: options.media ?? [] };
       if (sql.includes('AS contribution_id,')) return { rows: sponsors };
       if (sql.includes('AS incident FROM correlated'))
         return {

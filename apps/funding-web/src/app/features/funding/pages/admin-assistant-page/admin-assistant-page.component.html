@@ -164,7 +164,15 @@
             @if (labels.amount(item)) {
               <p>{{ labels.amount(item) }}</p>
             }
-            <p>{{ 'admin.attention.reasons.' + item.type | translate }}</p>
+            <p>
+              {{
+                (item.type === 'sponsorship_media_review' &&
+                item.facts['phase'] === 'waiting'
+                  ? 'admin.attention.mediaReview.waitingReason'
+                  : 'admin.attention.reasons.' + item.type
+                ) | translate
+              }}
+            </p>
             <p class="notice">
               {{ 'admin.attention.priority.' + item.severity | translate }} ·
               {{ labels.reason(item) }}

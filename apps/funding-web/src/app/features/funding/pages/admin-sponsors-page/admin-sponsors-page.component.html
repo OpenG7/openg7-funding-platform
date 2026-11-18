@@ -53,6 +53,30 @@
       [activeCount]="activeCount()"
     />
 
+    @if (reviewWorkflow.refreshRequired(); as refresh) {
+      @if (refresh.id === selectedSponsorshipId()) {
+        <div
+          class="review-refresh-notice"
+          role="status"
+          data-og7="sponsorship-review-refresh-required"
+        >
+          <p>
+            {{ 'admin.messages.review_recorded_refresh_required' | translate }}
+          </p>
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="sponsorship-review-refresh-retry"
+            [disabled]="state() === 'loading'"
+            (click)="refreshRecordedReview($event.currentTarget)"
+          >
+            <openg7-admin-icon name="refresh" />
+            {{ 'admin.legacy.actualiser' | translate }}
+          </button>
+        </div>
+      }
+    }
+
     <section
       class="sponsors-board"
       [class.has-selection]="!!selectedSponsorship()"
@@ -145,6 +169,109 @@
               </button>
             }
           </openg7-admin-sponsor-detail-header>
+          @if (selectedDossierAuthorizationNotice(); as authorization) {
+            <section
+              class="dossier-authorization-notice"
+              data-og7="dossier-authorization-notice"
+              aria-labelledby="dossier-authorization-title"
+            >
+              <div class="dossier-authorization-copy" role="status">
+                <h3 id="dossier-authorization-title">
+                  {{
+                    'admin.dossier.overviewDashboard.authorization.title'
+                      | translate
+                  }}
+                </h3>
+                @if (authorization.publicConsentRequired) {
+                  <p data-og7="dossier-public-consent-waiting">
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.publicConsent'
+                        | translate
+                    }}
+                  </p>
+                }
+                @if (authorization.mediaConsentRequiredCount) {
+                  <p data-og7="dossier-media-consent-waiting">
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.mediaConsent'
+                        | translate
+                          : { count: authorization.mediaConsentRequiredCount }
+                    }}
+                  </p>
+                }
+                @if (authorization.missingAltCount) {
+                  <p data-og7="dossier-authorization-missing-alt">
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.missingAlt'
+                        | translate: { count: authorization.missingAltCount }
+                    }}
+                  </p>
+                }
+                @if (authorization.canReview) {
+                  <p data-og7="dossier-authorization-review-available">
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.reviewAvailable'
+                        | translate
+                    }}
+                  </p>
+                }
+              </div>
+              <div class="dossier-authorization-actions">
+                @if (authorization.publicConsentRequired) {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    [disabled]="actionsDisabled() || dossierToolBusy()"
+                    (click)="
+                      openOverviewDestination({ kind: 'tab', tab: 'identity' })
+                    "
+                    data-og7="dossier-authorization-open-identity"
+                  >
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.openIdentity'
+                        | translate
+                    }}
+                  </button>
+                }
+                @if (authorization.mediaConsentRequiredCount) {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    [disabled]="actionsDisabled() || dossierToolBusy()"
+                    (click)="
+                      openOverviewDestination({ kind: 'tab', tab: 'media' })
+                    "
+                    data-og7="dossier-authorization-open-media"
+                  >
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.openMedia'
+                        | translate
+                    }}
+                  </button>
+                }
+                @if (authorization.canReview) {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    [disabled]="actionsDisabled() || dossierToolBusy()"
+                    (click)="
+                      openOverviewDestination({
+                        kind: 'tab',
+                        tab: 'publication',
+                        section: 'review'
+                      })
+                    "
+                    data-og7="dossier-authorization-open-review"
+                  >
+                    {{
+                      'admin.dossier.overviewDashboard.authorization.openReview'
+                        | translate
+                    }}
+                  </button>
+                }
+              </div>
+            </section>
+          }
           <details
             class="dossier-global-tools"
             data-og7="dossier-global-tools"
@@ -447,6 +574,7 @@
                   [submissionPending]="!selected.sponsor_details_submitted_at"
                   (identityRequested)="openDossierSection('identity')"
                   (inspectRequested)="inspectGalleryServices()"
+                  (workspaceRead)="mediaWorkspaceRead($event, selected.id)"
                   (moderationChanged)="loadSponsorships(true)"
                 />
               </ng-container>

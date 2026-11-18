@@ -1,5 +1,15 @@
 {
   "statistics": "Statistiques du dossier",
+  "authorization": {
+    "title": "Autorisations attendues",
+    "publicConsent": "Fiche publique : le consentement du commanditaire est attendu avant sa diffusion.",
+    "mediaConsent": "{{count}} média(s) attendent une autorisation d’utilisation avant approbation.",
+    "missingAlt": "Vous pouvez encore préparer {{count}} texte(s) alternatif(s).",
+    "reviewAvailable": "La revue administrative de la fiche reste possible, séparément des autorisations attendues.",
+    "openIdentity": "Consulter le consentement de la fiche",
+    "openMedia": "Consulter les médias en attente",
+    "openReview": "Examiner la fiche"
+  },
   "actions": {
     "identity_missing": "Compléter les coordonnées du commanditaire"
   },

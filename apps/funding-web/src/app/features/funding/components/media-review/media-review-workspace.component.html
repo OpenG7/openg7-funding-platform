@@ -38,7 +38,7 @@
             <h3 id="media-preparation-title">
               {{
                 t(
-                  mediaHeroCounts().toReview
+                  mediaHeroCounts().toReview && !approvalUnavailable()
                     ? 'experience.reviewTitle'
                     : 'experience.libraryTitle'
                 )
@@ -47,7 +47,7 @@
             <p>
               {{
                 t(
-                  mediaHeroCounts().toReview
+                  mediaHeroCounts().toReview && !approvalUnavailable()
                     ? 'experience.reviewHelp'
                     : 'experience.libraryHelp',
                   { count: mediaHeroCounts().toReview }
@@ -55,7 +55,10 @@
               }}
             </p>
           </div>
-          @if (mediaHeroCounts().toReview || approveAll.unresolved()) {
+          @if (
+            (mediaHeroCounts().toReview && !approvalUnavailable()) ||
+            approveAll.unresolved()
+          ) {
             <div class="approve-all-callout">
               <button
                 type="button"
@@ -65,12 +68,98 @@
                 (click)="openApproveAll()"
                 data-og7="media-approve-all-open"
               >
-                {{ t('approveAll.open') }}
+                {{
+                  t(
+                    approveAll.unresolved()
+                      ? 'approveAll.reviewReceipt'
+                      : 'approveAll.open'
+                  )
+                }}
               </button>
               <p id="media-approve-all-help">{{ t('approveAll.help') }}</p>
             </div>
           }
         </div>
+        @if (approvalUnavailable() && !approveAll.unresolved()) {
+          <aside
+            class="approval-availability"
+            [attr.data-og7]="
+              approvalAvailability().allAwaitingConsent
+                ? 'media-approval-waiting'
+                : 'media-approval-blocked'
+            "
+            role="status"
+          >
+            <h4>
+              {{
+                t(
+                  approvalAvailability().allAwaitingConsent
+                    ? 'approvalAvailability.waitingTitle'
+                    : 'approvalAvailability.blockedTitle'
+                )
+              }}
+            </h4>
+            <p>
+              {{
+                t(
+                  approvalAvailability().allAwaitingConsent
+                    ? 'approvalAvailability.waitingHelp'
+                    : 'approvalAvailability.blockedHelp'
+                )
+              }}
+            </p>
+            @if (approvalAvailability().missingAltCount) {
+              <p data-og7="media-approval-missing-alt">
+                {{
+                  t('approvalAvailability.missingAlt', {
+                    count: approvalAvailability().missingAltCount
+                  })
+                }}
+              </p>
+            }
+            <div class="approval-availability-actions">
+              @if (
+                hasPendingMediaConsent() &&
+                c.data()?.writable &&
+                admin.identity()?.role !== 'reader'
+              ) {
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  [disabled]="!canRequestMediaConsent()"
+                  (click)="openMediaConsentRequest()"
+                  data-og7="media-consent-request-open"
+                >
+                  {{ t('consentRequest.open') }}
+                </button>
+              }
+              @if (
+                approvalAvailability().missingAltCount &&
+                c.data()?.writable &&
+                admin.identity()?.role !== 'reader'
+              ) {
+                <button
+                  type="button"
+                  class="admin-button"
+                  [disabled]="inspectionLocked()"
+                  (click)="prepareMissingAlt()"
+                  data-og7="media-approval-edit-alt"
+                >
+                  {{ t('approvalAvailability.prepareAlt') }}
+                </button>
+              }
+              <button
+                type="button"
+                class="admin-button"
+                [disabled]="inspectionLocked()"
+                (click)="inspectApprovalRequirements()"
+                data-og7="media-approval-requirements"
+              >
+                {{ t('approvalAvailability.inspect') }}
+              </button>
+            </div>
+          </aside>
+        }
         <dl class="preparation-counts">
           <div>
             <dt>{{ t('approveAll.counts.total') }}</dt>
@@ -118,14 +207,16 @@
       <p role="status" class="notice" data-og7="media-approve-all-unresolved">
         {{ t('approveAll.unresolved') }}
       </p>
-      <button
-        type="button"
-        class="admin-button"
-        [disabled]="!approveAll.canOpen()"
-        (click)="openApproveAll()"
-      >
-        {{ t('approveAll.reviewReceipt') }}
-      </button>
+      @if (!hasMedia()) {
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!approveAll.canOpen()"
+          (click)="openApproveAll()"
+        >
+          {{ t('approveAll.reviewReceipt') }}
+        </button>
+      }
     }
     @if (hasMedia() && c.libraryView() === 'documents') {
       <p class="notice" data-og7="media-documents-scope">
@@ -728,6 +819,7 @@
                   </p>
                   @if (
                     hasPendingMediaConsent() &&
+                    !approvalUnavailable() &&
                     admin.identity()?.role !== 'reader'
                   ) {
                     <button
@@ -1320,7 +1412,6 @@
   [title]="t('approveAll.title')"
   [closeLabel]="t('close')"
   [busy]="approveAll.busy()"
-  [wide]="true"
   (closed)="closeApproveAll()"
 >
   <section class="approve-all-panel" data-og7="media-approve-all-panel">

@@ -403,6 +403,15 @@
         "intro": "Un seul lien permet au commanditaire d’examiner les photos de ce dossier en attente de consentement et de donner son accord.",
         "noAgreement": "Vérifiez le message et son destinataire avant de confirmer l’envoi. La demande n’accorde aucun droit et n’approuve aucune photo."
       },
+      "approvalAvailability": {
+        "waitingTitle": "En attente du commanditaire",
+        "waitingHelp": "L’approbation des médias attend le consentement du commanditaire. Cette attente reste visible dans le dossier jusqu’à l’enregistrement des autorisations.",
+        "blockedTitle": "Vérifications requises avant approbation",
+        "blockedHelp": "Aucun média n’est actuellement admissible à l’approbation groupée. Consultez les points à vérifier directement dans les fichiers.",
+        "missingAlt": "{{count}} texte(s) alternatif(s) à préparer avant l’approbation.",
+        "prepareAlt": "Préparer les descriptions",
+        "inspect": "Voir les points à vérifier"
+      },
       "approveAll": {
         "open": "Tout approuver",
         "help": "Approuve les médias admissibles. Les autres restent en attente.",
@@ -454,6 +463,7 @@
         },
         "errors": {
           "prepareFailed": "La vérification du dossier n’a pas pu être préparée. Actualisez avant de réessayer.",
+          "serviceOutdated": "L’approbation groupée des médias n’est pas disponible sur ce serveur. Une mise à jour du service est nécessaire avant de réessayer.",
           "executeFailed": "La confirmation n’a pas pu être préparée. Aucun envoi n’a été effectué.",
           "uncertain": "La réponse n’a pas été confirmée. Vérifiez le reçu sans relancer une nouvelle approbation.",
           "receiptNotFound": "Aucun reçu n’est disponible pour cette demande. Le verrou est conservé ; vérifiez à nouveau.",

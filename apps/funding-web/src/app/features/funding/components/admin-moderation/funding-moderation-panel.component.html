@@ -2,15 +2,12 @@
   [opened]="!!moderation.pending()"
   [title]="'admin.moderation.title' | translate"
   [closeLabel]="'admin.confirmation.cancel' | translate"
+  [fixedFooter]="true"
+  [attr.data-og7]="moderation.pending() ? 'moderation-decision' : null"
   (closed)="moderation.answer(null)"
 >
   @if (moderation.pending(); as request) {
-    <div class="moderation-fields" data-og7="moderation-decision">
-      <p>
-        {{ 'funding.moderation.levels.' + request.level | translate }} ·
-        {{ policyVersion }}
-      </p>
-      <p>{{ 'admin.moderation.context' | translate }}</p>
+    <div class="moderation-fields">
       @if (loading()) {
         <p role="status">{{ 'admin.moderation.loading' | translate }}</p>
       }
@@ -21,20 +18,62 @@
         </button>
       }
       @if (content(); as current) {
-        <p>
-          {{ 'admin.moderation.contentVersion' | translate }}:
-          {{ current.contentVersion }}
-        </p>
-        <details>
-          <summary>{{ 'admin.moderation.exactContent' | translate }}</summary>
-          <pre data-og7="moderation-snapshot">{{ snapshot() }}</pre>
+        <section aria-labelledby="moderation-content-title">
+          <div class="moderation-section-heading">
+            <h3 id="moderation-content-title">
+              {{ 'admin.moderation.contentTitle' | translate }}
+            </h3>
+            <span class="moderation-version">
+              {{ 'admin.moderation.contentVersion' | translate }}
+              {{ current.contentVersion }}
+            </span>
+          </div>
+          <p class="moderation-content-type">
+            {{ 'admin.moderation.contentType' | translate }} :
+            {{
+              'admin.moderation.subjectTypes.' + current.subject.type
+                | translate
+            }}
+          </p>
+          <div data-og7="moderation-content-preview">
+            @if (previewFields().length) {
+              <ng-container
+                [ngTemplateOutlet]="previewFieldsTemplate"
+                [ngTemplateOutletContext]="{ $implicit: previewFields() }"
+              />
+            } @else {
+              <p>{{ 'admin.moderation.noContent' | translate }}</p>
+            }
+          </div>
+          <details class="moderation-raw">
+            <summary>
+              {{
+                'admin.moderation.rawContent'
+                  | translate: { version: current.contentVersion }
+              }}
+            </summary>
+            <pre data-og7="moderation-snapshot">{{ snapshot() }}</pre>
+          </details>
+        </section>
+        <details class="moderation-context">
+          <summary>{{ 'admin.moderation.contextTitle' | translate }}</summary>
+          <p>{{ 'admin.moderation.context' | translate }}</p>
+          <p class="moderation-policy">
+            {{
+              'admin.moderation.policyVersion'
+                | translate: { version: policyVersion }
+            }}
+          </p>
         </details>
         @if (adverse()) {
-          <label
+          <label class="moderation-field"
             >{{ 'admin.moderation.primaryReason' | translate }}
             <select
               [value]="primaryReason()"
               (change)="reasonChanged($event)"
+              [attr.aria-describedby]="
+                primaryReason() ? 'moderation-reason-help' : null
+              "
               data-og7="moderation-primary-reason"
               required
             >
@@ -48,21 +87,23 @@
           </label>
           @for (reason of reasons(); track reason.code) {
             @if (reason.code === primaryReason()) {
-              <p>{{ definition(reason) }}</p>
+              <p id="moderation-reason-help" class="moderation-help">
+                {{ definition(reason) }}
+              </p>
             }
           }
-          <details>
+          <details class="moderation-secondary">
             <summary>
               {{ 'admin.moderation.secondaryReasons' | translate }}
             </summary>
             @for (reason of reasons(); track reason.code) {
               @if (reason.code !== primaryReason()) {
-                <label
+                <label class="moderation-check"
                   ><input
                     type="checkbox"
                     [checked]="secondaryReasons().includes(reason.code)"
                     (change)="secondaryChanged(reason.code, $event)"
-                  />{{ label(reason) }}</label
+                  /><span>{{ label(reason) }}</span></label
                 >
               }
             }
@@ -71,7 +112,7 @@
             primaryReason() === 'EDITORIAL_INCOMPATIBILITY' ||
             secondaryReasons().includes('EDITORIAL_INCOMPATIBILITY')
           ) {
-            <label
+            <label class="moderation-field"
               >{{ 'admin.moderation.editorialProvision' | translate
               }}<select
                 required
@@ -96,11 +137,12 @@
               </select></label
             >
           }
-          <label
+          <label class="moderation-field"
             >{{ 'admin.moderation.internalReason' | translate
             }}<textarea
               required
               maxlength="2000"
+              rows="4"
               [value]="internalReason()"
               (input)="internalReason.set(value($event)); confirmed.set(false)"
               data-og7="moderation-internal-reason"
@@ -108,11 +150,13 @@
           </label>
         }
         @if (explanationRequired()) {
-          <label
+          <label class="moderation-field"
             >{{ 'admin.moderation.sponsorExplanation' | translate
             }}<textarea
               required
               maxlength="2000"
+              rows="4"
+              aria-describedby="moderation-privacy-help"
               [value]="sponsorExplanation()"
               (input)="
                 sponsorExplanation.set(value($event)); confirmed.set(false)
@@ -120,39 +164,115 @@
               data-og7="moderation-explanation"
             ></textarea>
           </label>
-          <p>{{ 'admin.moderation.privacy' | translate }}</p>
-        }
-        @if (independent()) {
-          <p role="status">
-            {{ 'admin.moderation.independentReview' | translate }}
+          <p id="moderation-privacy-help" class="moderation-help">
+            {{ 'admin.moderation.privacy' | translate }}
           </p>
         }
-        <label
-          ><input
-            type="checkbox"
-            [checked]="confirmed()"
-            (change)="confirmed.set(checked($event))"
-            data-og7="moderation-confirmation"
-          />{{ 'admin.moderation.confirm' | translate }}</label
+        <section
+          class="moderation-summary"
+          aria-labelledby="moderation-decision-title"
+          data-og7="moderation-decision-summary"
         >
+          <h3 id="moderation-decision-title">
+            {{ 'admin.moderation.decisionTitle' | translate }}
+          </h3>
+          <p class="moderation-action">
+            {{ 'funding.moderation.levels.' + request.level | translate }}
+            <span class="moderation-level">{{ request.level }}</span>
+          </p>
+          <p>{{ 'admin.moderation.scope.' + request.level | translate }}</p>
+          <p class="moderation-help">
+            {{ 'admin.moderation.scopeSeparation' | translate }}
+          </p>
+          @if (independent()) {
+            <p class="moderation-independent" role="status">
+              {{ 'admin.moderation.independentReview' | translate }}
+            </p>
+          }
+          <label class="moderation-check moderation-confirmation">
+            <input
+              type="checkbox"
+              [checked]="confirmed()"
+              (change)="confirmed.set(checked($event))"
+              data-og7="moderation-confirmation"
+            />
+            <span>{{
+              'admin.moderation.confirmVersion'
+                | translate: { version: current.contentVersion }
+            }}</span>
+          </label>
+        </section>
       }
-      <footer>
-        <button
-          type="button"
-          class="admin-button"
-          (click)="moderation.answer(null)"
-        >
-          {{ 'admin.confirmation.cancel' | translate }}</button
-        ><button
-          type="button"
-          class="admin-button admin-button--primary"
-          [disabled]="!valid()"
-          (click)="accept()"
-          data-og7="moderation-submit"
-        >
-          {{ 'admin.moderation.continue' | translate }}
-        </button>
-      </footer>
     </div>
   }
+  <footer
+    adminDrawerFooter
+    class="moderation-footer"
+    data-og7="moderation-footer"
+  >
+    <button
+      type="button"
+      class="admin-button"
+      (click)="moderation.answer(null)"
+    >
+      {{ 'admin.confirmation.cancel' | translate }}
+    </button>
+    <button
+      type="button"
+      class="admin-button admin-button--primary"
+      [disabled]="!valid()"
+      (click)="accept()"
+      data-og7="moderation-submit"
+    >
+      {{
+        'admin.moderation.confirmAction.' +
+          (moderation.pending()?.level ?? 'N0') | translate
+      }}
+    </button>
+  </footer>
 </openg7-admin-drawer>
+
+<ng-template #previewFieldsTemplate let-fields>
+  <dl class="moderation-preview-fields">
+    @for (field of fields; track field.key) {
+      <div
+        class="moderation-preview-field"
+        [class.moderation-preview-group]="field.children.length"
+        [class.moderation-preview-long]="
+          field.multiline && field.value !== null
+        "
+      >
+        <dt>
+          @if (field.labelKey) {
+            {{ field.labelKey | translate }}
+          } @else if (field.number !== null) {
+            {{
+              'admin.moderation.itemNumber'
+                | translate: { number: field.number }
+            }}
+          } @else {
+            {{ field.key }}
+          }
+        </dt>
+        <dd
+          [class.moderation-preview-text]="
+            field.multiline && field.value !== null
+          "
+        >
+          @if (field.children.length) {
+            <ng-container
+              [ngTemplateOutlet]="previewFieldsTemplate"
+              [ngTemplateOutletContext]="{ $implicit: field.children }"
+            />
+          } @else if (field.value === null) {
+            <span class="moderation-empty">{{
+              'admin.moderation.notProvided' | translate
+            }}</span>
+          } @else {
+            {{ field.value }}
+          }
+        </dd>
+      </div>
+    }
+  </dl>
+</ng-template>

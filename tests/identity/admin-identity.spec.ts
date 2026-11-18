@@ -282,10 +282,13 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
         operator.locator('[data-og7="publication-monitor"]')
       ).toBeVisible();
       await expect(
-        operator.getByRole('button', { name: 'Accepter', exact: true })
+        operator.getByRole('button', {
+          name: 'Accepter la commandite',
+          exact: true
+        })
       ).toBeVisible();
       await operator
-        .getByRole('button', { name: 'Accepter', exact: true })
+        .getByRole('button', { name: 'Accepter la commandite', exact: true })
         .click();
       await completeModeration(operator);
       await expect(

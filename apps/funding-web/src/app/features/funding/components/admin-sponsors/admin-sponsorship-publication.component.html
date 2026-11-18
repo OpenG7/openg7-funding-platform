@@ -543,37 +543,86 @@
   [closeLabel]="t('close')"
   (closed)="selectedId.set(null)"
 >
-  @if (selected(); as row) {
+  @for (row of detailRows(); track row.obligation.id) {
     <section class="service-details" data-og7="publication-monitor-details">
-      @if (row.action !== 'details' && row.action !== 'proof') {
-        <button
-          class="admin-button"
-          type="button"
-          data-og7="publication-service-action"
-          [disabled]="busy()"
-          (click)="runServiceAction(row)"
+      <header class="detail-identity" data-og7="publication-detail-identity">
+        <p class="detail-context">
+          {{ currentDossier().companyName || t('unnamedSponsor') }} ·
+          {{ currentDossier().reference }}
+        </p>
+        <h3>
+          {{ t('channel.' + row.obligation.channel) }} ·
+          {{ row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
+        </h3>
+        <p>
+          {{
+            t('passage', {
+              number: row.obligation.ordinal,
+              count: row.occurrenceCount
+            })
+          }}
+        </p>
+      </header>
+
+      <section
+        class="detail-next"
+        data-og7="publication-detail-next"
+        [attr.aria-label]="t('detail.status')"
+      >
+        <p class="detail-eyebrow">{{ t('detail.status') }}</p>
+        <h4>{{ t('state.' + serviceState(row)) }}</h4>
+        <p>{{ t('rowHelp.' + row.status) }}</p>
+        @if (row.action !== 'details' && row.action !== 'proof') {
+          <button
+            class="admin-button"
+            [class.admin-button--primary]="
+              ['resolve', 'review', 'queue'].includes(row.action) ||
+              row.status === 'approved'
+            "
+            type="button"
+            data-og7="publication-service-action"
+            [disabled]="busy()"
+            (click)="runServiceAction(row)"
+          >
+            {{ actionLabel(row) }}<openg7-admin-icon name="arrow" />
+          </button>
+        } @else if (row.evidence) {
+          <button
+            class="admin-button"
+            type="button"
+            data-og7="publication-detail-read-proof"
+            (click)="showEvidence(evidenceDetails)"
+          >
+            {{ t('detail.viewEvidence') }}<openg7-admin-icon name="arrow" />
+          </button>
+        }
+      </section>
+
+      @if (tracking.error() || scheduling.error()) {
+        <p
+          class="detail-warning"
+          role="alert"
+          data-og7="publication-detail-stale"
         >
-          {{ actionLabel(row) }}
-        </button>
+          {{ t('error.unavailable') }}
+        </p>
       }
-      <h3>
-        {{ t('channel.' + row.obligation.channel) }} ·
-        {{ row.obligation.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}
-      </h3>
-      <p>
-        {{
-          t('passage', {
-            number: row.obligation.ordinal,
-            count: row.occurrenceCount
-          })
-        }}
-        · {{ t('state.' + serviceState(row)) }}
-      </p>
-      <dl>
-        <div>
-          <dt>{{ t('obligationVersion') }}</dt>
-          <dd>{{ row.obligation.version }}</dd>
-        </div>
+      @for (code of warningCodes(row); track code) {
+        <p
+          class="detail-warning"
+          data-og7="publication-service-warning"
+          [attr.data-og7-id]="code"
+        >
+          {{ warning(code) }}
+        </p>
+      }
+      @if (differs(row)) {
+        <p class="detail-warning" data-og7="publication-detail-difference">
+          {{ t('draftDifference') }}
+        </p>
+      }
+
+      <dl class="detail-facts">
         @if (row.obligation.channel !== 'website') {
           <div>
             <dt>{{ 'admin.commitments.format' | translate }}</dt>
@@ -585,159 +634,306 @@
             </dd>
           </div>
         }
-      </dl>
-      @for (code of warningCodes(row); track code) {
-        <p
-          class="detail-warning"
-          data-og7="publication-service-warning"
-          [attr.data-og7-id]="code"
-        >
-          {{ warning(code) }}
-        </p>
-      }
-      @if (row.proposal; as proposal) {
-        <dl>
+        @if (row.obligation.timing?.dueAt; as dueAt) {
           <div>
-            <dt>{{ t('proposalVersion', { version: proposal.version }) }}</dt>
-            <dd>{{ date(proposal.createdAt) }}</dd>
+            <dt>{{ t('detail.due') }}</dt>
+            <dd>{{ date(dueAt) }}</dd>
           </div>
-          <div>
-            <dt>{{ t('sourceVersion') }}</dt>
-            <dd>{{ proposal.sourceVersion }}</dd>
-          </div>
-        </dl>
-        <p>{{ row.summary }}</p>
-        @if (proposal.adoptedAt) {
-          <p>{{ t('adoptedAt', { date: date(proposal.adoptedAt) }) }}</p>
         }
-        <a
-          class="admin-button"
-          [routerLink]="deskPath"
-          [queryParams]="workshopParams()"
-          >{{ t('links.proposals') }}</a
-        >
-      }
+      </dl>
+
       @if (row.evidence; as evidence) {
-        <section class="evidence" data-og7="publication-monitor-proof">
-          <h4>{{ t('proof') }}</h4>
-          <dl>
-            <div>
-              <dt>{{ t('deliveryDate') }}</dt>
-              <dd>{{ date(evidence.deliveredAt) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('proofReference') }}</dt>
-              <dd>{{ evidence.id }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('proofSource') }}</dt>
-              <dd>{{ t('provenance.' + evidence.provenance) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('visibility') }}</dt>
-              <dd>{{ t('visibilityState.' + evidence.visibility) }}</dd>
-            </div>
-          </dl>
-          @if (safeUrl(evidence.externalPostUrl); as url) {
-            <a
-              class="admin-button"
-              [href]="url"
-              target="_blank"
-              rel="noopener noreferrer"
-              >{{ t('publicLink') }}<openg7-admin-icon name="external"
-            /></a>
-          }
+        <section
+          class="detail-proof-summary"
+          data-og7="publication-detail-proof-summary"
+          [attr.aria-label]="t('proof')"
+        >
+          <p>
+            <openg7-admin-icon name="check" /><strong>{{
+              t('deliveredAt', { date: date(evidence.deliveredAt) })
+            }}</strong>
+          </p>
+          <div
+            [class.detail-warning]="
+              evidence.visibility !== 'visible' ||
+              !observedDate(evidence.visibilityObservedAt)
+            "
+          >
+            @if (observedDate(evidence.visibilityObservedAt); as observedAt) {
+              <p data-og7="publication-detail-visibility">
+                {{ t('visibilityState.' + evidence.visibility) }}
+              </p>
+              <p
+                class="detail-observation"
+                data-og7="publication-detail-observed-at"
+              >
+                {{ t('detail.observedAt', { date: observedAt }) }}
+              </p>
+            } @else {
+              <p data-og7="publication-detail-no-observation">
+                {{ t('detail.noObservation') }}
+              </p>
+            }
+          </div>
         </section>
       }
-      @if (row.queueService?.preparation?.serviceDecision; as decision) {
-        <dl class="review-audit" data-og7="publication-review-audit">
-          <div>
-            <dt>{{ t('reviewDecision') }}</dt>
-            <dd>{{ t('decision.' + decision.decision) }}</dd>
-          </div>
-          <div>
-            <dt>{{ t('reviewedAt') }}</dt>
-            <dd>{{ date(decision.createdAt) }}</dd>
-          </div>
-          <div>
-            <dt>{{ t('reviewVersion') }}</dt>
-            <dd>{{ decision.contentVersion }}</dd>
-          </div>
-          <div>
-            <dt>{{ t('reviewReference') }}</dt>
-            <dd>{{ decision.id }}</dd>
-          </div>
-        </dl>
-      }
-      @if (differs(row)) {
-        <p class="detail-warning">{{ t('draftDifference') }}</p>
-      }
-      @if (row.delivery; as delivery) {
-        <p>{{ t('deliveryVersion', { version: delivery.version }) }}</p>
-        @if (delivery.approvedAt) {
-          <p>{{ t('authorizedAt', { date: date(delivery.approvedAt) }) }}</p>
-        }
-        @if (delivery.scheduledAt) {
-          <p>{{ t('scheduledAt', { date: date(delivery.scheduledAt) }) }}</p>
-        }
-      }
-      @if (deliveryId(row); as id) {
-        <button
-          class="admin-button"
-          type="button"
-          [disabled]="busy()"
-          (click)="selectedId.set(null); scheduling.open(id)"
+
+      <div class="detail-disclosures">
+        <details
+          class="detail-disclosure"
+          data-og7="publication-detail-content"
         >
-          {{ t('openDelivery') }}
-        </button>
-      }
-      <a
-        class="admin-button"
-        routerLink="/admin/fundraiser/campaigns"
-        [queryParams]="{
-          sponsorshipId: dossier().contributionId,
-          obligationId: row.obligation.id
-        }"
-        >{{ t('links.evidence') }}</a
-      >
-      @if (row.obligation.channel === 'website') {
-        <a
-          class="admin-button"
-          [routerLink]="sponsorsPath"
-          [queryParams]="ownerParams('media')"
-          fragment="dossier-website-settings"
-          >{{ t('links.profile') }}</a
+          <summary>{{ t('detail.content') }}</summary>
+          <div class="detail-section">
+            @if (row.delivery?.message; as message) {
+              <article
+                class="detail-content"
+                data-og7="publication-detail-delivery-content"
+              >
+                <h4>{{ t('detail.delivery') }}</h4>
+                <p>{{ message }}</p>
+              </article>
+            }
+            @if (safeUrl(row.delivery?.mediaUrl); as imageUrl) {
+              <img
+                class="detail-media"
+                [src]="imageUrl"
+                [alt]="t('mediaPreview')"
+                loading="lazy"
+                width="320"
+                height="180"
+              />
+            }
+            @if (row.queueService?.content; as content) {
+              <article
+                class="detail-content"
+                data-og7="publication-detail-draft-content"
+              >
+                <h4>{{ t('detail.draft') }}</h4>
+                <strong>{{ content.title }}</strong>
+                <p>{{ content.body }}</p>
+              </article>
+            }
+            @if (row.variant && (!row.queueService?.content || differs(row))) {
+              <article
+                class="detail-content"
+                data-og7="publication-detail-proposal-content"
+              >
+                <h4>{{ t('detail.proposal') }}</h4>
+                <strong>{{ row.variant.title }}</strong>
+                <p>{{ row.variant.body }}</p>
+              </article>
+            }
+            @if (
+              !row.delivery?.message &&
+              !row.queueService?.content &&
+              !row.variant
+            ) {
+              <p class="detail-context">{{ t('detail.noContent') }}</p>
+            }
+          </div>
+        </details>
+
+        <details
+          class="detail-disclosure"
+          data-og7="publication-detail-preparation"
         >
-      }
-      @if (row.obligation.channel !== 'website') {
-        <a
-          class="admin-button"
-          [routerLink]="automationPath"
-          [queryParams]="automationParams(row)"
-          >{{ t('links.engine') }}</a
+          <summary>{{ t('detail.preparation') }}</summary>
+          <div class="detail-section">
+            @if (row.proposal; as proposal) {
+              <p>
+                {{ t('proposalVersion', { version: proposal.version }) }} ·
+                {{ date(proposal.createdAt) }}
+              </p>
+              @if (proposal.adoptedAt) {
+                <p>{{ t('adoptedAt', { date: date(proposal.adoptedAt) }) }}</p>
+              }
+              <a
+                class="admin-button"
+                [routerLink]="deskPath"
+                [queryParams]="workshopParams()"
+                >{{ t('links.proposals') }}</a
+              >
+            }
+            @if (row.queueService?.preparation?.serviceDecision; as decision) {
+              <dl>
+                <div>
+                  <dt>{{ t('reviewDecision') }}</dt>
+                  <dd>{{ t('decision.' + decision.decision) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('reviewedAt') }}</dt>
+                  <dd>{{ date(decision.createdAt) }}</dd>
+                </div>
+              </dl>
+            }
+            @if (row.delivery; as delivery) {
+              @if (delivery.approvedAt) {
+                <p>
+                  {{ t('authorizedAt', { date: date(delivery.approvedAt) }) }}
+                </p>
+              }
+              @if (delivery.scheduledAt) {
+                <p>
+                  {{
+                    t('detail.recordedSchedule', {
+                      date: date(delivery.scheduledAt)
+                    })
+                  }}
+                </p>
+              }
+            }
+            @if (
+              !row.proposal &&
+              !row.delivery &&
+              !row.queueService?.preparation?.serviceDecision
+            ) {
+              <p class="detail-context">{{ t('detail.noPreparation') }}</p>
+            }
+            <p class="authority-note">{{ t('detail.scope') }}</p>
+            <div class="detail-accesses">
+              @if (deliveryId(row); as id) {
+                <button
+                  class="admin-button"
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="selectedId.set(null); scheduling.open(id)"
+                >
+                  {{ t('openDelivery') }}
+                </button>
+              }
+              @if (row.obligation.channel === 'website') {
+                <a
+                  class="admin-button"
+                  [routerLink]="sponsorsPath"
+                  [queryParams]="ownerParams('media')"
+                  fragment="dossier-website-settings"
+                  >{{ t('links.profile') }}</a
+                >
+              } @else {
+                <a
+                  class="admin-button"
+                  [routerLink]="automationPath"
+                  [queryParams]="automationParams(row)"
+                  >{{ t('links.engine') }}</a
+                >
+              }
+              @if (
+                (canConfigurePreparation() &&
+                  row.obligation.state !== 'fulfilled') ||
+                row.obligation.timing
+              ) {
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="publication-service-adjust"
+                  [disabled]="busy() || obligationActionsDisabled()"
+                  (click)="manageObligation(row)"
+                >
+                  {{
+                    t(
+                      canConfigurePreparation() &&
+                        row.obligation.state !== 'fulfilled'
+                        ? 'adjustService'
+                        : 'viewTiming'
+                    )
+                  }}
+                </button>
+              }
+            </div>
+          </div>
+        </details>
+
+        <details
+          #evidenceDetails
+          class="detail-disclosure"
+          data-og7="publication-detail-evidence"
         >
-      }
-      <p class="authority-note">{{ t('authority') }}</p>
-      @if (
-        (canConfigurePreparation() && row.obligation.state !== 'fulfilled') ||
-        row.obligation.timing
-      ) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="publication-service-adjust"
-          [disabled]="busy() || obligationActionsDisabled()"
-          (click)="manageObligation(row)"
-        >
-          {{
-            t(
-              canConfigurePreparation() && row.obligation.state !== 'fulfilled'
-                ? 'adjustService'
-                : 'viewTiming'
-            )
-          }}
-        </button>
-      }
+          <summary>
+            {{ t('detail.references') }}
+            <span class="detail-disclosure-state">{{
+              t(
+                row.evidence
+                  ? 'detail.evidenceAvailable'
+                  : 'detail.evidencePending'
+              )
+            }}</span>
+          </summary>
+          <div class="detail-section">
+            @if (row.evidence; as evidence) {
+              <section class="evidence" data-og7="publication-monitor-proof">
+                <h4>{{ t('proof') }}</h4>
+                <dl>
+                  <div>
+                    <dt>{{ t('deliveryDate') }}</dt>
+                    <dd>{{ date(evidence.deliveredAt) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('proofReference') }}</dt>
+                    <dd>{{ evidence.id }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('proofSource') }}</dt>
+                    <dd>{{ t('provenance.' + evidence.provenance) }}</dd>
+                  </div>
+                </dl>
+                @if (safeUrl(evidence.externalPostUrl); as url) {
+                  <a
+                    class="admin-button"
+                    [href]="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{ t('publicLink') }}<openg7-admin-icon name="external"
+                  /></a>
+                }
+              </section>
+            } @else {
+              <p class="detail-context">{{ t('detail.emptyReferences') }}</p>
+            }
+            <dl>
+              <div>
+                <dt>{{ t('obligationVersion') }}</dt>
+                <dd>{{ row.obligation.version }}</dd>
+              </div>
+              @if (row.proposal; as proposal) {
+                <div>
+                  <dt>{{ t('sourceVersion') }}</dt>
+                  <dd>{{ proposal.sourceVersion }}</dd>
+                </div>
+              }
+              @if (row.delivery; as delivery) {
+                <div>
+                  <dt>
+                    {{ t('deliveryVersion', { version: delivery.version }) }}
+                  </dt>
+                  <dd>{{ delivery.id }}</dd>
+                </div>
+              }
+            </dl>
+            @if (row.queueService?.preparation?.serviceDecision; as decision) {
+              <dl class="review-audit" data-og7="publication-review-audit">
+                <div>
+                  <dt>{{ t('reviewVersion') }}</dt>
+                  <dd>{{ decision.contentVersion }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('reviewReference') }}</dt>
+                  <dd>{{ decision.id }}</dd>
+                </div>
+              </dl>
+            }
+            <a
+              class="admin-button"
+              routerLink="/admin/fundraiser/campaigns"
+              [queryParams]="{
+                sponsorshipId: dossier().contributionId,
+                obligationId: row.obligation.id
+              }"
+              >{{ t('links.evidence') }}</a
+            >
+          </div>
+        </details>
+      </div>
     </section>
   }
 </openg7-admin-drawer>
