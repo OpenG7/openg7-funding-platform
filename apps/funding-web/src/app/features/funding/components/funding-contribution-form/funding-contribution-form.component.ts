@@ -16,19 +16,12 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import {
-  isValidSponsorshipAmount,
-  normalizeSponsorshipOfferFormats,
-  publicationFormatCapability
-} from '@openg7/funding-core';
+import { isValidSponsorshipAmount } from '@openg7/funding-core';
 import type {
   CheckoutConsentPayload,
   ContributionType,
-  PublicSponsorshipBatchAvailabilityResponse,
-  SponsorFeedChannel,
   SponsorshipOfferQuote,
-  SponsorshipOfferFormatOptions,
-  SponsorshipPublicationFormat
+  SponsorshipOfferFormatOptions
 } from '@openg7/funding-core';
 
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
@@ -38,7 +31,6 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { SponsorshipCharterService } from '../../services/sponsorship-charter.service.js';
 import { SponsorshipOfferController } from '../../services/sponsorship-offer-controller.js';
 import { FundingService } from '../../services/funding.service.js';
-import { SponsorshipOfferSummaryComponent } from '../sponsorship-offer-summary/sponsorship-offer-summary.component.js';
 
 export interface FundingContributionSubmission {
   readonly amount: number;
@@ -50,13 +42,7 @@ export interface FundingContributionSubmission {
 @Component({
   selector: 'openg7-funding-contribution-form',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterLink,
-    TranslatePipe,
-    SponsorshipOfferSummaryComponent
-  ],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-contribution-form.component.html',
   styleUrl: './funding-contribution-form.component.css'
@@ -134,8 +120,6 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly allowedAmounts = input<readonly number[]>(
     this.config.contributionAmounts
   );
-  readonly sponsorshipBatchAvailability =
-    input<PublicSponsorshipBatchAvailabilityResponse | null>(null);
   readonly loadingState = input<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
@@ -166,40 +150,11 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly offerFormats = signal<SponsorshipOfferFormatOptions | undefined>(
     undefined
   );
-  readonly formatChannels = ['facebook', 'linkedin'] as const;
-  readonly formats: readonly SponsorshipPublicationFormat[] = [
-    'collective_text',
-    'individual_portrait',
-    'collective_composite',
-    'image_collection'
-  ];
   readonly formatsMatch = computed(
     () =>
       JSON.stringify(this.offerFormats()) ===
       JSON.stringify(this.offer.formats())
   );
-  formatAvailable(channel: string, format: string): boolean {
-    return publicationFormatCapability(channel, format).available;
-  }
-  selectFormat(channel: 'facebook' | 'linkedin', event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === '') {
-      const formats = { ...this.offerFormats() };
-      delete formats[channel];
-      this.offerFormats.set(normalizeSponsorshipOfferFormats(formats));
-      return;
-    }
-    if (!this.formatAvailable(channel, value)) return;
-    this.offerFormats.set(
-      normalizeSponsorshipOfferFormats({
-        ...this.offerFormats(),
-        [channel]: value
-      })
-    );
-  }
-  resetFormats(): void {
-    if (!this.offer.retained()) this.offerFormats.set(undefined);
-  }
   restoreRetainedOffer(): void {
     const quote = this.offer.quote();
     if (!quote || !this.offer.retained()) return;
@@ -250,28 +205,6 @@ export class FundingContributionFormComponent implements OnChanges {
       ? 'funding.home.contribution.sponsorship.minimumAmountError'
       : 'funding.home.contribution.amountFormatHint';
   });
-  readonly sponsorshipAvailabilityLabelKeys: Readonly<
-    Record<SponsorFeedChannel, string>
-  > = {
-    facebook: 'funding.home.contribution.sponsorship.availability.facebook',
-    linkedin: 'funding.home.contribution.sponsorship.availability.linkedin'
-  };
-
-  readonly sponsorshipAvailabilityEntries = computed<
-    readonly { readonly channel: SponsorFeedChannel; readonly date: string }[]
-  >(() =>
-    (this.sponsorshipBatchAvailability()?.availability ?? [])
-      .filter(
-        (
-          entry
-        ): entry is { channel: SponsorFeedChannel; nextAvailableAt: string } =>
-          entry.nextAvailableAt !== null
-      )
-      .map((entry) => ({
-        channel: entry.channel,
-        date: this.formatDateOnly(entry.nextAvailableAt)
-      }))
-  );
   ngOnChanges(): void {
     if (
       !this.requestedTypeApplied &&
@@ -366,11 +299,6 @@ export class FundingContributionFormComponent implements OnChanges {
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2
     }).format(amount);
-  }
-  private formatDateOnly(value: string): string {
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      dateStyle: 'long'
-    }).format(new Date(value));
   }
   submitContribution(): void {
     const amount = this.effectiveAmount();

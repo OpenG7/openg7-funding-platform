@@ -93,8 +93,6 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   });
   readonly allowedContributionAmounts =
     this.controller.allowedContributionAmounts;
-  readonly sponsorshipBatchAvailability =
-    this.controller.sponsorshipBatchAvailability;
   readonly sponsorshipSelectionEnabled =
     this.controller.sponsorshipSelectionEnabled;
   readonly monthlySummary = this.controller.monthlySummary;

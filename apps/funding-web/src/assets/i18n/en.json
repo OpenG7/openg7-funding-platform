@@ -4,7 +4,7 @@
       "title": "Confirm the sponsorship offer",
       "loading": "Loading the applicable offer…",
       "unavailable": "The offer could not be loaded. Try again before starting payment.",
-      "changed": "The offer changed before payment started. Review the benefits and confirm the new offer.",
+      "changed": "The sponsorship offer has been updated. Confirm your sponsorship again before trying again.",
       "retained": "You are resuming a submitted attempt with the offer accepted at that time. Its terms are retained.",
       "recoveryUnavailable": "Recovery cannot be read or retained in this browser. A new sponsorship payment cannot start until it is available. Check the browser storage settings, then try again.",
       "support": "Contact the team to verify this attempt",
@@ -75,7 +75,7 @@
       "noDuration": "This offer promises no fixed exposure duration.",
       "deadline": "Delivery deadline: {{days}} days.",
       "duration": "Exposure duration: {{days}} days.",
-      "acceptance": "I confirm the benefits and terms displayed for my {{amount}} sponsorship.",
+      "acceptance": "I confirm my {{amount}} sponsorship.",
       "channels": {
         "website": "website mention",
         "facebook": "grouped Facebook publication",

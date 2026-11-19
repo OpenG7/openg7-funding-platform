@@ -4,7 +4,7 @@
       "title": "Offre de commandite à confirmer",
       "loading": "Chargement de l’offre applicable…",
       "unavailable": "L’offre ne peut pas être chargée. Réessayez avant de commencer le paiement.",
-      "changed": "L’offre a changé avant le début du paiement. Relisez les avantages et confirmez la nouvelle offre.",
+      "changed": "L’offre de commandite a été mise à jour. Confirmez de nouveau votre commandite avant de réessayer.",
       "retained": "Vous reprenez une tentative déjà soumise avec l’offre acceptée à ce moment-là. Ses conditions sont conservées.",
       "recoveryUnavailable": "La reprise ne peut pas être lue ou conservée dans ce navigateur. Une nouvelle commandite ne peut pas démarrer tant qu’elle n’est pas disponible. Vérifiez les paramètres de stockage du navigateur, puis réessayez.",
       "support": "Contacter l’équipe pour vérifier cette tentative",
@@ -75,7 +75,7 @@
       "noDuration": "Aucune durée d’exposition fixe n’est promise par cette offre.",
       "deadline": "Délai de réalisation : {{days}} jours.",
       "duration": "Durée d’exposition : {{days}} jours.",
-      "acceptance": "Je confirme les avantages et les conditions affichés pour ma commandite de {{amount}}.",
+      "acceptance": "Je confirme ma commandite de {{amount}}.",
       "channels": {
         "website": "mention sur le site",
         "facebook": "publication groupée sur Facebook",

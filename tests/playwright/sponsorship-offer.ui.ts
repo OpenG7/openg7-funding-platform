@@ -722,11 +722,43 @@ export function registerSponsorshipOfferTests(
         .check();
       return {
         form,
-        offer: form.locator('[data-og7="sponsorship-offer"]'),
+        offer: form.locator('[data-og7="sponsorship-offer-status"]'),
         acceptance: form.locator('[data-og7="offer-acceptance"]'),
         submit: form.locator('button[type="submit"]')
       };
     };
+
+    test(
+      `sponsorship offer is prepared by the server without displaying technical choices ${suffix}`,
+      { tag: '@offer-ui' },
+      async ({ page }) => {
+        await setup(page);
+        const { form, acceptance, submit } = await open(page);
+        await expect(acceptance).toBeVisible();
+        await expect(
+          form.getByRole('heading', {
+            name: english
+              ? 'Confirm the sponsorship offer'
+              : 'Offre de commandite à confirmer'
+          })
+        ).toHaveCount(0);
+        await expect(
+          form.locator('[data-og7="sponsorship-offer"]')
+        ).toHaveCount(0);
+        await expect(
+          form.locator('openg7-sponsorship-offer-summary')
+        ).toHaveCount(0);
+        await expect(
+          form.locator('[data-og7-id^="offer-format:"]')
+        ).toHaveCount(0);
+        await expect(acceptance).not.toBeChecked();
+        await expect(submit).toBeDisabled();
+        await acceptance.focus();
+        await page.keyboard.press('Space');
+        await expect(acceptance).toBeChecked();
+        await expect(submit).toBeEnabled();
+      }
+    );
 
     test(`sponsorship offer two tabs retain one key after a lost response and a concurrent refusal ${suffix} @offer-ui`, async ({
       page,
@@ -863,7 +895,6 @@ export function registerSponsorshipOfferTests(
         await setup(reopened);
         await checkout(reopened);
         const resumed = await open(reopened);
-        await expect(resumed.offer).toContainText('sponsorship-v1');
         await expect(resumed.offer).toContainText(
           english
             ? 'resuming a submitted attempt'
@@ -1164,7 +1195,7 @@ export function registerSponsorshipOfferTests(
               });
         });
         const { form, offer, acceptance, submit } = await open(page);
-        await expect(offer).toContainText('synthetic-current-v2');
+        await expect(acceptance).toBeVisible();
         await acceptance.check();
         await expect(submit).toBeEnabled();
         await submit.click();
@@ -1213,8 +1244,8 @@ export function registerSponsorshipOfferTests(
         });
         const readsBeforeReload = quoteReads;
         await page.reload();
-        await expect(offer).toContainText('synthetic-retained-v0');
-        await expect(offer).not.toContainText('synthetic-current-v2');
+        await expect(acceptance).toBeVisible();
+        await expect(acceptance.locator('..')).toContainText('45');
         expect(quoteReads).toBe(readsBeforeReload);
         await expect(acceptance).not.toBeChecked();
         await expect(submit).toBeDisabled();
@@ -1245,7 +1276,7 @@ export function registerSponsorshipOfferTests(
           )
           .toEqual({ attempts: null, offer: null });
         await page.reload();
-        await expect(offer).toContainText('synthetic-current-v2');
+        await expect(acceptance).toBeVisible();
         await form.locator('#custom-contribution').fill('45');
         await expect(form.locator('#custom-contribution')).toHaveAttribute(
           'aria-invalid',
@@ -1264,30 +1295,19 @@ export function registerSponsorshipOfferTests(
     );
 
     test(
-      `sponsorship offer changing format requires fresh exact terms and keeps an uncertain retry ${suffix}`,
+      `sponsorship offer uses server default formats and keeps an uncertain retry after an amount change ${suffix}`,
       { tag: '@offer-ui' },
       async ({ page }) => {
         await setup(page);
         const requests: Record<string, unknown>[] = [],
-          quotes: SponsorshipOfferFormatOptions[] = [];
+          quotes: URLSearchParams[] = [];
         await page.route('**/api/sponsorship-offer?**', (route) => {
           const params = new URL(route.request().url()).searchParams;
-          const formats = {
-            ...(params.has('facebookFormat')
-              ? {
-                  facebook: params.get(
-                    'facebookFormat'
-                  ) as 'individual_portrait'
-                }
-              : {})
-          };
-          quotes.push(formats);
+          quotes.push(params);
           return route.fulfill({
             json: sponsorshipOfferQuote(
               Number(params.get('amountMinor')),
-              'sponsorship-v2',
-              1,
-              formats
+              'sponsorship-v2'
             )
           });
         });
@@ -1306,23 +1326,13 @@ export function registerSponsorshipOfferTests(
                 }
               });
         });
-        const { form, offer, acceptance, submit } = await open(page);
-        await form.locator('#custom-contribution').fill('500');
-        await expect(offer).toContainText(
-          english ? 'Collective text' : 'Texte collectif'
-        );
+        const { form, acceptance, submit } = await open(page);
         await acceptance.check();
-        await form
-          .locator('[data-og7-id="offer-format:facebook"]')
-          .selectOption('individual_portrait');
-        await expect(offer).toContainText(
-          english ? 'Individual portrait' : 'Portrait individuel'
-        );
+        await form.locator('#custom-contribution').fill('500');
+        await expect(acceptance.locator('..')).toContainText('500');
         await expect(acceptance).not.toBeChecked();
         await expect(submit).toBeDisabled();
-        const quote = sponsorshipOfferQuote(50000, 'sponsorship-v2', 1, {
-          facebook: 'individual_portrait'
-        });
+        const quote = sponsorshipOfferQuote(50000, 'sponsorship-v2');
         await acceptance.check();
         await submit.click();
         await expect.poll(() => requests.length).toBe(1);
@@ -1331,19 +1341,20 @@ export function registerSponsorshipOfferTests(
         await submit.click();
         await expect.poll(() => requests.length).toBe(2);
         expect(requests[1]).toEqual(requests[0]);
-        expect(requests[0].offerFormats).toEqual({
-          facebook: 'individual_portrait'
-        });
+        expect(requests[0].amount).toBe(500);
+        expect(requests[0]).not.toHaveProperty('offerFormats');
         expect(requests[0].offerAcceptance).toEqual({
           version: quote.version,
           fingerprint: quote.fingerprint
         });
         expect(quotes).toHaveLength(lastQuoteCount);
+        for (const params of quotes)
+          expect([...params.keys()].some((key) => key.endsWith('Format'))).toBe(
+            false
+          );
         await expect(
-          form.locator(
-            '[data-og7-id="offer-format:facebook"] option[value="image_collection"]'
-          )
-        ).toHaveJSProperty('disabled', true);
+          form.locator('[data-og7-id^="offer-format:"]')
+        ).toHaveCount(0);
       }
     );
 
@@ -1354,17 +1365,18 @@ export function registerSponsorshipOfferTests(
         await setup(page);
         let version = 1;
         const requests: Record<string, unknown>[] = [];
-        await page.route('**/api/sponsorship-offer?**', (route) =>
-          route.fulfill({
-            json: sponsorshipOfferQuote(
-              Number(
-                new URL(route.request().url()).searchParams.get('amountMinor')
-              ),
-              `sponsorship-v${version}`,
-              version
-            )
-          })
-        );
+        const quotes: string[] = [];
+        await page.route('**/api/sponsorship-offer?**', (route) => {
+          const quote = sponsorshipOfferQuote(
+            Number(
+              new URL(route.request().url()).searchParams.get('amountMinor')
+            ),
+            `sponsorship-v${version}`,
+            version
+          );
+          quotes.push(quote.version);
+          return route.fulfill({ json: quote });
+        });
         await page.route('**/api/checkout-sessions', (route) => {
           requests.push(route.request().postDataJSON());
           if (requests.length === 1) {
@@ -1382,25 +1394,13 @@ export function registerSponsorshipOfferTests(
             }
           });
         });
-        const { form, offer, acceptance, submit } = await open(page);
-        await expect(offer).toContainText('sponsorship-v1');
-        await expect(offer).toContainText(
-          english
-            ? 'no fixed publication deadline'
-            : 'Aucun délai de publication fixe'
-        );
-        await expect(offer).toContainText(
-          english
-            ? 'no fixed exposure duration'
-            : 'Aucune durée d’exposition fixe'
-        );
+        const { form, acceptance, submit } = await open(page);
+        await expect(acceptance).toBeVisible();
         await expect(submit).toBeDisabled();
         await acceptance.check();
         await submit.click();
-        await expect(offer).toContainText('sponsorship-v2');
-        await expect(
-          offer.locator('[data-og7-id="website_mention"] strong')
-        ).toContainText('2 ×');
+        await expect.poll(() => quotes.at(-1)).toBe('sponsorship-v2');
+        await expect(acceptance).toBeVisible();
         await expect(acceptance).not.toBeChecked();
         await expect(submit).toBeDisabled();
         await form.dispatchEvent('submit');
@@ -1481,8 +1481,7 @@ export function registerSponsorshipOfferTests(
         });
         const { form, offer, acceptance, submit } = await open(page);
         await form.locator('#custom-contribution').fill('250');
-        await expect(offer).toContainText(/250[,.]00/);
-        await expect(offer).toContainText('sponsorship-v1');
+        await expect(acceptance.locator('..')).toContainText('250');
         await acceptance.check();
         await submit.click();
         await expect(form.getByRole('alert')).toBeVisible();
@@ -1501,7 +1500,6 @@ export function registerSponsorshipOfferTests(
         const quoteCount = quotes;
         version = 2;
         await page.reload();
-        await expect(offer).toContainText('sponsorship-v1');
         await expect(offer).toContainText(
           english
             ? 'resuming a submitted attempt'
@@ -1515,7 +1513,7 @@ export function registerSponsorshipOfferTests(
           })
           .click();
         await expect(form.locator('#custom-contribution')).toHaveValue('');
-        await expect(offer).toContainText('sponsorship-v1');
+        await expect(acceptance.locator('..')).toContainText('250');
         await form
           .getByLabel(
             english
@@ -1570,9 +1568,9 @@ export function registerSponsorshipOfferTests(
                 json: sponsorshipOfferQuote(amountMinor, 'current-offer', 2)
               });
         });
-        let checkouts = 0;
+        const checkouts: Record<string, unknown>[] = [];
         await page.route('**/api/checkout-sessions', (route) => {
-          checkouts++;
+          checkouts.push(route.request().postDataJSON());
           return route.fulfill({ status: 503, json: {} });
         });
         const { form, offer, acceptance, submit } = await open(page);
@@ -1588,23 +1586,26 @@ export function registerSponsorshipOfferTests(
           await offer
             .getByRole('button', { name: english ? /Try again/ : /Réessayer/ })
             .click();
-          await expect(offer).toContainText('current-offer');
+          await expect(acceptance).toBeVisible();
           release();
-          await expect(offer).not.toContainText('stale-offer');
-          await expect(
-            offer.locator('[data-og7-id="website_mention"] strong')
-          ).toContainText('2 ×');
           await expect(acceptance).not.toBeChecked();
           await expect(submit).toBeDisabled();
           await acceptance.focus();
           await page.keyboard.press('Space');
           await expect(acceptance).toBeChecked();
           await expect(submit).toBeEnabled();
+          await submit.click();
+          await expect.poll(() => checkouts.length).toBe(1);
+          const quoted = sponsorshipOfferQuote(25000, 'current-offer', 2);
+          expect(checkouts[0].offerAcceptance).toEqual({
+            version: quoted.version,
+            fingerprint: quoted.fingerprint
+          });
           await form.locator('#custom-contribution').fill('-50');
           await expect(offer).toHaveCount(0);
           await expect(submit).toBeDisabled();
           await form.dispatchEvent('submit');
-          expect(checkouts).toBe(0);
+          expect(checkouts).toHaveLength(1);
         } finally {
           release();
         }
