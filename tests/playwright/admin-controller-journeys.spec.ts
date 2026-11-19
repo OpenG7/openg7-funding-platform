@@ -853,6 +853,14 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     });
   });
   let sessionExpired = false;
+  await page.route('**/api/admin/auth/current', (route) =>
+    sessionExpired
+      ? route.fulfill({
+          status: 401,
+          json: { error: 'Synthetic expired session' }
+        })
+      : route.fallback()
+  );
   const privateReadsAfterExpiry: string[] = [];
   page.on('response', (response) => {
     if (
@@ -866,7 +874,9 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     if (
       sessionExpired &&
       request.method() === 'GET' &&
-      pathname.startsWith('/api/admin/')
+      pathname.startsWith('/api/admin/') &&
+      // Login may load public auth configuration and recheck the expired cookie.
+      !['/api/admin/auth/config', '/api/admin/auth/current'].includes(pathname)
     )
       privateReadsAfterExpiry.push(pathname);
   });
@@ -874,7 +884,7 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     await pad.activate(hook(page, 'payment-journey-refresh'));
     await pending;
     // The request remains attached to this session after its guide is reduced.
-    // Its late 401 must purge the editor without reviving or navigating the guide.
+    // Its late 401 must purge the editor before the session redirects to login.
     await pad.activate(hook(page, 'admin-guidance-toggle'));
     await expect(hook(page, 'admin-guidance-panel')).not.toBeVisible();
     await pad.activate(hook(page, 'edit-dossier'));
@@ -886,11 +896,27 @@ test('a same-route session expiry purges the Xbox editor before its private draf
       page.locator('[data-og7="editor-key"][data-og7-id="x"]')
     );
     await expect(hook(page, 'editor-preview')).toContainText('x');
-    const sameUrl = page.url();
+    const returnUrl = new URL(page.url());
+    const deniedIdentity = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/admin/auth/current' &&
+        response.status() === 401
+    );
     release();
     await expect(hook(page, 'controller-editor')).not.toBeVisible();
-    await expect(hook(page, 'editor-preview')).toHaveText('|');
-    expect(page.url()).toBe(sameUrl);
+    await expect(page).toHaveURL(/\/admin\/login\?/);
+    await expect(hook(page, 'controller-editor')).toHaveCount(0);
+    await expect(hook(page, 'editor-preview')).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(
+      returnUrl.pathname + returnUrl.search
+    );
+    expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe('1');
+    await deniedIdentity;
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem('openg7-admin-session-token')
+      )
+    ).toBeNull();
     await pad.press('A');
     expect(state.commands).toEqual([]);
     expect(sessionExpired).toBe(true);

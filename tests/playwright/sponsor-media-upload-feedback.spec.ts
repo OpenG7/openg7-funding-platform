@@ -161,7 +161,8 @@ async function mockConfirmedUpload(page: Page) {
   };
   const state = {
     failReads: true,
-    reviewStatus: 'pending_review' as 'pending_review' | 'approved',
+    reviewStatus: 'pending_review' as
+      'pending_review' | 'approved' | 'rejected',
     posts: 0,
     deletions: [] as unknown[],
     assets: [] as SponsorMediaAsset[]
@@ -250,6 +251,14 @@ test('selected files and consent survive refresh when upload permission becomes 
   await expect(send).toBeEnabled();
 
   state.reviewStatus = 'approved';
+  await page
+    .getByRole('button', { name: 'Actualiser le statut', exact: true })
+    .click();
+  await expect(input).toBeEnabled();
+  await expect(send).toBeEnabled();
+  await expect(acceptance).toBeChecked();
+
+  state.reviewStatus = 'rejected';
   await page
     .getByRole('button', { name: 'Actualiser le statut', exact: true })
     .click();

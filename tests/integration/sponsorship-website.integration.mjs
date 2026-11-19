@@ -315,7 +315,21 @@ test(
             { ...input, expectedVersion: await version() },
             'fixture-admin'
           ),
-          'blocked'
+          'updated',
+          'text visibility does not require an optional image to be approved'
+        );
+        assert.equal((await load()).website.visible, true);
+        assert.deepEqual(
+          (await listPublicSponsorships(pool)).sponsorships[0].media,
+          []
+        );
+        assert.equal(
+          await setSponsorshipWebsiteVisibility(
+            pool,
+            { ...input, expectedVersion: await version(), visible: false },
+            'fixture-admin'
+          ),
+          'updated'
         );
         await pool.query(
           "UPDATE sponsor_media_assets SET review_status='approved', public_storage_key='public-fixture-' || $1::uuid::text, public_url='https://example.invalid/fixture.webp' WHERE contribution_id=$1",

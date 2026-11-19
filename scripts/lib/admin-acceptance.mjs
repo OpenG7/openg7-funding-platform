@@ -120,10 +120,25 @@ export async function acceptanceStages({
   diagnostics,
   node,
   cli,
-  args = []
+  args = [],
+  preflight = false
 }) {
   try {
-    await prepareAcceptanceStack({ run, node });
+    // The remote journey creates its own contribution through Checkout. Other
+    // paid fixtures would activate unrelated workshop relays in this stack.
+    await prepareAcceptanceStack({ run, node, seed: !preflight });
+    if (preflight) {
+      // The opt-in overlay shares only the disposable Funding API network.
+      await run('docker', [
+        'compose',
+        'exec',
+        '-T',
+        'api',
+        'node',
+        '-e',
+        "Promise.all([fetch('http://127.0.0.1:3400/health/ready'),fetch('http://127.0.0.1:3401/health')]).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"
+      ]);
+    }
     // Scenarios share the database, global settings and API restarts. Keep the
     // stack sequential. The override must precede the CLI option terminator.
     const browserArgs = [...args];

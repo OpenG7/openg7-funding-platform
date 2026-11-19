@@ -197,6 +197,10 @@ test('campaigns store reads the real authenticated API, retains its view across 
       await selected.click();
       await expect(selected).toHaveAttribute('aria-pressed', 'true');
       await expect(hook(page, 'campaign-detail')).toContainText(company);
+      const preparation = hook(page, 'campaign-preparation-details');
+      await expect(preparation).not.toHaveAttribute('open', '');
+      await preparation.locator(':scope > summary').click();
+      await expect(preparation).toHaveAttribute('open', '');
       await expect(hook(page, 'campaign-preparation')).toBeVisible();
     });
 

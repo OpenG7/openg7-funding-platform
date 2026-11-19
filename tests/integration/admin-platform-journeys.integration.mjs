@@ -453,7 +453,7 @@ test(
         );
       }
 
-      for (const [apply, restore] of [
+      for (const [apply, restore, expected = 'operational'] of [
         [
           'UPDATE fund_contributions SET public_display_consent=FALSE WHERE id=$1',
           'UPDATE fund_contributions SET public_display_consent=TRUE WHERE id=$1'
@@ -476,14 +476,15 @@ test(
         ],
         [
           "UPDATE sponsor_media_assets SET review_status='rejected',public_url=NULL WHERE contribution_id=$1",
-          "UPDATE sponsor_media_assets SET review_status='approved',public_url='https://public.example.invalid/synthetic.webp' WHERE contribution_id=$1"
+          "UPDATE sponsor_media_assets SET review_status='approved',public_url='https://public.example.invalid/synthetic.webp' WHERE contribution_id=$1",
+          'unavailable'
         ]
       ]) {
         await pool.query(apply, [interrupted.id]);
         assert.equal(
           journey(await getCockpitJourneys(pool, now), 'sponsorship').state,
-          'operational',
-          'withdrawn authorization, retired obligations or obsolete observations are not platform incidents'
+          expected,
+          `only a withdrawn text authorization, retired obligation or obsolete observation dismisses the incident: ${apply}`
         );
         await pool.query(restore, [interrupted.id]);
         await recordLegacyVisibility(pool, interrupted);

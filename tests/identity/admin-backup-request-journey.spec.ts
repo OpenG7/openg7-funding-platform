@@ -284,13 +284,23 @@ test('admin backup request: OIDC confirmation, lost response, one real encrypted
     );
     await page.locator('[data-og7="confirm-action"]').click();
     expect((await revoked).status()).toBe(401);
-    await expect(panel).toContainText('Votre session a expiré');
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/admin/login' &&
+        url.searchParams.get('returnUrl') ===
+          '/admin/fundraiser/setup?section=backups' &&
+        url.searchParams.get('sessionExpired') === '1'
+    );
+    await expect(page.getByRole('status')).toContainText(
+      'expiré ou a été révoquée'
+    );
+    await expect(panel).toHaveCount(0);
     await expect(page.locator('dialog[open]')).toHaveCount(0);
     await expect(panel.locator('[data-og7="backup-history-row"]')).toHaveCount(
       0
     );
     await expect(panel.locator('[data-og7="backup-receipt"]')).toHaveCount(0);
-    await expect(request).toBeDisabled();
+    await expect(request).toHaveCount(0);
     await expect(page.locator('body')).not.toContainText(completed!.sha256);
     expect(
       await page.evaluate(() =>

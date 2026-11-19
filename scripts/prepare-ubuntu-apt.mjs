@@ -21,7 +21,7 @@ export const aptDownloadLimits = [
   ''
 ].join('\n');
 
-/** Preserve source options and signing keys; only the affected Ubuntu mirror moves. */
+/** Preserve source options and signing keys; use official HTTPS Ubuntu archives. */
 export function rewriteAptSource(contents, format, mirrorFiles = new Set()) {
   let knownRepositories = 0;
   const uri = (value) => {
@@ -42,21 +42,20 @@ export function rewriteAptSource(contents, format, mirrorFiles = new Set()) {
       mirrorFiles.add(pathname);
       return value;
     }
-    if (
-      /^https?:\/\/(?:azure\.archive|archive|security)\.ubuntu\.com\/ubuntu\/?$/.test(
+    const archive =
+      /^https?:\/\/((?:azure\.archive|archive|security)\.ubuntu\.com|[a-z0-9-]+\.ec2\.archive\.ubuntu\.com)(?=[/:?#]|$)/.exec(
         value
-      )
-    )
-      ++knownRepositories;
-    if (/^https?:\/\/azure\.archive\.ubuntu\.com(?:[/:?#]|$)/.test(value)) {
-      if (!/^https?:\/\/azure\.archive\.ubuntu\.com\/ubuntu\/?$/.test(value))
-        throw new Error('Unsupported Azure Ubuntu archive path.');
-      return value.replace(
-        /^https?:\/\/azure\.archive\.ubuntu\.com/,
-        'https://archive.ubuntu.com'
       );
-    }
-    return value;
+    if (!archive) return value;
+    const archivePath = value.slice(archive[0].length);
+    if (!/^\/ubuntu\/?$/.test(archivePath))
+      throw new Error('Unsupported Ubuntu archive path.');
+    ++knownRepositories;
+    const host =
+      archive[1] === 'security.ubuntu.com'
+        ? 'https://security.ubuntu.com'
+        : 'https://archive.ubuntu.com';
+    return host + archivePath;
   };
   let field = '';
   const rewritten = contents

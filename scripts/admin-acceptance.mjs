@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -18,6 +18,22 @@ if (Number(process.versions.node.split('.')[0]) < 22) {
   throw new Error('Acceptance requires Node.js 22 or newer.');
 }
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const browserArgs = process.argv.slice(2);
+const preflightOption = browserArgs.indexOf('--preflight-root');
+let preflightRoot;
+if (preflightOption >= 0) {
+  const requested = browserArgs[preflightOption + 1];
+  if (!requested || !isAbsolute(requested))
+    throw new Error('--preflight-root requires an absolute local checkout.');
+  preflightRoot = resolve(requested);
+  const manifest = JSON.parse(
+    await readFile(join(preflightRoot, 'package.json'), 'utf8')
+  );
+  if (manifest.name !== 'openg7-preflight')
+    throw new Error('The selected checkout is not OpenG7 Preflight.');
+  await readFile(join(preflightRoot, 'Dockerfile'), 'utf8');
+  browserArgs.splice(preflightOption, 2);
+}
 const temporary = await mkdtemp(join(tmpdir(), 'og7-acceptance-'));
 const envFile = join(temporary, 'empty.env');
 await writeFile(envFile, '');
@@ -56,6 +72,21 @@ const env = acceptanceEnvironment({
   oidcProviderPort: ports[3],
   moderationNginxFile
 });
+if (preflightRoot) {
+  env.ACCEPTANCE_PREFLIGHT_ROOT = preflightRoot;
+  env.OPENG7_PREFLIGHT_ACCEPTANCE = '1';
+}
+const composeArguments = (args) =>
+  preflightRoot && args[0] === 'compose'
+    ? [
+        'compose',
+        '-f',
+        join(root, 'docker-compose.acceptance.yml'),
+        '-f',
+        join(root, 'docker-compose.acceptance-preflight.yml'),
+        ...args.slice(1)
+      ]
+    : args;
 const artifacts = join(root, 'test-results', 'acceptance');
 await mkdir(artifacts, { recursive: true });
 // Do not attribute an earlier run's failures to the current revision.
@@ -79,6 +110,21 @@ await writeFile(
           encoding: 'utf8'
         }).trim().length > 0,
       baseURL: env.PLAYWRIGHT_BASE_URL,
+      ...(preflightRoot
+        ? {
+            preflightRevision: execFileSync('git', ['rev-parse', 'HEAD'], {
+              cwd: preflightRoot,
+              encoding: 'utf8'
+            }).trim(),
+            preflightWorkingTreeDirty:
+              execFileSync('git', ['status', '--porcelain'], {
+                cwd: preflightRoot,
+                encoding: 'utf8'
+              }).trim().length > 0,
+            preflightProviders: 'mock',
+            preflightTransport: 'real HTTP and signed local OAuth/JWKS'
+          }
+        : {}),
       startedAt: new Date().toISOString()
     },
     null,
@@ -99,12 +145,16 @@ const run = (command, args) =>
   new Promise((resolveRun, reject) => {
     if (interrupted && !args.includes('down'))
       return reject(new Error('Acceptance interrupted.'));
-    activeChild = spawn(command, args, {
-      cwd: root,
-      env,
-      stdio: 'inherit',
-      windowsHide: true
-    });
+    activeChild = spawn(
+      command,
+      command === 'docker' ? composeArguments(args) : args,
+      {
+        cwd: root,
+        env,
+        stdio: 'inherit',
+        windowsHide: true
+      }
+    );
     activeChild.once('error', reject);
     activeChild.once('exit', (code) => {
       activeChild = undefined;
@@ -132,11 +182,12 @@ try {
     run,
     node: process.execPath,
     cli: createRequire(import.meta.url).resolve('@playwright/test/cli'),
-    args: process.argv.slice(2),
+    args: browserArgs,
+    preflight: Boolean(preflightRoot),
     diagnostics: async () => {
       const logs = execFileSync(
         'docker',
-        ['compose', 'logs', '--no-color', '--timestamps'],
+        composeArguments(['compose', 'logs', '--no-color', '--timestamps']),
         { cwd: root, env, maxBuffer: 16 * 1024 * 1024 }
       );
       await writeFile(join(artifacts, 'docker.log'), logs);

@@ -28,7 +28,10 @@ test('acceptance ignores inherited application credentials, Compose targets and 
       ACCEPTANCE_OIDC_PROVIDER_PORT: '443',
       ACCEPTANCE_OIDC_NGINX_FILE: '/forbidden/nginx.conf',
       FUNDING_ADMIN_OIDC_ISSUER: 'https://forbidden.example.invalid',
-      MIGRATIONS_DIR: 'forbidden'
+      MIGRATIONS_DIR: 'forbidden',
+      PREFLIGHT_URL: 'https://forbidden.example.invalid',
+      ACCEPTANCE_PREFLIGHT_ROOT: '/forbidden/checkout',
+      OPENG7_PREFLIGHT_ACCEPTANCE: '1'
     },
     root: '/repo',
     project: 'og7-acceptance-a1b2',
@@ -323,4 +326,39 @@ test('acceptance reports cleanup failure after successful browser tests', async 
     }),
     /cleanup failed/
   );
+});
+
+test('the opt-in remote recipe verifies real loopback API and identity readiness before its browser journey', async () => {
+  const calls = [];
+  await acceptanceStages({
+    node: 'node',
+    cli: 'playwright',
+    preflight: true,
+    args: ['sponsorship-preflight-acceptance.spec.ts', '--project=chromium'],
+    diagnostics: async () => {},
+    run: async (command, args) => {
+      calls.push([command, ...args]);
+    }
+  });
+  // The readiness program is a single argument containing both fixed URLs.
+  const actualReady = calls.findIndex((call) =>
+    call.some(
+      (value) =>
+        typeof value === 'string' &&
+        value.includes('http://127.0.0.1:3400/health/ready') &&
+        value.includes('http://127.0.0.1:3401/health')
+    )
+  );
+  assert.ok(actualReady >= 0);
+  assert.equal(
+    calls.some((call) => call.includes('scripts/e2e-seed.mjs')),
+    false
+  );
+  assert.ok(actualReady < calls.findIndex((call) => call[1] === 'playwright'));
+  assert.deepEqual(calls.at(-1), [
+    'docker',
+    'compose',
+    'down',
+    '--remove-orphans'
+  ]);
 });

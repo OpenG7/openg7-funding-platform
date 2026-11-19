@@ -673,7 +673,8 @@ test('editorial variants: exact review, distinct observations and explicit prefe
           exact: true
         })
       ).toBeVisible();
-      await operator.reload();
+      // The completed receipt proves recovery; unrelated assets must not gate it.
+      await operator.reload({ waitUntil: 'domcontentloaded' });
       await expect(
         operator.locator('[data-og7="pilot-receipt"]')
       ).toBeVisible();
@@ -764,6 +765,7 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         "UPDATE admin_identity_sessions SET expires_at=now()-interval '1 second' WHERE id=$1",
         [session.sessionId]
       );
+      const expiredReturn = new URL(operator.url());
       const response = operator.waitForResponse((r) =>
         r.url().endsWith(commandUrl)
       );
@@ -771,9 +773,18 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         .getByRole('button', { name: 'Confirmer l’enregistrement' })
         .click();
       expect((await response).status()).toBe(401);
-      await expect(operator.getByRole('alert')).toContainText(
-        /session.*expir/i
+      await expect(operator).toHaveURL(
+        (url) =>
+          url.pathname === '/admin/login' &&
+          url.searchParams.get('returnUrl') ===
+            expiredReturn.pathname + expiredReturn.search &&
+          url.searchParams.get('sessionExpired') === '1'
       );
+      await expect(operator.getByRole('status')).toContainText(
+        'expiré ou a été révoquée'
+      );
+      await expect(programme(operator)).toHaveCount(0);
+      await expect(confirmation(operator)).toHaveCount(0);
       expect(await facts()).toEqual(before);
       await owner
         .getByRole('button', {

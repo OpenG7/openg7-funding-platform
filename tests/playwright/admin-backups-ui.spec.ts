@@ -618,11 +618,19 @@ for (const language of ['fr-CA', 'en']) {
     });
     accessStatus = 401;
     await refresh.click();
-    await expect(panel).toContainText(
+    await expect(page).toHaveURL(/\/admin\/login\?/);
+    expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe('1');
+    await expect(page.getByRole('status')).toContainText(
       en ? 'session has expired' : 'session a expiré'
     );
-    await expect(panel).not.toContainText('a'.repeat(64));
-    await expect(request).toBeDisabled();
+    await expect(panel).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText('a'.repeat(64));
+    await expect(request).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem('openg7-admin-session-token')
+      )
+    ).toBeNull();
     expect(calls).toBe(1);
   });
 }

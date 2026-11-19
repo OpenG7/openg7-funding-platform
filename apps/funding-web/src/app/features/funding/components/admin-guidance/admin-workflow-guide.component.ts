@@ -132,11 +132,18 @@ export class AdminWorkflowGuideComponent {
             // Native disclosures are presentation only; business buttons are never activated.
             for (
               let parent: HTMLElement | null = region;
-              !expanded && parent && parent !== dossier;
+              parent && parent !== dossier;
               parent = parent.parentElement
-            )
-              if (parent instanceof HTMLDetailsElement && !parent.open)
-                parent.open = true;
+            ) {
+              if (!(parent instanceof HTMLDetailsElement) || parent.open)
+                continue;
+              if (!expanded) parent.open = true;
+              else if (
+                parent !== region &&
+                !parent.querySelector(':scope > summary')?.contains(region)
+              )
+                return false;
+            }
             return (
               region.getClientRects().length > 0 &&
               view.getComputedStyle(region).visibility !== 'hidden'
