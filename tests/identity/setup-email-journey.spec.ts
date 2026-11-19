@@ -377,10 +377,36 @@ test('owner diagnoses SMTP, sends once, recovers a lost response and retries a f
           [current.sessionId]
         );
         await send(owner).click();
-        await expect(owner.getByRole('alert')).toContainText(/session.*expir/i);
+        await expect(owner).toHaveURL(
+          (url) =>
+            url.pathname === '/admin/login' &&
+            url.searchParams.get('returnUrl') === '/admin/fundraiser/setup' &&
+            url.searchParams.get('sessionExpired') === '1'
+        );
+        await expect(owner.getByRole('status')).toContainText(
+          /session.*expir/i
+        );
+        await expect(owner.locator('[data-og7="admin-setup"]')).toHaveCount(0);
+        await expect(
+          owner.locator('[data-og7="setup-configuration-table"]')
+        ).toHaveCount(0);
         await expect(
           owner.getByRole('textbox', { name: 'Courriel de test', exact: true })
         ).toHaveCount(0);
+        expect(
+          await owner.evaluate(() =>
+            sessionStorage.getItem('openg7-admin-session-token')
+          )
+        ).toBeNull();
+        expect((await owner.request.get(setupUrl)).status()).toBe(401);
+        expect(
+          (
+            await owner.request.post(testUrl, {
+              headers,
+              data: { requestId: randomUUID(), to: 'recipient@example.test' }
+            })
+          ).status()
+        ).toBe(401);
         expect(await messages()).toEqual(before);
         expect(await audits()).toHaveLength(3);
       });
