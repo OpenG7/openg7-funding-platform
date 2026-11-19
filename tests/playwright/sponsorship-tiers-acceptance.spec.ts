@@ -296,6 +296,7 @@ for (const amount of [100, 250]) {
           const offerResponse = await offered;
           expect(offerResponse.ok()).toBe(true);
           const quote = (await offerResponse.json()) as SponsorshipOfferQuote;
+          const { fingerprint, ...snapshot } = quote;
           const promisedChannels =
             amount === 100 ? ['website'] : ['website', 'facebook'];
           expect(quote).toMatchObject({
@@ -334,7 +335,7 @@ for (const amount of [100, 250]) {
             nonCharityAcknowledged: true,
             offerAcceptance: {
               version: quote.version,
-              fingerprint: quote.fingerprint
+              fingerprint
             }
           });
           expect(checkoutResponse.request().postDataJSON()).not.toHaveProperty(
@@ -370,10 +371,7 @@ for (const amount of [100, 250]) {
             sponsor_feed_channels: []
           });
           const commitment = (await sponsor()).commitment!;
-          expect(commitment.offer).toMatchObject({
-            version: quote.version,
-            fingerprint: quote.fingerprint
-          });
+          expect(commitment.offer).toEqual(snapshot);
           expect(
             commitment.obligations
               .map((obligation) => obligation.channel)
