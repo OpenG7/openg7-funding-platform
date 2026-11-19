@@ -15,7 +15,8 @@ import type {
   PublicationAutomationCommand,
   PublicationAutomationState,
   PublicSponsorshipsResponse,
-  SponsorshipMediaResponse
+  SponsorshipMediaResponse,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
 
 import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
@@ -282,15 +283,34 @@ for (const amount of [100, 250]) {
           await expect(
             form.getByRole('button', { name: /Commandite d'entreprise/ })
           ).toHaveAttribute('aria-pressed', 'true');
+          const offered = company.waitForResponse((response) => {
+            const url = new URL(response.url());
+            return (
+              url.pathname === '/api/sponsorship-offer' &&
+              url.searchParams.get('amountMinor') === String(amount * 100)
+            );
+          });
           await form
             .getByRole('button', { name: `${amount} $`, exact: true })
             .click();
-          const achieved = form.locator('ul[role="list"]');
-          await expect(achieved.getByRole('listitem')).toHaveCount(
-            amount === 100 ? 1 : 2
-          );
-          if (amount === 250) await expect(achieved).toContainText('Facebook');
-          await expect(achieved).not.toContainText('LinkedIn');
+          const offerResponse = await offered;
+          expect(offerResponse.ok()).toBe(true);
+          const quote = (await offerResponse.json()) as SponsorshipOfferQuote;
+          const promisedChannels =
+            amount === 100 ? ['website'] : ['website', 'facebook'];
+          expect(quote).toMatchObject({
+            amountMinor: amount * 100,
+            currency: 'CAD'
+          });
+          expect(
+            quote.benefits.map((benefit) => benefit.channel).sort()
+          ).toEqual([...promisedChannels].sort());
+          expect(
+            quote.benefits.every((benefit) => benefit.quantity === 1)
+          ).toBe(true);
+          await expect(
+            form.locator('[data-og7="sponsorship-offer"]')
+          ).toHaveCount(0);
           await form.getByRole('checkbox').nth(0).setChecked(publicConsent);
           if (publicConsent)
             await form.locator('#public-display-name').fill(name);
@@ -311,8 +331,15 @@ for (const amount of [100, 250]) {
             contributionType: 'sponsorship_interest',
             publicDisplayConsent: publicConsent,
             displayAmountConsent: amountConsent,
-            nonCharityAcknowledged: true
+            nonCharityAcknowledged: true,
+            offerAcceptance: {
+              version: quote.version,
+              fingerprint: quote.fingerprint
+            }
           });
+          expect(checkoutResponse.request().postDataJSON()).not.toHaveProperty(
+            'offerFormats'
+          );
           await expect(company).toHaveURL(/\/checkout\/cs_test_/);
           sessionId = new URL(company.url()).pathname.split('/').at(-1)!;
           const session = await get<{
@@ -342,6 +369,16 @@ for (const amount of [100, 250]) {
             sponsor_review_status: 'pending_review',
             sponsor_feed_channels: []
           });
+          const commitment = (await sponsor()).commitment!;
+          expect(commitment.offer).toMatchObject({
+            version: quote.version,
+            fingerprint: quote.fingerprint
+          });
+          expect(
+            commitment.obligations
+              .map((obligation) => obligation.channel)
+              .sort()
+          ).toEqual([...promisedChannels].sort());
           expect(await invoices()).toHaveLength(1);
           expect((await invoices())[0]).toMatchObject({
             total: amount,
