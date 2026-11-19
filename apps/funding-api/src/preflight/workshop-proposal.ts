@@ -143,7 +143,8 @@ export function projectWorkshopProposals(
         503
       );
       return {
-        destination: destination.destination as 'website' | 'facebook',
+        destination: destination.destination as
+          'website' | 'facebook' | 'linkedin',
         obligationId: uuid(variant.obligationId),
         obligationVersion: integer(variant.obligationVersion),
         version: integer(variant.version),

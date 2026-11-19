@@ -47,7 +47,11 @@
     "failed": "Échec de préparation",
     "uncertain": "Réconciliation en cours"
   },
-  "destinations": { "website": "Site Web", "facebook": "Facebook" },
+  "destinations": {
+    "website": "Site Web",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
   "formats": {
     "individual": "Reconnaissance individuelle",
     "collective": "Reconnaissance collective"

@@ -466,6 +466,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         "UPDATE admin_identity_sessions SET expires_at=now()-interval '1 second' WHERE id=$1",
         [profile.sessionId]
       );
+      const expiredReturn = new URL(operator.url());
       const response = operator.waitForResponse((r) =>
         r.url().endsWith(commandUrl)
       );
@@ -473,9 +474,17 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         .getByRole('button', { name: 'Confirmer l’enregistrement' })
         .click();
       expect((await response).status()).toBe(401);
-      await expect(operator.getByRole('alert')).toContainText(
-        /session.*expir/i
+      await expect(operator).toHaveURL(
+        (url) =>
+          url.pathname === '/admin/login' &&
+          url.searchParams.get('returnUrl') ===
+            expiredReturn.pathname + expiredReturn.search &&
+          url.searchParams.get('sessionExpired') === '1'
       );
+      await expect(operator.getByRole('status')).toContainText(
+        'expiré ou a été révoquée'
+      );
+      await expect(programme(operator)).toHaveCount(0);
       expect(await rows()).toEqual(before);
       expect(await effects()).toEqual(effectsBefore);
     });

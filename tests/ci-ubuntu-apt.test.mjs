@@ -140,6 +140,50 @@ test('a referenced local mirror list is discovered from one-line sources too', (
   assert.deepEqual(f.prepare(true), []);
 });
 
+test('GitHub EC2 priority mirrors use the official HTTPS archive without losing source trust or priorities', (t) => {
+  const mirrors = [
+    'http://us-east-2.ec2.archive.ubuntu.com/ubuntu/\tpriority:1',
+    'http://archive.ubuntu.com/ubuntu/\tpriority:2',
+    ''
+  ].join('\n');
+  const source =
+    'Types: deb\nURIs: mirror+file:/etc/apt/apt-mirrors.txt\nSuites: noble noble-updates\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n';
+  const f = fixture(t, {
+    'etc/apt/sources.list': '',
+    'etc/apt/sources.list.d/ubuntu.sources': source,
+    'etc/apt/apt-mirrors.txt': mirrors
+  });
+  assert.equal(f.prepare(true).length, 2);
+  assert.equal(
+    f.read('etc/apt/apt-mirrors.txt'),
+    `${official}\tpriority:1\n${official}\tpriority:2\n`
+  );
+  assert.equal(f.read('etc/apt/sources.list.d/ubuntu.sources'), source);
+  assert.deepEqual(f.prepare(true), []);
+  assert.equal(
+    rewriteAptSource(
+      'deb http://security.ubuntu.com/ubuntu noble-security main\n',
+      'list'
+    ).contents,
+    'deb https://security.ubuntu.com/ubuntu noble-security main\n'
+  );
+  assert.equal(
+    rewriteAptSource(
+      'deb https://us-east-2.ec2.archive.ubuntu.com.example.test/ubuntu stable main\n',
+      'list'
+    ).contents,
+    'deb https://us-east-2.ec2.archive.ubuntu.com.example.test/ubuntu stable main\n'
+  );
+  assert.throws(
+    () =>
+      rewriteAptSource(
+        'deb http://us-east-2.ec2.archive.ubuntu.com/custom noble main\n',
+        'list'
+      ),
+    /Unsupported/
+  );
+});
+
 test('unexpected platforms and Ubuntu versions are refused without source changes', (t) => {
   const f = fixture(t, { 'etc/os-release': 'ID=ubuntu\nVERSION_ID="22.04"\n' });
   assert.throws(() => f.prepare(true), /Ubuntu 24\.04/);

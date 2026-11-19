@@ -509,7 +509,9 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       await operator
         .getByRole('button', { name: 'Déconnexion', exact: true })
         .click();
-      await expect(operator).toHaveURL(/\/admin\/login$/);
+      await expect(operator).toHaveURL(
+        (url) => url.pathname === '/admin/login'
+      );
       expect(
         (await operator.request.get('/api/admin/auth/current')).status()
       ).toBe(401);

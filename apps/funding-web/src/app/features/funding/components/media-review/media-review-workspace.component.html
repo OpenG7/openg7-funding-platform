@@ -81,7 +81,7 @@
           }
         </div>
         @if (approvalUnavailable() && !approveAll.unresolved()) {
-          <aside
+          <div
             class="approval-availability"
             [attr.data-og7]="
               approvalAvailability().allAwaitingConsent
@@ -158,7 +158,7 @@
                 {{ t('approvalAvailability.inspect') }}
               </button>
             </div>
-          </aside>
+          </div>
         }
         <dl class="preparation-counts">
           <div>

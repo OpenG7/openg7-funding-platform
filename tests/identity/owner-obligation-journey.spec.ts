@@ -10,7 +10,10 @@ import sharp from 'sharp';
 import { captureWebsiteEvidenceSnapshot } from '../../apps/funding-api/src/sponsorship-fulfilment.repository.js';
 import { attestWebsiteMedia } from '../../apps/funding-api/src/sponsorship-website-media.js';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
-import { openPublicationSection } from '../playwright/support/sponsorship-dossier.js';
+import {
+  openPublicationObligation,
+  openPublicationSection
+} from '../playwright/support/sponsorship-dossier.js';
 
 import { startIdentityStack } from './stack.mjs';
 import { signInAdminIdentity } from './support/admin-browser.js';
@@ -152,6 +155,9 @@ test('owner records historical terms, amends one obligation and attests a docume
     const replay = await repeated;
     expect(replay.status()).toBe(200);
     expect(replay.request().postDataJSON()).toEqual(qualification);
+    const offerDetails = hook(owner, 'commitments-offer-details');
+    await offerDetails.locator(':scope > summary').click();
+    await expect(offerDetails).toHaveAttribute('open', '');
     await expect(hook(owner, 'commitments-accepted-offer')).toBeVisible();
     expect(await commercialAudits()).toHaveLength(1);
     const qualified = await read();
@@ -230,10 +236,7 @@ test('owner records historical terms, amends one obligation and attests a docume
 
     const staleOwner = await open();
     const editDestination = async (page: Page) => {
-      const obligation = hook(page, 'commitments-obligations').locator(
-        `[data-og7-id="${social.id}"]`
-      );
-      await obligation.locator('[data-og7="commitments-adjust-open"]').click();
+      await openPublicationObligation(page, social.id);
       await hook(page, 'commitments-adjust-kind').selectOption('destination');
       await hook(page, 'commitments-adjust-target').selectOption('openg20');
       await hook(page, 'commitments-adjust-reason').fill(
@@ -273,7 +276,7 @@ test('owner records historical terms, amends one obligation and attests a docume
     ).toEqual(originalOffer);
 
     await owner.reload();
-    await openPublicationSection(owner, 'contract');
+    await openPublicationObligation(owner, website.id);
     const timing = hook(owner, 'sponsorship-timing').filter({
       has: owner.locator(`[id="timing-title-${website.id}"]`)
     });
@@ -374,7 +377,7 @@ test('owner records historical terms, amends one obligation and attests a docume
       ]
     );
     await owner.reload();
-    await openPublicationSection(owner, 'contract');
+    await openPublicationObligation(owner, website.id);
     await timing.locator('summary').click();
     await timing
       .locator('[data-og7="timing-reason"]')

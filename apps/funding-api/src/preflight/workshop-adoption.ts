@@ -91,7 +91,10 @@ export async function adoptWorkshopContent(
         d.obligationId === variant.obligationId &&
         d.obligationVersion === variant.obligationVersion
     );
-    requireWorkshop(obligation, 'PUBLICATION_WORKSHOP_VERSION_CONFLICT');
+    requireWorkshop(
+      obligation && obligation.destination === variant.destination,
+      'PUBLICATION_WORKSHOP_VERSION_CONFLICT'
+    );
     const key = obligation.destination + ':' + obligation.target;
     if (visited.has(key)) continue;
     visited.add(key);
@@ -140,7 +143,7 @@ export async function adoptWorkshopContent(
       const defaults = createDefaultDraftText(
         { id: source.contributionId, ...current },
         obligation.target,
-        'facebook'
+        variant.destination
       );
       const fingerprint = workshopDigest({
         title: draft.title,
@@ -162,7 +165,7 @@ export async function adoptWorkshopContent(
         {
           contributionId: source.contributionId,
           feedTarget: obligation.target,
-          channel: 'facebook'
+          channel: variant.destination
         },
         actor,
         {
@@ -207,7 +210,7 @@ export async function adoptWorkshopContent(
     adopted.push({
       id: draft.id,
       obligationId: variant.obligationId,
-      destination: 'facebook',
+      destination: variant.destination,
       fingerprint: workshopDigest({
         title: variant.title.trim(),
         body: variant.body.trim(),

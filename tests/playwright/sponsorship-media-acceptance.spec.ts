@@ -16,10 +16,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-import {
-  approveAcceptanceSubject,
-  completePublicationModeration
-} from './support/acceptance-moderation.js';
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
 import {
   openSponsorshipWebsiteSettings,
@@ -610,8 +607,16 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         expect(
           JSON.stringify(await get('/api/public/sponsorships', false))
         ).not.toContain(pending.id);
-        // A replacement and dossier reapproved before the worker runs cannot revive the old image.
+        // Reviewing and selecting a replacement before the worker runs must
+        // not revive an old delivery or its retired image.
         await approveAcceptanceMedia(admin, request, id, [pending.id]);
+        // Approval alone keeps the newly uploaded asset private. The website
+        // selection below is an explicit decision for this exact reviewed asset.
+        expect(
+          (
+            await request.get('/api/public/sponsor-media/' + pending.id)
+          ).status()
+        ).toBe(404);
         await selectWebsiteMedia(pending.id);
         await expect
           .poll(
@@ -623,37 +628,14 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           (
             await request.get('/api/public/sponsor-media/' + pending.id)
           ).status()
-        ).toBe(404);
-        await admin.goto(
-          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
-        );
-        await admin.locator('[data-og7="sponsorship-approve"]').click();
-        await completeModeration(admin);
-        await expect
-          .poll(async () => (await sponsor()).sponsor_review_status)
-          .toBe('approved');
-        // Replacing the logo revoked website visibility. Reapproving the
-        // dossier alone must not publish the revised company card.
-        expect(
-          (
-            await request.get('/api/public/sponsor-media/' + pending.id)
-          ).status()
-        ).toBe(404);
-        await approveAcceptanceSubject(request, {
-          type: 'sponsorship',
-          id: id
-        });
-        await openSponsorshipWebsiteSettings(admin);
-        await admin.locator('[data-og7="website-visibility"]').click();
-        await admin.locator('[data-og7="confirm-action"]').click();
-        await expect(
-          admin.locator('[data-og7="publication-website"]')
-        ).toContainText('Fiche visible');
-        expect(
-          (
-            await request.get('/api/public/sponsor-media/' + pending.id)
-          ).status()
         ).toBe(200);
+        // The already authorized text remains visible while the optional media
+        // is reviewed separately. Retired media must never become reachable.
+        expect((await sponsor()).sponsor_review_status).toBe('approved');
+        expect((await request.get(publicPath)).status()).toBe(404);
+        expect(
+          JSON.stringify(await get('/api/public/sponsorships', false))
+        ).not.toContain(originalAsset.id);
         const preview = await request.get(
           '/api/admin/sponsorships/media/content/' + pending.id,
           { headers: await adminSessionHeaders(request) }

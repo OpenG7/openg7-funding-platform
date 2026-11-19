@@ -350,7 +350,7 @@ export function registerDossierPublicationScheduleTests(
         .locator('[data-og7="publication-sponsor-review"]')
         .getByRole('link')
         .last();
-      const target = await link.getAttribute('href');
+      const current = new URL(page.url());
       const deniedSession = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === '/api/admin/auth/current' &&
@@ -362,7 +362,10 @@ export function registerDossierPublicationScheduleTests(
       await deniedSession;
       await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
       await expect(page).toHaveURL(/\/admin\/login\?/);
-      expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(target);
+      expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(
+        current.pathname + current.search
+      );
+      expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe('1');
       await expect(dialog).toBeHidden();
       await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
       await expect

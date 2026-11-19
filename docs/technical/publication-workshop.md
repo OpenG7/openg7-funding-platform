@@ -46,12 +46,12 @@ des accordéons de Publication.
 
 L’enveloppe mission v1 et les deux workflows existants restent compatibles.
 Un contexte éditorial optionnel versionné permet au workflow de commandite de
-préparer un contenu commun et des déclinaisons Web/Facebook sans nouveau moteur.
+préparer un contenu commun et des déclinaisons Web/Facebook/LinkedIn sans nouveau moteur.
 Chaque déclinaison référence sa destination et son obligation exacte.
 Pour les accords à passages multiples, la préparation vise le prochain passage
 non livré de chaque destination et cible. Toutes les versions des obligations
 ouvertes participent à l’empreinte source; les prestations restantes restent
-conservées. Une livraison ou un ajustement fait avancer la préparation du passage
+conservées. Une livraison qualifiée ou une dispense fait avancer la préparation du passage
 suivant, sans gonfler les réponses de transport avec des copies du même texte.
 
 La version de l’accord, la révision monotone du snapshot source, son empreinte,
@@ -62,7 +62,7 @@ Les propositions obsolètes restent consultables, sans pouvoir être adoptées
 comme courantes.
 
 Les versions du contenu commun et des déclinaisons commencent à 1 dans chaque
-proposition. Les adaptations Web/Facebook sont déterministes à partir d’un même
+proposition. Les adaptations Web/Facebook/LinkedIn sont déterministes à partir d’un même
 brouillon IA validé. Les médias restent sans sélection : cette évolution ne
 qualifie aucun droit d’utilisation par destination.
 
@@ -85,6 +85,11 @@ dans le profil natif tenu privé. La confirmation l’indique explicitement. Une
 modification source postérieure à la génération bloque cette adoption. Un
 brouillon social modifié manuellement bloque le remplacement et annule
 l’ensemble de la transaction; aucune proposition ne l’écrase automatiquement.
+Si le résumé adopté diffère du contenu déjà examiné, la décision de modération
+du dossier devient obsolète. Une personne doit examiner le nouveau contenu et
+enregistrer une décision courante avant sa composition par le moteur social.
+Les brouillons sociaux jamais examinés restent admissibles à une composition
+privée selon les autres contrôles; cette composition n’autorise pas leur envoi.
 Le titre et le corps détaillé restent consultables dans la proposition, tandis
 que la publication Web conserve les champs et limites de son propriétaire natif.
 La provenance distante vérifiée appartient au contrat Atelier et à son adoption
@@ -160,7 +165,9 @@ L’attente collective exige une prestation exacte observée dans le Comptoir en
 La présence d’une proposition Preflight seule ne suffit pas. La boîte distante
 générique et les reçus natifs gardent leur rattachement `unverified`; seule
 l’adoption Atelier possède sa provenance vérifiée. Le moteur éditorial Atelier
-prépare Web/Facebook; LinkedIn conserve ses parcours Funding natifs. Aucun
+prépare Web/Facebook/LinkedIn et l’adoption utilise le brouillon natif de chaque
+canal, rattaché à son obligation exacte. Les textes sociaux sont bornés à 2 500
+caractères dans ce contrat de préparation. Aucun
 raccordement, destination configurée, droit média ou fournisseur réel n’est
 déduit d’un nom de canal ou d’une image disponible. La décision de revue reste
 individuelle et traçable, même lorsqu’elle est prise depuis le Comptoir.
@@ -207,6 +214,13 @@ avant tout traitement. La boîte
 distante et la recette synthétique possèdent leurs propres flags et n’activent
 pas ce relais.
 
+Déployer le contrat éditorial Preflight acceptant `linkedin` avant d’activer le
+producteur Funding qui transmet les trois prestations d’une offre de 500 CAD.
+Les contextes Web/Facebook existants restent compatibles. Un serveur Preflight
+plus ancien doit refuser une destination inconnue; ce refus ne permet ni de
+supprimer LinkedIn de la mission, ni de la transformer en Facebook. La mission
+et son erreur restent visibles pour réconciliation après mise à niveau.
+
 L’overlay [workshop](../../docker-compose.preflight-workshop.yml) se place après
 l’overlay [inbox](../../docker-compose.preflight-inbox.yml) et les overlays TLS et
 identité déjà utilisés. Il configure le flag Atelier et désactive le producteur
@@ -221,6 +235,34 @@ réconciliation; cette décision opérationnelle est distincte de l’installati
 code. Conserver les overlays et la configuration privée lors des recréations.
 Aucun service, compte, consentement ou dossier réel n’a été modifié par la recette
 sur données synthétiques.
+
+### Recette locale avec le vrai raccordement
+
+Depuis la racine Funding, indiquer le chemin absolu du checkout Preflight :
+
+```powershell
+node scripts/admin-acceptance.mjs --preflight-root C:\GitHub\openg7-preflight sponsorship-preflight-acceptance.spec.ts --project=chromium
+```
+
+Le profil prépare une pile jetable, ses bases et une identité OAuth/JWKS locale.
+Il exécute le relais Funding, l’API et le worker Preflight avec l’IA, Stripe et
+les transports sociaux simulés. Le parcours vise les trois prestations de
+500 CAD, l’adoption humaine puis les décisions Funding distinctes. Relever les
+résultats de chaque étape dans les artefacts de la recette; la présence de cette
+commande ne constitue pas un résultat d’exécution.
+
+La visibilité Web peut produire une preuve locale qualifiée selon le contrat
+Funding. Les reçus Facebook/LinkedIn en mode `mock` restent simulés et ne
+soldent pas leurs obligations. La notification métier finale vers Preflight
+conserve son état de raccordement propre; aucune clôture globale n’en est déduite.
+
+La régression de l’offre de 500 CAD dans
+`tests/integration/publication-workshop.integration.mjs` vérifie trois variantes,
+la réutilisation du brouillon LinkedIn natif, l’adoption idempotente et la
+préservation d’une correction humaine LinkedIn. Elle utilise un PostgreSQL
+jetable et une réponse Preflight synthétique; elle ne qualifie pas à elle seule
+le transport distant ou le parcours navigateur. Aucune adoption ne crée de
+décision de préparation, de livraison ou de preuve d’acquittement.
 
 Les tests unitaires, PostgreSQL jetable et navigateur sur fixtures prouvent des
 périmètres distincts. Une recette avec IA simulée ne qualifie ni un fournisseur
