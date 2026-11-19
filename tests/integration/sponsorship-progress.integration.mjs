@@ -449,7 +449,7 @@ test(
       for (const [status, mode, expected] of [
         ['approved', 'mock', 'partial'],
         ['published', 'mock', 'partial'],
-        ['blocked', 'live', 'blocked'],
+        ['blocked', 'live', 'partial'],
         ['uncertain', 'live', 'error'],
         ['rejected', 'live', 'cancelled'],
         ['published', 'live', 'partial']
@@ -467,6 +467,14 @@ test(
             'publication_uncertain'
           );
           assert.equal(facebookWorkflow(current).responsibility, 'admin');
+        }
+        if (status === 'blocked') {
+          assert.equal(facebookWorkflow(current).state, 'blocked');
+          assert.equal(
+            current.website.visible,
+            true,
+            'a blocked social delivery does not hide the independently authorized website text'
+          );
         }
         assert.equal(
           current.milestones.find((s) => s.id === 'publication').state,

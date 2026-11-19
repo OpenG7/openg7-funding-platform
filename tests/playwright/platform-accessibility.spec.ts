@@ -481,7 +481,13 @@ test('identity sign-in and owner access are accessible and session revocation ne
   if (await menu.isVisible()) await menu.click();
   await page.getByRole('button', { name: 'Déconnexion', exact: true }).click();
   await expect.poll(() => logouts).toBe(1);
-  await expect(page).toHaveURL(/\/admin\/login$/);
+  await expect(page).toHaveURL((url) => url.pathname === '/admin/login');
+  await expect(page.locator('[data-og7="identity-sign-in"]')).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-admin-session-token')
+    )
+  ).toBeNull();
 });
 
 test('admin cockpit is accessible at desktop and narrow widths, including its error state', async ({

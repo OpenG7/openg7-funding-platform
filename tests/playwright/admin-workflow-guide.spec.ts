@@ -393,10 +393,11 @@ test('pausing, closing and normal dossier navigation remove the workflow highlig
   await expect(hook(page, 'workflow-guide')).toBeVisible();
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(page).toHaveURL(controllerPath('publication'));
-  await hook(page, 'dossier-tool-close').click();
-  await expect(hook(page, 'dossier-tool-panel')).toBeHidden();
+  await hook(page, 'publication-terms-toggle').click();
+  await expect(hook(page, 'publication-terms')).not.toHaveAttribute('open');
   await sampledFrames(page);
-  await expect(hook(page, 'dossier-tool-panel')).toBeHidden();
+  await expect(hook(page, 'publication-terms')).not.toHaveAttribute('open');
+  await expect(page.locator(highlighted)).toHaveCount(0);
   await expect(hook(page, 'workflow-guide-missing')).toBeVisible();
   await hook(page, 'workflow-guide-show').click();
   await expect(hook(page, 'commitments-qualification')).toHaveAttribute(
@@ -410,9 +411,9 @@ test('pausing, closing and normal dossier navigation remove the workflow highlig
   await hook(page, 'workflow-guide-pause').focus();
   await page.keyboard.press('Space');
   await expect(page.locator(highlighted)).toHaveCount(0);
-  await hook(page, 'dossier-tool-close').click();
+  await hook(page, 'publication-terms-toggle').click();
   await sampledFrames(page);
-  await expect(hook(page, 'dossier-tool-panel')).toBeHidden();
+  await expect(hook(page, 'publication-terms')).not.toHaveAttribute('open');
   await expect(hook(page, 'workflow-guide-show')).toBeDisabled();
   await hook(page, 'workflow-guide-resume').focus();
   await page.keyboard.press('Enter');

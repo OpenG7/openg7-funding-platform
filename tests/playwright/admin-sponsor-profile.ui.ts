@@ -309,36 +309,28 @@ export function registerSponsorProfileTests({
       const approve = media(page).locator(
         '[data-og7="media-inspector-approve"]'
       );
-      await expect(approve).toBeEnabled();
-      await approve.focus();
-      await approve.press('Enter');
-      const dialog = page.locator('dialog[open]');
-      const review = dialog.locator('[data-og7="media-acceptance-review"]');
-      await expect(review).toBeVisible();
-      await expect(review).toContainText(options.media[0]!.originalFilename);
+      await expect(approve).toBeDisabled();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
       await expect(
-        review.locator('[data-og7="media-acceptance-pending"]')
+        media(page).getByRole('heading', {
+          name: english
+            ? 'Waiting for the sponsor'
+            : 'En attente du commanditaire',
+          exact: true
+        })
       ).toBeVisible();
       await expect(
-        review.locator('[data-og7="media-acceptance-approve"]')
-      ).toBeDisabled();
-      await expect(
-        review.locator('[data-og7="media-acceptance-reject"]')
+        media(page).locator('[data-og7="media-consent-request-open"]').first()
       ).toBeEnabled();
       await expect(
-        review.locator('[data-og7="media-acceptance-proof"]')
-      ).toHaveCount(0);
-      await expect(dialog.getByRole('combobox')).toHaveCount(0);
-      await expect(
-        dialog.locator('[data-og7="media-usage-editor"]')
+        media(page).locator('[data-og7="media-acceptance-proof"]')
       ).toHaveCount(0);
       await expect(
-        dialog.locator('[data-og7="media-usage-evidence"]')
+        media(page).locator('[data-og7="media-usage-editor"]')
       ).toHaveCount(0);
-      expect(calls.every((call) => call.method === 'GET')).toBe(true);
-      await review.locator('[data-og7="media-acceptance-cancel"]').click();
-      await expect(dialog).toHaveCount(0);
-      await expect(approve).toBeFocused();
+      await expect(
+        media(page).locator('[data-og7="media-usage-evidence"]')
+      ).toHaveCount(0);
       await expectResponsiveProfile(page, media(page));
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });

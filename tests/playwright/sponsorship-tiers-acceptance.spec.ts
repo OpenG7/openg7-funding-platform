@@ -663,6 +663,7 @@ for (const amount of [100, 250]) {
                 id: contributionId
               });
               await admin.reload();
+              await openSponsorshipWebsiteSettings(admin);
               await admin.locator('[data-og7="website-visibility"]').click();
               await admin.locator('[data-og7="confirm-action"]').click();
             }

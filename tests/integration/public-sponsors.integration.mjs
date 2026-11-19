@@ -84,7 +84,7 @@ test(
     );
 
     await t.test(
-      'totals and cards apply consent, approval, payment, name and media rules identically',
+      'totals and cards share text eligibility while unapproved, deleted or absent images stay private',
       async () => {
         const ids = await seed(9);
         const changes = [
@@ -112,8 +112,17 @@ test(
           [ids[7]]
         );
         const result = await listPublicSponsorships(pool);
-        assert.equal(result.sponsorships.length, 1);
-        assert.equal(result.pagination.total_count, 1);
+        assert.equal(result.sponsorships.length, 4);
+        assert.equal(result.pagination.total_count, 4);
+        assert.deepEqual(
+          result.sponsorships.map((profile) => profile.media.length).sort(),
+          [0, 0, 0, 1],
+          'an optional image cannot hide authorized text or become public without its own approval'
+        );
+        const control = result.sponsorships.find(
+          (profile) => profile.media.length === 1
+        );
+        assert.ok(control);
         const publicJson = JSON.stringify(result);
         for (const secret of [
           'private@example.invalid',
@@ -123,13 +132,10 @@ test(
           'cs_private_'
         ])
           assert.equal(publicJson.includes(secret), false);
-        assert.notEqual(result.sponsorships[0].public_id, ids[8]);
-        assert.equal(result.sponsorships[0].amount, null);
-        assert.equal(result.sponsorships[0].message, null);
-        assert.equal(
-          result.sponsorships[0].public_summary,
-          'Approved public summary'
-        );
+        assert.notEqual(control.public_id, ids[8]);
+        assert.equal(control.amount, null);
+        assert.equal(control.message, null);
+        assert.equal(control.public_summary, 'Approved public summary');
         await pool.query(
           'UPDATE fund_contributions SET sponsor_public_summary=NULL WHERE id=$1',
           [ids[8]]
@@ -138,8 +144,12 @@ test(
           type: 'sponsorship',
           id: ids[8]
         });
-        const withoutSummary = (await listPublicSponsorships(pool))
-          .sponsorships[0];
+        const withoutSummary = (
+          await listPublicSponsorships(pool)
+        ).sponsorships.find(
+          (profile) => profile.public_id === control.public_id
+        );
+        assert.ok(withoutSummary);
         assert.equal(withoutSummary.public_summary, null);
         assert.equal(withoutSummary.message, null);
         await pool.query(
@@ -147,7 +157,9 @@ test(
           [ids[8]]
         );
         assert.equal(
-          (await listPublicSponsorships(pool)).sponsorships[0].amount,
+          (await listPublicSponsorships(pool)).sponsorships.find(
+            (profile) => profile.public_id === control.public_id
+          ).amount,
           250
         );
       }

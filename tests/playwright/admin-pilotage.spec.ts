@@ -1341,12 +1341,23 @@ for (const status of [503, 403, 401]) {
     await page.keyboard.press('Escape');
     failure = status;
     await page.locator('[data-og7="pilot-details"]').click();
+    if (status === 401) {
+      await expect(page).toHaveURL(/\/admin\/login\?/);
+      expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe('1');
+      await expect(page.getByRole('status')).toContainText('session a expiré');
+      await expect(dialog).toHaveCount(0);
+      for (const privateValue of Object.values(email))
+        await expect(page.locator('body')).not.toContainText(privateValue);
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-session-token')
+        )
+      ).toBeNull();
+      expect(f.commands).toEqual([]);
+      return;
+    }
     await expect(dialog.getByRole('alert')).toContainText(
-      status === 503
-        ? 'n’a pas pu être chargé'
-        : status === 403
-          ? 'plus accès'
-          : 'session a expiré'
+      status === 503 ? 'n’a pas pu être chargé' : 'plus accès'
     );
     await expect(dialog).not.toContainText(email.subject);
     await expect(dialog).not.toContainText(email.text);

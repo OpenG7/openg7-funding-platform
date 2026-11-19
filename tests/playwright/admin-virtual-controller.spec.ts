@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import { SPONSORSHIP_OFFER_VERSION } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import {
@@ -730,7 +731,7 @@ test('company simulation submits the currently accepted offer and consent withou
     contributionType: 'sponsorship_interest',
     publicDisplayConsent: false,
     displayAmountConsent: false,
-    offerAcceptance: { version: 'sponsorship-v2' }
+    offerAcceptance: { version: SPONSORSHIP_OFFER_VERSION }
   });
   expect(payments.attempts[0]!.input.offerAcceptance!.fingerprint).toMatch(
     /^[a-f0-9]{64}$/

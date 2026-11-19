@@ -301,17 +301,33 @@ for (const language of ['fr-CA', 'en']) {
           exact: true
         })
         .click();
-      await expect(
-        page.locator('[data-og7="admin-setup"] > p[role="alert"]')
-      ).toContainText(
-        status === 401
-          ? english
-            ? 'session expired or was revoked'
+      if (status === 401) {
+        await expect(page).toHaveURL(/\/admin\/login\?/);
+        expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe(
+          '1'
+        );
+        await expect(page.getByRole('status')).toContainText(
+          english
+            ? 'session has expired or been revoked'
             : 'session a expiré ou a été révoquée'
-          : english
-            ? 'reserved for the owner'
-            : 'réservés au propriétaire'
-      );
+        );
+        expect(
+          await page.evaluate(() =>
+            sessionStorage.getItem('openg7-admin-session-token')
+          )
+        ).toBeNull();
+      } else {
+        await expect(
+          page.locator('[data-og7="admin-setup"] > p[role="alert"]')
+        ).toContainText(
+          english ? 'reserved for the owner' : 'réservés au propriétaire'
+        );
+        await expect(
+          page
+            .locator('#setup-overview')
+            .getByRole('button', { name: 'Guide', exact: true })
+        ).toBeDisabled();
+      }
       await expect(
         page.getByRole('textbox', {
           name: english ? 'Test email' : 'Courriel de test',
@@ -321,11 +337,6 @@ for (const language of ['fr-CA', 'en']) {
       await expect(page.locator('[data-og7="setup-email-queue"]')).toHaveCount(
         0
       );
-      await expect(
-        page
-          .locator('#setup-overview')
-          .getByRole('button', { name: 'Guide', exact: true })
-      ).toBeDisabled();
       expect(data.writes).toBe(1);
       expect(data.readIds).toEqual([originalId]);
       expect(

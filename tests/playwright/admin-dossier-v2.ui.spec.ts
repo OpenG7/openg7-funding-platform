@@ -200,7 +200,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(decision).toBeVisible();
       await expect(decision).toContainText(
         new RegExp(
-          `${language === 'en' ? 'Content version' : 'Version du contenu'}:\\s*3`
+          `${language === 'en' ? 'Content version' : 'Version du contenu'}\\s+3`
         )
       );
       await expect(

@@ -519,7 +519,7 @@ test(
     );
 
     await t.test(
-      'a concurrent media edit cannot deadlock website authorization or retain public visibility after its commit',
+      'a concurrent media edit cannot deadlock website authorization or expose its unreviewed image after commit',
       async () => {
         const f = await fixture();
         await pool.query(
@@ -601,7 +601,14 @@ test(
           );
         assert.equal(results[0].value, 'updated');
         assert.equal(results[1].value.status, 'updated');
-        assert.deepEqual((await listPublicSponsorships(pool)).sponsorships, []);
+        const profiles = (await listPublicSponsorships(pool)).sponsorships;
+        assert.equal(profiles.length, 1);
+        assert.equal(profiles[0].public_summary, 'Approved synthetic summary');
+        assert.deepEqual(
+          profiles[0].media,
+          [],
+          'editing an optional image withdraws that image while the independently authorized text stays visible'
+        );
         const after = await row('fund_contributions', f.sponsorId);
         assert.equal(after.status, 'paid');
         assert.equal(after.amount_cents, 25000);

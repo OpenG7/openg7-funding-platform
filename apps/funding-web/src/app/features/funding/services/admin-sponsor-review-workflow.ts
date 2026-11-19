@@ -207,7 +207,10 @@ export class AdminSponsorReviewWorkflow {
         this.reportIndependentReview(sponsorship.id);
         return;
       }
-      if (this.ports.currentReviewStatus(sponsorship.id) !== reviewStatus) {
+      if (
+        this.ports.currentReviewStatus(sponsorship.id) !==
+        (result.reviewStatus ?? reviewStatus)
+      ) {
         this.requireReviewRefresh(sponsorship, reviewStatus);
         return;
       }

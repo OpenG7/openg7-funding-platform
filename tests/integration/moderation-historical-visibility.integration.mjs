@@ -80,7 +80,13 @@ test(
       0
     );
     const page = await listPublicSponsorships(pool, { page: 1, pageSize: 10 });
-    assert.equal(page.pagination.total_count, 0);
+    assert.equal(page.pagination.total_count, 2);
+    assert.ok(
+      page.sponsorships.every(
+        (profile) => profile.media.length === 0 && profile.logo_url === null
+      ),
+      'the preserved text visibility never exposes historical images with unqualified usage rights'
+    );
     assert.equal(
       (
         await pool.query(

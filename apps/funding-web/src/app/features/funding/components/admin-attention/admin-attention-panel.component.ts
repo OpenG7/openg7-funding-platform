@@ -106,7 +106,7 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
         else {
           this.state.set('loading');
           void this.router.navigate(['/admin/login'], {
-            queryParams: { returnUrl: this.router.url }
+            queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
           });
         }
       });

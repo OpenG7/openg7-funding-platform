@@ -520,6 +520,61 @@ test('an unconfirmed approval result never announces success or reloads', async 
   assert.deepEqual(f.pulses, []);
 });
 
+test('an active editorial restriction confirms the canonical business status without granting approval', async (t) => {
+  const f = fixture(t, sponsor({ sponsor_review_status: 'approved' }));
+  const record = f.state.record;
+  f.ports.admin.reviewSponsorship = async (token, payload) => {
+    f.calls.push({ token, payload });
+    return reviewResult({ reviewStatus: 'approved', decisionState: 'active' });
+  };
+  f.ports.reloadSponsorships = async () => {
+    f.reloads.push(f.state.action);
+    f.state.record = { ...record, version: 'synthetic-version-2' };
+  };
+  await f.workflow.review(record, 'pending_review');
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].payload.reviewStatus, 'pending_review');
+  assert.equal(f.calls[0].payload.moderationDecision.level, 'N2');
+  assert.equal(f.workflow.refreshRequired(), null);
+  assert.equal(
+    f.workflow.reviewMessageFor(record.id),
+    f.workflow.reviewSuccessMessage('pending_review')
+  );
+  assert.deepEqual(f.pulses, [record.id]);
+  assert.equal(
+    f.feedback.some((entry) => entry.phase === 'success'),
+    false
+  );
+  assert.equal(f.state.record.sponsor_review_status, 'approved');
+});
+
+test('a readback that disagrees with the canonical restriction result still requires reconciliation', async (t) => {
+  const f = fixture(t, sponsor({ sponsor_review_status: 'approved' }));
+  const record = f.state.record;
+  f.ports.admin.reviewSponsorship = async (token, payload) => {
+    f.calls.push({ token, payload });
+    return reviewResult({ reviewStatus: 'approved', decisionState: 'active' });
+  };
+  f.ports.reloadSponsorships = async () => {
+    f.state.record = sponsor({
+      sponsor_review_status: 'rejected',
+      version: 'synthetic-concurrent-version'
+    });
+  };
+  await f.workflow.review(record, 'pending_review');
+  assert.equal(f.calls.length, 1);
+  assert.equal(
+    f.workflow.reviewMessageFor(record.id),
+    'admin.messages.review_recorded_refresh_required'
+  );
+  assert.notEqual(f.workflow.refreshRequired(), null);
+  assert.deepEqual(f.pulses, []);
+  assert.equal(
+    f.feedback.some((entry) => entry.phase === 'success'),
+    false
+  );
+});
+
 for (const failure of ['absorbed', 'rejected', 'mismatched']) {
   test(`a confirmed approval with ${failure} refresh requires readback without another mutation`, async (t) => {
     const f = fixture(t);
