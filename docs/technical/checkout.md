@@ -40,7 +40,7 @@ retain the original evidence. Personal contributions remain outside this scope.
 The prepared V1 charter is inactive by default. See the
 [moderation contract and activation limits](../operations/sponsorship-moderation.md).
 
-Business Checkout also requires the displayed offer reference:
+Business Checkout also requires the current server offer reference:
 `offerAcceptance: { version, fingerprint }`. Obtain it from
 `GET /api/sponsorship-offer?amountMinor=25000&currency=CAD`. The quote contains
 integer minor units, currency, benefit IDs, logical destination, quantity,
@@ -48,6 +48,11 @@ required elements, and explicit nullable deadline/duration. Other currencies
 are refused; CAD thresholds are never applied to them. The current quantity is
 one website mention and, at their thresholds, one Facebook/LinkedIn recognition.
 `null` promises no fixed deadline or duration.
+
+The public contribution form confirms the sponsorship amount without displaying
+the technical offer summary or format selectors. The server determines benefits
+and default formats from the contribution. The Web retains the quote reference
+for Checkout validation and exact recovery of an interrupted attempt.
 
 Offer v2 records each social format. Optional `facebookFormat` / `linkedinFormat`
 query parameters select `collective_text` (default), `individual_portrait` or
@@ -78,7 +83,7 @@ Unreadable storage and failed term writes display a specific French/English
 recovery message and retry action, without claiming that a payment was sent.
 Uncertain attempts instead display the verification message and link to support.
 Local mocked business Checkout also
-requires the displayed reference, but creates no payment, durable operation or
+requires the server offer reference, but creates no payment, durable operation or
 obligation.
 
 Repeated durable operations skip offer preparation: their original terms remain

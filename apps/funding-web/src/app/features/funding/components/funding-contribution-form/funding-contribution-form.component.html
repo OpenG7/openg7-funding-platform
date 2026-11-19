@@ -159,104 +159,51 @@
     }}
   </p>
   <div
-    class="sponsorship-tier-summary"
+    data-og7="sponsorship-offer-status"
+    [attr.aria-busy]="offer.state() === 'loading'"
     *ngIf="
       contributionType() === 'sponsorship_interest' &&
       !hasInvalidCustomContribution()
     "
   >
-    <section
-      data-og7="sponsorship-offer"
-      [attr.aria-busy]="offer.state() === 'loading'"
-      aria-labelledby="sponsorship-offer-title"
-    >
-      <h3 id="sponsorship-offer-title">
-        {{ 'funding.offer.title' | translate }}
-      </h3>
-      <p>{{ 'funding.offer.formatHelp' | translate }}</p>
-      @for (channel of formatChannels; track channel) {
-        <label
-          >{{
-            'funding.offer.formatChoice'
-              | translate
-                : { channel: ('funding.offer.channels.' + channel | translate) }
-          }}
-          <select
-            [value]="offerFormats()?.[channel] ?? ''"
-            (change)="selectFormat(channel, $event)"
-            [disabled]="loadingState() === 'loading' || offer.retained()"
-            [attr.data-og7-id]="'offer-format:' + channel"
-          >
-            <option value="">
-              {{ 'funding.offer.defaultFormat' | translate }}
-            </option>
-            @for (format of formats; track format) {
-              <option
-                [value]="format"
-                [disabled]="!formatAvailable(channel, format)"
-              >
-                {{ 'funding.offer.formats.' + format | translate }}
-              </option>
-            }
-          </select>
-        </label>
-      }
-      @if (offer.state() === 'loading') {
-        <p role="status">{{ 'funding.offer.loading' | translate }}</p>
-      }
-      @if (offer.state() === 'error') {
-        <p role="alert">{{ 'funding.offer.unavailable' | translate }}</p>
-        <button type="button" (click)="reloadOffer()">
-          {{ 'funding.followup.retry' | translate }}
-        </button>
-        @if (offerFormats()) {
-          <button type="button" (click)="resetFormats()">
-            {{ 'funding.offer.resetFormats' | translate }}
+    @if (offer.state() === 'loading') {
+      <p role="status">{{ 'funding.offer.loading' | translate }}</p>
+    }
+    @if (offer.state() === 'error') {
+      <p role="alert">{{ 'funding.offer.unavailable' | translate }}</p>
+      <button type="button" (click)="reloadOffer()">
+        {{ 'funding.followup.retry' | translate }}
+      </button>
+    }
+    @if (offer.state() === 'verification_required') {
+      <p role="alert">
+        {{ 'funding.home.contribution.verificationRequired' | translate }}
+      </p>
+      <a [routerLink]="supportPath()" fragment="contribution-help">{{
+        'funding.offer.support' | translate
+      }}</a>
+    }
+    @if (offer.state() === 'recovery_unavailable') {
+      <p role="alert">
+        {{ 'funding.offer.recoveryUnavailable' | translate }}
+      </p>
+      <button type="button" (click)="reloadOffer()">
+        {{ 'funding.followup.retry' | translate }}
+      </button>
+    }
+    @if (offer.quote(); as quoted) {
+      @if (offer.retained()) {
+        <p role="status">{{ 'funding.offer.retained' | translate }}</p>
+        @if (quoted.amountMinor !== effectiveAmountMinor() || !formatsMatch()) {
+          <button type="button" (click)="restoreRetainedOffer()">
+            {{
+              'funding.offer.resumeAmount'
+                | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+            }}
           </button>
         }
       }
-      @if (offer.state() === 'verification_required') {
-        <p role="alert">
-          {{ 'funding.home.contribution.verificationRequired' | translate }}
-        </p>
-        <a [routerLink]="supportPath()" fragment="contribution-help">{{
-          'funding.offer.support' | translate
-        }}</a>
-      }
-      @if (offer.state() === 'recovery_unavailable') {
-        <p role="alert">
-          {{ 'funding.offer.recoveryUnavailable' | translate }}
-        </p>
-        <button type="button" (click)="reloadOffer()">
-          {{ 'funding.followup.retry' | translate }}
-        </button>
-      }
-      @if (offer.quote(); as quoted) {
-        @if (offer.retained()) {
-          <p role="status">{{ 'funding.offer.retained' | translate }}</p>
-          @if (
-            quoted.amountMinor !== effectiveAmountMinor() || !formatsMatch()
-          ) {
-            <button type="button" (click)="restoreRetainedOffer()">
-              {{
-                'funding.offer.resumeAmount'
-                  | translate: { amount: formatMoney(quoted.amountMinor / 100) }
-              }}
-            </button>
-          }
-        }
-        <openg7-sponsorship-offer-summary [offer]="quoted" />
-      }
-    </section>
-    <p
-      class="sponsorship-tier-availability"
-      *ngFor="let entry of sponsorshipAvailabilityEntries()"
-    >
-      {{
-        sponsorshipAvailabilityLabelKeys[entry.channel]
-          | translate: { date: entry.date }
-      }}
-    </p>
+    }
   </div>
   <fieldset class="consent-options">
     <legend>
@@ -354,7 +301,6 @@
           [checked]="offer.accepted()"
           (change)="acceptOffer($event)"
           data-og7="offer-acceptance"
-          aria-describedby="sponsorship-offer-title"
         />
         <span>{{
           'funding.offer.acceptance'

@@ -36,7 +36,7 @@ async function expectApprovedPresentation(
 }
 
 test.describe('Docker corporate sponsor navigation', () => {
-  test('selects the business sponsorship tier, sees the benefits update and opens the configured checkout simulation', async ({
+  test('selects the business sponsorship amount and opens the configured checkout simulation', async ({
     page
   }) => {
     await page.goto('/fonds-des-batisseurs');
@@ -54,10 +54,8 @@ test.describe('Docker corporate sponsor navigation', () => {
 
     await page.getByRole('button', { name: '500 $', exact: true }).click();
     await expect(
-      page.locator(
-        '[data-og7="sponsorship-offer"] [data-og7-id="linkedin_batch"]'
-      )
-    ).toBeVisible();
+      page.getByRole('button', { name: '500 $', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
 
     await page
       .getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i)

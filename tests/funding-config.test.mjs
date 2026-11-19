@@ -888,7 +888,6 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
     source.includes('isValidSponsorshipAmount(amount, this.config.sponsorship)')
   );
   assert.ok(source.includes('getSponsorshipOffer'));
-  assert.ok(source.includes('openg7-sponsorship-offer-summary'));
   assert.ok(source.includes('offer.accepted()'));
   assert.ok(
     source.includes('funding.home.contribution.sponsorship.minimumAmountError')
@@ -3067,12 +3066,6 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
 
   assert.ok(
     translatedUiSource(page).includes('loadSponsorshipBatchAvailability')
-  );
-  assert.ok(
-    translatedUiSource(page).includes('sponsorshipAvailabilityEntries')
-  );
-  assert.ok(
-    translatedUiSource(page).includes('class="sponsorship-tier-availability"')
   );
 
   for (const locale of [fr, en]) {

@@ -403,55 +403,6 @@
   color: var(--color-primary);
 }
 
-.sponsorship-tier-summary {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-color);
-  @apply tw:rounded-lg;
-  margin: 0.4rem 0 1rem;
-  @apply tw:p-4;
-}
-
-.sponsorship-tier-summary-title {
-  color: var(--text-main);
-  font-size: 0.875rem;
-  font-weight: 700;
-  margin: 0 0 0.4rem;
-}
-
-.sponsorship-tier-achieved {
-  @apply tw:grid;
-  gap: 0.3rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  list-style: none;
-  @apply tw:m-0 tw:p-0;
-}
-
-.sponsorship-tier-achieved li {
-  color: var(--color-success);
-}
-
-.sponsorship-tier-achieved li::before {
-  content: '\2713 ';
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.sponsorship-tier-upcoming {
-  color: var(--text-soft);
-  font-size: 0.875rem;
-  line-height: 1.4;
-  margin: 0.3rem 0 0;
-}
-
-.sponsorship-tier-availability {
-  color: var(--color-primary);
-  font-size: 0.875rem;
-  font-style: italic;
-  line-height: 1.4;
-  margin: 0.3rem 0 0;
-}
-
 .contribution-panel label {
   color: var(--text-soft);
   @apply tw:block;
