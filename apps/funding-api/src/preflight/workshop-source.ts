@@ -39,7 +39,7 @@ export interface WorkshopSourceSnapshot {
   currency: string;
   missingInformation: string[];
   destinations: {
-    destination: 'website' | 'facebook';
+    destination: 'website' | 'facebook' | 'linkedin';
     obligationId: string;
     obligationVersion: number;
     format: 'individual' | 'collective';
@@ -101,12 +101,12 @@ export async function loadWorkshopSource(
     await db.query<{
       id: string;
       version: number;
-      channel: 'website' | 'facebook';
+      channel: 'website' | 'facebook' | 'linkedin';
       target: 'openg7' | 'openg20';
       publication_format: string | null;
     }>(
       `SELECT id,version,channel,target,publication_format FROM sponsorship_obligations
-    WHERE contribution_id=$1::uuid AND state IN ('pending','blocked') AND channel IN ('website','facebook')
+    WHERE contribution_id=$1::uuid AND state IN ('pending','blocked') AND channel IN ('website','facebook','linkedin')
     ORDER BY channel,target,ordinal,id`,
       [contributionId]
     )

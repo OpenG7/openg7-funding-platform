@@ -23,7 +23,7 @@ export interface WorkshopEditorialPreparation {
     readonly missingInformation: readonly string[];
   };
   readonly variants: readonly {
-    readonly destination: 'website' | 'facebook';
+    readonly destination: 'website' | 'facebook' | 'linkedin';
     readonly obligationId: string;
     readonly obligationVersion: number;
     readonly version: number;

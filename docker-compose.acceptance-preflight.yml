@@ -1,0 +1,101 @@
+# Explicit opt-in: node scripts/admin-acceptance.mjs --preflight-root <absolute checkout> ...
+# Every service belongs to the unique disposable acceptance project. HTTP identity
+# endpoints are loopback-only inside the Funding API network namespace.
+services:
+  api:
+    environment:
+      NODE_ENV: test
+      PREFLIGHT_ENABLED: 'false'
+      PREFLIGHT_INBOX_ENABLED: 'true'
+      PREFLIGHT_WORKSHOP_ENABLED: 'true'
+      PREFLIGHT_ALLOW_INSECURE_LOCAL: 'true'
+      PREFLIGHT_URL: http://127.0.0.1:3400
+      PREFLIGHT_TOKEN_URL: http://127.0.0.1:3401/token
+      PREFLIGHT_TENANT_ID: synthetic-preflight-acceptance
+      PREFLIGHT_CLIENT_ID: synthetic-funding-acceptance
+      PREFLIGHT_CLIENT_SECRET: synthetic-acceptance-only-secret
+      PREFLIGHT_MAX_COST_USD: '0.5'
+
+  postgres-preflight:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: preflight_test
+      POSTGRES_USER: acceptance
+      POSTGRES_PASSWORD: local-acceptance-only
+    tmpfs: [/var/lib/postgresql/data]
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U acceptance -d preflight_test']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  preflight-identity:
+    image: '${COMPOSE_PROJECT_NAME:?}-api'
+    network_mode: service:api
+    environment:
+      OPENG7_E2E_ISOLATED: '1'
+      COMPOSE_PROJECT_NAME: '${COMPOSE_PROJECT_NAME:?}'
+    volumes:
+      - ./tests/playwright/support/acceptance-preflight-identity.mjs:/app/acceptance-preflight-identity.mjs:ro
+    command: [node, /app/acceptance-preflight-identity.mjs]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          'fetch("http://127.0.0.1:3401/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  preflight-api:
+    image: '${COMPOSE_PROJECT_NAME:?}-preflight'
+    build:
+      context: '${ACCEPTANCE_PREFLIGHT_ROOT:?}'
+      dockerfile: Dockerfile
+    network_mode: service:api
+    environment: &preflight-environment
+      NODE_ENV: test
+      AUTH_MODE: jwt
+      HOST: 127.0.0.1
+      PORT: '3400'
+      DATABASE_URL: postgres://acceptance:local-acceptance-only@postgres-preflight:5432/preflight_test
+      OIDC_ISSUER: http://127.0.0.1:3401
+      OIDC_AUDIENCE: preflight-api
+      OIDC_JWKS_URL: http://127.0.0.1:3401/keys
+      AI_PROVIDER: mock
+      AI_EXTERNAL_ENABLED: 'false'
+      API_RATE_LIMIT: '10000'
+    command:
+      [
+        sh,
+        -c,
+        'node dist/scripts/migrate.js && exec node dist/apps/api/src/main.js'
+      ]
+    depends_on:
+      postgres-preflight: { condition: service_healthy }
+      preflight-identity: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          'fetch("http://127.0.0.1:3400/health/ready").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  preflight-worker:
+    image: '${COMPOSE_PROJECT_NAME:?}-preflight'
+    network_mode: service:api
+    environment: *preflight-environment
+    command: [node, dist/apps/worker/src/main.js]
+    depends_on:
+      preflight-api: { condition: service_healthy }

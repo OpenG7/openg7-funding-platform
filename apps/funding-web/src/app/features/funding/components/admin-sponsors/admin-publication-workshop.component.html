@@ -207,7 +207,7 @@
                       } @else if (variant.summary) {
                         <p>{{ variant.summary }}</p>
                       }
-                      @if (variant.destination === 'facebook') {
+                      @if (variant.destination !== 'website') {
                         <p class="format">
                           {{ t('formats.' + variant.format) }}
                         </p>

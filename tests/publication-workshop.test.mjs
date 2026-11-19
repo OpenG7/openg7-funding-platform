@@ -137,6 +137,59 @@ test('partial and review-ready remote proposals retain mock provenance and never
   }
 });
 
+test('500 CAD workshop validates Web, Facebook and LinkedIn against their exact promised obligations', () => {
+  const snapshot = {
+    ...source(),
+    amountMinor: 50000,
+    destinations: ['website', 'facebook', 'linkedin'].map((destination) => ({
+      destination,
+      obligationId: randomUUID(),
+      obligationVersion: 2,
+      format: destination === 'website' ? 'individual' : 'collective',
+      target: 'openg7'
+    }))
+  };
+  const input = buildWorkshopMission(
+    config,
+    snapshot,
+    4,
+    randomUUID(),
+    randomUUID()
+  );
+  const detail = workshopRemoteDetail(input);
+  const [proposal] = projectWorkshopProposals(detail, input);
+  assert.deepEqual(
+    proposal.editorialPreparation.variants.map(
+      (variant) => variant.destination
+    ),
+    ['website', 'facebook', 'linkedin']
+  );
+  for (const tamper of [
+    (response) => {
+      response.proposals[0].editorialPreparation.variants.pop();
+    },
+    (response) => {
+      response.proposals[0].editorialPreparation.variants[2].destination =
+        'facebook';
+    },
+    (response) => {
+      response.proposals[0].editorialPreparation.variants[2].obligationId =
+        randomUUID();
+    },
+    (response) => {
+      response.proposals[0].editorialPreparation.variants[2].body = 'x'.repeat(
+        2501
+      );
+    }
+  ]) {
+    const response = structuredClone(detail);
+    tamper(response);
+    assert.throws(() => projectWorkshopProposals(response, input), {
+      code: 'PUBLICATION_WORKSHOP_RESPONSE_INVALID'
+    });
+  }
+});
+
 test('remote tenant, source, checks, model provenance and editorial scope are revalidated', () => {
   for (const tamper of [
     (d) => {

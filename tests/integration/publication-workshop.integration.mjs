@@ -32,6 +32,181 @@ const config = {
 };
 
 test(
+  '500 CAD workshop preserves all three promised destinations and adopts private native channel drafts without delivery authority',
+  { timeout: 240000 },
+  async (t) => {
+    const { pool, stop } = await startDisposablePostgres();
+    t.after(stop);
+    const remote = new Map();
+    const client = {
+      async notifySourceUpdate() {
+        return { duplicate: false, invalidated: 0 };
+      },
+      async getMission(id) {
+        if (!remote.has(id))
+          throw new PreflightClientError('preflight_http_error', false, 404);
+        return remote.get(id);
+      },
+      async submit(mission) {
+        const detail = workshopRemoteDetail(mission);
+        for (const variant of detail.proposals[0].editorialPreparation.variants)
+          variant.body = `Synthetic private ${variant.destination} preparation`;
+        remote.set(mission.missionId, detail);
+        return { mission: detail.mission, duplicate: false };
+      }
+    };
+    const id = (
+      await pool.query(`INSERT INTO fund_contributions(contribution_type,amount_cents,currency,status,paid_at,sponsor_company_name,
+    sponsor_contact_email,sponsor_public_summary,public_display_consent,sponsor_review_status,sponsor_site_visibility_held)
+    VALUES('sponsorship_interest',50000,'CAD','paid',NOW(),'Synthetic three-channel partner','private@example.invalid','Original public summary',TRUE,'approved',TRUE) RETURNING id`)
+    ).rows[0].id;
+    await recordFixtureSponsorshipAgreement(pool, id, {
+      channels: ['website', 'facebook', 'linkedin']
+    });
+    const nativeLinkedIn = await withPostgresTransaction(pool, (db) =>
+      createAdminPublicationDraftOnConnection(
+        db,
+        { contributionId: id, feedTarget: 'openg7', channel: 'linkedin' },
+        'synthetic-operator'
+      )
+    );
+    const obligationsBefore = (
+      await pool.query(
+        'SELECT id,channel,state,version,fulfilment_evidence_id FROM sponsorship_obligations WHERE contribution_id=$1 ORDER BY channel',
+        [id]
+      )
+    ).rows;
+    assert.deepEqual(
+      obligationsBefore.map((obligation) => obligation.channel),
+      ['facebook', 'linkedin', 'website']
+    );
+    const service = new PublicationWorkshopService(pool, config, { client });
+    await service.tick();
+    const prepared = await service.read(id);
+    assert.deepEqual(
+      prepared.proposal.editorialPreparation.variants
+        .map((variant) => variant.destination)
+        .sort(),
+      ['facebook', 'linkedin', 'website'],
+      'a 500 CAD agreement must not silently lose its LinkedIn obligation'
+    );
+    assert.equal(prepared.proposal.provenance.simulated, true);
+    const request = {
+      contributionId: id,
+      proposalId: prepared.proposal.id,
+      expectedSourceVersion: prepared.sourceVersion,
+      requestId: randomUUID()
+    };
+    await service.adopt(request, 'synthetic-operator');
+    await service.adopt(request, 'synthetic-operator');
+    const drafts = (
+      await pool.query(
+        'SELECT id,channel,obligation_id,body,status,approved_at,published_at FROM sponsor_publication_drafts WHERE contribution_id=$1 ORDER BY channel',
+        [id]
+      )
+    ).rows;
+    assert.deepEqual(
+      drafts.map((draft) => draft.channel),
+      ['facebook', 'linkedin']
+    );
+    assert.equal(drafts[1].id, nativeLinkedIn.draft.id);
+    for (const draft of drafts) {
+      assert.equal(
+        draft.body,
+        `Synthetic private ${draft.channel} preparation`
+      );
+      assert.equal(draft.status, 'draft');
+      assert.equal(draft.approved_at, null);
+      assert.equal(draft.published_at, null);
+      assert.equal(
+        draft.obligation_id,
+        obligationsBefore.find(
+          (obligation) => obligation.channel === draft.channel
+        ).id
+      );
+    }
+    const profile = (
+      await pool.query(
+        'SELECT sponsor_public_summary,sponsor_site_visibility_held,sponsor_review_status,sponsor_details_submitted_at FROM fund_contributions WHERE id=$1',
+        [id]
+      )
+    ).rows[0];
+    assert.equal(
+      profile.sponsor_public_summary,
+      'Synthetic proposed public summary'
+    );
+    assert.equal(profile.sponsor_site_visibility_held, true);
+    assert.equal(profile.sponsor_review_status, 'approved');
+    assert.equal(profile.sponsor_details_submitted_at, null);
+    const adoptions = (
+      await pool.query(
+        'SELECT a.drafts FROM preflight_workshop_adoptions a JOIN preflight_workshop_proposals p ON p.id=a.proposal_id WHERE p.contribution_id=$1',
+        [id]
+      )
+    ).rows;
+    assert.equal(adoptions.length, 1, 'the same adoption is idempotent');
+    assert.deepEqual(
+      adoptions[0].drafts.map((draft) => draft.destination).sort(),
+      ['facebook', 'linkedin', 'website']
+    );
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT id,channel,state,version,fulfilment_evidence_id FROM sponsorship_obligations WHERE contribution_id=$1 ORDER BY channel',
+          [id]
+        )
+      ).rows,
+      obligationsBefore,
+      'preparation and adoption never fulfil the promised services'
+    );
+    for (const table of [
+      'publication_deliveries',
+      'sponsorship_fulfilment_evidence',
+      'admin_service_preparation_decisions'
+    ])
+      assert.equal(
+        (await pool.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n,
+        0,
+        'adoption creates no publication, proof or preparation decision'
+      );
+
+    await withPostgresTransaction(pool, (db) =>
+      updateAdminPublicationDraftOnConnection(
+        db,
+        {
+          draftId: drafts[1].id,
+          body: 'Human LinkedIn correction to preserve'
+        },
+        'synthetic-editor'
+      )
+    );
+    await service.tick();
+    const regenerated = await service.read(id);
+    await assert.rejects(
+      service.adopt(
+        {
+          contributionId: id,
+          proposalId: regenerated.proposal.id,
+          expectedSourceVersion: regenerated.sourceVersion,
+          requestId: randomUUID()
+        },
+        'synthetic-operator'
+      ),
+      { code: 'PUBLICATION_WORKSHOP_MANUAL_CHANGES_PRESERVED' }
+    );
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT body FROM sponsor_publication_drafts WHERE id=$1',
+          [drafts[1].id]
+        )
+      ).rows[0].body,
+      'Human LinkedIn correction to preserve'
+    );
+  }
+);
+
+test(
   'durable workshop survives unavailable Preflight, isolates source versions and adopts only unchanged private drafts',
   { timeout: 240000 },
   async (t) => {
