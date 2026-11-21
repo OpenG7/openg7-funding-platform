@@ -15,7 +15,10 @@ import {
   token,
   visit
 } from './support/sponsorship-followup.js';
-import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  confirmAcceptanceMediaUsage,
+  updateAcceptanceMediaUsage
+} from './support/acceptance-media-usage.js';
 import { createMediaWorkspaceFixture } from './media-review-workspace/fixture.js';
 
 const id = '10000000-0000-4000-8000-000000000402';
@@ -336,7 +339,7 @@ export function registerPrivateMediaUsageTests(): void {
         )
       ).toBe(true);
     });
-    test(`image usage upload requires explicit channels destination and portrait permission ${suffix}`, async ({
+    test(`image usage upload shows only explicit acceptance and aligned actions ${suffix}`, async ({
       page
     }) => {
       await viewport(page);
@@ -354,22 +357,57 @@ export function registerPrivateMediaUsageTests(): void {
       });
       const selection = page.locator('[data-og7="media-upload-selection"]');
       await expect(selection).toContainText('synthetic.png');
-      await expect(
-        selection.locator('[data-og7="media-usage-confirmation"]')
-      ).not.toBeChecked();
-      await expect(
-        selection.locator('[data-og7="media-upload-send"]')
-      ).toBeDisabled();
-      expect(state.uploads).toHaveLength(0);
-      await confirmAcceptanceMediaUsage(page, {
-        channels: ['website', 'facebook'],
-        targets: ['openg7'],
-        transformations: ['technical', 'portrait'],
-        credit: rights.credit
+      const editor = selection.locator('[data-og7="media-usage-editor"]');
+      const confirmation = editor.getByRole('checkbox', {
+        name: english
+          ? /I accept the image usage terms/
+          : /J’accepte les conditions d’utilisation des images/
       });
+      const send = selection.locator('[data-og7="media-upload-send"]');
+      await expect(editor.getByRole('checkbox')).toHaveCount(1);
+      await expect(editor.locator('legend, details, p')).toHaveCount(0);
+      await expect(confirmation).not.toBeChecked();
+      await expect(send).toBeDisabled();
+      expect(state.uploads).toHaveLength(0);
+      await confirmation.focus();
+      await confirmation.press('Space');
+      await expect(send).toBeEnabled();
+      await confirmation.press('Space');
+      await expect(send).toBeDisabled();
+      const [sendBox, cancelBox] = await selection.evaluate((element) =>
+        ['media-upload-send', 'media-upload-cancel'].map((hook) => {
+          const { x, y, width, height } = element
+            .querySelector(`[data-og7="${hook}"]`)!
+            .getBoundingClientRect();
+          return { x, y, width, height };
+        })
+      );
+      if (english) {
+        expect(Math.abs(sendBox.x - cancelBox.x)).toBeLessThan(1);
+        expect(Math.abs(sendBox.width - cancelBox.width)).toBeLessThan(1);
+        expect(cancelBox.y).toBeGreaterThan(sendBox.y + sendBox.height);
+      } else {
+        expect(Math.abs(sendBox.y - cancelBox.y)).toBeLessThan(1);
+        expect(Math.abs(sendBox.height - cancelBox.height)).toBeLessThan(1);
+        expect(cancelBox.x).toBeGreaterThan(sendBox.x + sendBox.width);
+      }
+      expect(
+        (await new AxeBuilder({ page }).include('.media-manager').analyze())
+          .violations
+      ).toEqual([]);
+      await confirmAcceptanceMediaUsage(page);
       await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
       expect(state.uploads).toHaveLength(1);
-      expect(state.uploads[0]).toContain(JSON.stringify(rights));
+      expect(state.uploads[0]).toContain(
+        JSON.stringify({
+          state: 'confirmed',
+          channels: ['website'],
+          targets: ['openg7'],
+          transformations: ['technical'],
+          credit: null,
+          restrictions: null
+        })
+      );
       expect(state.uploads[0]).toMatch(/name="usageConfirmed"[\s\S]*?true/);
       const { version, fingerprint, locale } = getSponsorMediaUsageTerms(
         english ? 'en' : 'fr-CA'
@@ -443,8 +481,7 @@ export function registerPrivateMediaUsageTests(): void {
         editor.locator('[data-og7="media-usage-credit"]')
       ).toHaveValue(rights.credit!);
       expect(state.commands).toEqual([]);
-      await confirmation.check();
-      await editor.locator('[data-og7="media-usage-save"]').click();
+      await updateAcceptanceMediaUsage(page, 'synthetic.png', rights);
       await expect(confirmation).not.toBeChecked();
       expect(state.commands).toHaveLength(1);
       expect(state.commands[0]).toMatchObject({

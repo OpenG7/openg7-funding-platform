@@ -200,6 +200,16 @@ summary {
 .toolbar {
   @apply tw:flex tw:items-center tw:flex-wrap tw:gap-3;
 }
+.media-upload-selection {
+  @apply tw:w-full tw:min-w-0;
+}
+.media-upload-actions {
+  @apply tw:items-stretch;
+}
+.media-upload-actions button {
+  @apply tw:min-w-0 tw:max-w-full;
+  overflow-wrap: anywhere;
+}
 button,
 .media-upload-control {
   background: var(--color-primary);
@@ -382,6 +392,9 @@ small {
   }
 }
 @media (max-width: 600px) {
+  .media-upload-actions {
+    @apply tw:flex-col;
+  }
   .followup-content {
     @apply tw:gap-2 tw:pt-2;
   }

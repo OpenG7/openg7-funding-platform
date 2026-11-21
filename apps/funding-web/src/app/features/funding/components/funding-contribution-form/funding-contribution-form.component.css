@@ -441,10 +441,15 @@
 .consent-options {
   border: 0;
   border-top: 1px solid var(--border-color);
-  @apply tw:grid;
-  gap: 0.62rem;
+  min-width: 0;
   margin: 0.98rem 0 0;
   padding: 0.85rem 0 0;
+}
+
+.consent-items {
+  @apply tw:grid;
+  gap: 0.62rem;
+  min-width: 0;
 }
 
 .consent-options legend {

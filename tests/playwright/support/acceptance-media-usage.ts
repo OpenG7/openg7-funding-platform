@@ -8,26 +8,46 @@ import {
 
 import { expect } from './test.js';
 
-/** Synthetic images in these journeys come with explicitly chosen usage rights. */
-export async function confirmAcceptanceMediaUsage(
+/** Upload consent accepts the public journey's existing initial website scope. */
+export async function confirmAcceptanceMediaUsage(page: Page): Promise<void> {
+  const selection = page.locator('[data-og7="media-upload-selection"]');
+  const confirmation = selection.locator(
+    '[data-og7="media-usage-confirmation"]'
+  );
+  await expect(confirmation).toBeVisible();
+  await confirmation.check();
+  await expect(confirmation).toBeChecked();
+  await selection.locator('[data-og7="media-upload-send"]').click();
+}
+
+/** Broader synthetic usage is explicitly accepted through the saved file's UI. */
+export async function updateAcceptanceMediaUsage(
   page: Page,
+  filename: string,
   {
-    channels = ['website', 'facebook', 'linkedin'],
+    channels = ['website'],
     targets = ['openg7'],
     transformations = ['technical'],
     credit = null,
     restrictions = null
   }: Partial<Omit<SponsorMediaUsageRights, 'state'>> = {}
 ): Promise<void> {
-  const editor = page.locator(
-    '.media-manager .toolbar [data-og7="media-usage-editor"]'
-  );
+  const media = page.locator('[data-og7="followup-media"]').filter({
+    has: page.getByText(filename, { exact: true })
+  });
+  await expect(media).toBeVisible();
+  const disclosure = media.locator('[data-og7="followup-media-rights"]');
+  if (
+    !(await disclosure.evaluate((element: HTMLDetailsElement) => element.open))
+  )
+    await disclosure.locator(':scope > summary').click();
+  const editor = disclosure.locator('[data-og7="media-usage-editor"]');
   await expect(editor).toBeVisible();
   const customize = editor.locator('[data-og7="media-usage-customize"]');
   if (
     !(await customize.evaluate((element: HTMLDetailsElement) => element.open))
   )
-    await customize.locator('summary').click();
+    await customize.locator(':scope > summary').click();
   for (const channel of SPONSOR_MEDIA_USAGE_CHANNELS)
     await editor
       .locator(`[data-og7-id="channel:${channel}"]`)
@@ -44,9 +64,19 @@ export async function confirmAcceptanceMediaUsage(
   await editor
     .locator('[data-og7="media-usage-restrictions"]')
     .fill(restrictions ?? '');
-  await editor.locator('[data-og7="media-usage-confirmation"]').check();
+  const confirmation = editor.locator('[data-og7="media-usage-confirmation"]');
+  await confirmation.check();
+  await expect(confirmation).toBeChecked();
+  const completed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/sponsorship-followup/media/usage') &&
+      response.request().method() === 'POST'
+  );
+  await editor.locator('[data-og7="media-usage-save"]').click();
+  const response = await completed;
+  expect(response.ok(), await response.text()).toBe(true);
   await expect(
-    editor.locator('[data-og7="media-usage-confirmation"]')
-  ).toBeChecked();
-  await page.locator('[data-og7="media-upload-send"]').click();
+    page.locator('[data-og7="followup-media-consent"]')
+  ).toHaveAttribute('aria-busy', 'false');
+  await expect(confirmation).not.toBeChecked();
 }

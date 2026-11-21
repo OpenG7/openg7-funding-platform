@@ -30,7 +30,10 @@ import { openFollowupPresentation } from './acceptance-followup-presentation.js'
 import { completePublicationModeration } from './acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './acceptance-offer.js';
-import { confirmAcceptanceMediaUsage } from './acceptance-media-usage.js';
+import {
+  confirmAcceptanceMediaUsage,
+  updateAcceptanceMediaUsage
+} from './acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
   selectAcceptanceWebsiteMedia
@@ -316,6 +319,10 @@ export async function sponsorshipPublicationJourney(
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
         ).toHaveCount(0, { timeout: 15000 });
+        if (filename === 'photo-demo.png')
+          await updateAcceptanceMediaUsage(company, filename, {
+            channels: ['website', 'facebook', 'linkedin']
+          });
       }
       await expect(company.locator('[data-og7="followup-media"]')).toHaveCount(
         2

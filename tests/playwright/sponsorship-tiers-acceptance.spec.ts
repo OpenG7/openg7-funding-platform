@@ -37,7 +37,10 @@ import {
 } from './support/admin-controller.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
-import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  confirmAcceptanceMediaUsage,
+  updateAcceptanceMediaUsage
+} from './support/acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
   selectAcceptanceWebsiteMedia
@@ -443,6 +446,10 @@ for (const amount of [100, 250]) {
             await expect(
               company.locator('[data-og7="media-upload-attempt"]')
             ).toHaveCount(0, { timeout: 15000 });
+            if (publicConsent && amount === 250 && filename === 'photo.png')
+              await updateAcceptanceMediaUsage(company, filename, {
+                channels: ['website', 'facebook']
+              });
           }
           await company
             .getByRole('button', {

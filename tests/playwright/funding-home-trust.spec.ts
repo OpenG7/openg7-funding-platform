@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import {
   registerSponsorshipOfferTests,
@@ -345,7 +345,200 @@ const checkoutButton = (page: Page) =>
 const acknowledge = (page: Page) =>
   page.getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i).check();
 
+async function expectConfirmationSpacing(
+  page: Page,
+  confirmations: Locator,
+  count: number
+) {
+  const labels = confirmations.locator('label').filter({
+    has: page.getByRole('checkbox')
+  });
+  await expect(labels).toHaveCount(count);
+  const rectangles = await labels.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rectangle = element.getBoundingClientRect();
+      return { top: rectangle.top, bottom: rectangle.bottom };
+    })
+  );
+  for (let index = 1; index < rectangles.length; index++) {
+    expect(
+      rectangles[index].top - rectangles[index - 1].bottom
+    ).toBeGreaterThanOrEqual(8);
+  }
+}
+
 registerSponsorshipOfferTests(enableSponsorship);
+
+for (const english of [false, true]) {
+  const suffix = english ? 'EN mobile' : 'FR desktop';
+  const visibilityLegend = english
+    ? 'Public visibility — optional'
+    : 'Visibilité publique — facultatif';
+  const confirmationsLegend = english
+    ? 'Required confirmations'
+    : 'Confirmations obligatoires';
+  const confirmationsHelp = english
+    ? 'Check all required confirmations to continue. Public visibility choices are optional.'
+    : 'Cochez toutes les confirmations obligatoires pour continuer. Les choix de visibilité publique sont facultatifs.';
+
+  test(`sponsorship offer consent groups keep public visibility optional and explain required confirmations ${suffix}`, async ({
+    page
+  }) => {
+    await enableSponsorship(page);
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    await page.goto(`${english ? '/en' : ''}/fonds-des-batisseurs`);
+
+    const form = contributionForm(page);
+    const visibility = form.getByRole('group', {
+      name: visibilityLegend,
+      exact: true
+    });
+    const confirmations = form.getByRole('group', {
+      name: confirmationsLegend,
+      exact: true
+    });
+    const optionalChoices = visibility.getByRole('checkbox');
+    const help = form.locator('[data-og7="contribution-confirmations-help"]');
+    const submit = form.getByRole('button', {
+      name: english ? 'Support OpenG7' : 'Soutenir OpenG7',
+      exact: true
+    });
+    await expect(visibility).toBeVisible();
+    await expect(confirmations).toBeVisible();
+    await expect(optionalChoices).toHaveCount(2);
+    for (const choice of await optionalChoices.all()) {
+      await expect(choice).not.toBeChecked();
+      await expect(choice).toHaveJSProperty('required', false);
+    }
+    await expect(confirmations.getByRole('checkbox')).toHaveCount(1);
+    const acknowledgment = confirmations.getByLabel(
+      english
+        ? /OpenG7 is an independent project/i
+        : /OpenG7 est un projet indépendant en développement/i
+    );
+    await expect(acknowledgment).toHaveJSProperty('required', true);
+    await expect(help).toHaveText(confirmationsHelp);
+    await expect(submit).toBeDisabled();
+    await expect(submit).toHaveAttribute(
+      'aria-describedby',
+      'contribution-confirmations-help'
+    );
+
+    await acknowledgment.focus();
+    await acknowledgment.press('Space');
+    await expect(acknowledgment).toBeChecked();
+    await expect(submit).toBeEnabled();
+    await expect(help).toHaveCount(0);
+    await expect(submit).not.toHaveAttribute('aria-describedby');
+    await acknowledgment.uncheck();
+    await expect(help).toHaveText(confirmationsHelp);
+
+    await form
+      .getByRole('button', {
+        name: english ? 'Business sponsorship' : /Commandite d'entreprise/i
+      })
+      .click();
+    await expect(confirmations.getByRole('checkbox')).toHaveCount(2);
+    const offerAcceptance = confirmations.locator(
+      '[data-og7="offer-acceptance"]'
+    );
+    await expect(offerAcceptance).toHaveJSProperty('required', true);
+    await expectConfirmationSpacing(page, confirmations, 2);
+
+    await acknowledgment.check();
+    await expect(submit).toBeDisabled();
+    await expect(help).toHaveText(confirmationsHelp);
+    await offerAcceptance.check();
+    await expect(submit).toBeEnabled();
+    await expect(help).toHaveCount(0);
+    await expect(submit).not.toHaveAttribute('aria-describedby');
+    for (const choice of await optionalChoices.all()) {
+      await expect(choice).not.toBeChecked();
+    }
+    await offerAcceptance.uncheck();
+    await expect(submit).toBeDisabled();
+    await expect(help).toHaveText(confirmationsHelp);
+    await expect(submit).toHaveAttribute(
+      'aria-describedby',
+      'contribution-confirmations-help'
+    );
+    await form.screenshot({ path: test.info().outputPath('consents.png') });
+  });
+
+  test(`sponsorship offer consent groups keep an active charter in required confirmations ${suffix}`, async ({
+    page
+  }) => {
+    await enableSponsorship(page);
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    await page.route('**/api/sponsorship-charter', (route) =>
+      route.fulfill({
+        json: {
+          active: true,
+          policyVersion: '1.0',
+          fingerprint: 'a'.repeat(64),
+          text: {
+            fr: 'Charte synthétique pour le test des confirmations.',
+            en: 'Synthetic charter for the confirmation test.'
+          }
+        }
+      })
+    );
+    await page.goto(`${english ? '/en' : ''}/fonds-des-batisseurs`);
+    const form = contributionForm(page);
+    await form
+      .getByRole('button', {
+        name: english ? 'Business sponsorship' : /Commandite d'entreprise/i
+      })
+      .click();
+
+    const confirmations = form.getByRole('group', {
+      name: confirmationsLegend,
+      exact: true
+    });
+    const requiredChoices = confirmations.getByRole('checkbox');
+    const charterAcceptance = confirmations.locator(
+      '[data-og7="charter-acceptance"]'
+    );
+    const help = form.locator('[data-og7="contribution-confirmations-help"]');
+    const submit = form.getByRole('button', {
+      name: english ? 'Support OpenG7' : 'Soutenir OpenG7',
+      exact: true
+    });
+    await expect(requiredChoices).toHaveCount(3);
+    await expectConfirmationSpacing(page, confirmations, 3);
+    for (const choice of await requiredChoices.all()) {
+      await expect(choice).toHaveJSProperty('required', true);
+    }
+    await confirmations
+      .getByLabel(
+        english
+          ? /OpenG7 is an independent project/i
+          : /OpenG7 est un projet indépendant en développement/i
+      )
+      .check();
+    await confirmations.locator('[data-og7="offer-acceptance"]').check();
+    await expect(charterAcceptance).not.toBeChecked();
+    await expect(submit).toBeDisabled();
+    await expect(help).toHaveText(confirmationsHelp);
+    await charterAcceptance.check();
+    await expect(submit).toBeEnabled();
+    await expect(help).toHaveCount(0);
+    const optionalChoices = form
+      .getByRole('group', { name: visibilityLegend, exact: true })
+      .getByRole('checkbox');
+    for (const choice of await optionalChoices.all()) {
+      await expect(choice).not.toBeChecked();
+    }
+    await charterAcceptance.uncheck();
+    await expect(submit).toBeDisabled();
+    await expect(help).toHaveText(confirmationsHelp);
+    await form.screenshot({ path: test.info().outputPath('consents.png') });
+  });
+}
 
 test('switching the default personal amount to sponsorship submits a valid 50 CAD amount only once', async ({
   page

@@ -47,6 +47,7 @@ export class SponsorMediaUsageEditorComponent {
   readonly requireEvidence = input(false);
   readonly saveButton = input(true);
   readonly compactTerms = input(false);
+  readonly confirmationOnly = input(false);
   readonly locale = input<'fr-CA' | 'en'>('fr-CA');
   readonly contextKey = input<unknown>(null);
   readonly valueChange = output<SponsorMediaUsageRights | null>();

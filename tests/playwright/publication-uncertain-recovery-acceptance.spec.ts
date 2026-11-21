@@ -21,7 +21,10 @@ import { runAcceptancePublicationWorker } from './support/acceptance-publication
 import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
-import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  confirmAcceptanceMediaUsage,
+  updateAcceptanceMediaUsage
+} from './support/acceptance-media-usage.js';
 import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 import { adjustAcceptanceObligationDestination } from './support/acceptance-agreement.js';
 
@@ -239,13 +242,15 @@ test('lost social responses survive restart and recover through verified reconci
           await page
             .getByLabel(label!)
             .setInputFiles({ name: filename!, mimeType: 'image/png', buffer });
-          await confirmAcceptanceMediaUsage(page, {
-            targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
-          });
+          await confirmAcceptanceMediaUsage(page);
           expect((await upload).ok()).toBe(true);
           await expect(
             page.locator('[data-og7="media-upload-attempt"]')
           ).toHaveCount(0);
+          await updateAcceptanceMediaUsage(page, filename!, {
+            channels: ['website', 'facebook', 'linkedin'],
+            targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
+          });
         }
         await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(
           2

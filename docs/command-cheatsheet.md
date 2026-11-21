@@ -76,6 +76,7 @@ jusqu'à API/Web et la première connexion admin avant d'utiliser les raccourcis
 | Configuration existante sans relais Stripe | `yarn docker:up --environment autre` |
 | Previsualiser le demarrage local | `yarn docker:up:dev --dry-run` |
 | Stack détachée avec PostgreSQL | `yarn docker:up:dev --no-stripe-webhook` |
+| Image API, sans redémarrage | `yarn 4` (option `--no-cache`) |
 | Mise à jour guidée | `yarn docker:update` |
 | Code local dans les images | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
 | Ajouter le listener Stripe local | `yarn docker:update --development --stripe-webhook` |
@@ -96,10 +97,10 @@ recréer les services ni générer de fichiers.
 Lire un fichier d'environnement exige Docker Compose ; aucun service ne démarre
 et le contrôle ne qualifie pas OIDC/MFA. Procédure : [Keycloak sur le VPS](operations/keycloak-vps.md).
 
-`--no-build-app` évite la compilation sur l'hôte; les Dockerfiles compilent
-toujours API et Angular. `yarn docker:update:dev` utilise cette option pour éviter
-une double compilation. `yarn build`, restart et recreate ne reconstruisent pas
-les images. Recharger la page après update; en développement, `Ctrl+F5` peut être utile.
+`--no-build-app`, inclus dans `yarn docker:update:dev`, évite la compilation
+sur l’hôte; les Dockerfiles compilent API et Angular. `yarn build`, restart
+et recreate ne reconstruisent pas les images. Recharger la page après update;
+en développement, `Ctrl+F5` peut être utile.
 
 Les modes `local|prod|autre`, options, prérequis et HTTPS de `docker:up` sont
 détaillés dans le [démarrage guidé Docker](docker-deployment.md#demarrage-docker-guide).
