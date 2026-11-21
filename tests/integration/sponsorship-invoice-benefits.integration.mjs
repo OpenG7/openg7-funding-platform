@@ -6,10 +6,8 @@ import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
 
-import {
-  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
-  createSponsorshipOfferSnapshot
-} from '../../dist/packages/funding-core/src/index.js';
+import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import { qualifySponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
@@ -73,7 +71,7 @@ test('PDF text extraction preserves a trailing CR byte and rejects truncated com
 });
 
 test(
-  'issued invoice benefits survive storage, email, PDF, pricing changes and resends',
+  'historical issued invoice benefits survive storage, email, PDF, pricing changes and resends',
   { timeout: 90000 },
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
@@ -109,7 +107,7 @@ test(
               reason: 'Synthetic agreement supplies explicit recorded benefits',
               evidenceReference: 'synthetic://invoice-benefits-agreement',
               offer: {
-                ...createSponsorshipOfferSnapshot(amountCents, 'CAD'),
+                ...recordedLegacySponsorshipOffer(amountCents),
                 version: 'historical-qualification-v1'
               }
             },
@@ -554,7 +552,7 @@ test(
               reason: 'Synthetic agreement qualified before first issuance',
               evidenceReference: 'synthetic://concurrent-invoice-agreement',
               offer: {
-                ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+                ...recordedLegacySponsorshipOffer(50000),
                 version: 'historical-qualification-v1'
               }
             },
@@ -638,7 +636,7 @@ test(
                 'Synthetic later qualification does not rewrite issued documents',
               evidenceReference: 'synthetic://later-invoice-agreement',
               offer: {
-                ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+                ...recordedLegacySponsorshipOffer(50000),
                 version: 'historical-qualification-v1'
               }
             },

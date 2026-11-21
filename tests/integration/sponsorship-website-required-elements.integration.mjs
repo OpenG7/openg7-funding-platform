@@ -14,6 +14,7 @@ import { listSponsorshipFulfilmentEvidence } from '../../dist/apps/funding-api/s
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
 import { listPublicSponsorships } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationActor
@@ -56,6 +57,13 @@ test(
       visible: true,
       confirmed: true
     });
+    const websiteObligation = async (id) => {
+      const obligation = (
+        await loadSponsorshipCommitment(pool, id)
+      ).obligations.find((row) => row.benefitId === 'website_mention');
+      assert.ok(obligation, 'the exact Website promise is recorded');
+      return obligation;
+    };
     const seed = async ({ requiredLogo, logoChannels }) => {
       const session = 'cs_website_requirements_' + randomUUID();
       const company = 'Synthetic required elements ' + randomUUID();
@@ -73,7 +81,9 @@ test(
         await activateSponsorshipCommitments(db, {
           stripeSessionId: session
         });
-        const current = createSponsorshipOfferSnapshot(5000, 'CAD');
+        const current = requiredLogo
+          ? recordedLegacySponsorshipOffer(5000)
+          : createSponsorshipOfferSnapshot(5000, 'CAD');
         await qualifySponsorshipCommitment(
           db,
           {
@@ -147,8 +157,7 @@ test(
           ).rows[0].sponsor_logo_url,
           null
         );
-        const obligation = (await loadSponsorshipCommitment(pool, required.id))
-          .obligations[0];
+        const obligation = await websiteObligation(required.id);
         assert.equal(obligation.state, 'blocked');
         assert.equal(obligation.blockedReason, 'required_elements_missing');
         assert.equal(
@@ -204,12 +213,8 @@ test(
               ...(await command(required.id)),
               refresh: {
                 requestId: randomUUID(),
-                obligationId: (
-                  await loadSponsorshipCommitment(pool, required.id)
-                ).obligations[0].id,
-                expectedVersion: (
-                  await loadSponsorshipCommitment(pool, required.id)
-                ).obligations[0].version
+                obligationId: (await websiteObligation(required.id)).id,
+                expectedVersion: (await websiteObligation(required.id)).version
               }
             },
             fixtureModerationActor,
@@ -217,11 +222,7 @@ test(
           ),
           'updated'
         );
-        assert.equal(
-          (await loadSponsorshipCommitment(pool, required.id)).obligations[0]
-            .state,
-          'fulfilled'
-        );
+        assert.equal((await websiteObligation(required.id)).state, 'fulfilled');
         const evidence = await listSponsorshipFulfilmentEvidence(
           pool,
           required.id
@@ -262,15 +263,16 @@ test(
           ),
           'updated'
         );
-        assert.equal(
-          (await loadSponsorshipCommitment(pool, optional.id)).obligations[0]
-            .state,
-          'fulfilled'
-        );
+        assert.equal((await websiteObligation(optional.id)).state, 'fulfilled');
         assert.equal(
           (await listSponsorshipFulfilmentEvidence(pool, optional.id)).length,
           1
         );
+        const social = (
+          await loadSponsorshipCommitment(pool, optional.id)
+        ).obligations.filter((row) => row.channel !== 'website');
+        assert.equal(social.length, 4);
+        assert.ok(social.every((row) => row.state === 'pending'));
       }
     );
   }

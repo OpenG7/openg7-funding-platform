@@ -266,7 +266,8 @@ test(
     item = (await worker.list()).items[0];
     assert.equal(item.preparation.state, 'prepared');
     assert.equal(item.preparation.cartouche.title, 'Atelier Démo');
-    assert.ok(item.preparation.reasons.includes('facebook_below_threshold'));
+    assert.ok(item.preparation.reasons.includes('facebook_eligible'));
+    assert.ok(item.preparation.reasons.includes('linkedin_eligible'));
     assert.ok(item.preparation.reasons.includes('review_required'));
     assert.equal(
       (

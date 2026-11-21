@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import sharp from 'sharp';
 
-import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import {
   activateSponsorshipCommitments,
@@ -89,7 +89,7 @@ test(
       ).rows[0].id;
       await withPostgresTransaction(pool, async (db) => {
         await activateSponsorshipCommitments(db, { stripeSessionId: session });
-        const offer = createSponsorshipOfferSnapshot(5000, 'CAD');
+        const offer = recordedLegacySponsorshipOffer(5000);
         await qualifySponsorshipCommitment(
           db,
           {

@@ -38,7 +38,9 @@ const scenarioPresets = {
   },
   sponsorship_interest: {
     amounts: OPENG7_FUNDING_CONFIG.sponsorship!.presetAmounts,
-    initialAmount: 100
+    initialAmount:
+      OPENG7_FUNDING_CONFIG.sponsorship!.presetAmounts[0] ??
+      OPENG7_FUNDING_CONFIG.sponsorship!.minimumAmount
   }
 };
 

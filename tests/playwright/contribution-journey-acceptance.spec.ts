@@ -265,7 +265,10 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
       'Accepté par le serveur de courriel'
     );
     await expect(drawer).toContainText(
-      'Le seuil de contribution pour Facebook n’est pas atteint.'
+      'Le montant donne aussi accès à Facebook'
+    );
+    await expect(drawer).toContainText(
+      'Le montant donne aussi accès à LinkedIn'
     );
     await drawer.screenshot({
       path: info.outputPath('private-website-card.png')

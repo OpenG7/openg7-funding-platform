@@ -52,9 +52,9 @@ test.describe('Docker corporate sponsor navigation', () => {
       .getByRole('button', { name: /Soutenir OpenG7/i });
     await expect(submitButton).toBeDisabled();
 
-    await page.getByRole('button', { name: '500 $', exact: true }).click();
+    await page.getByRole('button', { name: '15 $', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: '500 $', exact: true })
+      page.getByRole('button', { name: '15 $', exact: true })
     ).toHaveAttribute('aria-pressed', 'true');
 
     await page
@@ -72,7 +72,7 @@ test.describe('Docker corporate sponsor navigation', () => {
       await expect(
         page.getByRole('heading', { name: 'Checkout simulé' })
       ).toBeVisible();
-      await expect(page.getByText(/Contribution : 500\.00 CAD/)).toBeVisible();
+      await expect(page.getByText(/Contribution : 15\.00 CAD/)).toBeVisible();
     } else {
       await expect(
         page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
@@ -89,9 +89,9 @@ test.describe('Docker corporate sponsor navigation', () => {
       .getByRole('button', { name: /Commandite d'entreprise/i })
       .click();
 
-    await page.locator('#custom-contribution').fill('10');
+    await page.locator('#custom-contribution').fill('4.99');
     await expect(
-      page.getByText(/Le montant minimal pour une commandite est de 50\s+\$\./i)
+      page.getByText(/Le montant minimal pour une commandite est de 5\s+\$\./i)
     ).toBeVisible();
 
     await page

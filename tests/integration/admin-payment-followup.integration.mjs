@@ -9,7 +9,7 @@ import {
 } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { activateSponsorshipCommitments } from '../../dist/apps/funding-api/src/sponsorship-commitments.repository.js';
 import { qualifySponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/qualification.js';
-import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { loadReliabilityFollowupItems } from '../../dist/apps/funding-api/src/admin-work-queue/reliability-followup.js';
 import { getPaymentJourney } from '../../dist/apps/funding-api/src/admin-payment-journey.service.js';
@@ -42,7 +42,7 @@ test(
           await activateSponsorshipCommitments(db, {
             stripeSessionId: `cs_test_followup_${index}`
           });
-          const offer = createSponsorshipOfferSnapshot(50000, 'CAD');
+          const offer = recordedLegacySponsorshipOffer(50000);
           await qualifySponsorshipCommitment(
             db,
             {
