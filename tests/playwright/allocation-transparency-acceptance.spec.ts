@@ -235,7 +235,13 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
     });
     await expect(link).toHaveAttribute('href', proof);
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    await expect(publishedPanel).toContainText(prefix ? 'Delivered' : 'Livr');
+    await expect(
+      hook(visitor, 'transparency-allocation')
+        .filter({
+          has: visitor.getByRole('heading', { name, exact: true })
+        })
+        .locator('[data-og7="transparency-allocation-status"]')
+    ).toHaveText(prefix ? 'Declared delivery' : 'Livraison déclarée');
     const downloaded = visitor.waitForEvent('download');
     await hook(visitor, 'transparency-json').focus();
     await visitor.keyboard.press('Enter');

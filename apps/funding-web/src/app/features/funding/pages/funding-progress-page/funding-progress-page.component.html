@@ -1,0 +1,382 @@
+<main class="progress-page" data-og7="progress-page">
+  <openg7-funding-header />
+
+  <section class="progress-hero" aria-labelledby="progress-title">
+    <div class="hero-copy">
+      <p class="eyebrow">
+        {{ 'funding.collectiveProgressPage.hero.kicker' | translate }}
+      </p>
+      <h1 id="progress-title" data-og7="progress-title">
+        {{ 'funding.collectiveProgressPage.hero.title' | translate }}
+      </h1>
+      <p class="hero-description">
+        {{ 'funding.collectiveProgressPage.hero.copy' | translate }}
+      </p>
+      <div class="hero-actions">
+        <a
+          class="primary-link"
+          [routerLink]="[]"
+          fragment="progress-publications"
+          data-og7="progress-explore"
+          >{{ 'funding.collectiveProgressPage.hero.explore' | translate }}</a
+        >
+        <a
+          class="quiet-link"
+          [routerLink]="transparencyPath()"
+          data-og7="progress-transparency"
+          >{{ 'funding.collectiveProgressPage.hero.transparency' | translate }}
+          <span aria-hidden="true">→</span></a
+        >
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="orbit orbit-outer"></div>
+      <div class="orbit orbit-inner"></div>
+      <div class="crystal"><span></span><span></span><span></span></div>
+      <span class="spark spark-one"></span><span class="spark spark-two"></span
+      ><span class="spark spark-three"></span>
+    </div>
+  </section>
+
+  <div class="page-content">
+    <section class="intention-panel" aria-labelledby="progress-intention-title">
+      <div class="section-heading">
+        <p class="eyebrow">
+          {{ 'funding.collectiveProgressPage.intention.kicker' | translate }}
+        </p>
+        <h2 id="progress-intention-title">
+          {{ 'funding.collectiveProgressPage.intention.title' | translate }}
+        </h2>
+        <p>{{ 'funding.collectiveProgressPage.intention.copy' | translate }}</p>
+      </div>
+      <ol class="intentions">
+        @for (intention of intentions; track intention; let index = $index) {
+          <li>
+            <span class="intention-number" aria-hidden="true"
+              >0{{ index + 1 }}</span
+            >
+            <h3>
+              {{
+                'funding.collectiveProgressPage.intention.' +
+                  intention +
+                  '.title' | translate
+              }}
+            </h3>
+            <p>
+              {{
+                'funding.collectiveProgressPage.intention.' +
+                  intention +
+                  '.copy' | translate
+              }}
+            </p>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <section
+      id="progress-publications"
+      class="publications-section"
+      tabindex="-1"
+      aria-labelledby="progress-publications-title"
+      [attr.aria-busy]="loading()"
+      data-og7="progress-publications"
+    >
+      <div class="publications-heading">
+        <div class="section-heading">
+          <p class="eyebrow">
+            {{
+              'funding.collectiveProgressPage.publications.kicker' | translate
+            }}
+          </p>
+          <h2 id="progress-publications-title">
+            {{
+              'funding.collectiveProgressPage.publications.title' | translate
+            }}
+          </h2>
+          <p>
+            {{
+              'funding.collectiveProgressPage.publications.scope' | translate
+            }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="refresh-button"
+          [disabled]="loading()"
+          (click)="load()"
+          data-og7="progress-refresh"
+        >
+          <span aria-hidden="true">↻</span>
+          {{
+            (loading()
+              ? 'funding.collectiveProgressPage.state.refreshing'
+              : error()
+                ? 'funding.collectiveProgressPage.state.retry'
+                : 'funding.collectiveProgressPage.state.refresh'
+            ) | translate
+          }}
+        </button>
+      </div>
+
+      <div
+        class="read-status"
+        role="status"
+        aria-live="polite"
+        data-og7="progress-state"
+      >
+        @if (loading()) {
+          <p data-og7="progress-loading">
+            {{ 'funding.collectiveProgressPage.state.loading' | translate }}
+          </p>
+        } @else if (error()) {
+          @if (data()) {
+            <p class="read-warning" data-og7="progress-stale">
+              {{
+                'funding.collectiveProgressPage.state.refreshError' | translate
+              }}
+            </p>
+          } @else {
+            <p class="read-warning" data-og7="progress-error">
+              {{
+                'funding.collectiveProgressPage.state.initialError' | translate
+              }}
+            </p>
+          }
+        }
+        @if (checkedAt(); as checked) {
+          <p class="read-date" data-og7="progress-checked-at">
+            {{ 'funding.collectiveProgressPage.state.checkedAt' | translate }}
+            <time [attr.datetime]="checked">{{
+              formatCheckedAt(checked)
+            }}</time>
+          </p>
+        }
+      </div>
+
+      @if (hasRegistry()) {
+        <div class="allocation-grid" data-og7="progress-allocations">
+          @for (allocation of allocations(); track $index) {
+            <article class="allocation-card" data-og7="progress-allocation">
+              <header>
+                <p
+                  class="allocation-status"
+                  [class.status-in-progress]="
+                    allocation.progress_status === 'in_progress'
+                  "
+                  [class.status-delivered]="
+                    allocation.progress_status === 'delivered'
+                  "
+                  data-og7="progress-allocation-status"
+                >
+                  {{ statusKey(allocation.progress_status) | translate }}
+                </p>
+                <h3>{{ allocation.project_name }}</h3>
+              </header>
+              @if (allocation.public_description.trim()) {
+                <p class="allocation-description">
+                  {{ allocation.public_description }}
+                </p>
+              }
+              @if (allocation.expected_outcome.trim()) {
+                <div class="expected-outcome">
+                  <h4>
+                    {{
+                      'funding.collectiveProgressPage.allocation.expectedOutcome'
+                        | translate
+                    }}
+                  </h4>
+                  <p>{{ allocation.expected_outcome }}</p>
+                </div>
+              }
+              <dl class="allocation-facts">
+                <div>
+                  <dt>
+                    {{
+                      'funding.collectiveProgressPage.allocation.amount'
+                        | translate
+                    }}
+                  </dt>
+                  <dd data-og7="progress-allocation-amount">
+                    {{
+                      formatMoney(
+                        allocation.amount_allocated,
+                        allocation.currency
+                      )
+                    }}
+                  </dd>
+                </div>
+                @if (allocation.published_at; as published) {
+                  <div>
+                    <dt>
+                      {{
+                        'funding.collectiveProgressPage.allocation.publishedAt'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>
+                      <time [attr.datetime]="published">{{
+                        formatDate(published)
+                      }}</time>
+                    </dd>
+                  </div>
+                }
+              </dl>
+              <div class="allocation-proof">
+                @if (allocation.proof_url; as proof) {
+                  <a
+                    [href]="proof"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-og7="progress-proof"
+                    >{{
+                      allocation.proof_source ||
+                        ('funding.collectiveProgressPage.allocation.proofLink'
+                          | translate)
+                    }}
+                    <span aria-hidden="true">↗</span
+                    ><span class="sr-only">
+                      —
+                      {{
+                        'funding.collectiveProgressPage.allocation.newTab'
+                          | translate
+                      }}</span
+                    ></a
+                  >
+                  @if (allocation.proof_published_at; as proofPublished) {
+                    <p>
+                      {{
+                        'funding.collectiveProgressPage.allocation.proofPublishedAt'
+                          | translate
+                      }}
+                      <time [attr.datetime]="proofPublished">{{
+                        formatDate(proofPublished)
+                      }}</time>
+                    </p>
+                  }
+                } @else {
+                  <p data-og7="progress-no-proof">
+                    {{
+                      (allocation.progress_status === 'delivered'
+                        ? 'funding.collectiveProgressPage.allocation.deliveredWithoutProof'
+                        : 'funding.collectiveProgressPage.allocation.noProof'
+                      ) | translate
+                    }}
+                  </p>
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-panel" data-og7="progress-empty">
+              <h3>
+                {{
+                  'funding.collectiveProgressPage.state.emptyTitle' | translate
+                }}
+              </h3>
+              <p>
+                {{ 'funding.collectiveProgressPage.state.empty' | translate }}
+              </p>
+            </div>
+          }
+        </div>
+      } @else if (data()) {
+        <div class="empty-panel" data-og7="progress-unavailable">
+          <h3>
+            {{
+              'funding.collectiveProgressPage.state.unavailableTitle'
+                | translate
+            }}
+          </h3>
+          <p>
+            {{ 'funding.collectiveProgressPage.state.unavailable' | translate }}
+          </p>
+          <a [routerLink]="transparencyPath()">{{
+            'funding.collectiveProgressPage.hero.transparency' | translate
+          }}</a>
+        </div>
+      }
+
+      <p class="reading-note" data-og7="progress-reading-note">
+        {{
+          'funding.collectiveProgressPage.publications.readingNote' | translate
+        }}
+      </p>
+    </section>
+
+    <section
+      class="participation-section"
+      aria-labelledby="progress-participation-title"
+    >
+      <div class="section-heading">
+        <p class="eyebrow">
+          {{
+            'funding.collectiveProgressPage.participation.kicker' | translate
+          }}
+        </p>
+        <h2 id="progress-participation-title">
+          {{ 'funding.collectiveProgressPage.participation.title' | translate }}
+        </h2>
+      </div>
+      <div class="participation-grid">
+        <article class="participation-card">
+          <h3>
+            {{
+              'funding.collectiveProgressPage.participation.personal.title'
+                | translate
+            }}
+          </h3>
+          <p>
+            {{
+              'funding.collectiveProgressPage.participation.personal.copy'
+                | translate
+            }}
+          </p>
+          <a
+            class="participation-link"
+            [routerLink]="fundPath()"
+            fragment="support"
+            data-og7="progress-personal-support"
+            >{{
+              'funding.collectiveProgressPage.participation.personal.cta'
+                | translate
+            }}
+            <span aria-hidden="true">→</span></a
+          >
+        </article>
+        <article class="participation-card">
+          <h3>
+            {{
+              'funding.collectiveProgressPage.participation.company.title'
+                | translate
+            }}
+          </h3>
+          <p>
+            {{
+              'funding.collectiveProgressPage.participation.company.copy'
+                | translate
+            }}
+          </p>
+          <a
+            class="participation-link"
+            [routerLink]="fundPath()"
+            [queryParams]="{ intent: 'sponsorship' }"
+            fragment="support"
+            data-og7="progress-company-support"
+            >{{
+              'funding.collectiveProgressPage.participation.company.cta'
+                | translate
+            }}
+            <span aria-hidden="true">→</span></a
+          >
+        </article>
+      </div>
+    </section>
+
+    <footer class="progress-footer">
+      <a [routerLink]="fundPath()">{{ 'funding.brand.title' | translate }}</a
+      ><a [routerLink]="transparencyPath()">{{
+        'funding.collectiveProgressPage.hero.transparency' | translate
+      }}</a>
+    </footer>
+  </div>
+</main>

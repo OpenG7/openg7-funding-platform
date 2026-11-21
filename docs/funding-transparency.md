@@ -22,6 +22,23 @@ Les webhooks et le backfill refusent une transaction de solde dont le montant br
 
 ## Allocations publiées et réalisations
 
+La page [Ce que nous construisons ensemble](public-progress.md) propose un aperçu
+de ces allocations, avec avancement déclaré et références publiées, en lecture seule.
+
+Le panneau de Transparence reprend cette distinction : affectation prévue,
+résultat attendu et avancement déclaré sont étiquetés séparément. « Livraison
+déclarée » décrit le registre, sans certification indépendante. Une référence
+absente ou inadmissible est signalée, y compris lorsque la livraison est déclarée;
+son URL, sa source et sa date sont alors retirées ensemble. Les deux pages
+réutilisent la même projection de référence fondée sur la politique HTTPS publique.
+Les dates affichées datent la publication de la fiche ou de la référence.
+
+Un registre PostgreSQL lu avec succès peut confirmer un aperçu sans affectation
+publique. Les modes `stripe_direct` et `empty` ne fournissent pas ce registre :
+le suivi reste indisponible, sans conclure à zéro projet. Les agrégats financiers
+et leurs exports conservent leurs règles. Le lien du panneau ouvre les avancées
+publiées dans la langue courante.
+
 Dans l'administration Dépenses, reader et operator consultent le registre et les
 preuves en lecture seule. Seul owner dispose de création, édition, publication,
 masquage et archivage; l'API contrôle toujours ces droits. Une lecture en échec
@@ -178,7 +195,7 @@ node --test tests/integration/payout-transparency.integration.mjs
 yarn test:e2e:acceptance tests/playwright/payout-transparency-acceptance.spec.ts
 ```
 
-La suite UI sert le build pré-rendu sur `127.0.0.1:4179` avec les API interceptées, sur Chromium desktop et mobile. Elle couvre FR/EN, cohérence avec l’accueil, navigation clavier, preuves publiées, exports et confidentialité, chargement/erreur/reprise, expiration des requêtes, actualisation, source absente, vrai zéro et SSR sans JavaScript. Elle n’effectue ni seed, ni paiement, ni opération sur une base de données.
+La suite UI sert le build pré-rendu sur `127.0.0.1:4179` avec les API interceptées, sur Chromium, Firefox, WebKit et mobile WebKit. Elle couvre FR/EN, cohérence avec l’accueil et les avancées publiées, navigation clavier, références admissibles ou absentes, exports et confidentialité, chargement/erreur/reprise, expiration des requêtes, actualisation, registre indisponible, vrai zéro et SSR sans JavaScript. Elle n’effectue ni seed, ni paiement, ni opération sur une base de données.
 
 Les tests Node couvrent les calculs existants PostgreSQL et Stripe direct, les pages Stripe au-delà de 100 éléments, les erreurs de pagination, les devises, les champs exportés et le cache partagé. La suite navigateur couvre également le changement de mois pendant une panne, une réponse issue du cache du mois précédent, les états des frais et les liens avec période/filtre.
 

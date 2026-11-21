@@ -89,6 +89,15 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
           >{{ 'funding.nav.sponsors' | translate }}</a
         >
         <a
+          [routerLink]="progressPath()"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: true }"
+          data-og7="public-progress-nav"
+        >
+          {{ 'funding.nav.progress' | translate }}
+        </a>
+        <a
           [routerLink]="transparencyPath()"
           routerLinkActive="active"
           ariaCurrentWhenActive="page"
@@ -133,5 +142,8 @@ export class FundingHeaderComponent {
   );
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly progressPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/realisations')
   );
 }

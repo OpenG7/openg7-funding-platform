@@ -67,6 +67,63 @@
   </section>
 
   <section
+    class="collective-vision"
+    aria-labelledby="home-collective-vision-title"
+    data-og7="home-collective-vision"
+  >
+    <div class="vision-copy">
+      <p class="vision-kicker">
+        {{ 'funding.home.collectiveVision.kicker' | translate }}
+      </p>
+      <h2 id="home-collective-vision-title">
+        {{ 'funding.home.collectiveVision.title' | translate }}
+      </h2>
+      <p>{{ 'funding.home.collectiveVision.copy' | translate }}</p>
+    </div>
+    <ul class="vision-steps">
+      <li data-og7="home-vision-step" data-og7-id="mobilize">
+        <strong>{{
+          'funding.home.collectiveVision.steps.mobilize.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.home.collectiveVision.steps.mobilize.copy' | translate
+        }}</span>
+      </li>
+      <li data-og7="home-vision-step" data-og7-id="build">
+        <strong>{{
+          'funding.home.collectiveVision.steps.build.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.home.collectiveVision.steps.build.copy' | translate
+        }}</span>
+      </li>
+      <li data-og7="home-vision-step" data-og7-id="document">
+        <strong>{{
+          'funding.home.collectiveVision.steps.document.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.home.collectiveVision.steps.document.copy' | translate
+        }}</span>
+      </li>
+    </ul>
+    <div class="vision-actions">
+      <div data-og7="home-vision-progress">
+        <a [routerLink]="progressPath()" data-og7="home-public-progress">
+          {{ 'funding.collectiveProgressPage.entryCta' | translate }}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+      <button
+        type="button"
+        (click)="scrollToSupport()"
+        data-og7="home-vision-support"
+      >
+        {{ 'funding.nav.supportCta' | translate }}
+      </button>
+    </div>
+  </section>
+
+  <section
     id="ecosystem"
     class="ecosystem-section"
     aria-labelledby="ecosystem-title"

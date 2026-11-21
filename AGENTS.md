@@ -83,6 +83,7 @@ qui correspondent au contenu du diff, puis vérifier leur présence sur la PR.
 | Pilotage administratif, Gamepad, catalogue de commandes | [Pilotage](docs/operations/admin-pilotage.md) et règles Web/API concernées |
 | Schéma ou exécution de migrations | [Migrations et limite de réexécution](docs/operations/database-migrations.md) |
 | Frontière, dépendance ou décision structurante | [Architecture](docs/ARCHITECTURE.md), une seule langue |
+| Stratégie économique, valeur créée, UX contribution/transparence | [Vision économique](docs/vision/economic-refinery.md), sans remplacer les contrats |
 | Choix des vérifications | [Matrice de validation](docs/development/validation.md) |
 | Maintenance des consignes/documentation | [Organisation et budgets](docs/development/documentation.md) |
 

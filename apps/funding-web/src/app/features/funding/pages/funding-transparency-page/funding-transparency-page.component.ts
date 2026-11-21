@@ -86,6 +86,12 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
             <a class="secondary" [routerLink]="homePath()" fragment="support">{{
               'funding.nav.supportCta' | translate
             }}</a>
+            <a
+              class="secondary"
+              [routerLink]="progressPath()"
+              data-og7="transparency-public-progress"
+              >{{ 'funding.collectiveProgressPage.entryCta' | translate }}</a
+            >
           </div>
         </div>
       </section>
@@ -263,7 +269,10 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
           <openg7-funding-transparency-allocations
             [allocations]="transparency.publicAllocations()"
             [hasSnapshot]="transparency.hasSnapshot()"
-            [aboutPath]="aboutPath()"
+            [registryAvailable]="
+              transparency.data()?.data_source === 'database'
+            "
+            [progressPath]="progressPath()"
             [formatMoney]="formatPublicMoney"
             [formatDate]="formatPublicDate"
           />
@@ -366,6 +375,9 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly currentYear = new Date().getFullYear();
   readonly homePath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs')
+  );
+  readonly progressPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/realisations')
   );
   readonly aboutPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')

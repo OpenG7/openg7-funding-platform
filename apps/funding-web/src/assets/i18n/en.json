@@ -168,6 +168,10 @@
         "title": "Builders Fund transparency | OpenG7",
         "description": "View aggregated public Builders Fund data: contributions, fees, estimated availability, and transparency records."
       },
+      "progress": {
+        "title": "What we are building together | OpenG7",
+        "description": "Explore the Builders Fund’s latest public allocations, their declared progress and published references, with their limits."
+      },
       "builders": {
         "title": "OpenG7 Builders | Builders Fund",
         "description": "Discover the public registry of consenting builders, contributors, and sponsors supporting OpenG7 development."
@@ -179,6 +183,81 @@
       "policy": {
         "title": "Usage and refund policy | OpenG7",
         "description": "Builders Fund contributions: request a refund, follow up on a payment and understand sponsorship and public visibility conditions."
+      }
+    },
+    "collectiveProgressPage": {
+      "entryCta": "View published progress",
+      "hero": {
+        "kicker": "Builders Fund · OpenG7",
+        "title": "What we are building together",
+        "copy": "Open tools, a collective effort and progress made visible. Explore the latest published allocations and the information documenting them.",
+        "explore": "Explore progress",
+        "transparency": "View fund transparency"
+      },
+      "intention": {
+        "kicker": "Our intention",
+        "title": "Three guideposts for moving forward",
+        "copy": "A shared direction for developing OpenG7. These guideposts express our intention; the register below presents information that has actually been published.",
+        "support": {
+          "title": "Support",
+          "copy": "Bring people and organizations together around open infrastructure."
+        },
+        "build": {
+          "title": "Build",
+          "copy": "Develop useful tools and make their progress understandable."
+        },
+        "document": {
+          "title": "Document",
+          "copy": "Publish information people can consult and the references available."
+        }
+      },
+      "publications": {
+        "kicker": "The public register",
+        "title": "The latest published progress",
+        "scope": "This recent overview shows allocations that have been made public. It is not a complete inventory of OpenG7 projects or achievements.",
+        "readingNote": "Progress is declared in the register. A planned allocation proves neither expenditure nor delivery of an outcome. Consult the references directly: their presence does not constitute independent certification."
+      },
+      "state": {
+        "loading": "Reading the public register…",
+        "refreshing": "Refreshing…",
+        "refresh": "Refresh",
+        "retry": "Retry",
+        "initialError": "The public register could not be loaded. Retry to consult the published allocations.",
+        "refreshError": "The refresh failed. The last snapshot consulted is still displayed; it may have changed since that reading.",
+        "checkedAt": "Last successful consultation:",
+        "emptyTitle": "There is room for the register to grow",
+        "empty": "There are no published allocations in the available data. This does not mean that no work has been done.",
+        "unavailableTitle": "Allocation progress is unavailable",
+        "unavailable": "The data currently available does not provide this information. No count of projects or achievements can be inferred. You can consult financial transparency."
+      },
+      "status": {
+        "planned": "Planned",
+        "in_progress": "In progress",
+        "delivered": "Declared delivery"
+      },
+      "allocation": {
+        "expectedOutcome": "Expected outcome",
+        "amount": "Planned allocation",
+        "publishedAt": "Allocation publication",
+        "proofLink": "View the public reference",
+        "proofPublishedAt": "Reference published:",
+        "newTab": "new tab",
+        "noProof": "There is no public reference associated with this allocation.",
+        "deliveredWithoutProof": "The register indicates a declared delivery; no public reference is associated with it."
+      },
+      "participation": {
+        "kicker": "Take part in what comes next",
+        "title": "Two ways to support this ambition",
+        "personal": {
+          "title": "As an individual",
+          "copy": "Explore personal support for OpenG7’s development and review the options before confirming.",
+          "cta": "Explore personal support"
+        },
+        "company": {
+          "title": "As an organization",
+          "copy": "Explore the sponsorship terms and recognition offered, presented before payment.",
+          "cta": "Explore sponsorship"
+        }
       }
     },
     "buildersPage": {
@@ -867,6 +946,25 @@
       }
     },
     "home": {
+      "collectiveVision": {
+        "kicker": "A shared ambition",
+        "title": "Growing open infrastructure together",
+        "copy": "Our intention: gather support, develop useful tools and make progress visible.",
+        "steps": {
+          "mobilize": {
+            "title": "Gather",
+            "copy": "Bring support and resources together"
+          },
+          "build": {
+            "title": "Build",
+            "copy": "Develop useful open tools"
+          },
+          "document": {
+            "title": "Document",
+            "copy": "Share progress and available references"
+          }
+        }
+      },
       "checkout": {
         "successAlt": "Black and gold dragon dropping coins into a safe",
         "cancelAlt": "Closed safe guarded by a dragon",
@@ -1119,6 +1217,7 @@
       "builders": "Builders",
       "sponsors": "Sponsors",
       "transparency": "Transparency",
+      "progress": "Our progress",
       "impact": "Impact",
       "about": "About",
       "contact": "Contact",
@@ -1533,14 +1632,16 @@
         "learnMore": "Understand how the fund is used"
       },
       "expenses": {
-        "title": "Published allocations and achievements",
+        "title": "Latest published allocations",
         "empty": "No published allocations in the available data.",
-        "info": "The latest published allocations, their progress and evidence. An allocated amount is not proof of an expense or delivery.",
+        "unavailable": "Published allocation tracking is unavailable from this data source.",
+        "info": "A recent view of published allocations and their declared progress. An allocated amount is not proof of an expense or delivery. This view is not an exhaustive history.",
+        "referenceNote": "Public references are available to consult; they do not constitute independent certification of delivery.",
         "proof": "View public proof",
         "progress": {
           "planned": "Planned",
           "inProgress": "In progress",
-          "delivered": "Delivered"
+          "delivered": "Declared delivery"
         },
         "published": "Published:"
       },

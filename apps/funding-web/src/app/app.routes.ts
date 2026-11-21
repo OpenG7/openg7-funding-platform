@@ -77,6 +77,14 @@ const publicRoutes: Routes = [
     data: { language: 'fr-CA' }
   },
   {
+    path: 'fonds-des-batisseurs/realisations',
+    loadComponent: () =>
+      import('./features/funding/pages/funding-progress-page/funding-progress-page.component.js').then(
+        (m) => m.FundingProgressPageComponent
+      ),
+    data: { language: 'fr-CA' }
+  },
+  {
     path: 'fonds-des-batisseurs/transparence',
     loadComponent: () =>
       import('./features/funding/pages/funding-transparency-page/funding-transparency-page.component.js').then(

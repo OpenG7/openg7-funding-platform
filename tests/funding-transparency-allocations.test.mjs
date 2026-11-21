@@ -2,12 +2,14 @@ import { fundingBaseTranslations } from './support/funding-base-translations.mjs
 import '@angular/compiler';
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs';
+import { registerHooks } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -38,6 +40,7 @@ const catalogs = Object.fromEntries(
 );
 let compiledDirectory;
 let AllocationsComponent;
+let workspaceHook;
 
 before(async () => {
   // Compile the real signal-input component and its external template for SSR;
@@ -89,6 +92,19 @@ before(async () => {
     })
   );
   program.emit();
+  const coreFile = join(
+    compiledDirectory,
+    'packages/funding-core/src/index.js'
+  );
+  assert.ok(existsSync(coreFile), 'the SSR compilation must emit Funding core');
+  workspaceHook = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === '@openg7/funding-core') {
+        return { url: pathToFileURL(coreFile).href, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    }
+  });
   ({ FundingTransparencyAllocationsComponent: AllocationsComponent } =
     await import(
       pathToFileURL(
@@ -98,6 +114,7 @@ before(async () => {
 });
 
 after(() => {
+  workspaceHook?.deregister();
   if (
     compiledDirectory &&
     compiledDirectory.startsWith(
@@ -111,15 +128,17 @@ after(() => {
 async function render({
   allocations = [],
   hasSnapshot = true,
+  registryAvailable = true,
   locale = 'fr-CA'
 } = {}) {
   const moneyCalls = [];
   const dateCalls = [];
-  const aboutPath = `${locale === 'en' ? '/en' : ''}/fonds-des-batisseurs/a-propos`;
+  const progressPath = `${locale === 'en' ? '/en' : ''}/fonds-des-batisseurs/realisations`;
   class AllocationsFixture {
     allocations = allocations;
     hasSnapshot = hasSnapshot;
-    aboutPath = aboutPath;
+    registryAvailable = registryAvailable;
+    progressPath = progressPath;
     formatMoney = (value, currency) => {
       moneyCalls.push([value, currency]);
       return `${value.toFixed(2)} ${currency}`;
@@ -134,7 +153,8 @@ async function render({
     standalone: true,
     imports: [AllocationsComponent],
     template: `<openg7-funding-transparency-allocations
-      [allocations]="allocations" [hasSnapshot]="hasSnapshot" [aboutPath]="aboutPath"
+      [allocations]="allocations" [hasSnapshot]="hasSnapshot"
+      [registryAvailable]="registryAvailable" [progressPath]="progressPath"
       [formatMoney]="formatMoney" [formatDate]="formatDate" />`
   })(AllocationsFixture);
   const html = await renderApplication(
@@ -163,7 +183,7 @@ async function render({
       allowedHosts: ['localhost']
     }
   );
-  return { html, moneyCalls, dateCalls, aboutPath };
+  return { html, moneyCalls, dateCalls, progressPath };
 }
 
 const completeAllocation = {
@@ -184,7 +204,7 @@ const completeAllocation = {
 
 for (const locale of ['fr-CA', 'en']) {
   test(`published allocations render public description, outcome, progress and evidence in ${locale}`, async () => {
-    const { html, moneyCalls, dateCalls, aboutPath } = await render({
+    const { html, moneyCalls, dateCalls, progressPath } = await render({
       allocations: [completeAllocation],
       locale
     });
@@ -195,7 +215,14 @@ for (const locale of ['fr-CA', 'en']) {
       completeAllocation.expected_outcome,
       completeAllocation.proof_source,
       catalogs[locale].funding.transparencyPage.expenses.info,
-      catalogs[locale].funding.transparencyPage.expenses.progress.inProgress
+      catalogs[locale].funding.transparencyPage.expenses.referenceNote,
+      catalogs[locale].funding.transparencyPage.expenses.progress.inProgress,
+      catalogs[locale].funding.collectiveProgressPage.allocation.amount,
+      catalogs[locale].funding.collectiveProgressPage.allocation
+        .expectedOutcome,
+      catalogs[locale].funding.collectiveProgressPage.allocation.publishedAt,
+      catalogs[locale].funding.collectiveProgressPage.allocation
+        .proofPublishedAt
     ]) {
       assert.ok(html.includes(text), `missing public allocation text: ${text}`);
     }
@@ -205,7 +232,8 @@ for (const locale of ['fr-CA', 'en']) {
     assert.ok(proofLink);
     assert.match(proofLink, /target="_blank"/);
     assert.match(proofLink, /rel="noopener noreferrer"/);
-    assert.ok(html.includes(`href="${aboutPath}#about-mission-title"`));
+    assert.ok(html.includes(`href="${progressPath}"`));
+    assert.ok(!html.includes(`${progressPath}#`));
     assert.deepEqual(moneyCalls, [[125, 'CAD']]);
     assert.deepEqual(dateCalls, [
       completeAllocation.published_at,
@@ -216,6 +244,42 @@ for (const locale of ['fr-CA', 'en']) {
       /private-synthetic|notes_admin|stripe_transfer_id/
     );
   });
+
+  for (const [scenario, proofUrl] of [
+    ['no published link', null],
+    ['a credential-bearing link', 'https://user:secret@example.test/private']
+  ]) {
+    test(`declared delivery with ${scenario} preserves its warning and omits reference metadata in ${locale}`, async () => {
+      const { html, dateCalls } = await render({
+        locale,
+        allocations: [
+          {
+            ...completeAllocation,
+            progress_status: 'delivered',
+            proof_url: proofUrl,
+            proof_source: 'suppressed-reference-source',
+            proof_published_at: '2035-01-01T12:00:00.000Z'
+          }
+        ]
+      });
+      assert.ok(
+        html.includes(
+          locale === 'en' ? 'Declared delivery' : 'Livraison déclarée'
+        )
+      );
+      assert.ok(
+        html.includes(
+          catalogs[locale].funding.collectiveProgressPage.allocation
+            .deliveredWithoutProof
+        )
+      );
+      assert.doesNotMatch(
+        html,
+        /user:secret|suppressed-reference-source|2035-01-01|target="_blank"/
+      );
+      assert.deepEqual(dateCalls, [completeAllocation.published_at]);
+    });
+  }
 }
 
 test('partial allocation preserves its confirmed zero and currency without inventing dates or evidence', async () => {
@@ -246,7 +310,14 @@ test('partial allocation preserves its confirmed zero and currency without inven
   assert.deepEqual(dateCalls, []);
   assert.doesNotMatch(html, /target="_blank"|date:|null|undefined/);
   assert.ok(
-    !html.includes(catalogs['fr-CA'].funding.transparencyPage.state.unavailable)
+    html.includes(
+      catalogs['fr-CA'].funding.collectiveProgressPage.allocation.noProof
+    )
+  );
+  assert.ok(
+    !html.includes(
+      catalogs['fr-CA'].funding.transparencyPage.expenses.unavailable
+    )
   );
 });
 
@@ -262,7 +333,9 @@ test('proof without source or publication date uses its public fallback label', 
     ]
   });
   assert.ok(
-    html.includes(catalogs['fr-CA'].funding.transparencyPage.expenses.proof)
+    html.includes(
+      catalogs['fr-CA'].funding.collectiveProgressPage.allocation.proofLink
+    )
   );
   assert.deepEqual(dateCalls, []);
   assert.match(html, /href="https:\/\/example\.test\/preuve"/);
@@ -271,6 +344,7 @@ test('proof without source or publication date uses its public fallback label', 
 test('empty confirmed snapshot and unavailable snapshot remain separate states', async () => {
   const empty = await render();
   const unavailable = await render({ hasSnapshot: false });
+  const stripeDirect = await render({ registryAvailable: false });
   assert.ok(
     empty.html.includes(
       catalogs['fr-CA'].funding.transparencyPage.expenses.empty
@@ -278,19 +352,45 @@ test('empty confirmed snapshot and unavailable snapshot remain separate states',
   );
   assert.ok(
     !empty.html.includes(
-      catalogs['fr-CA'].funding.transparencyPage.state.unavailable
-    )
-  );
-  assert.ok(
-    unavailable.html.includes(
-      catalogs['fr-CA'].funding.transparencyPage.state.unavailable
-    )
-  );
-  assert.ok(
-    !unavailable.html.includes(
-      catalogs['fr-CA'].funding.transparencyPage.expenses.empty
+      catalogs['fr-CA'].funding.transparencyPage.expenses.unavailable
     )
   );
   assert.deepEqual(empty.moneyCalls, []);
-  assert.deepEqual(unavailable.moneyCalls, []);
+  for (const result of [unavailable, stripeDirect]) {
+    assert.ok(
+      result.html.includes(
+        catalogs['fr-CA'].funding.transparencyPage.expenses.unavailable
+      )
+    );
+    assert.ok(
+      !result.html.includes(
+        catalogs['fr-CA'].funding.transparencyPage.expenses.empty
+      )
+    );
+    assert.ok(result.html.includes(`href="${result.progressPath}"`));
+    assert.deepEqual(result.moneyCalls, []);
+  }
 });
+
+for (const [scenario, flags] of [
+  ['a missing snapshot', { hasSnapshot: false }],
+  ['an unavailable allocation register', { registryAvailable: false }]
+]) {
+  test(`${scenario} hides stale allocations without formatting them as confirmed data`, async () => {
+    const { html, moneyCalls, dateCalls } = await render({
+      ...flags,
+      allocations: [completeAllocation]
+    });
+    assert.doesNotMatch(
+      html,
+      /Services ouverts|Description publique exacte|Résultat attendu public|Démonstration publique|example\.test\/preuve|125\.00|date:|0\.00/
+    );
+    assert.ok(
+      html.includes(
+        catalogs['fr-CA'].funding.transparencyPage.expenses.unavailable
+      )
+    );
+    assert.deepEqual(moneyCalls, []);
+    assert.deepEqual(dateCalls, []);
+  });
+}
