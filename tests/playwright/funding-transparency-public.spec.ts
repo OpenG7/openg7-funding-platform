@@ -1,3 +1,4 @@
+import { AxeBuilder } from '@axe-core/playwright';
 import type { Download, Page } from '@playwright/test';
 
 import { expect, sampledFrames, test } from './support/test.js';
@@ -141,7 +142,7 @@ for (const locale of [
       hook(page, 'published-allocations').getByRole('link').last()
     ).toHaveAttribute(
       'href',
-      locale.prefix + '/fonds-des-batisseurs/a-propos#about-mission-title'
+      locale.prefix + '/fonds-des-batisseurs/realisations'
     );
     await expect(
       page.getByRole('link', { name: /Démonstration publique/ })
@@ -204,6 +205,116 @@ for (const locale of [
     await expect(page.locator('#support')).toBeVisible();
     // The home page consumes the same monthly contribution and campaign goal.
     await expect(hook(page, 'home-funding-progress')).toContainText(/50\s*%/);
+  });
+}
+
+for (const prefix of ['', '/en']) {
+  test(`allocation references and declared delivery stay consistent with published progress ${prefix || 'fr'}`, async ({
+    page
+  }, info) => {
+    const rows = [
+      {
+        ...report.latest_public_allocations[0],
+        project_name: 'Prévision synthétique',
+        amount_allocated: 0,
+        progress_status: 'planned',
+        proof_url: null,
+        proof_source: null,
+        proof_published_at: null
+      },
+      {
+        ...report.latest_public_allocations[0],
+        project_name: 'Livraison déclarée sans référence admissible',
+        progress_status: 'delivered',
+        proof_url:
+          'https://synthetic-user@simulation.example.test/private-proof',
+        proof_source: 'REFERENCE-TO-OMIT',
+        proof_published_at: '2026-09-12T12:00:00.000Z'
+      },
+      {
+        ...report.latest_public_allocations[0],
+        project_name: 'Livraison déclarée documentée',
+        progress_status: 'delivered'
+      }
+    ];
+    await page.route('**/public/fund-transparency', (route) =>
+      route.fulfill({ json: { ...report, latest_public_allocations: rows } })
+    );
+    await page.goto(prefix + path);
+    const panel = hook(page, 'published-allocations');
+    const allocations = hook(page, 'transparency-allocation');
+    await expect(allocations).toHaveCount(3);
+    await expect(allocations.nth(0)).toContainText(/0[,.]00/);
+    await expect(allocations.nth(0)).toContainText(
+      prefix ? 'Planned allocation' : 'Affectation prévue'
+    );
+    await expect(allocations.nth(1)).toContainText(
+      prefix ? 'Declared delivery' : 'Livraison déclarée'
+    );
+    await expect(allocations.nth(1)).toContainText(
+      prefix ? /reference/i : /référence/i
+    );
+    await expect(hook(page, 'transparency-allocation-no-proof')).toHaveCount(2);
+    await expect(hook(page, 'transparency-allocation-proof')).toHaveCount(1);
+    await expect(hook(page, 'transparency-allocation-proof')).toHaveAttribute(
+      'href',
+      report.latest_public_allocations[0].proof_url
+    );
+    await expect(hook(page, 'transparency-allocation-proof')).toHaveAttribute(
+      'rel',
+      'noopener noreferrer'
+    );
+    await expect(panel).not.toContainText('REFERENCE-TO-OMIT');
+    await expect(panel.locator('a[href*="synthetic-user"]')).toHaveCount(0);
+    await expect(hook(page, 'transparency-totals')).toContainText(
+      /2[\s,]?135[,.]00/
+    );
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-og7="published-allocations"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(accessibility.violations.map((item) => item.id)).toEqual([]);
+    await panel.screenshot({
+      path: info.outputPath(
+        'transparent-progress-' + (prefix ? 'en' : 'fr') + '.png'
+      )
+    });
+    await hook(page, 'transparency-allocations-progress').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(prefix + '/fonds-des-batisseurs/realisations');
+    await expect(hook(page, 'progress-allocation')).toHaveCount(3);
+    await expect(hook(page, 'progress-no-proof')).toHaveCount(2);
+    await expect(hook(page, 'progress-proof')).toHaveCount(1);
+  });
+}
+
+for (const source of ['database', 'stripe_direct', 'empty']) {
+  test(`allocation availability follows the public registry rather than financial source ${source}`, async ({
+    page
+  }) => {
+    await page.route('**/public/fund-transparency', (route) =>
+      route.fulfill({ json: { ...emptyReport, data_source: source } })
+    );
+    await page.goto(path);
+    await expect(
+      hook(
+        page,
+        source === 'database'
+          ? 'transparency-allocations-empty'
+          : 'transparency-allocations-unavailable'
+      )
+    ).toBeVisible();
+    await expect(
+      hook(
+        page,
+        source === 'database'
+          ? 'transparency-allocations-unavailable'
+          : 'transparency-allocations-empty'
+      )
+    ).toHaveCount(0);
+    await expect(hook(page, 'transparency-allocation')).toHaveCount(0);
+    if (source === 'stripe_direct')
+      await expect(hook(page, 'transparency-json')).toBeEnabled();
   });
 }
 
@@ -327,10 +438,10 @@ test('one public load feeds all panels and partial allocations keep zero, eviden
   await expect(allocations).toContainText('CAD');
   await expect(allocations).toContainText('Prévu');
   await expect(allocations).toContainText(
-    'Un montant alloué ne constitue pas une preuve de dépense ni de livraison.'
+    'Un montant affecté ne constitue pas une preuve de dépense ni de livraison.'
   );
   await expect(
-    allocations.getByRole('link', { name: 'Voir la preuve publique' })
+    allocations.getByRole('link', { name: /Consulter la référence publique/ })
   ).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(allocations.getByRole('link')).toHaveCount(2);
   await expect(allocations).not.toContainText(/private|Invalid Date|null/);

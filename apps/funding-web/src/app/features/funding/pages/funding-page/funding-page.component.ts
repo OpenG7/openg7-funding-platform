@@ -131,6 +131,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
+  readonly progressPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/realisations')
+  );
 
   readonly publicValueUnavailableLabel = computed<string>(() => {
     this.i18n.trackTranslationState();

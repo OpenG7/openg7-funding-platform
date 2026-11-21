@@ -1,8 +1,13 @@
 # Documentation de la plateforme
 
-Révision : 29 octobre 2026.
+Révision : 21 novembre 2026.
 L'[état de la plateforme](platform-status.md) distingue fonctions livrées,
 préconditions et preuves, sans présumer leur activation en production.
+
+## Vision stratégique
+
+La [raffinerie économique](vision/economic-refinery.md) conserve l'intention
+fondatrice, distincte des fonctions et contrats; lecture selon la tâche.
 
 ## Guides fonctionnels actuels
 
@@ -16,27 +21,24 @@ partagées, propriétaires et vérifications.
 Blueprints : [pages de la plateforme](development/platform-functional-visual-blueprint.md)
 et [démo des prestations](development/service-demo-blueprint/README.md).
 
-La [référence CSS et frameworks](development/css-frameworks.md) présente l'inventaire
-reproductible, l'intégration Tailwind et les correspondances avec Material/CDK.
+La [référence CSS et frameworks](development/css-frameworks.md) décrit
+l'intégration Tailwind et les correspondances Material/CDK.
 
 Références techniques extraites du README : [configuration](technical/configuration.md),
 [API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
 [Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.
 
-L’[inventaire des barrières de sécurité](technical/security-barriers.md) décrit
-le bouclier intégré, ses preuves de code et de tests, ses conditions d’activation
-et ses limites. Les résultats de validation y sont datés et rattachés à la
-révision examinée ; ils ne certifient pas l’état de production.
+L’[inventaire des barrières de sécurité](technical/security-barriers.md) relie
+contrôles, preuves datées, préconditions et limites, sans certifier la production.
 
 L’[inventaire daté des 71 scénarios de bout en bout](development/end-to-end-scenarios-inventory.md)
-conserve les parcours recensés pour préparer les prochaines recettes. Ses numéros
-servent de repères ; la présence d’un scénario ne constitue pas une preuve de test.
+prépare les recettes; un scénario recensé ne constitue pas une preuve de test.
 
 | Parcours                                                      | Référence                                                                                                                                     |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fonds, montants et retour Checkout                            | [Accueil](funding-home.md), [confirmation des paiements](payment-trust-validation.md)                                                         |
 | À propos et navigation entre pages                            | [À propos](funding-about.md)                                                                                                                  |
-| Totaux, frais, allocations, filtres et exports                | [Transparence](funding-transparency.md)                                                                                                       |
+| Totaux, frais, allocations, filtres et exports                | [Transparence](funding-transparency.md), [Réalisations](public-progress.md)                                                                   |
 | Annuaire, consentements et médias des commanditaires          | [Commanditaires](public-sponsors.md)                                                                                                          |
 | Reconnaissance personnelle, aide et recherche de contribution | [Bâtisseurs et support](public-builders-and-support.md)                                                                                       |
 | Suivi privé, récupération et brouillons                       | [Accès et brouillons](sponsorship-access-and-drafts.md)                                                                                       |

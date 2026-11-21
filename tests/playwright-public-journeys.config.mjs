@@ -9,7 +9,8 @@ export default definePublicPageSuite({
     'public-journeys.spec.ts',
     'funding-tailwind.spec.ts',
     'support-page.spec.ts',
-    'refund-policy.spec.ts'
+    'refund-policy.spec.ts',
+    'public-progress.spec.ts'
   ],
   outputDir: '../test-results/public-journeys',
   projects: publicJourneyProjects()

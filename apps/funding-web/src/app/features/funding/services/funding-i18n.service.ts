@@ -19,6 +19,7 @@ export type FundingCanonicalPath =
   | '/commanditaires'
   | '/fonds-des-batisseurs/a-propos'
   | '/fonds-des-batisseurs/transparence'
+  | '/fonds-des-batisseurs/realisations'
   | '/fonds-des-batisseurs/suivi-commandite'
   | '/politique-utilisation-remboursement';
 
@@ -36,6 +37,7 @@ const supportedCanonicalPaths: readonly FundingCanonicalPath[] = [
   '/commanditaires',
   '/fonds-des-batisseurs/a-propos',
   '/fonds-des-batisseurs/transparence',
+  '/fonds-des-batisseurs/realisations',
   '/fonds-des-batisseurs/suivi-commandite',
   '/politique-utilisation-remboursement'
 ];

@@ -168,6 +168,10 @@
         "title": "Transparence du Fonds des bâtisseurs | OpenG7",
         "description": "Consultez les données publiques agrégées du Fonds des bâtisseurs : contributions, frais, disponibilité estimée et registre de transparence."
       },
+      "progress": {
+        "title": "Ce que nous construisons ensemble | OpenG7",
+        "description": "Découvrez les dernières affectations publiques du Fonds des bâtisseurs, leur avancement déclaré et les références publiées, avec leurs limites."
+      },
       "builders": {
         "title": "Bâtisseurs OpenG7 | Fonds des bâtisseurs",
         "description": "Découvrez le registre public des bâtisseurs, contributeurs et commanditaires consentis qui soutiennent le développement d'OpenG7."
@@ -179,6 +183,81 @@
       "policy": {
         "title": "Politique d'utilisation et de remboursement | OpenG7",
         "description": "Contributions au Fonds des Bâtisseurs : demander un remboursement, suivre son paiement et comprendre les conditions de commandite et de visibilité."
+      }
+    },
+    "collectiveProgressPage": {
+      "entryCta": "Voir les avancées publiées",
+      "hero": {
+        "kicker": "Fonds des bâtisseurs · OpenG7",
+        "title": "Ce que nous construisons ensemble",
+        "copy": "Des outils ouverts, un effort collectif et des avancées à rendre visibles. Retrouvez les dernières affectations publiées et les éléments qui les documentent.",
+        "explore": "Explorer les avancées",
+        "transparency": "Consulter la transparence"
+      },
+      "intention": {
+        "kicker": "Notre intention",
+        "title": "Trois repères pour avancer",
+        "copy": "Un cap commun pour développer OpenG7. Ces repères expriment notre intention ; le registre ci-dessous présente les informations effectivement publiées.",
+        "support": {
+          "title": "Soutenir",
+          "copy": "Rassembler des personnes et des organisations autour d’une infrastructure ouverte."
+        },
+        "build": {
+          "title": "Construire",
+          "copy": "Développer des outils utiles et rendre leur avancement compréhensible."
+        },
+        "document": {
+          "title": "Documenter",
+          "copy": "Publier des informations consultables et les références disponibles."
+        }
+      },
+      "publications": {
+        "kicker": "Le registre public",
+        "title": "Les dernières avancées publiées",
+        "scope": "Cet aperçu récent reprend les affectations rendues publiques. Il ne constitue pas un inventaire complet des projets ou des réalisations d’OpenG7.",
+        "readingNote": "L’avancement est déclaré dans le registre. Une affectation prévue ne prouve ni une dépense ni la livraison d’un résultat. Les références sont à consulter directement : leur présence ne constitue pas une certification indépendante."
+      },
+      "state": {
+        "loading": "Consultation du registre public…",
+        "refreshing": "Actualisation…",
+        "refresh": "Actualiser",
+        "retry": "Réessayer",
+        "initialError": "Le registre public n’a pas pu être chargé. Réessayez pour consulter les affectations publiées.",
+        "refreshError": "L’actualisation a échoué. Le dernier instantané consulté reste affiché ; il peut avoir changé depuis cette lecture.",
+        "checkedAt": "Dernière consultation réussie :",
+        "emptyTitle": "Le registre peut encore s’enrichir",
+        "empty": "Aucune affectation publiée ne figure dans les données disponibles. Cela ne signifie pas qu’aucun travail n’a été réalisé.",
+        "unavailableTitle": "Le suivi des affectations est indisponible",
+        "unavailable": "Les données actuellement accessibles ne fournissent pas ce suivi. Aucun nombre de projets ou de réalisations ne peut en être déduit. Vous pouvez consulter la transparence financière."
+      },
+      "status": {
+        "planned": "Prévu",
+        "in_progress": "En cours",
+        "delivered": "Livraison déclarée"
+      },
+      "allocation": {
+        "expectedOutcome": "Résultat attendu",
+        "amount": "Affectation prévue",
+        "publishedAt": "Publication de l’affectation",
+        "proofLink": "Consulter la référence publique",
+        "proofPublishedAt": "Publication de la référence :",
+        "newTab": "nouvel onglet",
+        "noProof": "Aucune référence publique n’est associée à cette affectation.",
+        "deliveredWithoutProof": "Le registre indique une livraison déclarée ; aucune référence publique n’y est associée."
+      },
+      "participation": {
+        "kicker": "Prendre part à la suite",
+        "title": "Deux façons de soutenir cette ambition",
+        "personal": {
+          "title": "À titre personnel",
+          "copy": "Choisir un soutien personnel au développement d’OpenG7 et consulter les options proposées avant de confirmer.",
+          "cta": "Explorer le soutien personnel"
+        },
+        "company": {
+          "title": "Comme organisation",
+          "copy": "Découvrir les conditions de commandite et la reconnaissance proposée, présentées avant le paiement.",
+          "cta": "Découvrir la commandite"
+        }
       }
     },
     "buildersPage": {
@@ -867,6 +946,25 @@
       }
     },
     "home": {
+      "collectiveVision": {
+        "kicker": "Une ambition commune",
+        "title": "Faire grandir une infrastructure ouverte, ensemble",
+        "copy": "Notre intention : mobiliser des soutiens, développer des outils utiles et rendre les avancées consultables.",
+        "steps": {
+          "mobilize": {
+            "title": "Mobiliser",
+            "copy": "Rassembler les soutiens et les ressources"
+          },
+          "build": {
+            "title": "Construire",
+            "copy": "Développer des outils ouverts et utiles"
+          },
+          "document": {
+            "title": "Documenter",
+            "copy": "Partager les avancées et les références disponibles"
+          }
+        }
+      },
       "checkout": {
         "successAlt": "Dragon noir et or déposant des pièces dans un coffre-fort",
         "cancelAlt": "Coffre-fort fermé gardé par un dragon",
@@ -1119,6 +1217,7 @@
       "builders": "Bâtisseurs",
       "sponsors": "Commanditaires",
       "transparency": "Transparence",
+      "progress": "Nos avancées",
       "impact": "Impact",
       "about": "À propos",
       "contact": "Nous joindre",
@@ -1533,14 +1632,16 @@
         "learnMore": "Comprendre l’utilisation du fonds"
       },
       "expenses": {
-        "title": "Allocations et réalisations publiées",
+        "title": "Dernières affectations publiées",
         "empty": "Aucune allocation publiée dans les données disponibles.",
-        "info": "Les dernières allocations publiées, leur avancement et leurs preuves. Un montant alloué ne constitue pas une preuve de dépense ni de livraison.",
+        "unavailable": "Le suivi des affectations publiées est indisponible dans cette source de données.",
+        "info": "Un aperçu récent des affectations publiées et de leur avancement déclaré. Un montant affecté ne constitue pas une preuve de dépense ni de livraison. Cet aperçu n’est pas un historique exhaustif.",
+        "referenceNote": "Les références publiques sont consultables ; elles ne constituent pas une certification indépendante de livraison.",
         "proof": "Voir la preuve publique",
         "progress": {
           "planned": "Prévu",
           "inProgress": "En cours",
-          "delivered": "Livré"
+          "delivered": "Livraison déclarée"
         },
         "published": "Publication :"
       },

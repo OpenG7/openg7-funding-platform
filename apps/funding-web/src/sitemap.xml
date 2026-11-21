@@ -154,6 +154,22 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://openg7.org/fonds-des-batisseurs/realisations</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs/realisations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs/realisations" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/fonds-des-batisseurs/realisations" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/fonds-des-batisseurs/realisations</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs/realisations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs/realisations" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/fonds-des-batisseurs/realisations" />
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://openg7.org/en/fonds-des-batisseurs/transparence</loc>
     <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs/transparence" />
     <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs/transparence" />

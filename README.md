@@ -6,6 +6,8 @@ Reusable, transparent and configurable funding engine for OpenG7 ecosystem proje
 See [platform status](docs/platform-status.md) for delivered features and dated
 execution evidence, and the [documentation index](docs/README.md) for current guides.
 Historical MVP/lot reports describe earlier revisions, not the current backlog.
+The [economic vision](docs/vision/economic-refinery.md) records the founding intent
+separately from delivered features and commercial commitments.
 
 ## Quick start
 

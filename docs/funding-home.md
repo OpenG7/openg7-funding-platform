@@ -15,6 +15,19 @@ pour demander la présélection du type entreprise, sous réserve de son activat
 côté serveur. Les consentements restent à remplir; un choix personnel explicite
 du visiteur est préservé si la configuration arrive tard.
 
+## Du cap collectif aux avancées publiées
+
+Sous la bannière, un encart FR/EN présente l'intention collective : mobiliser,
+construire et documenter. Il oriente vers les [avancées publiées](public-progress.md)
+avant les cartes de l'écosystème et renvoie au formulaire existant en déplaçant
+le focus vers `#support`. Ces repères ne constituent pas un état d'avancement
+ni une attribution individuelle des contributions aux projets.
+
+Le soutien personnel et la commandite restent définis dans le formulaire et
+dans l'offre applicable. Cet encart ne sélectionne aucun type de contribution,
+ne coche aucun consentement et ne modifie ni prix ni prestation. Son contenu
+reste lisible si les données publiques sont indisponibles.
+
 ## Montants
 
 `GET /api/public/funding-config` expose désormais `allowed_contribution_amounts`,
@@ -93,3 +106,8 @@ Docker, ni Stripe, ni données de production. Elle couvre les montants, les
 consentements, la confirmation serveur, les erreurs de transparence, le changement
 de mois, les réponses tardives, la reprise et le clavier. Le build Angular valide
 également les templates et le prérendu FR/EN.
+
+L'encart du cap collectif et ses liens sont couverts par
+[`public-progress.spec.ts`](../tests/playwright/public-progress.spec.ts), dans
+`yarn test:ui:public-journeys` : FR/EN, clavier, consentements inchangés,
+indisponibilité des données, accessibilité et mobile.

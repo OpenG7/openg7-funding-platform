@@ -10,6 +10,7 @@
 
 h2,
 h3,
+h4,
 p {
   @apply tw:mt-0;
 }
@@ -48,7 +49,8 @@ a:focus-visible {
 
 .allocation {
   border-top: 1px solid var(--border-color);
-  padding: 1rem 0;
+  padding: 1.25rem 0;
+  overflow-wrap: anywhere;
 }
 
 .allocation h3 {
@@ -61,11 +63,86 @@ a:focus-visible {
 }
 
 .allocation-progress {
-  color: var(--color-gold);
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface-page);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.allocation-progress.progress-in-progress {
+  background: #eef4fa;
+  border-color: #c4d8e8;
+  color: #24465f;
+}
+
+.allocation-progress.progress-delivered {
+  background: #f8f2e4;
+  border-color: #e3d4ad;
+  color: #635022;
+}
+
+.allocation-outcome h4,
+.allocation-facts dt {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.allocation-outcome {
+  margin-top: 1rem;
+}
+
+.allocation-outcome p {
+  margin-top: 0.25rem;
+}
+
+.allocation-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.allocation-facts dd {
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0.25rem 0 0;
+}
+
+.allocation-reference {
+  border-left: 2px solid var(--border-color);
+  padding-left: 0.85rem;
+  font-size: 0.9rem;
+}
+
+.reference-note,
+.registry-state {
+  font-size: 0.9rem;
+}
+
+.progress-link {
+  display: inline-block;
+  font-weight: 600;
+}
+
+.sr-only {
+  @apply tw:sr-only;
 }
 
 @media (max-width: 540px) {
   .panel {
     @apply tw:p-4;
+  }
+
+  .allocation-facts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

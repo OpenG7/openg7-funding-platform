@@ -1,59 +1,129 @@
 <article class="panel expenses-panel" data-og7="published-allocations">
   <h2>{{ 'funding.transparencyPage.expenses.title' | translate }}</h2>
   <p>{{ 'funding.transparencyPage.expenses.info' | translate }}</p>
-  @for (allocation of allocations(); track $index) {
-    <div class="allocation">
-      <h3>{{ allocation.project_name }}</h3>
-      <strong>{{
-        formatMoney()(allocation.amount_allocated, allocation.currency)
-      }}</strong>
-      @if (allocation.public_description) {
-        <p>{{ allocation.public_description }}</p>
-      }
-      @if (allocation.expected_outcome) {
-        <p>{{ allocation.expected_outcome }}</p>
-      }
-      <p class="allocation-progress">
-        {{
-          'funding.transparencyPage.expenses.progress.' +
-            (allocation.progress_status === 'in_progress'
-              ? 'inProgress'
-              : allocation.progress_status) | translate
-        }}
-      </p>
-      @if (allocation.published_at) {
-        <p>
-          {{ 'funding.transparencyPage.expenses.published' | translate }}
-          {{ formatDate()(allocation.published_at) }}
-        </p>
-      }
-      @if (allocation.proof_url) {
-        <a
-          [href]="allocation.proof_url"
-          target="_blank"
-          rel="noopener noreferrer"
+  @if (hasSnapshot() && registryAvailable()) {
+    @for (allocation of displayAllocations(); track $index) {
+      <div class="allocation" data-og7="transparency-allocation">
+        <p
+          class="allocation-progress"
+          [class.progress-in-progress]="
+            allocation.progress_status === 'in_progress'
+          "
+          [class.progress-delivered]="
+            allocation.progress_status === 'delivered'
+          "
+          data-og7="transparency-allocation-status"
         >
           {{
-            allocation.proof_source ||
-              ('funding.transparencyPage.expenses.proof' | translate)
+            'funding.transparencyPage.expenses.progress.' +
+              (allocation.progress_status === 'in_progress'
+                ? 'inProgress'
+                : allocation.progress_status) | translate
           }}
-          @if (allocation.proof_published_at) {
-            <span>({{ formatDate()(allocation.proof_published_at) }})</span>
+        </p>
+        <h3>{{ allocation.project_name }}</h3>
+        @if (allocation.public_description) {
+          <p>{{ allocation.public_description }}</p>
+        }
+        @if (allocation.expected_outcome) {
+          <div class="allocation-outcome">
+            <h4>
+              {{
+                'funding.collectiveProgressPage.allocation.expectedOutcome'
+                  | translate
+              }}
+            </h4>
+            <p>{{ allocation.expected_outcome }}</p>
+          </div>
+        }
+        <dl class="allocation-facts">
+          <div>
+            <dt>
+              {{
+                'funding.collectiveProgressPage.allocation.amount' | translate
+              }}
+            </dt>
+            <dd>
+              {{
+                formatMoney()(allocation.amount_allocated, allocation.currency)
+              }}
+            </dd>
+          </div>
+          @if (allocation.published_at; as published) {
+            <div>
+              <dt>
+                {{
+                  'funding.collectiveProgressPage.allocation.publishedAt'
+                    | translate
+                }}
+              </dt>
+              <dd>
+                <time [attr.datetime]="published">{{
+                  formatDate()(published)
+                }}</time>
+              </dd>
+            </div>
           }
-        </a>
-      }
-    </div>
-  } @empty {
-    <p>
-      {{
-        (hasSnapshot()
-          ? 'funding.transparencyPage.expenses.empty'
-          : 'funding.transparencyPage.state.unavailable'
-        ) | translate
-      }}
+        </dl>
+        <div class="allocation-reference">
+          @if (allocation.proof_url; as proof) {
+            <a
+              [href]="proof"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-og7="transparency-allocation-proof"
+              >{{
+                allocation.proof_source ||
+                  ('funding.collectiveProgressPage.allocation.proofLink'
+                    | translate)
+              }}<span aria-hidden="true"> ↗</span
+              ><span class="sr-only">
+                —
+                {{
+                  'funding.collectiveProgressPage.allocation.newTab' | translate
+                }}</span
+              ></a
+            >
+            @if (allocation.proof_published_at; as proofPublished) {
+              <p>
+                {{
+                  'funding.collectiveProgressPage.allocation.proofPublishedAt'
+                    | translate
+                }}
+                <time [attr.datetime]="proofPublished">{{
+                  formatDate()(proofPublished)
+                }}</time>
+              </p>
+            }
+          } @else {
+            <p data-og7="transparency-allocation-no-proof">
+              {{
+                (allocation.progress_status === 'delivered'
+                  ? 'funding.collectiveProgressPage.allocation.deliveredWithoutProof'
+                  : 'funding.collectiveProgressPage.allocation.noProof'
+                ) | translate
+              }}
+            </p>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p class="registry-state" data-og7="transparency-allocations-empty">
+        {{ 'funding.transparencyPage.expenses.empty' | translate }}
+      </p>
+    }
+  } @else {
+    <p class="registry-state" data-og7="transparency-allocations-unavailable">
+      {{ 'funding.transparencyPage.expenses.unavailable' | translate }}
     </p>
   }
-  <a [routerLink]="aboutPath()" fragment="about-mission-title">{{
-    'funding.transparencyPage.allocation.learnMore' | translate
-  }}</a>
+  <p class="reference-note">
+    {{ 'funding.transparencyPage.expenses.referenceNote' | translate }}
+  </p>
+  <a
+    class="progress-link"
+    [routerLink]="progressPath()"
+    data-og7="transparency-allocations-progress"
+    >{{ 'funding.collectiveProgressPage.entryCta' | translate }}</a
+  >
 </article>
