@@ -21,6 +21,7 @@
     "1": "yarn dev:preflight && yarn dev:web:docker",
     "2": "yarn dev:web:docker:stop",
     "3": "yarn dev:web:docker:restore",
+    "5": "yarn test:e2e:acceptance",
     "menu": "node scripts/menu.mjs",
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
     "dev:preflight": "node scripts/docker-ready.mjs -- docker compose --project-directory ../openg7-preflight --project-name openg7-preflight --env-file ../openg7-preflight/.local/identity-local.env -f ../openg7-preflight/docker-compose.yml -f ../openg7-preflight/compose.identity.local.yml --profile identity-local up -d --wait preflight-web preflight-worker",

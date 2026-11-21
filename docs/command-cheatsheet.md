@@ -43,7 +43,7 @@ Interrompre le relais Stripe ne stoppe pas les conteneurs : utiliser l'arrêt Do
 | Preflight seul | `yarn dev:preflight` |
 | Compilation TypeScript | `yarn build` |
 | Build Angular | `yarn workspace @openg7/funding-web build --configuration production` |
-| Tests Node avec compilation | `yarn test` |
+| Tests Node / CI Docker | `yarn test` / `yarn 5` |
 | Lint / format | `yarn lint` / `yarn format:check` |
 | Documentation TypeDoc | `yarn docs` |
 | Standards, budgets et liens | `yarn docs:check` |
