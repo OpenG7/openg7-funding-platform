@@ -173,6 +173,13 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly hasInvalidCustomContribution = computed(
     () => !this.isAllowedAmount(this.effectiveAmount())
   );
+  readonly hasPendingConfirmations = computed(
+    () =>
+      !this.nonCharityAcknowledged() ||
+      (this.contributionType() === 'sponsorship_interest' &&
+        (!this.offer.accepted() ||
+          (this.charter.charter()?.active && !this.charterAccepted())))
+  );
   readonly canStartCheckout = computed(
     () =>
       this.nonCharityAcknowledged() &&

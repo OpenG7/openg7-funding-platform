@@ -62,7 +62,9 @@ export const renderSponsorshipInvoiceEmail = (
           totalCents: invoice.subtotalCents
         }
       ];
-  const subject = `Facture ${invoice.invoiceNumber} - Commandite OpenG7`;
+  const subject = `Merci pour votre commandite OpenG7 - Facture ${invoice.invoiceNumber}`;
+  const thankYouMessage =
+    'Merci pour votre commandite et pour votre confiance envers OpenG7. Votre soutien nous aide à poursuivre le développement du projet.';
   const issuerLines = [
     invoice.issuerName,
     ...optionalText('Courriel', invoice.issuerEmail),
@@ -77,6 +79,8 @@ export const renderSponsorshipInvoiceEmail = (
   ];
   const text = [
     'Facture de commandite OpenG7',
+    '',
+    thankYouMessage,
     '',
     `Numero de facture: ${invoice.invoiceNumber}`,
     `Reference publique: ${publicReference}`,
@@ -134,6 +138,7 @@ export const renderSponsorshipInvoiceEmail = (
     .join('');
   const html = `
     <h1>Facture de commandite OpenG7</h1>
+    <p>${escapeHtml(thankYouMessage)}</p>
     <p>
       <strong>Numero de facture:</strong> ${escapeHtml(invoice.invoiceNumber)}<br />
       <strong>Reference publique:</strong> ${escapeHtml(publicReference)}<br />

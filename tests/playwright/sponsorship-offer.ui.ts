@@ -537,6 +537,10 @@ export function registerSponsorshipCommitmentTests() {
       await visit(page, english);
       const summary = page.locator('[data-og7="followup-commitment"]'),
         current = summary.locator('[data-og7="followup-current-obligations"]');
+      await expect(current).toBeVisible();
+      await expect(
+        summary.locator('[data-og7="followup-offer-terms"]')
+      ).toHaveJSProperty('open', false);
       await expect(
         summary.locator('openg7-sponsorship-offer-summary')
       ).toContainText('immutable-original-offer');
@@ -617,13 +621,30 @@ export function registerSponsorshipCommitmentTests() {
         });
       });
       await visit(page, english);
-      const summary = page.locator('[data-og7="followup-commitment"]');
-      await expect(summary).toContainText('original-offer-v1');
-      await expect(summary.locator('li')).toHaveCount(saved.benefits.length);
+      const summary = page.locator('[data-og7="followup-commitment"]'),
+        terms = summary.locator('[data-og7="followup-offer-terms"]'),
+        toggle = terms.locator('summary'),
+        savedOffer = terms.locator('openg7-sponsorship-offer-summary');
+      await expect(summary.getByRole('heading', { level: 3 })).toHaveText(
+        english ? 'Your sponsorship terms' : 'Conditions de votre commandite'
+      );
+      await expect(toggle).toHaveText(
+        english ? 'View terms' : 'Voir les conditions'
+      );
+      await expect(terms).toHaveJSProperty('open', false);
       await expect(
-        summary.locator('[data-og7-id="facebook_batch"] strong')
+        savedOffer.getByText('original-offer-v1', { exact: false })
+      ).toBeHidden();
+      await toggle.focus();
+      await toggle.press('Enter');
+      await expect(terms).toHaveJSProperty('open', true);
+      await expect(savedOffer).toBeVisible();
+      await expect(savedOffer).toContainText('original-offer-v1');
+      await expect(savedOffer.locator('li')).toHaveCount(saved.benefits.length);
+      await expect(
+        savedOffer.locator('[data-og7-id="facebook_batch"] strong')
       ).toContainText('4 ×');
-      await expect(summary).toContainText(
+      await expect(savedOffer).toContainText(
         english
           ? 'no fixed publication deadline'
           : 'Aucun délai de publication fixe'
@@ -637,6 +658,14 @@ export function registerSponsorshipCommitmentTests() {
             .analyze()
         ).violations
       ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      await toggle.press('Enter');
+      await expect(terms).toHaveJSProperty('open', false);
+      await expect(savedOffer).toBeHidden();
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -669,6 +698,9 @@ export function registerSponsorshipCommitmentTests() {
           : 'ne signifie pas qu’aucune prestation n’a été convenue'
       );
       await expect(summary.getByRole('status')).toBeVisible();
+      await expect(
+        summary.locator('[data-og7="followup-offer-terms"]')
+      ).toHaveCount(0);
       await expect(summary.locator('li')).toHaveCount(0);
       current = {
         ...current,
@@ -685,6 +717,9 @@ export function registerSponsorshipCommitmentTests() {
           exact: true
         })
         .click();
+      const terms = summary.locator('[data-og7="followup-offer-terms"]');
+      await expect(terms).toHaveJSProperty('open', false);
+      await terms.locator('summary').click();
       await expect(summary).toContainText('qualified-history-v1');
       await expect(summary).toContainText(
         english ? 'clarified and recorded' : 'clarifiées et consignées'
