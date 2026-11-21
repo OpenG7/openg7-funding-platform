@@ -265,7 +265,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
   );
   await hook(page, 'sandbox-payment-new').click();
   await hook(page, 'sandbox-payment-kind').selectOption('sponsorship_interest');
-  await hook(page, 'sandbox-payment-amount').selectOption('500');
+  await hook(page, 'sandbox-payment-amount').selectOption('15');
   await hook(page, 'sandbox-payment-public-consent').uncheck();
   await expect(hook(page, 'sandbox-payment-state')).toHaveAttribute(
     'data-state',
@@ -284,7 +284,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
     .request()
     .postDataJSON() as CheckoutRequest;
   expect(companyPayload).toMatchObject({
-    amount: 500,
+    amount: 15,
     currency: 'CAD',
     contributionType: 'sponsorship_interest',
     publicDisplayConsent: false,
@@ -306,7 +306,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
   )!;
   expect(company).toMatchObject({
     contribution_type: 'sponsorship_interest',
-    amount: 500,
+    amount: 15,
     currency: 'CAD',
     payment_status: 'paid',
     public_display_consent: false,
@@ -317,7 +317,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
     `SELECT c.provenance,c.state,o.version,o.fingerprint,o.amount_minor::integer,
     o.currency,o.snapshot->'benefits' benefits,
     (SELECT count(*)::integer FROM sponsorship_obligations WHERE contribution_id=$1) obligations,
-    (SELECT count(*)::integer FROM sponsorship_invoices WHERE contribution_id=$1 AND total_cents=50000) invoices,
+    (SELECT count(*)::integer FROM sponsorship_invoices WHERE contribution_id=$1 AND total_cents=1500) invoices,
     (SELECT count(*)::integer FROM sponsorship_obligations WHERE contribution_id=$1 AND state='fulfilled') fulfilled
     FROM sponsorship_commitments c JOIN sponsorship_offers o ON o.id=c.offer_id WHERE c.contribution_id=$1`,
     [companyId]
@@ -328,17 +328,19 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
     state: 'active',
     version: companyPayload.offerAcceptance!.version,
     fingerprint: companyPayload.offerAcceptance!.fingerprint,
-    amount_minor: 50000,
+    amount_minor: 1500,
     currency: 'CAD',
-    obligations: 3,
+    obligations: 5,
     invoices: 1,
     fulfilled: 0
   });
-  const benefits = companyProof[0]!.benefits as { channel: string }[];
-  expect(benefits.map((benefit) => benefit.channel).sort()).toEqual([
-    'facebook',
-    'linkedin',
-    'website'
+  const benefits = companyProof[0]!.benefits as { id: string }[];
+  expect(benefits.map((benefit) => benefit.id).sort()).toEqual([
+    'facebook_batch',
+    'facebook_individual',
+    'linkedin_batch',
+    'linkedin_individual',
+    'website_mention'
   ]);
   const companyResult = (await companyResponse.json()) as {
     checkoutId: string;
@@ -386,7 +388,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
     (await companyJourneyResponse.json()) as AdminPaymentJourneyResponse;
   expect(companyJourney.journey).toMatchObject({
     contributionId: companyId,
-    amountMinor: 50000,
+    amountMinor: 1500,
     paymentStatus: 'paid'
   });
   expect(companyJourney.journey!.state).not.toBe('complete');

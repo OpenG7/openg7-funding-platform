@@ -37,6 +37,7 @@ export const adjustSponsorshipObligation = async (
       (typeof value.format !== 'string' ||
         ![
           'collective_text',
+          'individual_text',
           'individual_portrait',
           'collective_composite',
           'image_collection'
@@ -89,8 +90,10 @@ export const adjustSponsorshipObligation = async (
     channel: string;
     publication_format: SponsorshipObligationAdjustmentRequest['format'] | null;
     version: number;
+    benefit_id: string;
+    minimum_participants: number;
   }>(
-    'SELECT id,commitment_id,state,target,channel,publication_format,version FROM sponsorship_obligations WHERE id=$1::uuid FOR UPDATE',
+    'SELECT id,commitment_id,state,target,channel,publication_format,version,benefit_id,minimum_participants FROM sponsorship_obligations WHERE id=$1::uuid FOR UPDATE',
     [input.obligationId]
   );
   const o = obligation.rows[0]!;
@@ -104,7 +107,14 @@ export const adjustSponsorshipObligation = async (
     throw new SponsorshipCommitmentError('COMMITMENT_UNCHANGED');
   if (
     input.kind === 'format' &&
-    !publicationFormatCapability(o.channel, input.format!).available
+    (!publicationFormatCapability(o.channel, input.format!).available ||
+      (['facebook_individual', 'linkedin_individual'].includes(o.benefit_id) &&
+        !publicationFormatCapability(o.channel, input.format!)
+          .requiresSingleSponsor) ||
+      ((o.minimum_participants ?? 1) > 1 &&
+        publicationFormatCapability(o.channel, input.format!)
+          .requiresSingleSponsor) ||
+      (input.format === 'image_collection' && o.minimum_participants > 10))
   )
     throw new SponsorshipCommitmentError('FORMAT_UNAVAILABLE', 400);
   if (input.kind === 'format' && o.publication_format === input.format)

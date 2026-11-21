@@ -34,10 +34,13 @@
     "benefitNames": {
       "website_mention": "Reconnaissance sur le site Web",
       "facebook_batch": "Reconnaissance sur Facebook",
-      "linkedin_batch": "Reconnaissance sur LinkedIn"
+      "linkedin_batch": "Reconnaissance sur LinkedIn",
+      "facebook_individual": "Publication individuelle sur Facebook",
+      "linkedin_individual": "Publication individuelle sur LinkedIn"
     },
     "formats": {
       "collective_text": "Texte collectif",
+      "individual_text": "Texte individuel",
       "individual_portrait": "Portrait individuel",
       "collective_composite": "Montage collectif",
       "image_collection": "Collection d’images"

@@ -3,10 +3,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import sharp from 'sharp';
 
-import {
-  createSponsorshipOfferSnapshot,
-  publicSponsorshipObligations
-} from '../../dist/packages/funding-core/src/index.js';
+import { publicSponsorshipObligations } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import {
   activateSponsorshipCommitments,
@@ -42,11 +40,12 @@ test(
     const checksum = createHash('sha256').update(bytes).digest('hex');
     const storage = { readPrivateObject: async () => bytes };
     const offer = (durationDays = null) => ({
-      ...createSponsorshipOfferSnapshot(5000, 'CAD'),
+      ...recordedLegacySponsorshipOffer(5000),
       version: 'historical-qualification-v1',
-      benefits: createSponsorshipOfferSnapshot(5000, 'CAD').benefits.map(
-        (b) => ({ ...b, durationDays })
-      )
+      benefits: recordedLegacySponsorshipOffer(5000).benefits.map((b) => ({
+        ...b,
+        durationDays
+      }))
     });
     const seed = async ({
       commitment = 'none',

@@ -48,12 +48,12 @@ import {
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import {
-  expectCompletedPaymentJourney,
   openPaymentJourney,
   paymentAttentionItems,
   readPaymentJourney
 } from './support/payment-journey.js';
 import { expect, test } from './support/test.js';
+import { createAcceptanceCollectivePartner } from './support/acceptance-collective-partner.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -72,7 +72,7 @@ interface SocialReceipts {
   }[];
 }
 
-for (const amount of [100, 250]) {
+for (const amount of [5, 10, 15]) {
   for (const publicConsent of [true, false]) {
     test(`company ${amount} CAD, public consent ${publicConsent}: promised benefits, reviewed recognition and authorized simulated delivery`, async ({
       page: admin,
@@ -85,7 +85,7 @@ for (const amount of [100, 250]) {
       );
       test.setTimeout(240000);
       const xbox =
-        publicConsent && amount === 100 ? adminController(admin) : undefined;
+        publicConsent && amount === 5 ? adminController(admin) : undefined;
       context.setDefaultTimeout(15000);
       const stub = process.env.STRIPE_STUB_BASE_URL!;
       const name = `Palier ${amount} ${randomUUID().slice(0, 8)}`;
@@ -94,11 +94,16 @@ for (const amount of [100, 250]) {
       const publicSummary = 'Commandite simulée.';
       const email = `tier-${randomUUID()}@simulation.example.test`;
       const privateNote = 'Message confidentiel du commanditaire de recette.';
-      const amountConsent = amount === 250;
-      const excludedChannels =
-        amount === 100 || !publicConsent
-          ? ['facebook', 'linkedin']
-          : ['linkedin'];
+      const amountConsent = amount === 15;
+      const excludedChannels = ['facebook', 'linkedin'] as const;
+      const promisedBenefits = [
+        'website_mention',
+        'facebook_batch',
+        'linkedin_batch',
+        ...(amount >= 10 ? ['facebook_individual'] : []),
+        ...(amount >= 15 ? ['linkedin_individual'] : [])
+      ];
+      const expectedJobs = publicConsent ? promisedBenefits.length - 1 : 0;
       const errors: string[] = [];
       admin.on('pageerror', (e) => errors.push(e.message));
       const get = async <T>(url: string, auth = true): Promise<T> => {
@@ -240,8 +245,8 @@ for (const amount of [100, 250]) {
               autoPrepare: false,
               timezone: 'UTC',
               weekdays: [0, 1, 2, 3, 4, 5, 6],
-              capacity: 1,
-              localTime: amount === 100 ? '08:31' : '08:32',
+              capacity: 2,
+              localTime: `08:${30 + amount}`,
               horizonDays: 28
             }
           });
@@ -286,6 +291,13 @@ for (const amount of [100, 250]) {
           await expect(
             form.getByRole('button', { name: /Commandite d'entreprise/ })
           ).toHaveAttribute('aria-pressed', 'true');
+          // Force a changed quote even when the selected tier is the default 5 CAD.
+          await form
+            .getByRole('button', {
+              name: `${amount === 5 ? 10 : 5} $`,
+              exact: true
+            })
+            .click();
           const offered = company.waitForResponse((response) => {
             const url = new URL(response.url());
             return (
@@ -300,15 +312,13 @@ for (const amount of [100, 250]) {
           expect(offerResponse.ok()).toBe(true);
           const quote = (await offerResponse.json()) as SponsorshipOfferQuote;
           const { fingerprint, ...snapshot } = quote;
-          const promisedChannels =
-            amount === 100 ? ['website'] : ['website', 'facebook'];
           expect(quote).toMatchObject({
             amountMinor: amount * 100,
             currency: 'CAD'
           });
-          expect(
-            quote.benefits.map((benefit) => benefit.channel).sort()
-          ).toEqual([...promisedChannels].sort());
+          expect(quote.benefits.map((benefit) => benefit.id).sort()).toEqual(
+            [...promisedBenefits].sort()
+          );
           expect(
             quote.benefits.every((benefit) => benefit.quantity === 1)
           ).toBe(true);
@@ -377,9 +387,9 @@ for (const amount of [100, 250]) {
           expect(commitment.offer).toEqual(snapshot);
           expect(
             commitment.obligations
-              .map((obligation) => obligation.channel)
+              .map((obligation) => obligation.benefitId)
               .sort()
-          ).toEqual([...promisedChannels].sort());
+          ).toEqual([...promisedBenefits].sort());
           expect(await invoices()).toHaveLength(1);
           expect((await invoices())[0]).toMatchObject({
             total: amount,
@@ -446,7 +456,7 @@ for (const amount of [100, 250]) {
             await expect(
               company.locator('[data-og7="media-upload-attempt"]')
             ).toHaveCount(0, { timeout: 15000 });
-            if (publicConsent && amount === 250 && filename === 'photo.png')
+            if (publicConsent && filename === 'photo.png')
               await updateAcceptanceMediaUsage(company, filename, {
                 channels: ['website', 'facebook']
               });
@@ -479,8 +489,8 @@ for (const amount of [100, 250]) {
           expect(item.preparation?.reasons).toEqual(
             expect.arrayContaining([
               'website_eligible',
-              amount === 100 ? 'facebook_below_threshold' : 'facebook_eligible',
-              'linkedin_below_threshold'
+              'facebook_eligible',
+              'linkedin_eligible'
             ])
           );
           if (!publicConsent) {
@@ -504,7 +514,10 @@ for (const amount of [100, 250]) {
               drawer.locator('[data-og7="website-cartouche"]')
             ).toHaveCount(0);
           await expect(drawer).toContainText(
-            'Le seuil de contribution pour LinkedIn n’est pas atteint.'
+            'Le montant donne aussi accès à Facebook'
+          );
+          await expect(drawer).toContainText(
+            'Le montant donne aussi accès à LinkedIn'
           );
           await expect
             .poll(
@@ -522,28 +535,14 @@ for (const amount of [100, 250]) {
           await worker(false);
           for (const feedId of ['openg7:facebook', 'openg7:linkedin'] as const)
             await command({ action: 'prepare', feedId });
-          const expected =
-            publicConsent && amount === 250 ? ['openg7:facebook'] : [];
-          expect((await jobs()).map((j) => j.feedId)).toEqual(expected);
-          expect((await drafts()).map((d) => d.channel)).toEqual(
-            expected.length ? ['facebook'] : []
-          );
-          for (const job of await jobs()) {
-            expect(job).toMatchObject({
-              status: 'draft',
-              approvedAt: null,
-              attempts: 0,
-              publishedAt: null
-            });
-            expect(job.sponsors).toHaveLength(1);
-            for (const secret of [email, privateNote, reference])
-              expect(job.message).not.toContain(secret);
-          }
+          // V4 planning waits for the administrator's dossier approval.
+          expect(await jobs()).toEqual([]);
+          expect(await drafts()).toEqual([]);
           expect((await sponsor()).sponsor_review_status).toBe(
             'pending_review'
           );
           await assertPrivate();
-          if (publicConsent && amount === 100) {
+          if (publicConsent && amount === 5) {
             // Inspect the received-payment toast before navigating to the dossier.
             const journey = await readPaymentJourney(request, contributionId);
             expect(journey.next).not.toBeNull();
@@ -747,11 +746,46 @@ for (const amount of [100, 250]) {
           }
         });
 
+        await test.step('Approved dossiers schedule every promised passage with real collective participants', async () => {
+          // Create the second source after the principal: earlier pending sources
+          // may join it, but cannot consume our partner before dossier approval.
+          if (publicConsent)
+            await createAcceptanceCollectivePartner(context, request, admin);
+          for (const feedId of ['openg7:facebook', 'openg7:linkedin'] as const)
+            await command({ action: 'prepare', feedId });
+          expect(await jobs()).toHaveLength(expectedJobs);
+          for (const job of await jobs()) {
+            expect(job).toMatchObject({
+              status: 'draft',
+              approvedAt: null,
+              attempts: 0,
+              publishedAt: null
+            });
+            expect(job.sponsors).toHaveLength(
+              job.publicationFormat === 'collective_text' ? 2 : 1
+            );
+            for (const secret of [email, privateNote, reference])
+              expect(job.message).not.toContain(secret);
+          }
+          expect(
+            (await drafts()).map((draft) => draft.obligation_id).sort()
+          ).toEqual(
+            publicConsent
+              ? (await sponsor())
+                  .commitment!.obligations.filter(
+                    (o) => o.channel !== 'website'
+                  )
+                  .map((o) => o.id)
+                  .sort()
+              : []
+          );
+        });
+
         await test.step('Excluded destinations cannot become sendable through direct API requests', async () => {
           const beforeDrafts = await drafts();
           const beforeJobs = await jobs();
           for (const channel of excludedChannels) {
-            const input = { contributionId, feedTarget: 'openg7', channel };
+            const input = { contributionId, feedTarget: 'openg20', channel };
             expect(
               (
                 await request.post('/api/admin/publication-drafts', {
@@ -775,9 +809,7 @@ for (const amount of [100, 250]) {
               expect(await jobs()).toEqual(beforeJobs);
             }
           }
-          expect(beforeJobs.map((j) => j.feedId)).toEqual(
-            publicConsent && amount === 250 ? ['openg7:facebook'] : []
-          );
+          expect(beforeJobs).toHaveLength(expectedJobs);
         });
 
         if (publicConsent)
@@ -790,7 +822,7 @@ for (const amount of [100, 250]) {
                 await acceptanceSql<{ id: string }>(
                   `INSERT INTO sponsor_publication_drafts
                    (id,contribution_id,feed_target,channel,title,body,disclosure_text,obligation_id)
-                 VALUES($1::uuid,$2::uuid,'openg7',$3,$4,$5,$6,NULL)
+                 VALUES($1::uuid,$2::uuid,'openg20',$3,$4,$5,$6,NULL)
                  RETURNING id::text AS id`,
                   [
                     draftId,
@@ -834,7 +866,7 @@ for (const amount of [100, 250]) {
                 headers: await adminSessionHeaders(request),
                 data: {
                   action: 'compose',
-                  feedId: `openg7:${channel}`,
+                  feedId: `openg20:${channel}`,
                   kind: 'sponsorship',
                   batchId: batch.id
                 }
@@ -873,14 +905,24 @@ for (const amount of [100, 250]) {
               });
               expect(await jobs()).toEqual(beforeComposeJobs);
             }
-            expect((await jobs()).map((j) => j.feedId)).toEqual(
-              publicConsent && amount === 250 ? ['openg7:facebook'] : []
-            );
+            expect(await jobs()).toHaveLength(expectedJobs);
           });
 
-        if (publicConsent && amount === 250)
+        if (publicConsent)
           await test.step('Only explicitly approved Facebook content is delivered once by the worker', async () => {
-            const job = (await jobs())[0]!;
+            const job = (await jobs()).find(
+              (candidate) =>
+                candidate.feedId === 'openg7:facebook' &&
+                candidate.publicationFormat === 'collective_text'
+            )!;
+            expect(job.sponsors).toHaveLength(2);
+            const selectedJob = async () => {
+              const current = (await jobs()).find(
+                (candidate) => candidate.id === job.id
+              );
+              expect(current).toBeTruthy();
+              return current!;
+            };
             const photo = (await media()).find(
               (m) => m.kind === 'supporting_image'
             )!;
@@ -918,7 +960,7 @@ for (const amount of [100, 250]) {
             await expect(
               dialog.getByRole('button', { name: 'Accepter et programmer' })
             ).toBeDisabled();
-            const draft = (await jobs())[0]!;
+            const draft = (await selectedJob())!;
             expect(draft.id).toBe(job.id);
             expect(draft.version).toBe(job.version + 1);
             expect(draft).toMatchObject({
@@ -937,14 +979,14 @@ for (const amount of [100, 250]) {
             expect(await missingConfirmation.json()).toMatchObject({
               code: 'CONFIRMATION_REQUIRED'
             });
-            expect((await jobs())[0]).toEqual(draft);
+            expect(await selectedJob()).toEqual(draft);
             await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
             await dialog
               .getByRole('button', { name: 'Accepter et programmer' })
               .click();
             await completePublicationModeration(admin);
             await expect(dialog).toContainText('Autorisée');
-            const authorized = (await jobs())[0]!;
+            const authorized = (await selectedJob())!;
             const due = new Date(authorized.scheduledAt);
             expect(due.toISOString()).toBe(date.toISOString());
             const feed = (await state()).feeds.find(
@@ -957,7 +999,7 @@ for (const amount of [100, 250]) {
             await worker(true);
             await admin.close();
             await tick(new Date(due.getTime() - 1));
-            expect((await jobs())[0]).toMatchObject({
+            expect(await selectedJob()).toMatchObject({
               status: 'approved',
               scheduledAt: authorized.scheduledAt,
               approvedAt: authorized.approvedAt,
@@ -972,15 +1014,15 @@ for (const amount of [100, 250]) {
               .poll(
                 async () => {
                   await runAcceptancePublicationWorker(due);
-                  return (await jobs())[0]?.status;
+                  return (await selectedJob())?.status;
                 },
                 { timeout: 15000, intervals: [100, 500, 1000] }
               )
               .toBe('published');
-            const published = (await jobs())[0]!;
+            const published = (await selectedJob())!;
             await tick(due);
-            expect((await jobs())[0]).toEqual(published);
-            expect((await jobs())[0]).toMatchObject({
+            expect(await selectedJob()).toEqual(published);
+            expect(await selectedJob()).toMatchObject({
               mode: 'mock',
               attempts: 1,
               mediaId: photo.id,
@@ -1067,10 +1109,10 @@ for (const amount of [100, 250]) {
           );
           // Mock publication cannot create a promised live date or fulfilment.
           expect(approvedDates).toHaveLength(0);
-          if (publicConsent && amount === 250) {
-            const facebook = obligations.find((o) => o.channel === 'facebook')!;
-            expect(facebook.fulfilmentEvidenceId).toBeNull();
-          }
+          for (const obligation of obligations.filter(
+            (o) => o.channel !== 'website'
+          ))
+            expect(obligation.fulfilmentEvidenceId).toBeNull();
           expect(updates).toHaveLength(companyEmailCount - 2);
           const invoiceIds = (await invoices()).map((i) => i.id);
           const companyMailIds = (await companyMails()).map((m) => m.ID).sort();
@@ -1078,10 +1120,10 @@ for (const amount of [100, 250]) {
           expect(emailIds.length).toBeGreaterThanOrEqual(2);
           expect(
             (await adminMails()).filter((m) => !beforeMails.includes(m.ID))
-          ).toHaveLength(1);
+          ).toHaveLength(publicConsent ? 2 : 1);
           expect(
             (await sms()).items.filter((m) => !beforeSms.includes(m.id))
-          ).toHaveLength(1);
+          ).toHaveLength(publicConsent ? 2 : 1);
           const completed = await jobs();
           const deliveryIds = completed.map((j) => j.id);
           await post(stub + '/__test__/checkout-delivery', {
@@ -1091,8 +1133,9 @@ for (const amount of [100, 250]) {
           for (const feedId of ['openg7:facebook', 'openg7:linkedin'] as const)
             await command({ action: 'prepare', feedId });
           expect(await totals()).toEqual({
-            received: before.received + amount * 100,
-            count: before.count + 1
+            received:
+              before.received + (amount + (publicConsent ? 5 : 0)) * 100,
+            count: before.count + (publicConsent ? 2 : 1)
           });
           expect((await invoices()).map((i) => i.id)).toEqual(invoiceIds);
           expect(await activity()).toHaveLength(1);
@@ -1103,50 +1146,35 @@ for (const amount of [100, 250]) {
           );
           expect(
             (await adminMails()).filter((m) => !beforeMails.includes(m.ID))
-          ).toHaveLength(1);
+          ).toHaveLength(publicConsent ? 2 : 1);
           expect(
             (await sms()).items.filter((m) => !beforeSms.includes(m.id))
-          ).toHaveLength(1);
-          for (const id of deliveryIds) {
-            expect((await receipts(id)).requests).toHaveLength(1);
-            expect((await receipts(id)).posts).toHaveLength(1);
+          ).toHaveLength(publicConsent ? 2 : 1);
+          for (const job of completed) {
+            const delivered = job.status === 'published' ? 1 : 0;
+            expect((await receipts(job.id)).requests).toHaveLength(delivered);
+            expect((await receipts(job.id)).posts).toHaveLength(delivered);
           }
           if (!publicConsent) await assertPrivate();
           const journey = await readPaymentJourney(request, contributionId);
-          if (publicConsent && amount === 100) {
-            await expectCompletedPaymentJourney(
-              admin,
-              request,
-              contributionId,
-              'controller'
-            );
-            const progress = await get<AdminSponsorshipProgressResponse>(
-              '/api/admin/sponsorships/progress?sponsorshipId=' + contributionId
-            );
-            expect(progress.status).toBe('ok');
-            expect(progress.dossier?.contributionId).toBe(contributionId);
-            expect(progress.dossier?.next.reason).toBe('complete');
-            expect(progress.dossier?.publicationCompletion).toEqual({
-              done: 1,
-              total: 1
-            });
-            await admin.screenshot({
-              path: info.outputPath('website-only-admin-journey-complete.png')
-            });
-          } else {
-            // A simulated social receipt and a missing consent cannot close promises.
-            expect(journey.state).not.toBe('complete');
-            expect(journey.next).not.toBeNull();
-          }
+          // Mock social receipts leave every live social promise open.
+          expect(journey.state).not.toBe('complete');
+          expect(journey.next).not.toBeNull();
+          const progress = await get<AdminSponsorshipProgressResponse>(
+            '/api/admin/sponsorships/progress?sponsorshipId=' + contributionId
+          );
+          expect(progress.dossier?.publicationCompletion).toEqual({
+            done: publicConsent ? 1 : 0,
+            total: promisedBenefits.length
+          });
           await info.attach('sponsorship-tier-evidence', {
             contentType: 'application/json',
             body: JSON.stringify(
               {
                 providers: 'simulated',
-                publicationWorkerClock:
-                  publicConsent && amount === 250
-                    ? 'controlled'
-                    : 'no delivery',
+                publicationWorkerClock: publicConsent
+                  ? 'controlled'
+                  : 'no delivery',
                 amountMinor: amount * 100,
                 currency: 'CAD',
                 publicConsent,
@@ -1164,8 +1192,9 @@ for (const amount of [100, 250]) {
                     attempts
                   })
                 ),
-                adminEmails: 1,
-                sms: 1,
+                primaryAdminEmails: 1,
+                primarySms: 1,
+                collectivePartnerContributions: publicConsent ? 1 : 0,
                 companyEmails: companyEmailCount,
                 totals: await totals()
               },

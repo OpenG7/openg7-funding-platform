@@ -34,10 +34,13 @@
     "benefitNames": {
       "website_mention": "Website recognition",
       "facebook_batch": "Facebook recognition",
-      "linkedin_batch": "LinkedIn recognition"
+      "linkedin_batch": "LinkedIn recognition",
+      "facebook_individual": "Individual Facebook publication",
+      "linkedin_individual": "Individual LinkedIn publication"
     },
     "formats": {
       "collective_text": "Collective text",
+      "individual_text": "Individual text",
       "individual_portrait": "Individual portrait",
       "collective_composite": "Collective composite",
       "image_collection": "Image collection"

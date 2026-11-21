@@ -24,7 +24,7 @@ import {
 /** Synthetic server terms: use the public normalization contract, never browser pricing as authority. */
 export function sponsorshipOfferQuote(
   amountMinor: number,
-  version = 'sponsorship-v1',
+  version = 'sponsorship-v4',
   quantity = 1,
   formats?: SponsorshipOfferFormatOptions
 ) {
@@ -602,7 +602,32 @@ export function registerSponsorshipCommitmentTests() {
       await page.setViewportSize(
         english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
       );
-      const saved = sponsorshipOfferQuote(25000, 'original-offer-v1', 4);
+      const saved = normalizeSponsorshipOfferSnapshot({
+        version: 'sponsorship-v3',
+        amountMinor: 25000,
+        currency: 'CAD',
+        benefits: [
+          {
+            id: 'website_mention',
+            channel: 'website',
+            target: 'openg7',
+            quantity: 1,
+            requiredElements: ['company_name'],
+            deadlineDays: null,
+            durationDays: null
+          },
+          {
+            id: 'facebook_batch',
+            channel: 'facebook',
+            target: 'openg7',
+            quantity: 4,
+            requiredElements: ['company_name'],
+            deadlineDays: null,
+            durationDays: null,
+            format: 'collective_text'
+          }
+        ]
+      });
       await mock(page, {
         current: {
           ...fixture(),
@@ -633,14 +658,23 @@ export function registerSponsorshipCommitmentTests() {
       );
       await expect(terms).toHaveJSProperty('open', false);
       await expect(
-        savedOffer.getByText('original-offer-v1', { exact: false })
+        savedOffer.getByText('sponsorship-v3', { exact: false })
       ).toBeHidden();
       await toggle.focus();
       await toggle.press('Enter');
       await expect(terms).toHaveJSProperty('open', true);
       await expect(savedOffer).toBeVisible();
-      await expect(savedOffer).toContainText('original-offer-v1');
+      await expect(savedOffer).toContainText('sponsorship-v3');
       await expect(savedOffer.locator('li')).toHaveCount(saved.benefits.length);
+      await expect(
+        savedOffer.locator('[data-og7="offer-benefit-group-size"]')
+      ).toHaveCount(0);
+      await expect(
+        savedOffer.locator('[data-og7-id="facebook_individual"]')
+      ).toHaveCount(0);
+      await expect(
+        savedOffer.locator('[data-og7-id="linkedin_individual"]')
+      ).toHaveCount(0);
       await expect(
         savedOffer.locator('[data-og7-id="facebook_batch"] strong')
       ).toContainText('4 ×');
@@ -794,6 +828,101 @@ export function registerSponsorshipOfferTests(
         await expect(submit).toBeEnabled();
       }
     );
+
+    test(`sponsorship offer accessible tiers preserve each cumulative collective and individual service ${suffix} @offer-ui`, async ({
+      page
+    }) => {
+      await setup(page);
+      const quotes: ReturnType<typeof sponsorshipOfferQuote>[] = [];
+      const requests: CheckoutRequest[] = [];
+      await page.route('**/api/sponsorship-offer?**', (route) => {
+        const quoted = sponsorshipOfferQuote(
+          Number(new URL(route.request().url()).searchParams.get('amountMinor'))
+        );
+        quotes.push(quoted);
+        return route.fulfill({ json: quoted });
+      });
+      await page.route('**/api/checkout-sessions', (route) => {
+        requests.push(route.request().postDataJSON());
+        return route.fulfill({
+          json: {
+            status: 'mocked',
+            checkoutId: `synthetic-accessible-tier-${requests.length}`,
+            redirectUrl: 'https://example.test/unused'
+          }
+        });
+      });
+      const { form, acceptance, submit } = await open(page);
+      const card = form.getByRole('button', {
+        name: english ? 'Business sponsorship' : /Commandite d'entreprise/i
+      });
+      await expect(card).toContainText(
+        english
+          ? 'One collective inclusion on Facebook'
+          : 'Une participation collective sur Facebook'
+      );
+      await expect(card).toContainText(
+        english
+          ? 'One collective inclusion on LinkedIn'
+          : 'Une participation collective sur LinkedIn'
+      );
+      await expect(card).toContainText(
+        english
+          ? 'One individual publication on Facebook'
+          : 'Une publication individuelle sur Facebook'
+      );
+      await expect(card).toContainText(
+        english
+          ? 'One individual publication on LinkedIn'
+          : 'Une publication individuelle sur LinkedIn'
+      );
+      const money = (amount: number) =>
+        new Intl.NumberFormat(english ? 'en' : 'fr-CA', {
+          style: 'currency',
+          currency: 'CAD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2
+        }).format(amount);
+      const expected = ['website_mention', 'facebook_batch', 'linkedin_batch'];
+      for (const amount of [5, 10, 15]) {
+        await form
+          .getByRole('button', { name: money(amount), exact: true })
+          .click();
+        await expect.poll(() => quotes.at(-1)?.amountMinor).toBe(amount * 100);
+        await expect(acceptance.locator('..')).toContainText(money(amount));
+        await expect(acceptance).not.toBeChecked();
+        await expect(submit).toBeDisabled();
+        if (amount === 10) expected.push('facebook_individual');
+        if (amount === 15) expected.push('linkedin_individual');
+        const quoted = quotes.at(-1)!;
+        expect(quoted.version).toBe('sponsorship-v4');
+        expect(quoted.benefits.map((benefit) => benefit.id)).toEqual(expected);
+        expect(quoted.benefits.every((benefit) => benefit.quantity === 1)).toBe(
+          true
+        );
+        await acceptance.check();
+        await expect(submit).toBeEnabled();
+        await submit.click();
+        await expect
+          .poll(() => requests.length)
+          .toBe([5, 10, 15].indexOf(amount) + 1);
+        expect(requests.at(-1)).toMatchObject({
+          amount,
+          offerAcceptance: {
+            version: quoted.version,
+            fingerprint: quoted.fingerprint
+          }
+        });
+      }
+      await expect(
+        form.locator('openg7-sponsorship-offer-summary')
+      ).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
 
     test(`sponsorship offer two tabs retain one key after a lost response and a concurrent refusal ${suffix} @offer-ui`, async ({
       page,
@@ -1186,13 +1315,16 @@ export function registerSponsorshipOfferTests(
     );
 
     test(
-      `sponsorship offer resumes historical 45 CAD terms below the current minimum and blocks a new payment after cleanup ${suffix}`,
+      `sponsorship offer resumes historical 4.50 CAD terms below the current minimum and blocks a new payment after cleanup ${suffix}`,
       { tag: '@offer-ui' },
       async ({ page }) => {
         await setup(page);
         const terms = normalizeSponsorshipOfferSnapshot({
-          ...sponsorshipOfferQuote(5000),
-          amountMinor: 4500,
+          ...sponsorshipOfferQuote(500),
+          benefits: sponsorshipOfferQuote(500).benefits.filter(
+            (b) => b.id === 'website_mention'
+          ),
+          amountMinor: 450,
           version: 'synthetic-retained-v0'
         });
         const historical = {
@@ -1208,7 +1340,7 @@ export function registerSponsorshipOfferTests(
           const amountMinor = Number(
             new URL(route.request().url()).searchParams.get('amountMinor')
           );
-          if (amountMinor === 4500)
+          if (amountMinor === 450)
             return route.fulfill({
               status: 400,
               json: { code: 'INVALID_SPONSORSHIP_AMOUNT' }
@@ -1236,7 +1368,7 @@ export function registerSponsorshipOfferTests(
         await submit.click();
         await expect(form.getByRole('alert')).toBeVisible();
         expect(requests).toHaveLength(1);
-        expect(requests[0].amount).toBe(50);
+        expect(requests[0].amount).toBe(5);
         const retained = await page.evaluate(() => ({
           attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
           offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
@@ -1254,7 +1386,7 @@ export function registerSponsorshipOfferTests(
         const { idempotencyKey, ...capturedIntent } = requests[0];
         const historicalIntent = {
           ...capturedIntent,
-          amount: 45,
+          amount: 4.5,
           offerAcceptance: {
             version: historical.version,
             fingerprint: historical.fingerprint
@@ -1280,7 +1412,9 @@ export function registerSponsorshipOfferTests(
         const readsBeforeReload = quoteReads;
         await page.reload();
         await expect(acceptance).toBeVisible();
-        await expect(acceptance.locator('..')).toContainText('45');
+        await expect(acceptance.locator('..')).toContainText(
+          english ? '4.50' : '4,50'
+        );
         expect(quoteReads).toBe(readsBeforeReload);
         await expect(acceptance).not.toBeChecked();
         await expect(submit).toBeDisabled();
@@ -1312,7 +1446,7 @@ export function registerSponsorshipOfferTests(
           .toEqual({ attempts: null, offer: null });
         await page.reload();
         await expect(acceptance).toBeVisible();
-        await form.locator('#custom-contribution').fill('45');
+        await form.locator('#custom-contribution').fill('4.50');
         await expect(form.locator('#custom-contribution')).toHaveAttribute(
           'aria-invalid',
           'true'
@@ -1447,7 +1581,7 @@ export function registerSponsorshipOfferTests(
         );
         await expect(submit).toBeDisabled();
         expect(requests).toHaveLength(1);
-        const quoted = sponsorshipOfferQuote(5000, 'sponsorship-v1', 1);
+        const quoted = sponsorshipOfferQuote(500, 'sponsorship-v1', 1);
         expect(requests[0].offerAcceptance).toEqual({
           version: quoted.version,
           fingerprint: quoted.fingerprint
@@ -1463,7 +1597,7 @@ export function registerSponsorshipOfferTests(
         ]);
         expect(retained.offer).toContain(quoted.fingerprint);
         expect(retained.offer).not.toContain(
-          sponsorshipOfferQuote(5000, 'sponsorship-v2', 2).fingerprint
+          sponsorshipOfferQuote(500, 'sponsorship-v2', 2).fingerprint
         );
         expect(requests[0]).not.toHaveProperty('offerQuote');
       }
@@ -1590,11 +1724,11 @@ export function registerSponsorshipOfferTests(
           const amountMinor = Number(
             new URL(route.request().url()).searchParams.get('amountMinor')
           );
-          if (amountMinor === 5000) {
+          if (amountMinor === 500) {
             heldRequests++;
             await held;
             return route
-              .fulfill({ json: sponsorshipOfferQuote(5000, 'stale-offer') })
+              .fulfill({ json: sponsorshipOfferQuote(500, 'stale-offer') })
               .catch(() => {});
           }
           return failCurrent

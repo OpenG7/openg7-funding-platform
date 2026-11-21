@@ -21,6 +21,7 @@ import {
 } from './support/acceptance-database.js';
 import { expect, test } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 
 const queueUrl = '/api/admin/email-queue';
 const followupUrl = '/fonds-des-batisseurs/suivi-commandite';
@@ -142,7 +143,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       await form
         .getByRole('button', { name: /Commandite d'entreprise/ })
         .click();
-      await form.getByRole('button', { name: '500 $', exact: true }).click();
+      await setAcceptanceSponsorshipAmount(form, 500);
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();

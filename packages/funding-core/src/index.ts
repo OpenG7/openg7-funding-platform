@@ -10,6 +10,7 @@ export { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 export {
   isValidSponsorshipAmount,
   resolveSponsorshipBenefits,
+  resolveSponsorshipTierFromOffer,
   type SponsorshipBenefitId,
   type SponsorshipTierId,
   type SponsorshipBenefitStatus,

@@ -34,6 +34,7 @@ import {
   eligibleDestination,
   preparationCandidates,
   preparationFormatSql,
+  preparationMinimumParticipantsSql,
   preparationModerationSql,
   preparationModerationSubjectSql,
   recognitionSource,
@@ -222,9 +223,10 @@ export async function prepare(
             name: string | null;
             preparation_moderation_allowed: boolean;
             publication_format: SponsorshipPublicationFormat;
+            minimum_participants: number;
           }
         >(
-          `SELECT d.*,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed,${preparationFormatSql()} AS publication_format FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
+          `SELECT d.*,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed,${preparationFormatSql()} AS publication_format,${preparationMinimumParticipantsSql()} AS minimum_participants FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
           [batch.id]
         )
       ).rows;
@@ -259,6 +261,20 @@ export async function prepare(
           else pendingCandidates.push(candidate);
         }
       }
+      const participantMinima = new Map(
+        [...memberFacts, ...pendingCandidates].map((source) => [
+          source.id,
+          source.minimum_participants ?? 1
+        ])
+      );
+      const requiredParticipants = (
+        retained: readonly { id: string }[],
+        multiImage: boolean
+      ) =>
+        Math.max(
+          multiImage ? 2 : 1,
+          ...retained.map((source) => participantMinima.get(source.id) ?? 1)
+        );
       const format: SponsorshipPublicationFormat =
         job?.publication_format ??
         batch.publication_format ??
@@ -268,20 +284,21 @@ export async function prepare(
             channel!,
             candidate.publication_format
           );
+          if (!capability.available) return false;
+          const compatible = selectPublicationRecognitionSources({
+            existingSources: [],
+            candidates: pendingCandidates!
+              .filter(
+                (source) =>
+                  source.publication_format === candidate.publication_format
+              )
+              .map(recognitionSource),
+            capacity: capability.requiresSingleSponsor ? 1 : batch.capacity
+          });
           return (
-            capability.available &&
-            (!capability.multiImage ||
-              (batch.capacity >= 2 &&
-                selectPublicationRecognitionSources({
-                  existingSources: [],
-                  candidates: pendingCandidates!
-                    .filter(
-                      (s) =>
-                        s.publication_format === candidate.publication_format
-                    )
-                    .map(recognitionSource),
-                  capacity: batch.capacity
-                }).retained.length >= 2))
+            new Set(compatible.retained.map((source) => source.contributionId))
+              .size >=
+            requiredParticipants(compatible.retained, capability.multiImage)
           );
         })?.publication_format ??
         'collective_text';
@@ -300,7 +317,7 @@ export async function prepare(
       const selection = selectPublicationRecognitionSources({
         existingSources: members.map(recognitionSource),
         candidates: formatCandidates.map(recognitionSource),
-        capacity: format === 'individual_portrait' ? 1 : batch.capacity
+        capacity: capability.requiresSingleSponsor ? 1 : batch.capacity
       });
       const byId: Map<string, PreparationSource> = new Map(
         pendingCandidates.map((source) => [source.id, source])
@@ -320,9 +337,14 @@ export async function prepare(
       pendingCandidates = pendingCandidates.filter(
         (source) => !invalidIds.has(source.id)
       );
-      // A collection cannot consume a singleton and strand the other formats.
-      // Existing membership is preserved until enough compatible sources exist.
-      if (capability.multiImage && selection.retained.length < 2) continue;
+      // A collective promise waits for distinct partners, while an individual
+      // promise can use another recurrence without consuming that collective.
+      if (
+        new Set(selection.retained.map((source) => source.contributionId))
+          .size <
+        requiredParticipants(selection.retained, capability.multiImage)
+      )
+        continue;
       const existingIds = new Set(members.map((member) => member.id));
       const consumed = new Set<string>();
       for (const retained of selection.retained) {
@@ -352,6 +374,11 @@ export async function prepare(
         (source) => !consumed.has(source.id) && !invalidIds.has(source.id)
       );
       if (!members.length) continue;
+      if (
+        new Set(members.map((source) => source.contribution_id)).size <
+        requiredParticipants(members, capability.multiImage)
+      )
+        continue;
       calendar.admit(feed, date, batch.id);
       await db.query(
         'UPDATE sponsor_publication_batches SET publication_format=$2 WHERE id=$1',

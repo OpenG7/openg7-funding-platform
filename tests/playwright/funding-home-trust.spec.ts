@@ -540,7 +540,7 @@ for (const english of [false, true]) {
   });
 }
 
-test('switching the default personal amount to sponsorship submits a valid 50 CAD amount only once', async ({
+test('switching the default personal amount to sponsorship submits a valid 5 CAD amount only once', async ({
   page
 }) => {
   await enableSponsorship(page);
@@ -568,7 +568,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
   await page.goto('/fonds-des-batisseurs');
   await page.getByRole('button', { name: /Commandite d'entreprise/i }).click();
   await expect(
-    contributionForm(page).getByRole('button', { name: /^50\s*\$$/ })
+    contributionForm(page).getByRole('button', { name: /^5\s*\$$/ })
   ).toHaveAttribute('aria-pressed', 'true');
   await acknowledge(page);
   await page.locator('[data-og7="offer-acceptance"]').check();
@@ -578,7 +578,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
   await contributionForm(page).dispatchEvent('submit');
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
-    amount: 50,
+    amount: 5,
     currency: 'CAD',
     contributionType: 'sponsorship_interest'
   });
@@ -834,7 +834,7 @@ test('invalid sponsorship input is preserved and blocked instead of silently cha
   await page.getByRole('button', { name: /Commandite d'entreprise/i }).click();
   await acknowledge(page);
   const amount = page.locator('#custom-contribution');
-  for (const value of ['-50', '1e3', '50.999', '10']) {
+  for (const value of ['-50', '1e3', '50.999', '4']) {
     await amount.fill(value);
     await amount.blur();
     await expect(amount).toHaveValue(value);

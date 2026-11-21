@@ -11,10 +11,12 @@ import {
   type SponsorshipOfferFormatOptions
 } from './sponsorship-publication-formats.js';
 
-export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v3';
+export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v4';
 export type SponsorshipObligationChannel = 'website' | 'facebook' | 'linkedin';
 export type SponsorshipObligationTarget = 'openg7' | 'openg20';
 export interface SponsorshipOfferedBenefit {
+  /** Absent on legacy snapshots: delivery requires at least one participant. */
+  readonly minimumParticipants?: number;
   /** Absent on an immutable older offer: this is never an image promise. */
   readonly format?: SponsorshipPublicationFormat;
   readonly id: SponsorshipBenefitId;
@@ -67,15 +69,25 @@ export const createSponsorshipOfferSnapshot = (
   };
   if (amountMinor < minor(pricing.minimumAmount))
     throw new Error('Sponsorship amount is below the minimum.');
-  const definitions = SPONSORSHIP_BENEFIT_DEFINITIONS.map(
-    ({ id, channel, pricingKey }) =>
-      [id, channel, minor(pricing.benefits[pricingKey].minimumAmount)] as const
+  const definitions = SPONSORSHIP_BENEFIT_DEFINITIONS.flatMap(
+    ({ id, channel, pricingKey }) => {
+      const threshold = pricing.benefits[pricingKey];
+      return threshold
+        ? [[id, channel, minor(threshold.minimumAmount)] as const]
+        : [];
+    }
   );
+  const individualBenefit = (id: SponsorshipBenefitId): boolean =>
+    id === 'facebook_individual' || id === 'linkedin_individual';
   for (const [channel, format] of Object.entries(formats ?? {})) {
+    const capability = publicationFormatCapability(channel, format);
     if (
-      !publicationFormatCapability(channel, format).available ||
+      !capability.available ||
       !definitions.some(
-        ([, c, threshold]) => c === channel && amountMinor >= threshold
+        ([id, c, threshold]) =>
+          c === channel &&
+          amountMinor >= threshold &&
+          individualBenefit(id) === capability.requiresSingleSponsor
       )
     )
       throw new Error('Publication format is unavailable.');
@@ -86,22 +98,33 @@ export const createSponsorshipOfferSnapshot = (
     currency: 'CAD',
     benefits: definitions
       .filter(([, , threshold]) => amountMinor >= threshold)
-      .map(([id, channel]) => ({
-        id,
-        channel,
-        target: 'openg7',
-        quantity: 1,
-        requiredElements:
-          channel === 'website' ||
-          (formats?.[channel] ?? 'collective_text') === 'collective_text'
-            ? ['company_name']
-            : ['company_name', 'approved_presentation'],
-        deadlineDays: null,
-        durationDays: null,
-        ...(channel === 'website'
-          ? {}
-          : { format: formats?.[channel] ?? 'collective_text' })
-      }))
+      .map(([id, channel]): SponsorshipOfferedBenefit => {
+        const individual = individualBenefit(id);
+        const selected = channel === 'website' ? undefined : formats?.[channel];
+        const format: SponsorshipPublicationFormat | undefined =
+          channel === 'website'
+            ? undefined
+            : selected &&
+                publicationFormatCapability(channel, selected)
+                  .requiresSingleSponsor === individual
+              ? selected
+              : individual
+                ? 'individual_text'
+                : 'collective_text';
+        return {
+          id,
+          channel,
+          target: 'openg7',
+          quantity: 1,
+          requiredElements:
+            format && publicationFormatCapability(channel, format).requiresImage
+              ? ['company_name', 'approved_presentation']
+              : ['company_name'],
+          deadlineDays: null,
+          durationDays: null,
+          ...(format ? { format, minimumParticipants: individual ? 1 : 2 } : {})
+        };
+      })
   };
 };
 
@@ -130,7 +153,7 @@ export const normalizeSponsorshipOfferSnapshot = (
     input.currency !== 'CAD' ||
     !Array.isArray(input.benefits) ||
     input.benefits.length === 0 ||
-    input.benefits.length > 3
+    input.benefits.length > SPONSORSHIP_BENEFIT_DEFINITIONS.length
   )
     throw new Error('Invalid sponsorship offer.');
   const channels: Record<string, SponsorshipObligationChannel> =
@@ -153,7 +176,8 @@ export const normalizeSponsorshipOfferSnapshot = (
             'requiredElements',
             'deadlineDays',
             'durationDays',
-            'format'
+            'format',
+            'minimumParticipants'
           ].includes(key)
       ) ||
       typeof b.id !== 'string' ||
@@ -182,7 +206,11 @@ export const normalizeSponsorshipOfferSnapshot = (
           (!Number.isSafeInteger(n) ||
             (n as number) < 1 ||
             (n as number) > 3650)
-      )
+      ) ||
+      (b.minimumParticipants !== undefined &&
+        (!Number.isSafeInteger(b.minimumParticipants) ||
+          (b.minimumParticipants as number) < 1 ||
+          (b.minimumParticipants as number) > 50))
     )
       throw new Error('Invalid offered benefit.');
     seen.add(b.id);
@@ -192,12 +220,35 @@ export const normalizeSponsorshipOfferSnapshot = (
         b.channel === 'website' ||
         ![
           'collective_text',
+          'individual_text',
           'individual_portrait',
           'collective_composite',
           'image_collection'
         ].includes(b.format))
     )
       throw new Error('Invalid offered format.');
+    if (
+      (b.id === 'facebook_individual' || b.id === 'linkedin_individual') &&
+      !['individual_text', 'individual_portrait'].includes(String(b.format))
+    )
+      throw new Error('Invalid offered individual format.');
+    if (
+      b.minimumParticipants !== undefined &&
+      (b.minimumParticipants as number) > 1 &&
+      (b.channel === 'website' ||
+        (typeof b.format === 'string' &&
+          publicationFormatCapability(b.channel as string, b.format)
+            .requiresSingleSponsor) ||
+        b.id === 'facebook_individual' ||
+        b.id === 'linkedin_individual')
+    )
+      throw new Error('Invalid offered participant minimum.');
+    if (
+      b.format === 'image_collection' &&
+      (b.minimumParticipants as number | undefined) !== undefined &&
+      (b.minimumParticipants as number) > 10
+    )
+      throw new Error('Invalid offered collection minimum.');
     return {
       id: b.id as SponsorshipBenefitId,
       channel: channels[b.id]!,
@@ -210,7 +261,10 @@ export const normalizeSponsorshipOfferSnapshot = (
       durationDays: b.durationDays as number | null,
       ...(b.format === undefined
         ? {}
-        : { format: b.format as SponsorshipPublicationFormat })
+        : { format: b.format as SponsorshipPublicationFormat }),
+      ...(b.minimumParticipants === undefined
+        ? {}
+        : { minimumParticipants: b.minimumParticipants as number })
     };
   });
   return {

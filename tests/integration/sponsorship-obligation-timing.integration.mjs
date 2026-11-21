@@ -4,7 +4,7 @@ import test from 'node:test';
 import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 
-import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import {
   activateSponsorshipCommitments,
   loadSponsorshipCommitment
@@ -63,11 +63,14 @@ test(
       await withPostgresTransaction(pool, async (db) => {
         await activateSponsorshipCommitments(db, { stripeSessionId: session });
         const offer = {
-          ...createSponsorshipOfferSnapshot(5000, 'CAD'),
+          ...recordedLegacySponsorshipOffer(5000),
           version: 'historical-qualification-v1',
-          benefits: createSponsorshipOfferSnapshot(5000, 'CAD').benefits.map(
-            (b) => ({ ...b, deadlineDays, durationDays, quantity })
-          )
+          benefits: recordedLegacySponsorshipOffer(5000).benefits.map((b) => ({
+            ...b,
+            deadlineDays,
+            durationDays,
+            quantity
+          }))
         };
         if (originUnknown) {
           // Explicit pre-051-style fixture: no application inference of its historical origin.
@@ -1311,11 +1314,13 @@ test(
       )
     ).rows[0].id;
     const offer = {
-      ...createSponsorshipOfferSnapshot(5000, 'CAD'),
+      ...recordedLegacySponsorshipOffer(5000),
       version: 'historical-qualification-v1',
-      benefits: createSponsorshipOfferSnapshot(5000, 'CAD').benefits.map(
-        (b) => ({ ...b, deadlineDays: 7, durationDays: 30 })
-      )
+      benefits: recordedLegacySponsorshipOffer(5000).benefits.map((b) => ({
+        ...b,
+        deadlineDays: 7,
+        durationDays: 30
+      }))
     };
     const offerId = (
       await pool.query(

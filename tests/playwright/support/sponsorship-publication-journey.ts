@@ -30,6 +30,8 @@ import { openFollowupPresentation } from './acceptance-followup-presentation.js'
 import { completePublicationModeration } from './acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './acceptance-offer.js';
+import { createAcceptanceCollectivePartner } from './acceptance-collective-partner.js';
+import { approveAcceptanceSponsorshipDossier } from './acceptance-sponsorship-dossier.js';
 import {
   confirmAcceptanceMediaUsage,
   updateAcceptanceMediaUsage
@@ -202,7 +204,7 @@ export async function sponsorshipPublicationJourney(
         // A distinct recurrence avoids reusing earlier suite fixtures' slots.
         await settings.locator('input[name="time"]').fill('08:17');
         await settings.locator('input[name="timezone"]').fill('UTC');
-        await settings.locator('input[name="capacity"]').fill('1');
+        await settings.locator('input[name="capacity"]').fill('2');
         await settings.locator('input[name="horizon"]').fill('28');
         for (const name of [
           'Dim.',
@@ -239,13 +241,13 @@ export async function sponsorshipPublicationJourney(
     let sessionId = '';
     let reference = '';
     let paymentIntentId = '';
-    await test.step('Pay 500 CAD through the real form and signed local Checkout', async () => {
+    await test.step('Pay 15 CAD through the real form and signed local Checkout', async () => {
       await company.goto('/fonds-des-batisseurs?intent=sponsorship#support');
       const form = company.locator('[data-og7="contribution-form"]');
       await form
         .getByRole('button', { name: /Commandite d'entreprise/ })
         .click();
-      await form.getByRole('button', { name: '500 $', exact: true }).click();
+      await form.getByRole('button', { name: '15 $', exact: true }).click();
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();
@@ -256,7 +258,7 @@ export async function sponsorshipPublicationJourney(
       );
       await form.locator('button[type="submit"]').click();
       expect((await checkout).postDataJSON()).toMatchObject({
-        amount: 500,
+        amount: 15,
         currency: 'CAD',
         contributionType: 'sponsorship_interest',
         publicDisplayConsent: true,
@@ -342,11 +344,17 @@ export async function sponsorshipPublicationJourney(
     });
 
     const record = await sponsor();
-    expect(record.commitment?.obligations.map((o) => o.channel).sort()).toEqual(
-      ['facebook', 'linkedin', 'website']
-    );
+    expect(
+      record.commitment?.obligations.map((o) => o.benefitId).sort()
+    ).toEqual([
+      'facebook_batch',
+      'facebook_individual',
+      'linkedin_batch',
+      'linkedin_individual',
+      'website_mention'
+    ]);
     expect(record).toMatchObject({
-      amount: 500,
+      amount: 15,
       currency: 'CAD',
       payment_status: 'paid',
       sponsor_review_status: 'pending_review',
@@ -370,6 +378,17 @@ export async function sponsorshipPublicationJourney(
     expect(
       (await media()).assets.every((m) => m.reviewStatus === 'pending_review')
     ).toBe(true);
+    await test.step('The paid, submitted dossier cannot be planned before administrator approval', async () => {
+      for (const feedId of feeds) {
+        const prepared = await command({ action: 'prepare', feedId });
+        expect(prepared.ok(), await prepared.text()).toBe(true);
+      }
+      expect(
+        (await state()).deliveries.filter((job) =>
+          job.sponsors.some((sponsor) => sponsor.id === record.id)
+        )
+      ).toEqual([]);
+    });
     const preflightEvidence = withPreflight
       ? await prepareAndAdoptAcceptancePreflight(
           admin,
@@ -378,15 +397,22 @@ export async function sponsorshipPublicationJourney(
           info
         )
       : undefined;
-    if (withPreflight) {
-      await admin.goto(cockpit + '?settings=feeds');
-      await expect(
-        admin.locator('[data-og7="publication-worker-toggle"]')
-      ).toHaveAttribute('aria-checked', 'false');
-    }
+    if (!withPreflight)
+      await approveAcceptanceSponsorshipDossier(admin, request, record.id);
+    const collectivePartner = await createAcceptanceCollectivePartner(
+      companyContext,
+      request,
+      admin
+    );
+    await admin.goto(cockpit + '?settings=feeds');
+    await expect(
+      admin.locator('[data-og7="publication-worker-toggle"]')
+    ).toHaveAttribute('aria-checked', 'false');
 
     let jobs: PublicationDelivery[] = [];
-    await test.step('The worker prepares both channels while human review and authorization remain separate', async () => {
+    let collectiveJobs: PublicationDelivery[] = [];
+    let allJobs: PublicationDelivery[] = [];
+    await test.step('After dossier approval, the worker prepares the four promised social passages without authorizing them', async () => {
       // A new scenario owns a fresh preparation window in the disposable DB.
       // Keep the real automatic planner; no approval or schedule is rewritten.
       const reset = await acceptanceSql<{ id: string }>(
@@ -407,15 +433,32 @@ export async function sponsorshipPublicationJourney(
         .poll(
           async () => {
             await runAcceptancePublicationWorker(new Date());
-            jobs = (await state()).deliveries.filter((j) =>
+            allJobs = (await state()).deliveries.filter((j) =>
               j.sponsors.some((s) => s.id === record.id)
             );
-            return jobs.map((j) => j.feedId).sort();
+            jobs = allJobs.filter(
+              (job) => job.publicationFormat === 'individual_text'
+            );
+            collectiveJobs = allJobs.filter(
+              (job) => job.publicationFormat === 'collective_text'
+            );
+            return allJobs
+              .map((j) => `${j.feedId}:${j.publicationFormat}`)
+              .sort();
           },
           { timeout: 15000, intervals: [100, 500, 1000] }
         )
-        .toEqual(feeds);
-      for (const job of jobs) {
+        .toEqual(
+          feeds
+            .flatMap((feed) => [
+              `${feed}:collective_text`,
+              `${feed}:individual_text`
+            ])
+            .sort()
+        );
+      expect(jobs).toHaveLength(2);
+      expect(collectiveJobs).toHaveLength(2);
+      for (const job of allJobs) {
         expect(job).toMatchObject({
           status: 'draft',
           mode: 'mock',
@@ -424,18 +467,13 @@ export async function sponsorshipPublicationJourney(
           approvedAt: null,
           externalPostId: null
         });
-        expect(job.sponsors).toHaveLength(1);
+        expect(job.sponsors).toHaveLength(
+          job.publicationFormat === 'collective_text' ? 2 : 1
+        );
         expect(job.message).toContain(companyName);
         expect(job.message).not.toContain(privateNote);
         expect(job.message).not.toContain(privateEmail);
-        expect(job.message).not.toMatch(/\b500(?:[,.]00)?\s*(?:CAD|\$)/);
-        if (preflightEvidence) {
-          const variant = preflightEvidence.variants.find((v) =>
-            job.feedId.endsWith(':' + v.destination)
-          );
-          expect(variant).toBeTruthy();
-          expect(job.message).toContain(variant!.body);
-        }
+        expect(job.message).not.toMatch(/\b15(?:[,.]00)?\s*(?:CAD|\$)/);
       }
       if (preflightEvidence) {
         const drafts = (
@@ -443,19 +481,31 @@ export async function sponsorshipPublicationJourney(
             '/api/admin/publication-drafts'
           )
         ).drafts;
-        for (const job of jobs) {
-          const adopted = preflightEvidence.adoptedDrafts.find((d) =>
-            job.feedId.endsWith(':' + d.channel)
-          )!;
-          const native = drafts.find((d) => d.id === adopted.id)!;
+        for (const adopted of preflightEvidence.adoptedDrafts) {
+          const native = drafts.find((draft) => draft.id === adopted.id)!;
           expect(native.obligation_id).toBe(adopted.obligationId);
-          expect(native.batch_id).toBe(job.batchId);
+          const variant = preflightEvidence.variants.find(
+            (candidate) => candidate.obligationId === adopted.obligationId
+          );
+          expect(variant).toBeTruthy();
+          expect(native.body).toBe(variant!.body);
+          const prepared = allJobs.find(
+            (job) => job.batchId === native.batch_id
+          );
+          expect(prepared?.message).toContain(variant!.body);
+          expect(
+            allJobs.some(
+              (job) =>
+                job.batchId === native.batch_id &&
+                job.feedId.endsWith(':' + adopted.channel)
+            )
+          ).toBe(true);
         }
         return;
       }
       const job = jobs.find((j) => j.feedId === feeds[0])!;
       const preview = await openDelivery(job.id);
-      expect(job.publicationFormat).toBe('collective_text');
+      expect(job.publicationFormat).toBe('individual_text');
       await expect(
         preview.getByRole('button', { name: 'Accepter et programmer' })
       ).toBeDisabled();
@@ -475,7 +525,7 @@ export async function sponsorshipPublicationJourney(
         code: 'MODERATION_DECISION_REQUIRED'
       });
       expect((await command(approval, false)).status()).toBe(401);
-      expect((await sponsor()).sponsor_review_status).toBe('pending_review');
+      expect((await sponsor()).sponsor_review_status).toBe('approved');
       await assertPrivate();
       await preview.screenshot({
         path: info.outputPath('private-proposal-before-human-review.png')
@@ -513,9 +563,7 @@ export async function sponsorshipPublicationJourney(
           (await media()).assets.every((m) => m.reviewStatus === 'approved')
         )
         .toBe(true);
-      expect((await sponsor()).sponsor_review_status).toBe(
-        withPreflight ? 'approved' : 'pending_review'
-      );
+      expect((await sponsor()).sponsor_review_status).toBe('approved');
       await assertPrivate();
     });
     const photo = (await media()).assets.find(
@@ -528,10 +576,12 @@ export async function sponsorshipPublicationJourney(
     const facebook = jobs.find((j) => j.feedId === feeds[0])!;
     const linkedin = jobs.find((j) => j.feedId === feeds[1])!;
     let firstApproval: PublicationDelivery;
-    await test.step('Accept the sponsor and the exact Facebook proposal, retaining website privacy', async () => {
+    await test.step('Authorize the exact Facebook proposal after dossier approval, retaining website privacy', async () => {
       const preview = await openDelivery(facebook.id);
-      if (!withPreflight)
-        await expect(preview).toContainText('Leurs fiches restent privées');
+      expect((await sponsor()).sponsor_review_status).toBe('approved');
+      await expect(
+        preview.locator('[data-og7="publication-sponsor-review"]')
+      ).toHaveCount(0);
       await preview.getByRole('checkbox', { name: /J’approuve/ }).check();
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
@@ -858,14 +908,32 @@ export async function sponsorshipPublicationJourney(
       );
       expect(received).toHaveLength(1);
       expect(received[0]).toMatchObject({
-        amountMinor: 50000,
+        amountMinor: 1500,
         currency: 'CAD',
         email: 'sent',
         sms: 'captured'
       });
-      const completed = (await state()).deliveries.filter((j) =>
+      const currentJobs = (await state()).deliveries.filter((j) =>
         j.sponsors.some((s) => s.id === record.id)
       );
+      expect(currentJobs).toHaveLength(4);
+      const completed = currentJobs.filter(
+        (job) => job.publicationFormat === 'individual_text'
+      );
+      const retainedCollectives = currentJobs.filter(
+        (job) => job.publicationFormat === 'collective_text'
+      );
+      expect(retainedCollectives).toHaveLength(2);
+      expect(
+        retainedCollectives.every(
+          (job) =>
+            job.status === 'draft' &&
+            job.approvedAt === null &&
+            job.attempts === 0
+        )
+      ).toBe(true);
+      for (const job of retainedCollectives)
+        expect((await receipt(job.id)).requests).toHaveLength(0);
       expect(completed).toHaveLength(2);
       expect(
         completed.every(
@@ -889,10 +957,12 @@ export async function sponsorshipPublicationJourney(
       expect(progress.dossier!.qualifiedFulfilmentEvidenceIds).toContain(
         website.fulfilmentEvidenceId
       );
-      expect(obligations.map((o) => o.channel).sort()).toEqual([
-        'facebook',
-        'linkedin',
-        'website'
+      expect(obligations.map((o) => o.benefitId).sort()).toEqual([
+        'facebook_batch',
+        'facebook_individual',
+        'linkedin_batch',
+        'linkedin_individual',
+        'website_mention'
       ]);
       expect(obligations.find((o) => o.channel === 'website')).toMatchObject({
         state: 'fulfilled',
@@ -935,11 +1005,13 @@ export async function sponsorshipPublicationJourney(
           {
             providers: 'simulated',
             workerClock: 'controlled at the approved schedule',
-            amountMinor: 50000,
+            amountMinor: 1500,
             currency: 'CAD',
             contributionId: record.id,
             reference,
             deliveries: completed,
+            collectiveDeliveries: retainedCollectives,
+            collectivePartnerId: collectivePartner.id,
             obligations,
             fulfilmentEvidence: qualifiedEvidence,
             ...(preflightEvidence ? { preflight: preflightEvidence } : {}),

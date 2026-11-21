@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import { SPONSORSHIP_OFFER_VERSION } from '@openg7/funding-core';
+import type { SponsorshipOfferQuote } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import {
@@ -699,8 +700,20 @@ test('company simulation submits the currently accepted offer and consent withou
   await page.goto(path());
   await virtualController(page).open();
   await hook(page, 'sandbox-payments-open').click();
+  const initialOfferResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === '/api/sponsorship-offer'
+  );
   await hook(page, 'sandbox-payment-kind').selectOption('sponsorship_interest');
-  await expect(hook(page, 'sandbox-payment-amount')).toHaveValue('100');
+  const initialOffer = (await (
+    await initialOfferResponse
+  ).json()) as SponsorshipOfferQuote;
+  expect(initialOffer.amountMinor).toBe(500);
+  expect(initialOffer.benefits.map((benefit) => benefit.id).sort()).toEqual([
+    'facebook_batch',
+    'linkedin_batch',
+    'website_mention'
+  ]);
+  await expect(hook(page, 'sandbox-payment-amount')).toHaveValue('5');
   await expect(hook(page, 'sandbox-payment-state')).toHaveAttribute(
     'data-state',
     'ready'
@@ -708,7 +721,20 @@ test('company simulation submits the currently accepted offer and consent withou
   await hook(page, 'sandbox-payment-accept').check();
   // Wait for acceptance to be rendered before changing the accepted terms.
   await expect(hook(page, 'sandbox-payment-create')).toBeEnabled();
-  await hook(page, 'sandbox-payment-amount').selectOption('250');
+  const changedOfferResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === '/api/sponsorship-offer'
+  );
+  await hook(page, 'sandbox-payment-amount').selectOption('10');
+  const changedOffer = (await (
+    await changedOfferResponse
+  ).json()) as SponsorshipOfferQuote;
+  expect(changedOffer.amountMinor).toBe(1000);
+  expect(changedOffer.benefits.map((benefit) => benefit.id).sort()).toEqual([
+    'facebook_batch',
+    'facebook_individual',
+    'linkedin_batch',
+    'website_mention'
+  ]);
   await expect(hook(page, 'sandbox-payment-accept')).not.toBeChecked();
   await expect(hook(page, 'sandbox-payment-state')).toHaveAttribute(
     'data-state',
@@ -726,12 +752,15 @@ test('company simulation submits the currently accepted offer and consent withou
     'confirmed'
   );
   expect(payments.attempts[0]!.input).toMatchObject({
-    amount: 250,
+    amount: 10,
     currency: 'CAD',
     contributionType: 'sponsorship_interest',
     publicDisplayConsent: false,
     displayAmountConsent: false,
-    offerAcceptance: { version: SPONSORSHIP_OFFER_VERSION }
+    offerAcceptance: {
+      version: SPONSORSHIP_OFFER_VERSION,
+      fingerprint: changedOffer.fingerprint
+    }
   });
   expect(payments.attempts[0]!.input.offerAcceptance!.fingerprint).toMatch(
     /^[a-f0-9]{64}$/

@@ -43,10 +43,10 @@ servent de repères ; la présence d’un scénario ne constitue pas une preuve 
 | Comptes admin, MFA, rôles, révocation et alertes              | [Accès et alertes](operations/admin-identity-and-alerts.md), [décision d'architecture](decisions/2026-09-19-admin-identity-and-operations.md) |
 | Courriels transactionnels et rappels                          | [SMTP](email-smtp.md)                                                                                                                         |
 
-La configuration actuelle des commandites propose 50, 100, 250 et 500 CAD,
-avec un minimum de 50 CAD. Les avantages cumulatifs commencent à 50 CAD pour
-la mention Web, 250 CAD pour Facebook et 500 CAD pour LinkedIn. Les sources
-sont `packages/funding-core/src/index.ts` et la configuration Funding du Web.
+Commandites : minimum 5 CAD ; paliers 5/10/15 CAD. Dès 5 CAD : Web et collectifs
+Facebook/LinkedIn. À 10/15 CAD s’ajoutent les publications individuelles
+Facebook/LinkedIn. Une fois par prestation ; collectifs de 2 minimum.
+[Tarification](../packages/funding-core/src/sponsorship-pricing.ts).
 Le paiement, le consentement, la revue et la publication restent distincts.
 
 [Engagements](technical/sponsorship-commitments.md) : offre avant Checkout,

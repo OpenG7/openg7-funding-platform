@@ -115,7 +115,10 @@ async function resolvePublicationPhoto(
   storage: SponsorMediaStorage,
   row: VisualDelivery,
   photo: PublicationPhotoSelection,
-  format: Exclude<SponsorshipPublicationFormat, 'collective_text'>,
+  format: Exclude<
+    SponsorshipPublicationFormat,
+    'collective_text' | 'individual_text'
+  >,
   lock: boolean,
   allowPendingSponsors: boolean
 ): Promise<ResolvedPublicationPhoto> {
@@ -177,12 +180,18 @@ export async function resolvePublicationVisual(
     'openg7' | 'openg20',
     'facebook' | 'linkedin'
   ];
+  const capability = publicationFormatCapability(channel, format);
+  assert(capability.available, 'FORMAT_UNAVAILABLE', 400);
+  const ids = [
+    ...new Set(row.source_snapshot.map((source) => source.contribution_id))
+  ].sort();
   assert(
-    publicationFormatCapability(channel, format).available,
-    'FORMAT_UNAVAILABLE',
-    400
+    !capability.requiresSingleSponsor || ids.length === 1,
+    format === 'individual_portrait'
+      ? 'PORTRAIT_REQUIRES_ONE_SPONSOR'
+      : 'INDIVIDUAL_REQUIRES_ONE_SPONSOR'
   );
-  if (format === 'collective_text') {
+  if (format === 'collective_text' || format === 'individual_text') {
     assert(
       (row.photo_selections?.length ?? 0) === 0,
       'FORMAT_COMMITMENT_MISMATCH',
@@ -207,14 +216,7 @@ export async function resolvePublicationVisual(
     return { snapshot: media, prepared };
   }
   assert(row.batch_id && !row.media_id, 'FORMAT_COMMITMENT_MISMATCH', 400);
-  const ids = [
-    ...new Set(row.source_snapshot.map((s) => s.contribution_id))
-  ].sort();
   const photos = normalisePublicationPhotos(row.photo_selections ?? []);
-  assert(
-    format !== 'individual_portrait' || ids.length === 1,
-    'PORTRAIT_REQUIRES_ONE_SPONSOR'
-  );
   // Composition/edit may create a private workspace for scoped human selection.
   // Approval, authenticated JPEG preview and dispatch never enable this option.
   if (allowIncompletePreparation && !photos.length)

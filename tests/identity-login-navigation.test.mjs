@@ -15,8 +15,11 @@ const networkChange = {
 
 function loginPage({
   failures = [],
-  ok = true,
+  lateFailures = [],
+  scriptStatus,
+  status = 200,
   navigationError,
+  renderErrors = [],
   linkError
 } = {}) {
   const page = new EventEmitter();
@@ -24,11 +27,7 @@ function loginPage({
   page.actions = [];
   let currentUrl = 'about:blank';
   page.url = () => currentUrl;
-  page.goto = async (path) => {
-    page.navigations.push(path);
-    if (navigationError) throw navigationError;
-    currentUrl = new URL(path, origin).href;
-    const failure = failures[page.navigations.length - 1];
+  const failRequest = (failure) => {
     if (failure)
       page.emit('requestfailed', {
         method: () => failure.method,
@@ -36,9 +35,31 @@ function loginPage({
         failure: () => ({ errorText: failure.errorText }),
         url: () => failure.url
       });
-    return { ok: () => ok };
+  };
+  page.goto = async (path) => {
+    page.navigations.push(path);
+    if (navigationError) throw navigationError;
+    currentUrl = new URL(path, origin).href;
+    failRequest(failures[page.navigations.length - 1]);
+    if (scriptStatus)
+      page.emit('response', {
+        url: () => networkChange.url,
+        status: () => scriptStatus,
+        request: () => ({
+          method: () => 'GET',
+          resourceType: () => 'script'
+        })
+      });
+    return { status: () => status };
   };
   page.locator = () => ({
+    waitFor: async ({ state }) => {
+      assert.equal(state, 'visible');
+      assert.equal(page.listenerCount('requestfailed'), 1);
+      const attempt = page.navigations.length - 1;
+      failRequest(lateFailures[attempt]);
+      if (renderErrors[attempt]) throw renderErrors[attempt];
+    },
     click: async () => {
       assert.equal(page.listenerCount('requestfailed'), 0);
       if (linkError) throw linkError;
@@ -55,7 +76,10 @@ function loginPage({
 }
 
 test('identity login reloads its GET once after the local startup script loses the runner network', async () => {
-  const page = loginPage({ failures: [networkChange] });
+  const page = loginPage({
+    failures: [networkChange],
+    renderErrors: [new Error('Startup script unavailable')]
+  });
   await signInAdminIdentity(page, destination);
   assert.deepEqual(page.navigations, [
     '/admin/login?returnUrl=' + encodeURIComponent(destination),
@@ -64,11 +88,22 @@ test('identity login reloads its GET once after the local startup script loses t
   assert.deepEqual(page.actions, ['identity-link', 'owner', 'continue']);
 });
 
+test('identity login observes a lazy script network change after goto until its button is ready', async () => {
+  const page = loginPage({
+    lateFailures: [networkChange],
+    renderErrors: [new Error('Lazy route unavailable')]
+  });
+  await signInAdminIdentity(page, destination, 'reader');
+  assert.equal(page.navigations.length, 2);
+  assert.deepEqual(page.actions, ['identity-link', 'reader', 'continue']);
+  assert.equal(page.listenerCount('requestfailed'), 0);
+});
+
 test('a second script network change still fails without repeating authentication', async () => {
   const originalError = new Error('Sign-in link unavailable');
   const page = loginPage({
-    failures: [networkChange, networkChange],
-    linkError: originalError
+    lateFailures: [networkChange, networkChange],
+    renderErrors: [new Error('Initial route unavailable'), originalError]
   });
   await assert.rejects(
     signInAdminIdentity(page, destination),
@@ -79,7 +114,13 @@ test('a second script network change still fails without repeating authenticatio
 });
 
 for (const [name, options] of [
-  ['HTTP failure', { failures: [networkChange], ok: false }],
+  ['a missing network-change signal', {}],
+  ['HTTP failure', { failures: [networkChange], status: 503 }],
+  [
+    'another successful document status',
+    { failures: [networkChange], status: 201 }
+  ],
+  ['a script HTTP 404', { scriptStatus: 404 }],
   [
     'another network error',
     { failures: [{ ...networkChange, errorText: 'net::ERR_FAILED' }] }
@@ -104,15 +145,31 @@ for (const [name, options] of [
 ]) {
   test(`identity login preserves ${name} without retrying navigation or authentication`, async () => {
     const originalError = new Error('Original sign-in failure');
-    const page = loginPage({ ...options, linkError: originalError });
+    const page = loginPage({ ...options, renderErrors: [originalError] });
     await assert.rejects(
       signInAdminIdentity(page, destination),
       (error) => error === originalError
     );
     assert.equal(page.navigations.length, 1);
     assert.deepEqual(page.actions, []);
+    assert.equal(page.listenerCount('requestfailed'), 0);
   });
 }
+
+test('identity login never reloads after a rendered button fails during authentication interaction', async () => {
+  const originalError = new Error('Sign-in interaction failed');
+  const page = loginPage({
+    failures: [networkChange],
+    linkError: originalError
+  });
+  await assert.rejects(
+    signInAdminIdentity(page, destination),
+    (error) => error === originalError
+  );
+  assert.equal(page.navigations.length, 1);
+  assert.equal(page.listenerCount('requestfailed'), 0);
+  assert.deepEqual(page.actions, []);
+});
 
 test('identity login preserves a failed document navigation and removes its temporary observer', async () => {
   const originalError = new Error('net::ERR_ABORTED');

@@ -250,7 +250,12 @@ export class FundingContributionFormComponent implements OnChanges {
   private reconcilePreset(): void {
     if (
       !this.customContributionValue() &&
-      !this.isAllowedAmount(this.selectedContributionAmount())
+      (!this.isAllowedAmount(this.selectedContributionAmount()) ||
+        (this.contributionType() === 'sponsorship_interest' &&
+          !this.offer.retained() &&
+          !this.activeAmountPresets().includes(
+            this.selectedContributionAmount()
+          )))
     ) {
       this.selectedContributionAmount.set(this.activeAmountPresets()[0] ?? 0);
     }

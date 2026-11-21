@@ -19,6 +19,14 @@
           {{ 'funding.offer.formats.' + benefit.format | translate }}
         </p>
       }
+      @if ((benefit.minimumParticipants ?? 1) > 1) {
+        <p data-og7="offer-benefit-group-size">
+          {{
+            'funding.offer.minimumParticipants'
+              | translate: { count: benefit.minimumParticipants }
+          }}
+        </p>
+      }
       <p>
         {{ 'funding.offer.required' | translate }}
         @for (

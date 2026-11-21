@@ -263,7 +263,8 @@ export function servicePreparationScope(
     commonBlockers.push('required_media_missing');
   if (
     (benefit?.requiredElements.includes('approved_presentation') ||
-      (service.format && service.format !== 'collective_text')) &&
+      (service.format &&
+        !['collective_text', 'individual_text'].includes(service.format))) &&
     !usable('supporting_image')
   )
     commonBlockers.push('required_media_missing');

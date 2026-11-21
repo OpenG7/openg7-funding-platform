@@ -342,16 +342,38 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
         }
       };
       const refreshDossier = async () => {
-        const tools = page.locator('[data-og7="dossier-global-tools"]');
-        if ((await tools.getAttribute('open')) === null)
-          await tools.locator(':scope > summary').click();
-        const progressRead = page.waitForResponse(
-          (response) =>
-            new URL(response.url()).pathname ===
-            '/api/admin/sponsorships/progress'
+        // Both refreshes return from Publication. Its open tools close when
+        // the asynchronous navigation commits the media tab.
+        await expect(page).toHaveURL(
+          (url) => url.searchParams.get('tab') === 'media'
         );
-        await page.locator('[data-og7="dossier-refresh"]').click();
-        await (await progressRead).finished();
+        await expect(
+          page
+            .locator('[data-og7="dossier-tabs"]')
+            .getByRole('button', {
+              name: /^(Fiche et médias|Profile & media)$/
+            })
+        ).toHaveAttribute('aria-current', 'page');
+        const tools = page.locator('[data-og7="dossier-global-tools"]');
+        const summary = tools.locator(':scope > summary');
+        await expect(summary).toBeVisible();
+        if ((await tools.getAttribute('open')) === null) await summary.click();
+        await expect(tools).toHaveJSProperty('open', true);
+        const refresh = tools.locator('[data-og7="dossier-refresh"]');
+        await expect(refresh).toBeVisible();
+        await expect(refresh).toBeEnabled();
+        const progressRead = page.waitForResponse((response) => {
+          const url = new URL(response.url());
+          return (
+            response.request().method() === 'GET' &&
+            url.pathname === '/api/admin/sponsorships/progress' &&
+            url.searchParams.get('sponsorshipId') === sponsorshipId
+          );
+        });
+        await refresh.click();
+        const response = await progressRead;
+        expect(response.ok()).toBe(true);
+        await response.finished();
         await expect(
           page.locator('[data-og7="sponsorship-progress"]')
         ).toHaveAttribute('aria-busy', 'false');

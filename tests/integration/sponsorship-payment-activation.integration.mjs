@@ -219,8 +219,8 @@ const assertActive = (stored, activityCount = 1) => {
   assert.equal(stored.state, 'active');
   assert.equal(stored.provenance, 'accepted_offer');
   assert.ok(stored.offer_id);
-  assert.equal(stored.obligation_ids.length, 3);
-  assert.deepEqual(stored.obligation_states, ['pending', 'pending', 'pending']);
+  assert.equal(stored.obligation_ids.length, 5);
+  assert.deepEqual(stored.obligation_states, Array(5).fill('pending'));
   assert.equal(stored.activity_count, activityCount);
 };
 const assertUnknown = (stored) => {

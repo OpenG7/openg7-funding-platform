@@ -9,6 +9,7 @@ import type {
 
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 import { adminSessionHeaders, signInAsAdmin } from './support/admin-auth.js';
 import {
   acceptanceSql,
@@ -83,9 +84,7 @@ for (const outcome of ['pending_success', 'uncertain_failure'] as const) {
     await contribution
       .getByRole('button', { name: /Commandite d'entreprise/ })
       .click();
-    await contribution
-      .getByRole('button', { name: '500 $', exact: true })
-      .click();
+    await setAcceptanceSponsorshipAmount(contribution, 500);
     await contribution.getByRole('checkbox').nth(0).uncheck();
     await contribution.getByRole('checkbox').nth(1).uncheck();
     await contribution.getByRole('checkbox').nth(2).check();

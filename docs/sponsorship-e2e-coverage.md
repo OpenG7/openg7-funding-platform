@@ -74,12 +74,17 @@ Les avertissements existants restent présents : directive ESLint inutilisée
 dans `scripts/smoke-public.mjs` et bundle initial de 818,98 ko pour un budget
 de 800 ko. Les fournisseurs sont simulés et la pile jetable a été supprimée.
 
-## Recette navigateur : commandite de 500 CAD et deux destinations
+## Recette navigateur : commandite de 15 CAD et deux destinations
 
 La recette `tests/playwright/sponsorship-publication-acceptance.spec.ts` couvre
 le deuxième parcours prioritaire de l’[inventaire](development/end-to-end-scenarios-inventory.md) :
-commandite de 500 CAD, dossier et médias, préparation privée, revue humaine,
-puis envois Facebook et LinkedIn pour OpenG7. Elle utilise l’API, PostgreSQL,
+commandite de 15 CAD, dossier et médias, revue humaine, puis préparation des
+quatre passages sociaux promis. Une deuxième entreprise contribue 5 CAD et
+fait approuver son dossier pour permettre les collectifs de deux participants.
+Les publications individuelles Facebook et LinkedIn reçoivent leurs autorisations
+exactes et sont diffusées en simulation ; les collectifs restent en brouillon.
+La visibilité Web fait l’objet d’une décision distincte. Les reçus simulés ne
+clôturent aucune promesse de diffusion sociale réelle. La recette utilise l’API, PostgreSQL,
 les workers et le navigateur réels, avec Stripe, SMTP, SMS et réseaux sociaux simulés.
 Les requêtes applicatives ne sont pas interceptées.
 

@@ -263,14 +263,14 @@ test(
           const m = await read(contributionId);
           assert.equal(m.provenance, 'accepted_offer');
           assert.equal(m.offer.amountMinor, 50000);
-          assert.equal(m.offer.benefits.length, 3);
-          assert.equal(m.obligations.length, 3);
+          assert.equal(m.offer.benefits.length, 5);
+          assert.equal(m.obligations.length, 5);
           assert.equal(
             m.obligations.find((o) => o.channel === 'website').format,
             null
           );
           assert.equal(
-            m.obligations.find((o) => o.channel === 'facebook').format,
+            m.obligations.find((o) => o.benefitId === 'facebook_batch').format,
             'collective_text'
           );
           assert.ok(
@@ -438,7 +438,9 @@ test(
         'destination adjustments and refunds preserve original promises and never fulfil an obligation',
         async () => {
           const before = await read(contributionId);
-          const o = before.obligations.find((o) => o.channel === 'facebook');
+          const o = before.obligations.find(
+            (o) => o.benefitId === 'facebook_individual'
+          );
           const request = {
             requestId: randomUUID(),
             obligationId: o.id,
@@ -472,7 +474,7 @@ test(
           });
           const refunded = await read(contributionId);
           assert.equal(refunded.offer.amountMinor, 50000);
-          assert.equal(refunded.obligations.length, 3);
+          assert.equal(refunded.obligations.length, 5);
           assert.ok(
             refunded.obligations.every(
               (o) =>
@@ -534,7 +536,9 @@ test(
         'an explicit format adjustment is idempotent, versioned and leaves the accepted offer untouched',
         async () => {
           const before = await read(contributionId);
-          const o = before.obligations.find((o) => o.channel === 'facebook');
+          const o = before.obligations.find(
+            (o) => o.benefitId === 'facebook_individual'
+          );
           const request = {
             requestId: randomUUID(),
             obligationId: o.id,
@@ -561,7 +565,7 @@ test(
           assert.equal(changed.blockedReason, 'payment_refunded');
           assert.equal(
             a.offer.benefits.find((x) => x.id === o.benefitId).format,
-            'collective_text'
+            'individual_text'
           );
           const history = (
             await pool.query(
@@ -571,7 +575,7 @@ test(
           ).rows;
           assert.equal(history.length, 1);
           assert.equal(history[0].kind, 'format');
-          assert.equal(history[0].previous_value.format, 'collective_text');
+          assert.equal(history[0].previous_value.format, 'individual_text');
           assert.equal(
             history[0].resulting_value.format,
             'individual_portrait'
@@ -630,22 +634,22 @@ test(
           );
           assert.equal(followup.contributionId, contributionId);
           const current = followup.commitment.obligations.find(
-            (o) => o.channel === 'facebook'
+            (o) => o.format === 'individual_portrait'
           );
           assert.equal(current.target, 'openg20');
           assert.equal(current.format, 'individual_portrait');
           assert.equal(current.blockedReason, 'payment_refunded');
           assert.equal(
             followup.commitment.offer.benefits.find(
-              (b) => b.channel === 'facebook'
+              (b) => b.id === 'facebook_individual'
             ).target,
             'openg7'
           );
           assert.equal(
             followup.commitment.offer.benefits.find(
-              (b) => b.channel === 'facebook'
+              (b) => b.id === 'facebook_individual'
             ).format,
-            'collective_text'
+            'individual_text'
           );
           assert.equal(
             await getSponsorshipFollowupByTokenHash(

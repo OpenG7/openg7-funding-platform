@@ -13,6 +13,7 @@ import { adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 
 const recoveryUrl = '/api/reference-recovery';
 interface Mail {
@@ -109,9 +110,11 @@ test('forgotten references: private responses during queue failure, unique captu
       await form
         .getByRole('button', { name: /Contribution personnelle/i })
         .click();
-    await form
-      .getByRole('button', { name: amount + ' $', exact: true })
-      .click();
+    if (company) await setAcceptanceSponsorshipAmount(form, amount);
+    else
+      await form
+        .getByRole('button', { name: amount + ' $', exact: true })
+        .click();
     await form.getByRole('checkbox').nth(0).setChecked(company);
     if (company) await form.locator('#public-display-name').fill(companyName);
     await form.getByRole('checkbox').nth(1).uncheck();

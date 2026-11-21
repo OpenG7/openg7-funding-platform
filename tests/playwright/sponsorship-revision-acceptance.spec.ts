@@ -23,6 +23,11 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
+import {
+  approveAcceptanceSponsorshipDossier,
+  expectAcceptanceCollectivesPending
+} from './support/acceptance-sponsorship-dossier.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 
@@ -192,7 +197,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       await expect(
         form.getByRole('button', { name: /Commandite d'entreprise/ })
       ).toHaveAttribute('aria-pressed', 'true');
-      await form.getByRole('button', { name: '500 $', exact: true }).click();
+      await setAcceptanceSponsorshipAmount(form, 500);
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(1).uncheck();
@@ -294,12 +299,17 @@ for (const review of ['pending', 'reapproved'] as const) {
           ).assets.every((a) => a.reviewStatus === 'approved')
         )
         .toBe(true);
+      await approveAcceptanceSponsorshipDossier(admin, request, id);
       for (const feedId of feeds) await command({ action: 'prepare', feedId });
       jobs = (await state()).deliveries.filter((j) =>
         j.sponsors.some((s) => s.id === id)
       );
       expect(jobs.map((j) => j.feedId).sort()).toEqual(feeds);
       expect(jobs.every((j) => j.sponsors.length === 1)).toBe(true);
+      expect(
+        jobs.every((job) => job.publicationFormat === 'individual_text')
+      ).toBe(true);
+      await expectAcceptanceCollectivesPending(request, id);
       const originalDue = new Date(
         Math.ceil((Date.now() + 180000) / 60000) * 60000
       );
@@ -427,6 +437,7 @@ for (const review of ['pending', 'reapproved'] as const) {
 
       await test.step('Review the new dossier and exact content, then explicitly authorize each destination', async () => {
         await setWorker(false);
+        await approveAcceptanceSponsorshipDossier(admin, request, id);
         const due = new Date(Math.ceil((Date.now() + 60000) / 60000) * 60000);
         for (let index = 0; index < jobs.length; index++) {
           const job = jobs[index]!;

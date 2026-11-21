@@ -79,27 +79,60 @@
       >
         <span role="listitem">
           {{
-            'funding.home.contribution.sponsorship.benefits.openg7' | translate
+            'funding.home.contribution.sponsorship.benefits.openg7'
+              | translate
+                : {
+                    amount: formatMoney(
+                      config.sponsorship.benefits.websiteMention.minimumAmount
+                    )
+                  }
           }}
         </span>
-      </span>
-      <span class="sponsorship-benefit-label">
-        {{ 'funding.home.contribution.sponsorship.amountBased' | translate }}
-      </span>
-      <span class="sponsorship-benefits" role="list">
         <span role="listitem">
           {{
             'funding.home.contribution.sponsorship.benefits.facebook'
               | translate
+                : {
+                    amount: formatMoney(
+                      config.sponsorship.benefits.facebookBatch.minimumAmount
+                    )
+                  }
           }}
         </span>
         <span role="listitem">
           {{
             'funding.home.contribution.sponsorship.benefits.linkedin'
               | translate
+                : {
+                    amount: formatMoney(
+                      config.sponsorship.benefits.linkedinBatch.minimumAmount
+                    )
+                  }
           }}
         </span>
       </span>
+      @if (
+        config.sponsorship.benefits.facebookIndividual ||
+        config.sponsorship.benefits.linkedinIndividual
+      ) {
+        <span class="sponsorship-benefit-label">
+          {{ 'funding.home.contribution.sponsorship.amountBased' | translate }}
+        </span>
+        <span class="sponsorship-benefits" role="list">
+          @if (config.sponsorship.benefits.facebookIndividual; as benefit) {
+            <span role="listitem">{{
+              'funding.home.contribution.sponsorship.benefits.facebookIndividual'
+                | translate: { amount: formatMoney(benefit.minimumAmount) }
+            }}</span>
+          }
+          @if (config.sponsorship.benefits.linkedinIndividual; as benefit) {
+            <span role="listitem">{{
+              'funding.home.contribution.sponsorship.benefits.linkedinIndividual'
+                | translate: { amount: formatMoney(benefit.minimumAmount) }
+            }}</span>
+          }
+        </span>
+      }
       <p class="sponsorship-review-note">
         {{ 'funding.home.contribution.sponsorship.reviewNote' | translate }}
       </p>
@@ -114,7 +147,10 @@
   >
     {{ 'funding.home.contribution.sponsorship.afterPaymentNote' | translate }}
   </p>
-  <div class="amount-grid">
+  <div
+    class="amount-grid"
+    [class.sponsorship-amounts]="contributionType() === 'sponsorship_interest'"
+  >
     <button
       type="button"
       *ngFor="let amount of activeAmountPresets()"

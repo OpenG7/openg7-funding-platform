@@ -15,6 +15,7 @@ import {
 } from './support/stripe-webhook.js';
 import { expect, test } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 
 test('confirmed invoice and credit-note resends recover from SMTP failure and lost responses without changing financial documents', async ({
   page,
@@ -56,7 +57,7 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
     await gate('allow');
     await page.goto('/fonds-des-batisseurs?intent=sponsorship#support');
     const form = page.locator('[data-og7="contribution-form"]');
-    await form.getByRole('button', { name: '500 $', exact: true }).click();
+    await setAcceptanceSponsorshipAmount(form, 500);
     await form.getByRole('checkbox').nth(0).uncheck();
     await form.getByRole('checkbox').nth(1).uncheck();
     await form.getByRole('checkbox').nth(2).check();

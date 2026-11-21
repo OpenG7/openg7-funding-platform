@@ -6,6 +6,7 @@ import type {
   SponsorshipPublicationFormat
 } from '@openg7/funding-core';
 
+import { publicationFormatCapability } from '../../../../packages/funding-core/src/index.js';
 import { loadSponsorshipCommitment } from '../sponsorship-commitments.repository.js';
 import { lockModerationDependencies } from '../moderation/repository.js';
 import { assert } from '../publication-automation/policy.js';
@@ -28,6 +29,14 @@ async function currentObligations(db: Db, row: ObligationDelivery) {
     ...new Set(row.source_snapshot.map((s) => s.contribution_id))
   ].sort();
   assert(ids.length > 0, 'EMPTY_BATCH');
+  const format = row.publication_format ?? 'collective_text';
+  const capability = publicationFormatCapability(channel!, format);
+  assert(
+    !capability.requiresSingleSponsor || ids.length === 1,
+    format === 'individual_portrait'
+      ? 'PORTRAIT_REQUIRES_ONE_SPONSOR'
+      : 'INDIVIDUAL_REQUIRES_ONE_SPONSOR'
+  );
   const selected: PublicationObligationSnapshot[] = [];
   for (const contributionId of ids) {
     const commitment = await loadSponsorshipCommitment(db, contributionId);
@@ -67,8 +76,8 @@ async function currentObligations(db: Db, row: ObligationDelivery) {
       'FORMAT_COMMITMENT_MISMATCH'
     );
     assert(
-      row.publication_format !== 'individual_portrait' || ids.length === 1,
-      'PORTRAIT_REQUIRES_ONE_SPONSOR'
+      ids.length >= (obligation.minimumParticipants ?? 1),
+      'COLLECTIVE_REQUIRES_MULTIPLE_SPONSORS'
     );
     selected.push({
       id: obligation.id,
@@ -77,7 +86,10 @@ async function currentObligations(db: Db, row: ObligationDelivery) {
       channel: obligation.channel,
       target: obligation.target,
       ordinal: obligation.ordinal,
-      ...(obligation.format ? { format: obligation.format } : {})
+      ...(obligation.format ? { format: obligation.format } : {}),
+      ...((obligation.minimumParticipants ?? 1) > 1
+        ? { minimumParticipants: obligation.minimumParticipants }
+        : {})
     });
   }
   return selected;

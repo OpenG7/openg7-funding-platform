@@ -13,12 +13,14 @@ import {
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import { buildSponsorshipAssistantContext } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from './support/sponsorship-commitment-fixture.mjs';
 
 const contributionId = '10000000-0000-4000-8000-000000000001';
 const otherContributionId = '10000000-0000-4000-8000-000000000002';
-const recorded = (amount) => {
-  if (amount < 50) return null;
-  const offer = createSponsorshipOfferSnapshot(Math.round(amount * 100), 'CAD');
+const recorded = (amount, currentOffer = null) => {
+  if (!currentOffer && amount < 50) return null;
+  const offer =
+    currentOffer ?? recordedLegacySponsorshipOffer(Math.round(amount * 100));
   return {
     id: 'synthetic-agreement',
     contributionId,
@@ -35,6 +37,10 @@ const recorded = (amount) => {
       benefitId: b.id,
       channel: b.channel,
       target: b.target,
+      ...(b.format ? { format: b.format } : {}),
+      ...(b.minimumParticipants
+        ? { minimumParticipants: b.minimumParticipants }
+        : {}),
       ordinal: 1,
       state: 'pending',
       version: 1,
@@ -156,6 +162,50 @@ test('promised and missing channels follow the recorded synthetic agreements, wi
 
 test('attention preserves the active-channel export as the same function', () => {
   assert.equal(attentionDraftChannels, activeDraftChannels);
+});
+
+test('v4 coverage requires separate bound drafts for each collective and individual obligation', () => {
+  for (const [amount, missing] of [
+    [5, []],
+    [10, ['facebook']],
+    [15, ['facebook', 'linkedin']]
+  ]) {
+    const offer = createSponsorshipOfferSnapshot(amount * 100, 'CAD');
+    const record = { contributionId, commitment: recorded(amount, offer) };
+    const social = record.commitment.obligations.filter(
+      (o) => o.channel !== 'website'
+    );
+    const boundDraft = (obligation) => ({
+      ...draft(obligation.channel, 'draft'),
+      id: `synthetic-draft-${obligation.id}`,
+      obligation_id: obligation.id
+    });
+    const collectiveDrafts = social
+      .filter((o) => o.benefitId.endsWith('_batch'))
+      .map(boundDraft);
+    assert.deepEqual(
+      resolveSponsorshipPublicationCoverage(record, collectiveDrafts)
+        .missingChannels,
+      missing
+    );
+    assert.deepEqual(
+      resolveSponsorshipPublicationCoverage(record, social.map(boundDraft))
+        .missingChannels,
+      []
+    );
+    if (amount === 15) {
+      const facebookIndividual = social.find(
+        (o) => o.benefitId === 'facebook_individual'
+      );
+      assert.deepEqual(
+        resolveSponsorshipPublicationCoverage(record, [
+          ...collectiveDrafts,
+          boundDraft(facebookIndividual)
+        ]).missingChannels,
+        ['linkedin']
+      );
+    }
+  }
 });
 
 const sponsorship = (amount) =>

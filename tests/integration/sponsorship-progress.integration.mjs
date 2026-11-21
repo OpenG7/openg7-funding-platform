@@ -14,7 +14,7 @@ import {
   adjustSponsorshipObligation,
   qualifySponsorshipCommitment
 } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
-import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from '../support/sponsorship-commitment-fixture.mjs';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 
 test(
@@ -178,7 +178,7 @@ test(
               'The synthetic dossier has an explicit commercial agreement',
             evidenceReference: 'synthetic://progress-agreement',
             offer: {
-              ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+              ...recordedLegacySponsorshipOffer(50000),
               version: 'historical-qualification-v1'
             }
           },
@@ -620,7 +620,7 @@ test(
             'Synthetic logo agreement','synthetic@example.invalid',NOW(),true,
             'pi_progress_logo_agreement') RETURNING id`)
       ).rows[0].id;
-      const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD');
+      const snapshot = recordedLegacySponsorshipOffer(50000);
       await withPostgresTransaction(pool, async (db) => {
         await activateSponsorshipCommitments(db, {
           stripePaymentIntentId: 'pi_progress_logo_agreement'

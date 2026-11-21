@@ -1,3 +1,4 @@
+import { resolveSponsorshipTierFromOffer } from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
   SponsorFeedStatus,
@@ -312,18 +313,12 @@ export class AdminSponsorPresentationProjection {
   }
 
   sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
-    const benefits =
-      sponsorship.commitment?.state === 'active'
-        ? (sponsorship.commitment.offer?.benefits.map((b) => b.id) ?? [])
-        : [];
-    const tier = benefits.includes('linkedin_batch')
-      ? 'website_facebook_linkedin'
-      : benefits.includes('facebook_batch')
-        ? 'website_facebook'
-        : benefits.includes('website_mention')
-          ? 'website_only'
-          : null;
+    const tier = this.recordedTier(sponsorship);
     switch (tier) {
+      case 'collective':
+      case 'facebook_individual':
+      case 'facebook_linkedin_individual':
+        return this.presentation.t('admin.commitments.tiers.' + tier);
       case 'website_facebook_linkedin':
         return 'Or';
       case 'website_facebook':
@@ -336,18 +331,25 @@ export class AdminSponsorPresentationProjection {
   }
 
   tierClass(sponsorship: AdminSponsorshipRecord): string {
-    const benefits =
-      sponsorship.commitment?.state === 'active'
-        ? (sponsorship.commitment.offer?.benefits.map((b) => b.id) ?? [])
-        : [];
-    const state = benefits.includes('linkedin_batch')
-      ? 'gold'
-      : benefits.includes('facebook_batch')
-        ? 'silver'
-        : benefits.includes('website_mention')
-          ? 'bronze'
-          : 'unknown';
+    const tier = this.recordedTier(sponsorship);
+    const state =
+      tier === 'facebook_linkedin_individual' ||
+      tier === 'website_facebook_linkedin'
+        ? 'gold'
+        : tier === 'facebook_individual' || tier === 'website_facebook'
+          ? 'silver'
+          : tier === 'collective' || tier === 'website_only'
+            ? 'bronze'
+            : 'unknown';
     return `tier-badge tier-${state}`;
+  }
+
+  private recordedTier(sponsorship: AdminSponsorshipRecord) {
+    const offer =
+      sponsorship.commitment?.state === 'active'
+        ? sponsorship.commitment.offer
+        : null;
+    return offer ? resolveSponsorshipTierFromOffer(offer) : null;
   }
 
   sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {
@@ -372,6 +374,12 @@ export class AdminSponsorPresentationProjection {
       ),
       linkedin_batch: this.presentation.t(
         'admin.messages.lot_collectif_linkedin'
+      ),
+      facebook_individual: this.presentation.t(
+        'admin.commitments.benefitNames.facebook_individual'
+      ),
+      linkedin_individual: this.presentation.t(
+        'admin.commitments.benefitNames.linkedin_individual'
       )
     };
     return achievedBenefits.map((benefit) => labels[benefit]).join(', ');

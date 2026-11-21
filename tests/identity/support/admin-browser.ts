@@ -34,6 +34,7 @@ export async function signInAdminIdentity(
   role = 'owner'
 ) {
   const loginPath = '/admin/login?returnUrl=' + encodeURIComponent(path);
+  const signIn = page.locator('[data-og7="identity-sign-in"]');
   let scriptNetworkChanged = false;
   const recordScriptFailure = (request: Request) => {
     if (
@@ -47,18 +48,27 @@ export async function signInAdminIdentity(
   page.on('requestfailed', recordScriptFailure);
   try {
     const response = await page.goto(loginPath);
-    // Recover one interrupted local script load before authentication.
-    // Retry only the login GET, once, before any authentication interaction.
-    if (
-      scriptNetworkChanged &&
-      response?.ok() &&
-      new URL(page.url()).pathname === '/admin/login'
-    )
+    try {
+      // Lazy route imports can fail after the document's load event.
+      await signIn.waitFor({ state: 'visible' });
+    } catch (error) {
+      const current = new URL(page.url());
+      // Recover only one interrupted loopback login GET before authentication.
+      if (
+        !scriptNetworkChanged ||
+        response?.status() !== 200 ||
+        current.protocol !== 'http:' ||
+        !['127.0.0.1', '[::1]', 'localhost'].includes(current.hostname) ||
+        current.pathname !== '/admin/login'
+      )
+        throw error;
       await page.goto(loginPath);
+      await signIn.waitFor({ state: 'visible' });
+    }
   } finally {
     page.off('requestfailed', recordScriptFailure);
   }
-  await page.locator('[data-og7="identity-sign-in"]').click();
+  await signIn.click();
   await page.getByLabel('Compte de test').selectOption(role);
   await page.getByRole('button', { name: 'Continuer' }).click();
 }

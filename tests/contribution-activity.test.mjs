@@ -41,7 +41,7 @@ test('navigable simulated Checkout cannot target production or a remote provider
 });
 
 const websitePreparationFacts = (overrides = {}) => ({
-  amountMinor: 5000,
+  amountMinor: 500,
   currency: 'CAD',
   paymentStatus: 'paid',
   contributionType: 'sponsorship_interest',
@@ -66,7 +66,7 @@ test('website preparation respects consent, payment, thresholds and worker state
     { hidden: true },
     { reviewStatus: 'rejected' },
     { currency: 'USD' },
-    { amountMinor: 4999 },
+    { amountMinor: 499 },
     { contributionType: 'personal_support' }
   ])
     assert.equal(
@@ -101,18 +101,14 @@ test('website preparation respects consent, payment, thresholds and worker state
 
 test('website preparation resolves exact minor-unit boundaries and custom paid amounts', () => {
   for (const [amountMinor, facebook, linkedin] of [
-    [4999, false, false],
-    [5000, false, false],
-    [5001, false, false],
-    [12345, false, false],
-    [24999, false, false],
-    [25000, true, false],
-    [25001, true, false],
-    [32123, true, false],
-    [49999, true, false],
-    [50000, true, true],
-    [50001, true, true],
-    [75123, true, true]
+    [499, false, false],
+    [500, true, true],
+    [501, true, true],
+    [999, true, true],
+    [1000, true, true],
+    [1499, true, true],
+    [1500, true, true],
+    [2513, true, true]
   ]) {
     const result = prepareContributionWebsite(
       websitePreparationFacts({
@@ -121,7 +117,7 @@ test('website preparation resolves exact minor-unit boundaries and custom paid a
         mediaApproved: true
       })
     );
-    if (amountMinor === 4999) {
+    if (amountMinor === 499) {
       assert.deepEqual(result, {
         state: 'ineligible',
         reasons: ['payment_confirmed', 'unsupported_contribution'],
@@ -232,8 +228,8 @@ test('private website preparation preserves independent review and media decisio
     assert.deepEqual(result.reasons, [
       'payment_confirmed',
       'website_eligible',
-      'facebook_below_threshold',
-      'linkedin_below_threshold',
+      'facebook_eligible',
+      'linkedin_eligible',
       ...requiredReasons
     ]);
     assert.deepEqual(result.cartouche, {

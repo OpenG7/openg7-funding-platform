@@ -265,6 +265,11 @@ const formatNames: Readonly<Record<string, SponsorshipPublicationFormat>> = {
   collective_text: 'collective_text',
   'texte collectif': 'collective_text',
   'collective text': 'collective_text',
+  individual_text: 'individual_text',
+  'texte individuel': 'individual_text',
+  texteindividuel: 'individual_text',
+  'individual text': 'individual_text',
+  individualtext: 'individual_text',
   individual_portrait: 'individual_portrait',
   'portrait individuel': 'individual_portrait',
   'individual portrait': 'individual_portrait',
@@ -350,7 +355,7 @@ function structuredItem(
   ];
   const formats = collect(
     'format',
-    /\bformat(?:\s+|\s*[:=]\s*)(collective_text|individual_portrait|collective_composite|image_collection|texte collectif|collective text|portrait individuel|individual portrait|composition collective|collective composite|collection d['’]images|image collection)\b/giu
+    /\bformat(?:\s+|\s*[:=]\s*)(collective_text|individual_text|individual_portrait|collective_composite|image_collection|texte collectif|collective text|texte ?individuel|individual ?text|portrait individuel|individual portrait|composition collective|collective composite|collection d['’]images|image collection)\b/giu
   );
   collect(
     'word_count',

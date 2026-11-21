@@ -6,6 +6,8 @@ export interface SponsorshipBenefitsConfig {
   readonly websiteMention: SponsorshipBenefitThreshold;
   readonly facebookBatch: SponsorshipBenefitThreshold;
   readonly linkedinBatch: SponsorshipBenefitThreshold;
+  readonly facebookIndividual?: SponsorshipBenefitThreshold;
+  readonly linkedinIndividual?: SponsorshipBenefitThreshold;
 }
 
 export interface SponsorshipPricingConfig {

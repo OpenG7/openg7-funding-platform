@@ -5,11 +5,13 @@ import type {
 import type { Pool, PoolClient } from 'pg';
 import type {
   SponsorshipOfferSnapshot,
-  SponsorshipCommitmentProvenance,
-  SponsorshipTierId
+  SponsorshipCommitmentProvenance
 } from '@openg7/funding-core';
 
-import { publicSponsorshipObligations } from '../../../packages/funding-core/src/index.js';
+import {
+  publicSponsorshipObligations,
+  resolveSponsorshipTierFromOffer
+} from '../../../packages/funding-core/src/index.js';
 
 import {
   centsToAmount,
@@ -129,15 +131,7 @@ export const getSponsorshipFollowupByTokenHash = async (
   const amount = centsToAmount(parseDbInt(row.amount_cents));
   const sponsorshipBenefits =
     row.offer_snapshot?.benefits.map((b) => b.id) ?? [];
-  const tier: SponsorshipTierId | null = sponsorshipBenefits.includes(
-    'linkedin_batch'
-  )
-    ? 'website_facebook_linkedin'
-    : sponsorshipBenefits.includes('facebook_batch')
-      ? 'website_facebook'
-      : sponsorshipBenefits.includes('website_mention')
-        ? 'website_only'
-        : null;
+  const tier = resolveSponsorshipTierFromOffer(row.offer_snapshot ?? null);
 
   return {
     found: true,

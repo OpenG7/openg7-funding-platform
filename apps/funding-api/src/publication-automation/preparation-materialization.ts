@@ -20,15 +20,20 @@ export const preparationMaterializationSql = (
     COALESCE(NULLIF(btrim(c.sponsor_public_summary),''),'Merci de soutenir le Fonds des Bâtisseurs OpenG7.') AS body,
     'Commandite rémunérée.' AS disclosure_text,passage.id AS obligation_id,
     COALESCE(passage.publication_format,'collective_text') AS publication_format,
+    passage.minimum_participants,
     passage.ordinal,GREATEST(c.created_at,COALESCE(c.paid_at,c.created_at),passage.created_at) AS first_created_at,
     c.created_at AS contribution_created_at
   FROM fund_contributions c
-  JOIN LATERAL(SELECT o.id,o.ordinal,o.created_at,o.publication_format FROM sponsorship_obligations o
+  JOIN LATERAL(SELECT DISTINCT ON (o.benefit_id) o.id,o.ordinal,o.created_at,o.publication_format,o.minimum_participants FROM sponsorship_obligations o
     JOIN sponsorship_commitments a ON a.id=o.commitment_id
     WHERE a.state='active' AND o.contribution_id=c.id AND o.channel=${channel} AND o.target=${target} AND o.state IN ('pending','blocked')
-    ORDER BY o.ordinal,o.id LIMIT 1) passage ON TRUE
+      AND (c.sponsor_review_status='approved' OR (o.minimum_participants=1
+        AND COALESCE(o.publication_format,'collective_text')<>'individual_text'
+        AND o.benefit_id NOT IN ('facebook_individual','linkedin_individual')))
+    ORDER BY o.benefit_id,o.ordinal,o.id) passage ON TRUE
   WHERE ${preparationMaterializationScopeSql} AND ${contributionScope}
     AND NOT ${publicationSourceUncertainSql('c.id', channel)}
-    AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts existing WHERE existing.contribution_id=c.id AND existing.feed_target=${target} AND existing.channel=${channel} AND existing.status NOT IN ('published','cancelled','rejected'))
+    AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts existing WHERE existing.contribution_id=c.id AND existing.feed_target=${target} AND existing.channel=${channel}
+      AND (existing.obligation_id IS NULL OR existing.obligation_id=passage.id) AND existing.status NOT IN ('published','cancelled','rejected'))
     AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts refusal WHERE refusal.contribution_id=c.id AND refusal.feed_target=${target} AND refusal.channel=${channel}
       AND refusal.status='rejected' AND (refusal.obligation_id IS NULL OR refusal.obligation_id=passage.id))`;

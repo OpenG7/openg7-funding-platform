@@ -37,6 +37,22 @@
       "quantity": "Agreed quantity",
       "choose": "Choose explicitly",
       "format": "Agreed format",
+      "service": "Established service type",
+      "minimumParticipants": "Minimum number of sponsors — optional",
+      "services": {
+        "unknown": "Not established in the historical agreement",
+        "collective": "Collective inclusion",
+        "individual": "Individual publication"
+      },
+      "tiers": {
+        "collective": "Collective recognition",
+        "facebook_individual": "Individual Facebook",
+        "facebook_linkedin_individual": "Individual Facebook and LinkedIn"
+      },
+      "benefitNames": {
+        "facebook_individual": "Individual Facebook publication",
+        "linkedin_individual": "Individual LinkedIn publication"
+      },
       "requiredHelp": "Select the elements required by the agreement. At least one is required; they do not replace current publication rules.",
       "deadline": "Agreed deadline",
       "duration": "Agreed duration",
@@ -84,6 +100,7 @@
       "formats": {
         "unknown": "Format not established — text only",
         "collective_text": "Collective text",
+        "individual_text": "Individual text",
         "individual_portrait": "Individual portrait",
         "collective_composite": "Collective image",
         "image_collection": "Image collection — LinkedIn"
@@ -592,7 +609,7 @@
         "linkedin_below_threshold": "The LinkedIn contribution threshold has not been reached.",
         "worker_stopped": "The worker must be enabled to prepare the card.",
         "review_required": "Administrative review is still required.",
-        "media_required": "An approved supporting image is still required for public visibility.",
+        "media_required": "Any image added must be approved before it is made public.",
         "unsupported_contribution": "This contribution type, amount or currency does not qualify for automatic website preparation."
       }
     },
@@ -3061,7 +3078,7 @@
             "ACCOUNT_RECONCILIATION_REQUIRED": "A delivery on this account requires reconciliation before another date can be considered.",
             "FEED_PAUSED": "This feed is paused. No new date is suggested.",
             "FORMAT_UNAVAILABLE": "The recorded format is unavailable on this channel.",
-            "GROUP_PARTICIPANTS_REQUIRED": "A collection needs another compatible sponsor and at least two complete sources.",
+            "GROUP_PARTICIPANTS_REQUIRED": "A collective batch matching the agreement still needs to be formed or completed. Prepare the feed to find compatible participants.",
             "CAPACITY_INSUFFICIENT": "This feed's capacity cannot accommodate the format's minimum group size.",
             "NO_COMPATIBLE_RECURRENCE": "No compatible recurrence was found within the calendar search."
           },
@@ -3076,7 +3093,7 @@
             "RECONCILE_ACCOUNT": "Investigate the uncertain delivery on this account before preparing or sending again.",
             "REVIEW_FEED": "Review the pause setting before requesting preparation.",
             "REVIEW_FORMAT": "Review the recorded format and the channel's capabilities.",
-            "WAIT_FOR_GROUP": "Prepare again when a compatible group can be composed; do not approve a singleton collection.",
+            "WAIT_FOR_GROUP": "Prepare again when a compatible group can be composed. The collective commitment remains waiting for a group.",
             "REVIEW_CALENDAR": "Review the calendar, account occupation and batch capacity."
           }
         },
@@ -3218,6 +3235,8 @@
         "FORMAT_UNAVAILABLE": "This format is unavailable for this channel. Review the recorded commitment with the sponsor before changing it.",
         "FORMAT_COMMITMENT_MISMATCH": "The prepared format does not match the recorded commitment. Review the dossier before requesting a new approval.",
         "PORTRAIT_REQUIRES_ONE_SPONSOR": "An individual portrait requires exactly one sponsor.",
+        "INDIVIDUAL_REQUIRES_ONE_SPONSOR": "An individual publication requires exactly one sponsor.",
+        "COLLECTIVE_REQUIRES_MULTIPLE_SPONSORS": "This group does not meet the agreement’s minimum number of sponsors.",
         "COMPOSITE_PHOTOS_REQUIRED": "Select one qualified photo belonging to each participant. No photo will be substituted automatically.",
         "COMPOSITE_PARTICIPANTS_INVALID": "Check the participants, ownership and selected photo versions.",
         "COMPOSITE_LABEL_TOO_LONG": "A name or credit exceeds the image’s readable area. Review the layout without shortening the sponsor’s identity.",
