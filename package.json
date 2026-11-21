@@ -21,6 +21,7 @@
     "1": "yarn dev:preflight && yarn dev:web:docker",
     "2": "yarn dev:web:docker:stop",
     "3": "yarn dev:web:docker:restore",
+    "5": "yarn test:e2e:acceptance",
     "4": "yarn docker:build:api",
     "menu": "node scripts/menu.mjs",
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
