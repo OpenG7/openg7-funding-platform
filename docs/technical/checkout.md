@@ -42,11 +42,14 @@ The prepared V1 charter is inactive by default. See the
 
 Business Checkout also requires the current server offer reference:
 `offerAcceptance: { version, fingerprint }`. Obtain it from
-`GET /api/sponsorship-offer?amountMinor=25000&currency=CAD`. The quote contains
+`GET /api/sponsorship-offer?amountMinor=1500&currency=CAD`. The quote contains
 integer minor units, currency, benefit IDs, logical destination, quantity,
-required elements, and explicit nullable deadline/duration. Other currencies
+required elements, optional minimum participant count, and nullable deadline/duration. Other currencies
 are refused; CAD thresholds are never applied to them. The current quantity is
-one website mention and, at their thresholds, one Facebook/LinkedIn recognition.
+one website mention, one collective inclusion on Facebook and LinkedIn, and,
+at their thresholds, separate individual Facebook and LinkedIn publications.
+The `sponsorship-v4` contract and thresholds are described in
+[recorded commitments](sponsorship-commitments.md).
 `null` promises no fixed deadline or duration.
 
 The public contribution form confirms the sponsorship amount without displaying
@@ -54,12 +57,15 @@ the technical offer summary or format selectors. The server determines benefits
 and default formats from the contribution. The Web retains the quote reference
 for Checkout validation and exact recovery of an interrupted attempt.
 
-Offer v2 records each social format. Optional `facebookFormat` / `linkedinFormat`
-query parameters select `collective_text` (default), `individual_portrait` or
-`collective_composite`; copy the chosen options into Checkout's `offerFormats`
-object (`facebook?`, `linkedin?`). The server recomputes the matching quote before
-preparation. `image_collection` returns `400 FORMAT_UNAVAILABLE`; it is not
-converted to a single image. The acceptance fingerprint covers the format.
+Optional `facebookFormat` / `linkedinFormat` parameters select a compatible
+format for an included service: `collective_text`, `individual_text`,
+`individual_portrait`, `collective_composite`, or LinkedIn `image_collection`.
+Copy those choices into Checkout's `offerFormats` object (`facebook?`, `linkedin?`).
+An individual choice applies only to the individual service; a collective choice
+applies only to the collective service. The other entitlement is retained.
+The server rejects formats outside the selected amount's entitlements and
+recomputes the matching quote before preparation. The acceptance fingerprint
+covers formats and minimum group sizes.
 [Migration 045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)
 records it on obligations. Old snapshots without a format keep their canonical
 JSON/hash. An absent `offerFormats` stays absent on retries: adding defaults or

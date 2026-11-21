@@ -27,6 +27,7 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 import {
   confirmAcceptanceMediaUsage,
   updateAcceptanceMediaUsage
@@ -221,7 +222,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await expect(
         form.getByRole('button', { name: /Commandite d'entreprise/ })
       ).toHaveAttribute('aria-pressed', 'true');
-      await form.getByRole('button', { name: '500 $', exact: true }).click();
+      await setAcceptanceSponsorshipAmount(form, 500);
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(1).uncheck();

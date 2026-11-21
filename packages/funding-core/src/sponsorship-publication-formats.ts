@@ -1,5 +1,6 @@
 export type SponsorshipPublicationFormat =
   | 'collective_text'
+  | 'individual_text'
   | 'individual_portrait'
   | 'collective_composite'
   | 'image_collection';
@@ -22,6 +23,7 @@ export const publicationFormatCapability = (
   const supportedChannel = ['facebook', 'linkedin'].includes(channel);
   const known = [
     'collective_text',
+    'individual_text',
     'individual_portrait',
     'collective_composite',
     'image_collection'
@@ -31,8 +33,10 @@ export const publicationFormatCapability = (
       supportedChannel &&
       known &&
       (format !== 'image_collection' || channel === 'linkedin'),
-    requiresImage: format !== 'collective_text',
-    requiresSingleSponsor: format === 'individual_portrait',
+    requiresImage: !['collective_text', 'individual_text'].includes(format),
+    requiresSingleSponsor: ['individual_text', 'individual_portrait'].includes(
+      format
+    ),
     multiImage: format === 'image_collection'
   };
 };
@@ -54,6 +58,7 @@ export const normalizeSponsorshipOfferFormats = (
       typeof format !== 'string' ||
       ![
         'collective_text',
+        'individual_text',
         'individual_portrait',
         'collective_composite',
         'image_collection'

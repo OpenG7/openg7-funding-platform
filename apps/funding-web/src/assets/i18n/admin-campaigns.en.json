@@ -95,6 +95,7 @@
   "formats": {
     "unspecified": "As recorded in the agreement",
     "collective_text": "Collective text recognition",
+    "individual_text": "Individual text recognition",
     "individual_portrait": "Individual portrait",
     "collective_composite": "Collective visual",
     "image_collection": "Image collection"

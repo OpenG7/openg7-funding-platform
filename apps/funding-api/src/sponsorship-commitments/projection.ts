@@ -10,7 +10,9 @@ export const sponsorshipCommitmentProjectionSql = (
     'qualificationReason',m.qualification_reason,'version',m.version,'offer',o.snapshot,'obligations',
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',ob.id,'commitmentId',ob.commitment_id,'contributionId',ob.contribution_id,
       'benefitId',ob.benefit_id,'channel',ob.channel,'target',ob.target,'format',ob.publication_format,'ordinal',ob.ordinal,'state',ob.state,'blockedReason',ob.blocked_reason,
-      'version',ob.version,'fulfilmentEvidenceId',ob.fulfilment_evidence_id,'timing',${sponsorshipObligationTimingProjectionSql('ob')}) ORDER BY ob.channel,ob.target,ob.ordinal,ob.id)
+      'version',ob.version,'fulfilmentEvidenceId',ob.fulfilment_evidence_id,'timing',${sponsorshipObligationTimingProjectionSql('ob')})
+      || CASE WHEN ob.minimum_participants>1 THEN jsonb_build_object('minimumParticipants',ob.minimum_participants) ELSE '{}'::jsonb END
+      ORDER BY ob.channel,ob.target,ob.ordinal,ob.id)
       FROM sponsorship_obligations ob WHERE ob.commitment_id=m.id),'[]'::jsonb))
     FROM sponsorship_commitments m LEFT JOIN sponsorship_offers o ON o.id=m.offer_id WHERE m.contribution_id=${contributionIdExpression})`;
 };

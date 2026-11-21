@@ -54,6 +54,13 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [072](../../apps/funding-api/migrations/072_sponsorship_dual_publications.sql)
+étend les prestations et formats pour l'offre `sponsorship-v4`. Le minimum de
+participants vaut un pour les obligations existantes; les offres et empreintes
+enregistrées restent intactes. Appliquer avant l'API et le Web correspondants,
+avec les anciens workers arrêtés. Elle n'active aucun moteur ni envoi et ne
+recalcule aucun droit historique. Les validations utilisent une base jetable.
+
 La migration [071](../../apps/funding-api/migrations/071_sponsorship_website_refresh_commands.sql)
 ajoute les reçus immuables des réévaluations Web explicites, bornées à une
 obligation et à un acteur. Elle ne publie rien et ne modifie aucune offre ou preuve

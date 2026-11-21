@@ -19,6 +19,7 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 
 const minor = (value: number) => Math.round(value * 100);
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
@@ -93,7 +94,7 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
 
   await payer.goto('/fonds-des-batisseurs?intent=sponsorship#support');
   const form = hook(payer, 'contribution-form');
-  await form.getByRole('button', { name: '250 $', exact: true }).click();
+  await setAcceptanceSponsorshipAmount(form, 250);
   await form.getByRole('checkbox').nth(0).check();
   await form.locator('#public-display-name').fill(company);
   await form.getByRole('checkbox').nth(1).uncheck();

@@ -280,7 +280,8 @@ export const createAdminPublicationDraftOnConnection = async (
     db,
     input.contributionId,
     input.feedTarget,
-    input.channel
+    input.channel,
+    correlation?.expectedObligationId
   );
   if (
     correlation?.expectedObligationId &&

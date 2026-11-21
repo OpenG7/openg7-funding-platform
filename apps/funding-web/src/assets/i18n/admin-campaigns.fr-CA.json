@@ -95,6 +95,7 @@
   "formats": {
     "unspecified": "Selon l’accord enregistré",
     "collective_text": "Reconnaissance collective en texte",
+    "individual_text": "Reconnaissance individuelle en texte",
     "individual_portrait": "Portrait individuel",
     "collective_composite": "Visuel collectif",
     "image_collection": "Collection d’images"

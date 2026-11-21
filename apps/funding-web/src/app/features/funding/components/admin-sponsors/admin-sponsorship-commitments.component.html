@@ -186,6 +186,16 @@
                       </dd>
                     </div>
                   }
+                  @if ((b.minimumParticipants ?? 1) > 1) {
+                    <div>
+                      <dt>
+                        {{
+                          'admin.commitments.minimumParticipants' | translate
+                        }}
+                      </dt>
+                      <dd>{{ b.minimumParticipants }}</dd>
+                    </div>
+                  }
                   <div>
                     <dt>
                       <openg7-admin-icon name="clock" />
@@ -251,6 +261,12 @@
                   <span>{{
                     'admin.commitments.formats.' + (b.format ?? 'unknown')
                       | translate
+                  }}</span>
+                }
+                @if ((b.minimumParticipants ?? 1) > 1) {
+                  <span>{{
+                    'funding.offer.minimumParticipants'
+                      | translate: { count: b.minimumParticipants }
                   }}</span>
                 }
                 <span
@@ -621,6 +637,28 @@
                     required
                 /></label>
                 @if (b.channel && b.channel !== 'website') {
+                  <label>
+                    {{ 'admin.commitments.service' | translate }}
+                    <select
+                      [value]="b.service"
+                      (change)="updateText(index, 'service', $event)"
+                      data-og7="commitments-benefit-service"
+                    >
+                      <option value="">
+                        {{ 'admin.commitments.services.unknown' | translate }}
+                      </option>
+                      <option value="collective">
+                        {{
+                          'admin.commitments.services.collective' | translate
+                        }}
+                      </option>
+                      <option value="individual">
+                        {{
+                          'admin.commitments.services.individual' | translate
+                        }}
+                      </option>
+                    </select>
+                  </label>
                   <label
                     >{{ 'admin.commitments.format' | translate
                     }}<select
@@ -640,6 +678,18 @@
                       }
                     </select></label
                   >
+                  <label>
+                    {{ 'admin.commitments.minimumParticipants' | translate }}
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      step="1"
+                      [value]="b.minimumParticipants"
+                      (input)="updateText(index, 'minimumParticipants', $event)"
+                      data-og7="commitments-benefit-minimum-participants"
+                    />
+                  </label>
                 }
                 <p>{{ 'admin.commitments.requiredHelp' | translate }}</p>
                 <div class="checks">
@@ -707,7 +757,7 @@
             <button
               type="button"
               (click)="c.addBenefit()"
-              [disabled]="c.benefits().length >= 3"
+              [disabled]="c.benefits().length >= 5"
               data-og7="commitments-add-benefit"
             >
               {{ 'admin.commitments.addBenefit' | translate }}
@@ -828,6 +878,14 @@
           }
           {{ 'admin.commitments.version' | translate }} {{ o.version }}
         </p>
+        @if ((o.minimumParticipants ?? 1) > 1) {
+          <p>
+            {{
+              'funding.offer.minimumParticipants'
+                | translate: { count: o.minimumParticipants }
+            }}
+          </p>
+        }
         @if (
           o.timing &&
           (o.timing.deadlineDays !== null || o.timing.durationDays !== null)

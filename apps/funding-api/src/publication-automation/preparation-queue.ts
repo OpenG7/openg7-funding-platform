@@ -15,6 +15,7 @@ import {
   isValidPublicationMessage,
   missingPublicationRecognitionSources,
   PUBLICATION_MESSAGE_MAX_CODE_UNITS,
+  publicationFormatCapability,
   selectPublicationRecognitionSources
 } from '../../../../packages/funding-core/src/index.js';
 
@@ -26,6 +27,7 @@ import {
 import {
   preparationEligibilitySql,
   preparationFormatSql,
+  preparationMinimumParticipantsSql,
   preparationModerationSql,
   preparationModerationSubjectSql,
   recognitionSource
@@ -36,6 +38,7 @@ export const PREPARATION_QUEUE_PAGE_SIZE = 200;
 
 interface QueueRow extends Source {
   publication_format: import('@openg7/funding-core').SponsorshipPublicationFormat;
+  minimum_participants: number;
   name: string;
   created_at: Date;
   created_at_key: string;
@@ -60,6 +63,8 @@ interface AvailableBatch {
   feed_id: PublicationFeedId;
   starts_at: Date;
   capacity: number;
+  publication_format?: string | null;
+  minimum_participants?: number;
   sources: PublicationRecognitionSource[];
 }
 
@@ -104,6 +109,8 @@ function queueEntry(
       !isValidPublicationMessage(row.delivery_message) ||
       !row.batch_all_eligible ||
       row.batch_sources.length > (row.batch_capacity ?? 0) ||
+      new Set(row.batch_sources.map((source) => source.contributionId)).size <
+        (row.minimum_participants ?? 1) ||
       missingPublicationRecognitionSources(
         row.delivery_message!,
         row.batch_sources
@@ -124,12 +131,31 @@ function queueEntry(
     row.prepared_current &&
     !available.some((batch) => {
       if (batch.feed_id !== `${row.feed_target}:${row.channel}`) return false;
+      if (
+        batch.publication_format &&
+        batch.publication_format !== row.publication_format
+      )
+        return false;
+      const capability = publicationFormatCapability(
+        row.channel,
+        row.publication_format
+      );
       const selection = selectPublicationRecognitionSources({
         existingSources: batch.sources,
         candidates: [source],
-        capacity: batch.capacity
+        capacity: capability.requiresSingleSponsor ? 1 : batch.capacity
       });
-      return selection.retained.some((retained) => retained.id === row.id);
+      return (
+        selection.retained.some((retained) => retained.id === row.id) &&
+        new Set(
+          selection.retained.map((participant) => participant.contributionId)
+        ).size >=
+          Math.max(
+            row.minimum_participants ?? 1,
+            batch.minimum_participants ?? 1,
+            capability.multiImage ? 2 : 1
+          )
+      );
     })
   )
     reason = 'NO_SLOT_IN_HORIZON';
@@ -147,7 +173,10 @@ function queueEntry(
     batchId: row.batch_id,
     deliveryId: row.delivery_id,
     deliveryStatus: row.delivery_status,
-    publicationFormat: row.publication_format
+    publicationFormat: row.publication_format,
+    ...((row.minimum_participants ?? 1) > 1
+      ? { minimumParticipants: row.minimum_participants }
+      : {})
   };
 }
 
@@ -168,7 +197,8 @@ export async function preparationQueue(
   );
   const available = (
     await db.query<AvailableBatch>(
-      `SELECT r.feed_id,r.starts_at,b.capacity,${batchSourcesSql('b.id')} AS sources
+      `SELECT r.feed_id,r.starts_at,b.capacity,b.publication_format,${batchSourcesSql('b.id')} AS sources,
+         COALESCE((SELECT max(${preparationMinimumParticipantsSql('member')}) FROM sponsor_publication_drafts member WHERE member.batch_id=b.id),1) AS minimum_participants
        FROM publication_recurrences r JOIN sponsor_publication_batches b ON b.id=r.batch_id
        LEFT JOIN publication_deliveries delivery ON delivery.batch_id=b.id AND delivery.status<>'cancelled'
        WHERE b.status='open' AND r.starts_at>$1 AND r.starts_at<=$1+interval '29 days'
@@ -205,6 +235,7 @@ export async function preparationQueue(
     `DECLARE ${cursorName} NO SCROLL CURSOR FOR
         SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,
            ${preparationFormatSql()} AS publication_format,
+           ${preparationMinimumParticipantsSql()} AS minimum_participants,
            COALESCE(c.sponsor_company_name,'') AS name,d.created_at,d.created_at::text AS created_at_key,d.scheduled_at,d.batch_id,d.slot_id,d.status,
            delivery.id AS delivery_id,delivery.status AS delivery_status,delivery.message AS delivery_message,
            b.capacity AS batch_capacity,${batchSourcesSql('d.batch_id')} AS batch_sources,

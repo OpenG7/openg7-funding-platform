@@ -24,7 +24,6 @@ import {
   listSponsorshipFulfilmentEvidence
 } from '../../dist/apps/funding-api/src/sponsorship-fulfilment.repository.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
-import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import {
   getSponsorshipCharterReviewPreview,
   getPublicSponsorshipCharter
@@ -81,7 +80,22 @@ test(
     ).rows[0].id;
     await withPostgresTransaction(pool, async (db) => {
       await activateSponsorshipCommitments(db, { stripeSessionId: session });
-      const offer = createSponsorshipOfferSnapshot(50000, 'CAD');
+      // These historical passage/evidence scenarios retain their accepted
+      // three-channel terms, independently of the current commercial offer.
+      const offer = {
+        amountMinor: 50000,
+        currency: 'CAD',
+        benefits: ['website', 'facebook', 'linkedin'].map((channel) => ({
+          id: channel === 'website' ? 'website_mention' : `${channel}_batch`,
+          channel,
+          target: 'openg7',
+          quantity: 1,
+          requiredElements: ['company_name'],
+          deadlineDays: null,
+          durationDays: null,
+          ...(channel === 'website' ? {} : { format: 'collective_text' })
+        }))
+      };
       await qualifySponsorshipCommitment(
         db,
         {

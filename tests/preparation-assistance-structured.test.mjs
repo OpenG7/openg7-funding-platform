@@ -45,6 +45,34 @@ test('v2 records explicit FR/EN publication values without proposing an offer', 
   }
 });
 
+test('explicit individual text formats are cited without inferring an offer or a missing format', () => {
+  for (const format of [
+    'individual_text',
+    'texte individuel',
+    'texteindividuel',
+    'individual text',
+    'individualtext'
+  ]) {
+    const input = source(
+      `1 publication Facebook pour OpenG7, format ${format}.`
+    );
+    const result = extractStructuredPreparationPublications(input);
+    const item = result.items[0];
+    assert.equal(item.structured.format, 'individual_text');
+    assert.equal(item.structured.quantity, 1);
+    assert.deepEqual(item.structured.gaps, []);
+    assert.equal(item.attention, 'human_mapping_required');
+    assert.equal(result.proposedOffer, null);
+    assert.equal(preparationCitationsMatch(input, result), true);
+  }
+  const unspecified = extract(
+    '1 publication individuelle Facebook pour OpenG7.'
+  );
+  assert.equal(unspecified.items[0].structured.format, null);
+  assert.ok(unspecified.items[0].structured.gaps.includes('format_missing'));
+  assert.equal(unspecified.proposedOffer, null);
+});
+
 test('v2 cites factual quotas separately from the publication quantity, including UTF-16 offsets', () => {
   const input = source(
     '  🌍 1 article sur le site Web pour OpenG7, 800–1 000 mots, avec 3 visuels et #Ensemble.  \r\n\r\nPreuve de livraison sous 48 h : captures d’écran et liens.'

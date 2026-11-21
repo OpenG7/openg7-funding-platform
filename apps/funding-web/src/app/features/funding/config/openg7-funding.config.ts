@@ -15,15 +15,17 @@ export const OPENG7_FUNDING_CONFIG: FundingProjectConfig = {
   transparencyEnabled: true,
   publicContributorsEnabled: true,
   economicFlowMapEnabled: true,
-  // Kept in sync by hand with FUNDING_ALLOWED_AMOUNTS-style server-side
-  // sponsorship validation in apps/funding-api (see docs/fundraiser-mvp-status.md).
+  // Keep aligned with DEFAULT_SPONSORSHIP_PRICING_CONFIG in funding-core;
+  // the accepted services are documented in docs/technical/sponsorship-commitments.md.
   sponsorship: {
-    presetAmounts: [50, 100, 250, 500],
-    minimumAmount: 50,
+    presetAmounts: [5, 10, 15],
+    minimumAmount: 5,
     benefits: {
-      websiteMention: { minimumAmount: 50 },
-      facebookBatch: { minimumAmount: 250 },
-      linkedinBatch: { minimumAmount: 500 }
+      websiteMention: { minimumAmount: 5 },
+      facebookBatch: { minimumAmount: 5 },
+      linkedinBatch: { minimumAmount: 5 },
+      facebookIndividual: { minimumAmount: 10 },
+      linkedinIndividual: { minimumAmount: 15 }
     }
   }
 } as const;

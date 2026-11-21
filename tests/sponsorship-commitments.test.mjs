@@ -28,10 +28,36 @@ import { createSponsorshipFollowupHttpHandler } from '../dist/apps/funding-api/s
 
 test('offered benefits use safe integer minor units, an explicit CAD currency and exact boundaries', () => {
   for (const [amount, ids] of [
-    [5000, ['website_mention']],
-    [24999, ['website_mention']],
-    [25000, ['website_mention', 'facebook_batch']],
-    [50000, ['website_mention', 'facebook_batch', 'linkedin_batch']]
+    [500, ['website_mention', 'facebook_batch', 'linkedin_batch']],
+    [999, ['website_mention', 'facebook_batch', 'linkedin_batch']],
+    [
+      1000,
+      [
+        'website_mention',
+        'facebook_batch',
+        'linkedin_batch',
+        'facebook_individual'
+      ]
+    ],
+    [
+      1499,
+      [
+        'website_mention',
+        'facebook_batch',
+        'linkedin_batch',
+        'facebook_individual'
+      ]
+    ],
+    [
+      1500,
+      [
+        'website_mention',
+        'facebook_batch',
+        'linkedin_batch',
+        'facebook_individual',
+        'linkedin_individual'
+      ]
+    ]
   ]) {
     const offer = createSponsorshipOfferSnapshot(amount, 'CAD');
     assert.equal(offer.amountMinor, amount);
@@ -56,13 +82,7 @@ test('offered benefits use safe integer minor units, an explicit CAD currency an
       )
     );
   }
-  for (const amount of [
-    4999,
-    5000.5,
-    NaN,
-    Infinity,
-    Number.MAX_SAFE_INTEGER + 1
-  ])
+  for (const amount of [499, 500.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])
     assert.throws(() => createSponsorshipOfferSnapshot(amount, 'CAD'));
   for (const currency of ['USD', 'cad', ''])
     assert.throws(() => createSponsorshipOfferSnapshot(50000, currency));
@@ -80,7 +100,7 @@ test('a previously quoted snapshot retains terms when the current pricing change
     }
   });
   assert.notEqual(original.fingerprint, altered.fingerprint);
-  assert.equal(original.benefits.length, 3);
+  assert.equal(original.benefits.length, 5);
   assert.equal(altered.benefits.length, 1);
   assert.equal(sponsorshipOfferFingerprint(original), original.fingerprint);
   const unordered = {
@@ -115,13 +135,14 @@ test('old offer canonical JSON and fingerprint stay unchanged while new image fo
   const composite = quoteSponsorshipOffer(50000, 'CAD', undefined, {
     facebook: 'collective_composite'
   });
-  assert.equal(text.version, 'sponsorship-v3');
+  assert.equal(text.version, 'sponsorship-v4');
   assert.equal(Object.hasOwn(text.benefits[0], 'format'), false);
   assert.equal(text.benefits[1].format, 'collective_text');
-  assert.equal(portrait.benefits[1].format, 'individual_portrait');
+  assert.equal(portrait.benefits[1].format, 'collective_text');
+  assert.equal(portrait.benefits[3].format, 'individual_portrait');
   assert.equal(portrait.benefits[2].format, 'collective_text');
   assert.deepEqual(text.benefits[0].requiredElements, ['company_name']);
-  assert.deepEqual(portrait.benefits[1].requiredElements, [
+  assert.deepEqual(portrait.benefits[3].requiredElements, [
     'company_name',
     'approved_presentation'
   ]);
@@ -163,7 +184,7 @@ test('old offer canonical JSON and fingerprint stay unchanged while new image fo
   );
   assert.throws(
     () =>
-      quoteSponsorshipOffer(5000, 'CAD', undefined, {
+      quoteSponsorshipOffer(500, 'CAD', undefined, {
         facebook: 'individual_portrait'
       }),
     { code: 'SPONSORSHIP_OFFER_INVALID' }
@@ -247,12 +268,14 @@ test('normalization isolates every recorded requirement array from later source 
   snapshot.benefits[0].quantity = 2;
   snapshot.benefits[1].requiredElements.splice(0, 1);
   snapshot.benefits.push({ ...snapshot.benefits[0] });
-  assert.equal(normalized.benefits.length, 3);
+  assert.equal(normalized.benefits.length, 5);
   assert.equal(normalized.benefits[0].quantity, 1);
-  assert.equal(normalized.benefits[1].format, 'individual_portrait');
+  assert.equal(normalized.benefits[3].format, 'individual_portrait');
   assert.deepEqual(
     normalized.benefits.map((benefit) => benefit.requiredElements),
     [
+      ['company_name'],
+      ['company_name'],
       ['company_name'],
       ['company_name', 'approved_presentation'],
       ['company_name']

@@ -253,7 +253,7 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
   }
   const belowMinimum = {
     ...payload,
-    amount: 49,
+    amount: 4.99,
     contributionType: 'sponsorship_interest'
   };
   const durable = fixture();

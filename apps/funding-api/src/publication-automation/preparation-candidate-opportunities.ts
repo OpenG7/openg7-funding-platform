@@ -23,6 +23,7 @@ interface CandidateRow extends Omit<Source, 'id'> {
   obligation_id: string;
   name: string;
   publication_format: SponsorshipPublicationFormat;
+  minimum_participants: number;
   moderation_allowed: boolean;
 }
 
@@ -65,6 +66,9 @@ export async function preparationCandidateOpportunities(
       const facts = {
         feedId: `${row.feed_target}:${row.channel}` as PublicationFeedId,
         publicationFormat: row.publication_format,
+        ...((row.minimum_participants ?? 1) > 1
+          ? { minimumParticipants: row.minimum_participants }
+          : {}),
         status,
         reason
       } as const;

@@ -5,6 +5,7 @@ import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-
 import { adminPublicationTranslations } from './support/admin-publication-translations.mjs';
 
 import { AdminSponsorHistoryProjection } from '../dist/apps/funding-web/src/app/features/funding/models/admin-sponsor-history.projection.js';
+import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
 
 // The root tsc build emits workspace code under dist/packages, while the package
 // manifest points at its separate dist directory. Resolve only this public import.
@@ -622,6 +623,45 @@ for (const locale of ['fr-CA', 'en']) {
       projection.paymentStatusClass('disputed'),
       'payment-badge payment-failed'
     );
+  });
+}
+
+for (const locale of ['fr-CA', 'en']) {
+  test(`current sponsorship tiers and individual benefits follow the recorded offer in ${locale}`, () => {
+    const { projection, presentation } = fixture(locale);
+    for (const [amountMinor, tier, color] of [
+      [500, 'collective', 'bronze'],
+      [1000, 'facebook_individual', 'silver'],
+      [1500, 'facebook_linkedin_individual', 'gold']
+    ]) {
+      const offer = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
+      const commitment = {
+        ...recordedSponsorshipCommitment(offer.benefits.map((b) => b.id)),
+        offer
+      };
+      // A different amount projection cannot reprice the accepted terms.
+      const record = sponsorship({ amount: 999, commitment });
+      assert.equal(
+        projection.sponsorshipTierLabel(record),
+        presentation.t('admin.commitments.tiers.' + tier)
+      );
+      assert.equal(projection.tierClass(record), `tier-badge tier-${color}`);
+      const labels = projection.sponsorshipBenefitsLabel(record);
+      assert.ok(
+        labels.includes(presentation.t('admin.messages.lot_collectif_facebook'))
+      );
+      assert.ok(
+        labels.includes(presentation.t('admin.messages.lot_collectif_linkedin'))
+      );
+      for (const id of ['facebook_individual', 'linkedin_individual']) {
+        assert.equal(
+          labels.includes(
+            presentation.t('admin.commitments.benefitNames.' + id)
+          ),
+          offer.benefits.some((b) => b.id === id)
+        );
+      }
+    }
   });
 }
 

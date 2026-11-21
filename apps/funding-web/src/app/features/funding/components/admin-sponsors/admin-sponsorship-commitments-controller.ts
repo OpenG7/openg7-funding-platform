@@ -24,6 +24,8 @@ export interface CommitmentBenefitFields {
   readonly presentation: boolean;
   readonly logo: boolean;
   readonly format: string;
+  readonly service: string;
+  readonly minimumParticipants: string;
   readonly deadlineDays: string;
   readonly durationDays: string;
 }
@@ -35,6 +37,8 @@ export const emptyCommitmentBenefit = (): CommitmentBenefitFields => ({
   presentation: false,
   logo: false,
   format: '',
+  service: '',
+  minimumParticipants: '',
   deadlineDays: '',
   durationDays: ''
 });
@@ -156,7 +160,7 @@ export class AdminSponsorshipCommitmentsController {
     }
   }
   addBenefit(): void {
-    if (!this.pending() && this.benefits().length < 3)
+    if (!this.pending() && this.benefits().length < 5)
       this.benefits.update((rows) => [...rows, emptyCommitmentBenefit()]);
   }
   removeBenefit(index: number): void {
@@ -176,7 +180,7 @@ export class AdminSponsorshipCommitmentsController {
               ...row,
               [key]: value,
               ...(key === 'channel' && value === 'website'
-                ? { format: '' }
+                ? { format: '', service: '', minimumParticipants: '' }
                 : {})
             }
           : row
@@ -408,6 +412,15 @@ export class AdminSponsorshipCommitmentsController {
           ),
           logo: benefit.requiredElements.includes('approved_logo'),
           format: benefit.format ?? '',
+          service: benefit.id.endsWith('_individual')
+            ? 'individual'
+            : (benefit.minimumParticipants ?? 1) > 1
+              ? 'collective'
+              : '',
+          minimumParticipants:
+            benefit.minimumParticipants === undefined
+              ? ''
+              : String(benefit.minimumParticipants),
           deadlineDays:
             benefit.deadlineDays === null ? '' : String(benefit.deadlineDays),
           durationDays:
@@ -545,7 +558,10 @@ export class AdminSponsorshipCommitmentsController {
     };
     if (
       !['website', 'facebook', 'linkedin'].includes(row.channel) ||
-      !/^[1-9]\d*$/.test(row.quantity)
+      !/^[1-9]\d*$/.test(row.quantity) ||
+      !['', 'collective', 'individual'].includes(row.service) ||
+      (row.minimumParticipants.trim() &&
+        !/^[1-9]\d*$/.test(row.minimumParticipants))
     )
       throw new Error('Invalid benefit.');
     if (
@@ -553,13 +569,32 @@ export class AdminSponsorshipCommitmentsController {
       !publicationFormatCapability(row.channel, row.format).available
     )
       throw new Error('Unavailable format.');
+    const individual =
+      row.service === 'individual' || row.format === 'individual_text';
+    const format = row.format || (individual ? 'individual_text' : '');
+    if (
+      row.service === 'collective' &&
+      (row.format === 'individual_text' || row.format === 'individual_portrait')
+    )
+      throw new Error('Incompatible service and format.');
+    if (
+      individual &&
+      row.format &&
+      !publicationFormatCapability(row.channel, row.format)
+        .requiresSingleSponsor
+    )
+      throw new Error('Incompatible service and format.');
     return {
       id:
         row.channel === 'website'
           ? 'website_mention'
           : row.channel === 'facebook'
-            ? 'facebook_batch'
-            : 'linkedin_batch',
+            ? individual
+              ? 'facebook_individual'
+              : 'facebook_batch'
+            : individual
+              ? 'linkedin_individual'
+              : 'linkedin_batch',
       channel: row.channel as SponsorshipOfferedBenefit['channel'],
       target: row.target as SponsorshipOfferedBenefit['target'],
       quantity: Number(row.quantity),
@@ -570,8 +605,11 @@ export class AdminSponsorshipCommitmentsController {
       ],
       deadlineDays: days(row.deadlineDays),
       durationDays: days(row.durationDays),
-      ...(row.format
-        ? { format: row.format as SponsorshipOfferedBenefit['format'] }
+      ...(row.minimumParticipants
+        ? { minimumParticipants: Number(row.minimumParticipants) }
+        : {}),
+      ...(format
+        ? { format: format as SponsorshipOfferedBenefit['format'] }
         : {})
     };
   }

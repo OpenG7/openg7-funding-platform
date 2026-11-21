@@ -20,6 +20,7 @@ export interface SponsorshipFulfilmentEvidence {
 
 /** Captured only by a human approval; editing a draft grants no publication right. */
 export interface PublicationObligationSnapshot {
+  readonly minimumParticipants?: number;
   readonly format?: import('./sponsorship-publication-formats.js').SponsorshipPublicationFormat;
   readonly id: string;
   readonly contributionId: string;

@@ -12,6 +12,7 @@ export type SponsorshipCommitmentProvenance =
 export type SponsorshipObligationState =
   'pending' | 'blocked' | 'fulfilled' | 'adjusted';
 export interface SponsorshipObligation {
+  readonly minimumParticipants?: number;
   readonly timing?: SponsorshipObligationTiming | null;
   readonly format?: SponsorshipPublicationFormat | null;
   readonly id: string;
@@ -40,6 +41,7 @@ export interface SponsorshipCommitmentRecord {
 
 /** Sponsor-facing current work; internal reasons and agreement evidence stay private. */
 export interface SponsorshipPublicObligation {
+  readonly minimumParticipants?: number;
   readonly timing?: SponsorshipObligationTiming | null;
   readonly id: string;
   readonly channel: SponsorshipObligationChannel;
@@ -80,6 +82,9 @@ export const publicSponsorshipObligations = (
     ordinal: o.ordinal,
     state: o.state,
     format: o.format ?? null,
+    ...(o.minimumParticipants && o.minimumParticipants > 1
+      ? { minimumParticipants: o.minimumParticipants }
+      : {}),
     version: o.version,
     fulfilmentEvidenceId: o.fulfilmentEvidenceId,
     ...(o.timing ? { timing: o.timing } : {}),

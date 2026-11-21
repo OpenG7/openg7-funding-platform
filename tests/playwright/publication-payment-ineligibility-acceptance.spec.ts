@@ -24,6 +24,11 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
+import {
+  approveAcceptanceSponsorshipDossier,
+  expectAcceptanceCollectivesPending
+} from './support/acceptance-sponsorship-dossier.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 import { registerStripeDispute } from './support/stripe-stub-client.mjs';
@@ -169,7 +174,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await form
           .getByRole('button', { name: /Commandite d'entreprise/ })
           .click();
-        await form.getByRole('button', { name: '500 $', exact: true }).click();
+        await setAcceptanceSponsorshipAmount(form, 500);
         await form.getByRole('checkbox').nth(0).check();
         await form.locator('#public-display-name').fill(name);
         await form.getByRole('checkbox').nth(1).uncheck();
@@ -292,6 +297,11 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             )
           )
           .toBe(true);
+        await approveAcceptanceSponsorshipDossier(
+          page,
+          request,
+          company.record.id
+        );
       }
       for (const id of feeds) await command({ action: 'prepare', feedId: id });
       const prepared = await state();
@@ -304,10 +314,12 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
           company.jobs.every(
             (j) =>
               j.status === 'draft' &&
+              j.publicationFormat === 'individual_text' &&
               j.sponsors.length === 1 &&
               j.attempts === 0
           )
         ).toBe(true);
+        await expectAcceptanceCollectivesPending(request, company.record.id);
       }
     });
     // Keep the exact future deadline approved in the UI; only the disposable

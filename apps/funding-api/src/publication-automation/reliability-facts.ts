@@ -16,7 +16,7 @@ obligation_facts AS (
   LEFT JOIN sponsorship_obligation_timing t ON t.obligation_id=o.id
 ),
 batch_occupancy AS (
-  SELECT b.id,CASE WHEN b.publication_format='individual_portrait' THEN 1 ELSE b.capacity END AS capacity,
+  SELECT b.id,CASE WHEN b.publication_format IN ('individual_portrait','individual_text') THEN 1 ELSE b.capacity END AS capacity,
     b.publication_format,count(d.id) AS used FROM sponsor_publication_batches b
   LEFT JOIN sponsor_publication_drafts d ON d.batch_id=b.id
   WHERE b.status IN ('open','scheduled') GROUP BY b.id
@@ -76,7 +76,7 @@ incident_candidates AS (
   UNION ALL SELECT 'ACCOUNT_SCHEDULE_CONFLICT','delivery',id FROM (
     SELECT first_id AS id FROM account_conflicts UNION SELECT second_id FROM account_conflicts) conflicting
   UNION ALL SELECT 'BATCH_CAPACITY_EXCEEDED','batch',id FROM batch_occupancy
-    WHERE used>capacity OR publication_format='individual_portrait' AND used>1
+    WHERE used>capacity OR publication_format IN ('individual_portrait','individual_text') AND used>1
   UNION ALL SELECT 'SLOT_CAPACITY_EXCEEDED','slot',id FROM slot_occupancy WHERE used>capacity
   UNION ALL SELECT 'SPONSORSHIP_DEADLINE_EXCEEDED','obligation',id FROM obligation_facts
     WHERE state IN ('pending','blocked') AND due_at<transaction_timestamp()

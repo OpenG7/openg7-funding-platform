@@ -62,7 +62,7 @@ export const loadSponsorshipCommitment = async (
     }
   >(
     `SELECT ob.id,ob.commitment_id AS "commitmentId",ob.contribution_id AS "contributionId",
-    ob.benefit_id AS "benefitId",ob.channel,ob.target,ob.publication_format AS format,ob.ordinal,ob.state,ob.blocked_reason AS "blockedReason",ob.version,ob.fulfilment_evidence_id AS "fulfilmentEvidenceId",
+    ob.benefit_id AS "benefitId",ob.channel,ob.target,ob.publication_format AS format,ob.minimum_participants AS "minimumParticipants",ob.ordinal,ob.state,ob.blocked_reason AS "blockedReason",ob.version,ob.fulfilment_evidence_id AS "fulfilmentEvidenceId",
     ${sponsorshipObligationTimingProjectionSql('ob')} AS timing,
     EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b
       WHERE b->>'id'=ob.benefit_id AND b->>'durationDays' IS NOT NULL AND (ob.channel<>'website' OR ob.target<>'openg7')) AS "durationUnsupported",
@@ -88,7 +88,18 @@ export const loadSponsorshipCommitment = async (
   return {
     ...commitment,
     obligations: obligations.rows.map(
-      ({ requirementsMet, durationUnsupported, ...o }) => {
+      ({
+        requirementsMet,
+        durationUnsupported,
+        minimumParticipants,
+        ...record
+      }) => {
+        const o = {
+          ...record,
+          ...(minimumParticipants && minimumParticipants > 1
+            ? { minimumParticipants }
+            : {})
+        };
         const reason =
           blockedReason ??
           (!requirementsMet
@@ -116,8 +127,8 @@ export const createSponsorshipObligations = async (
 ): Promise<void> => {
   for (const benefit of snapshot.benefits) {
     await db.query(
-      `INSERT INTO sponsorship_obligations(commitment_id,contribution_id,benefit_id,channel,target,ordinal,publication_format)
-      SELECT $1::uuid,$2::uuid,$3,$4,$5,n,$7 FROM generate_series(1,$6::integer) n
+      `INSERT INTO sponsorship_obligations(commitment_id,contribution_id,benefit_id,channel,target,ordinal,publication_format,minimum_participants)
+      SELECT $1::uuid,$2::uuid,$3,$4,$5,n,$7,$8 FROM generate_series(1,$6::integer) n
       ON CONFLICT(commitment_id,benefit_id,ordinal) DO NOTHING`,
       [
         commitmentId,
@@ -126,7 +137,8 @@ export const createSponsorshipObligations = async (
         benefit.channel,
         benefit.target,
         benefit.quantity,
-        benefit.format ?? null
+        benefit.format ?? null,
+        benefit.minimumParticipants ?? 1
       ]
     );
   }

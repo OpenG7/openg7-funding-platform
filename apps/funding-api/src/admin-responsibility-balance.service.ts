@@ -95,6 +95,7 @@ function validAmendments(
           obligation.channel === 'website' ||
           ![
             'collective_text',
+            'individual_text',
             'individual_portrait',
             'collective_composite',
             'image_collection'

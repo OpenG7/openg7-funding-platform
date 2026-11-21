@@ -10,6 +10,7 @@
       "support": "Contact the team to verify this attempt",
       "resumeAmount": "Resume the {{amount}} sponsorship",
       "format": "Format:",
+      "minimumParticipants": "Collective publication with at least {{count}} sponsors.",
       "defaultFormat": "As stated in the displayed offer",
       "resetFormats": "Clear format choices and reread the offer",
       "currentObligations": "Current benefit status",
@@ -60,6 +61,7 @@
       "formatHelp": "These choices apply to the channels included in the displayed offer. Image formats require an authorized and reviewed photo. On LinkedIn, a collection groups 2 to 10 sponsors, each with their own photo; scheduling may wait for a second participant.",
       "formats": {
         "collective_text": "Collective text",
+        "individual_text": "Individual text",
         "individual_portrait": "Individual portrait",
         "collective_composite": "Collective composite",
         "image_collection": "Image collection — LinkedIn"
@@ -79,8 +81,8 @@
       "acceptance": "I confirm my {{amount}} sponsorship.",
       "channels": {
         "website": "website mention",
-        "facebook": "grouped Facebook publication",
-        "linkedin": "grouped LinkedIn publication"
+        "facebook": "Facebook publication",
+        "linkedin": "LinkedIn publication"
       },
       "elements": {
         "company_name": "company name",
@@ -997,12 +999,14 @@
           "kicker": "Business",
           "title": "Business sponsorship",
           "copy": "Support OpenG7 and introduce your business to our community.",
-          "includedByDefault": "Included by default",
-          "amountBased": "Based on amount",
+          "includedByDefault": "Collective recognition",
+          "amountBased": "Individual spotlight",
           "benefits": {
-            "facebook": "Included in a collective recognition post on Facebook",
-            "linkedin": "Included in a collective recognition post on LinkedIn",
-            "openg7": "Your company mentioned on OpenG7.org"
+            "facebook": "One collective inclusion on Facebook from {{amount}}",
+            "linkedin": "One collective inclusion on LinkedIn from {{amount}}",
+            "openg7": "One mention of your company on OpenG7.org from {{amount}}",
+            "facebookIndividual": "One individual publication on Facebook from {{amount}}",
+            "linkedinIndividual": "One individual publication on LinkedIn from {{amount}}"
           },
           "upcoming": {
             "openg7": "OpenG7.org mention starting at {{amount}}.",
@@ -1019,7 +1023,7 @@
           "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
           "manualReviewNote": "Every sponsorship undergoes human review. Payment does not guarantee editorial approval. Social media placements require separate authorization, subject to applicable benefits and availability.",
-          "amountFormatError": "The minimum sponsorship amount is $50.",
+          "amountFormatError": "The minimum sponsorship amount is $5.",
           "disabled": "Temporarily unavailable",
           "minimumAmountError": "The minimum sponsorship amount is {{ minimum }}."
         },
@@ -1730,6 +1734,8 @@
         "website_mention": "Your company mentioned on OpenG7.org",
         "facebook_batch": "Inclusion in a collective recognition post on Facebook",
         "linkedin_batch": "Inclusion in a collective recognition post on LinkedIn",
+        "facebook_individual": "Individual recognition publication on Facebook",
+        "linkedin_individual": "Individual recognition publication on LinkedIn",
         "manual": "These appearances require a manual decision and are never published automatically upon payment."
       },
       "form": {

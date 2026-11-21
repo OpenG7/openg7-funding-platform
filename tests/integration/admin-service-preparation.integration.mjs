@@ -17,6 +17,7 @@ import { createAdminPublicationDraftOnConnection } from '../../dist/apps/funding
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { recordPreDualPublicationFixtureAgreement } from './support/pre-dual-publication-agreement-fixture.mjs';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 import {
   buildMigrationSql,
@@ -56,9 +57,10 @@ test(
     VALUES('sponsorship_interest',50000,'CAD','paid',NOW(),'Synthetic exact workshop',
     'A prepared description for exact human review',TRUE,'approved',TRUE) RETURNING id`)
     ).rows[0].id;
-    await recordFixtureSponsorshipAgreement(pool, id, {
-      channels: ['facebook', 'linkedin']
-    });
+    await recordPreDualPublicationFixtureAgreement(pool, id, [
+      'facebook',
+      'linkedin'
+    ]);
     await approveFixtureSubject(pool, { type: 'sponsorship', id });
     for (const channel of ['facebook', 'linkedin'])
       await withPostgresTransaction(pool, (db) =>
@@ -87,7 +89,13 @@ test(
             'email_messages'
           ].map(async (table) => [
             table,
-            (await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows
+            (await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows.map(
+              (row) => {
+                const historical = { ...row };
+                delete historical.minimum_participants;
+                return historical;
+              }
+            )
           ])
         )
       );
@@ -98,6 +106,14 @@ test(
     await pool.query(buildMigrationSql(migrations, { database }));
     await pool.query(buildMigrationSql(migrations, { database }));
     assert.deepEqual(await facts(), before);
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT minimum_participants FROM sponsorship_obligations ORDER BY id'
+        )
+      ).rows,
+      [{ minimum_participants: 1 }, { minimum_participants: 1 }]
+    );
     const receipt = await service.servicePreparation(id, facebook);
     assert.equal(receipt.context, 'service');
     assert.equal(receipt.service.id, facebook);

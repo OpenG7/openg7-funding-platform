@@ -37,6 +37,22 @@
       "quantity": "Quantité convenue",
       "choose": "Choisir explicitement",
       "format": "Format convenu",
+      "service": "Type de prestation établi",
+      "minimumParticipants": "Nombre minimal de commanditaires — facultatif",
+      "services": {
+        "unknown": "Non établi dans l’accord historique",
+        "collective": "Participation collective",
+        "individual": "Publication individuelle"
+      },
+      "tiers": {
+        "collective": "Reconnaissance collective",
+        "facebook_individual": "Individuel Facebook",
+        "facebook_linkedin_individual": "Individuel Facebook et LinkedIn"
+      },
+      "benefitNames": {
+        "facebook_individual": "Publication individuelle Facebook",
+        "linkedin_individual": "Publication individuelle LinkedIn"
+      },
       "requiredHelp": "Sélectionnez les éléments exigés dans l’accord. Au moins un est requis; ils ne remplacent pas les règles actuelles de publication.",
       "deadline": "Délai convenu",
       "duration": "Durée convenue",
@@ -84,6 +100,7 @@
       "formats": {
         "unknown": "Format non établi — texte seulement",
         "collective_text": "Texte collectif",
+        "individual_text": "Texte individuel",
         "individual_portrait": "Portrait individuel",
         "collective_composite": "Image collective",
         "image_collection": "Collection d’images — LinkedIn"
@@ -592,7 +609,7 @@
         "linkedin_below_threshold": "Le seuil de contribution pour LinkedIn n’est pas atteint.",
         "worker_stopped": "Le moteur doit être activé pour préparer la cartouche.",
         "review_required": "La revue administrative reste à effectuer.",
-        "media_required": "Une image de soutien approuvée reste nécessaire pour la mise en visibilité.",
+        "media_required": "Toute image ajoutée doit être approuvée avant sa mise en visibilité.",
         "unsupported_contribution": "Ce type de contribution, ce montant ou cette devise n’est pas admissible à la préparation Web automatique."
       }
     },
@@ -3057,7 +3074,7 @@
             "ACCOUNT_RECONCILIATION_REQUIRED": "Une livraison de ce compte exige une réconciliation avant d’envisager une autre date.",
             "FEED_PAUSED": "Ce fil est en pause. Aucune nouvelle date n’est suggérée.",
             "FORMAT_UNAVAILABLE": "Le format engagé n’est pas disponible sur ce canal.",
-            "GROUP_PARTICIPANTS_REQUIRED": "Une collection exige un autre commanditaire compatible et au moins deux sources complètes.",
+            "GROUP_PARTICIPANTS_REQUIRED": "Un lot collectif conforme à l’accord reste à constituer ou à compléter. Préparez le fil pour rechercher les participations compatibles.",
             "CAPACITY_INSUFFICIENT": "La capacité de ce fil ne permet pas le nombre minimal de participants du format.",
             "NO_COMPATIBLE_RECURRENCE": "Aucune récurrence compatible n’a été trouvée dans la période examinée."
           },
@@ -3072,7 +3089,7 @@
             "RECONCILE_ACCOUNT": "Vérifiez la livraison incertaine de ce compte avant une nouvelle préparation ou un nouvel envoi.",
             "REVIEW_FEED": "Vérifiez la pause avant de demander une préparation.",
             "REVIEW_FORMAT": "Vérifiez le format engagé et les capacités du canal.",
-            "WAIT_FOR_GROUP": "Préparez à nouveau quand un groupe compatible peut être composé ; n’approuvez pas une collection d’une seule source.",
+            "WAIT_FOR_GROUP": "Préparez à nouveau quand un groupe compatible peut être composé. L’engagement collectif reste en attente de regroupement.",
             "REVIEW_CALENDAR": "Vérifiez le calendrier, l’occupation du compte et la capacité des lots."
           }
         },
@@ -3214,6 +3231,8 @@
         "FORMAT_UNAVAILABLE": "Ce format est indisponible pour ce canal. Revoyez l’engagement enregistré avec le commanditaire avant de le modifier.",
         "FORMAT_COMMITMENT_MISMATCH": "Le format préparé ne correspond pas à l’engagement enregistré. Revoyez le dossier avant de demander une nouvelle approbation.",
         "PORTRAIT_REQUIRES_ONE_SPONSOR": "Un portrait individuel exige exactement un commanditaire.",
+        "INDIVIDUAL_REQUIRES_ONE_SPONSOR": "Une publication individuelle exige exactement un commanditaire.",
+        "COLLECTIVE_REQUIRES_MULTIPLE_SPONSORS": "Ce groupe n’atteint pas le nombre minimal de commanditaires prévu par l’accord.",
         "COMPOSITE_PHOTOS_REQUIRED": "Sélectionnez une photo qualifiée appartenant à chaque participant. Aucune photo ne sera substituée automatiquement.",
         "COMPOSITE_PARTICIPANTS_INVALID": "Vérifiez les participants, la propriété et les versions des photos sélectionnées.",
         "COMPOSITE_LABEL_TOO_LONG": "Un nom ou un crédit dépasse la zone lisible du visuel. Revoyez la composition sans raccourcir l’identité du commanditaire.",

@@ -8,9 +8,13 @@ import {
   createSponsorshipOfferSnapshot,
   normalizeSponsorshipOfferSnapshot
 } from '../dist/packages/funding-core/src/index.js';
+import { recordedLegacySponsorshipOffer } from './support/sponsorship-commitment-fixture.mjs';
 
-const committed = (amountMinor = 50000, fulfilled = []) => {
-  const offer = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
+const committed = (
+  amountMinor = 50000,
+  fulfilled = [],
+  offer = recordedLegacySponsorshipOffer(amountMinor)
+) => {
   return {
     id: 'synthetic-commitment',
     contributionId: '10000000-0000-4000-8000-000000000401',
@@ -27,13 +31,21 @@ const committed = (amountMinor = 50000, fulfilled = []) => {
       benefitId: b.id,
       channel: b.channel,
       target: b.target,
+      ...(b.format ? { format: b.format } : {}),
+      ...(b.minimumParticipants
+        ? { minimumParticipants: b.minimumParticipants }
+        : {}),
       ordinal: 1,
-      state: fulfilled.includes(b.channel) ? 'fulfilled' : 'pending',
+      state:
+        fulfilled.includes(b.channel) || fulfilled.includes(b.id)
+          ? 'fulfilled'
+          : 'pending',
       blockedReason: null,
       version: 1,
-      fulfilmentEvidenceId: fulfilled.includes(b.channel)
-        ? `synthetic-proof-${b.channel}`
-        : null
+      fulfilmentEvidenceId:
+        fulfilled.includes(b.channel) || fulfilled.includes(b.id)
+          ? `synthetic-proof-${b.id}`
+          : null
     }))
   };
 };
@@ -904,4 +916,42 @@ test('visible website is partial until both live social promises are met; duplic
   );
   assert.equal(step(complete, 'publication').state, 'complete');
   assert.deepEqual(complete.publicationCompletion, { done: 3, total: 3 });
+});
+
+test('v4 counts each collective and individual right separately without requiring a photo for text', () => {
+  for (const [amountMinor, total] of [
+    [500, 3],
+    [1000, 4],
+    [1500, 5]
+  ]) {
+    const offer = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
+    const commitment = committed(
+      amountMinor,
+      ['website_mention', 'facebook_batch', 'linkedin_batch'],
+      offer
+    );
+    const result = buildSponsorshipProgress(
+      source(
+        { amount: amountMinor / 100, reviewStatus: 'approved' },
+        { media: [] }
+      ),
+      facts({
+        amountMinor,
+        commitment,
+        websiteVisible: true,
+        websiteHeld: false,
+        documents: [{ ...invoice, amountMinor }]
+      })
+    );
+    assert.equal(step(result, 'media').state, 'not_required');
+    assert.deepEqual(result.publicationCompletion, { done: 3, total });
+    assert.equal(step(result, 'publication').state === 'complete', total === 3);
+    for (const obligation of result.commitment.obligations.filter((o) =>
+      o.benefitId.endsWith('_individual')
+    )) {
+      assert.equal(obligation.state, 'pending');
+      assert.equal(obligation.fulfilmentEvidenceId, null);
+    }
+    assert.deepEqual(commitment.offer, offer);
+  }
 });

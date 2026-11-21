@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 
 import { PublicationWorkshopService } from '../../dist/apps/funding-api/src/preflight/workshop.js';
@@ -253,8 +253,62 @@ test(
       await pool.query(`INSERT INTO fund_contributions(contribution_type,amount_cents,currency,status,paid_at,
     public_display_consent,sponsor_site_visibility_held) VALUES('sponsorship_interest',25000,'CAD','paid',NOW(),FALSE,TRUE) RETURNING id`)
     ).rows[0].id;
-    await recordFixtureSponsorshipAgreement(pool, id, {
-      channels: ['website', 'facebook']
+    // This agreement predates 069. Seed the old schema explicitly instead of
+    // calling today's qualification service, which requires later migrations.
+    const historicalOffer = {
+      version: 'historical-qualification-v1',
+      amountMinor: 25000,
+      currency: 'CAD',
+      benefits: ['website', 'facebook'].map((channel) => ({
+        id: channel === 'website' ? 'website_mention' : 'facebook_batch',
+        channel,
+        target: 'openg7',
+        quantity: 1,
+        requiredElements: ['company_name'],
+        deadlineDays: null,
+        durationDays: null,
+        ...(channel === 'website' ? {} : { format: 'collective_text' })
+      }))
+    };
+    await withPostgresTransaction(pool, async (db) => {
+      const snapshot = JSON.stringify(historicalOffer);
+      const offer = (
+        await db.query(
+          `INSERT INTO sponsorship_offers(public_reference,version,fingerprint,amount_minor,currency,snapshot,provenance)
+           VALUES($1,$2,$3,25000,'CAD',$4::jsonb,'historical_qualification') RETURNING id`,
+          [
+            id,
+            historicalOffer.version,
+            createHash('sha256').update(snapshot).digest('hex'),
+            snapshot
+          ]
+        )
+      ).rows[0];
+      const commitment = (
+        await db.query(
+          `INSERT INTO sponsorship_commitments(contribution_id,offer_id,provenance,state,activated_at)
+           VALUES($1,$2,'qualified_historical','active',NOW()) RETURNING id`,
+          [id, offer.id]
+        )
+      ).rows[0];
+      for (const benefit of historicalOffer.benefits)
+        await db.query(
+          `INSERT INTO sponsorship_obligations(commitment_id,contribution_id,benefit_id,channel,target,ordinal,publication_format)
+           VALUES($1,$2,$3,$4,$5,1,$6)`,
+          [
+            commitment.id,
+            id,
+            benefit.id,
+            benefit.channel,
+            benefit.target,
+            benefit.format ?? null
+          ]
+        );
+      await db.query(
+        `INSERT INTO sponsorship_obligation_timing(obligation_id,deadline_days,duration_days)
+         SELECT id,NULL,NULL FROM sponsorship_obligations WHERE commitment_id=$1`,
+        [commitment.id]
+      );
     });
     const pristine = async () => ({
       obligations: (

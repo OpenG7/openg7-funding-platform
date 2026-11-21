@@ -371,6 +371,74 @@ test('qualification starts with no inferred terms and preserves explicit quantit
   assert.equal(f.c.pending(), null);
   assert.equal(f.c.saved(), true);
 });
+test('qualification preserves five explicitly evidenced collective and individual services independently', async () => {
+  const f = fixture();
+  const services = [
+    ['website', '', '', ''],
+    ['facebook', 'collective', 'collective_text', '2'],
+    ['linkedin', 'collective', 'collective_text', '2'],
+    ['facebook', 'individual', 'individual_text', '1'],
+    ['linkedin', 'individual', 'individual_portrait', '1']
+  ];
+  for (const [
+    index,
+    [channel, service, format, minimumParticipants]
+  ] of services.entries()) {
+    f.c.addBenefit();
+    for (const [key, value] of Object.entries({
+      channel,
+      service,
+      format,
+      minimumParticipants,
+      target: 'openg7',
+      quantity: '1',
+      companyName: true,
+      presentation: format === 'individual_portrait'
+    }))
+      f.c.updateBenefit(index, key, value);
+  }
+  f.c.addBenefit();
+  assert.equal(f.c.benefits().length, 5);
+  f.c.reason.set('Synthetic original agreement records five distinct services');
+  f.c.evidence.set('synthetic://agreement/five-services');
+  f.c.confirmation.set(id);
+  await f.c.qualify();
+  assert.equal(f.calls.length, 1);
+  const offer = f.calls[0].payload.offer;
+  assert.equal(offer.amountMinor, 50000);
+  assert.equal(offer.version, 'historical-qualification-v1');
+  assert.deepEqual(
+    offer.benefits.map((b) => b.id),
+    [
+      'website_mention',
+      'facebook_batch',
+      'linkedin_batch',
+      'facebook_individual',
+      'linkedin_individual'
+    ]
+  );
+  assert.deepEqual(
+    offer.benefits.map((b) => b.minimumParticipants),
+    [undefined, 2, 2, 1, 1]
+  );
+  assert.equal(offer.benefits[3].format, 'individual_text');
+  assert.equal(offer.benefits[4].format, 'individual_portrait');
+});
+
+test('qualification rejects contradictory individual and collective terms without a command', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.updateBenefit(0, 'service', 'collective');
+  f.c.updateBenefit(0, 'format', 'individual_text');
+  await f.c.qualify();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.c.error(), 'invalid');
+  f.c.updateBenefit(0, 'service', 'individual');
+  f.c.updateBenefit(0, 'minimumParticipants', '2');
+  await f.c.qualify();
+  assert.equal(f.calls.length, 0);
+});
+
 test('a promised exposure duration remains explicit and cannot be qualified without duration evidence support', async () => {
   const f = fixture();
   f.fill();
