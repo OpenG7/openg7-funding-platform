@@ -27,7 +27,10 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
-import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  confirmAcceptanceMediaUsage,
+  updateAcceptanceMediaUsage
+} from './support/acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
   selectAcceptanceWebsiteMedia,
@@ -288,6 +291,9 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
         ).toHaveCount(0);
+        await updateAcceptanceMediaUsage(company, filename!, {
+          channels: ['website', 'facebook', 'linkedin']
+        });
       }
       const submission = company.waitForResponse(
         (r) =>
@@ -596,6 +602,9 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         });
         await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
+        await updateAcceptanceMediaUsage(company, 'replacement.png', {
+          channels: ['website', 'facebook', 'linkedin']
+        });
         const pending = (await assets()).find((a) => a.kind === 'logo')!;
         selectedMediaId = pending.id;
         expect(pending.reviewStatus).toBe('pending_review');

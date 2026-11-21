@@ -185,6 +185,79 @@ test('document emails format stored minor units and preserve original notes and 
   assert.equal(creditMessage.metadata.invoiceNumber, creditNote.invoiceNumber);
 });
 
+test('sponsorship invoices thank the sponsor before the invoice details while preserving document facts', () => {
+  const thankYouMessage =
+    'Merci pour votre commandite et pour votre confiance envers OpenG7. Votre soutien nous aide à poursuivre le développement du projet.';
+  for (const { invoice, followupUrl } of [
+    { invoice: createDocument(), followupUrl: undefined },
+    {
+      invoice: createDocument({
+        invoiceNumber: 'INV-2026-002',
+        notes: null,
+        paidAtIso: '2026-09-01T12:00:00.000Z'
+      }),
+      followupUrl:
+        'https://example.test/followup?token=synthetic&source=invoice'
+    }
+  ]) {
+    const originalInvoice = structuredClone(invoice);
+    const message = renderSponsorshipInvoiceEmail({ invoice, followupUrl });
+    assert.equal(
+      message.subject,
+      `Merci pour votre commandite OpenG7 - Facture ${invoice.invoiceNumber}`
+    );
+    for (const content of [message.text, message.html]) {
+      const titlePosition = content.indexOf('Facture de commandite OpenG7');
+      const thanksPosition = content.indexOf(thankYouMessage);
+      const numberPosition = content.indexOf(invoice.invoiceNumber);
+      assert.ok(titlePosition >= 0);
+      assert.ok(thanksPosition > titlePosition);
+      assert.ok(numberPosition > thanksPosition);
+      assert.ok(content.includes('375,50'));
+    }
+    assert.ok(message.html.includes(`<p>${thankYouMessage}</p>`));
+    assert.match(message.text, /Total paye: 375,50/);
+    assert.ok(
+      message.text.includes(
+        invoice.notes ??
+          'Ce document ne constitue pas un recu officiel de don de bienfaisance.'
+      )
+    );
+    assert.match(message.text, /reste soumise a validation manuelle/);
+    assert.match(message.html, /validation manuelle/);
+    if (invoice.notes) {
+      assert.match(
+        message.html,
+        /Conditions &lt;script&gt; &amp; originales<br \/>Seconde ligne/
+      );
+    } else {
+      assert.match(
+        message.html,
+        /Ce document ne constitue pas un recu officiel de don de bienfaisance\./
+      );
+    }
+    if (followupUrl) {
+      assert.ok(message.text.includes(followupUrl));
+      assert.ok(
+        message.html.includes(
+          'href="https://example.test/followup?token=synthetic&amp;source=invoice"'
+        )
+      );
+    } else {
+      assert.match(message.text, /repondez a ce courriel/);
+    }
+    assert.equal(message.templateKey, 'sponsorship_invoice');
+    assert.deepEqual(message.metadata, {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      publicReference: invoice.publicReference,
+      stripePaymentIntentId: invoice.stripePaymentIntentId,
+      stripeSessionId: invoice.stripeSessionId
+    });
+    assert.deepEqual(invoice, originalInvoice);
+  }
+});
+
 test('review reminders link only HTTP URLs without credentials and keep escaped navigation paths', () => {
   const input = {
     totalCount: 1,

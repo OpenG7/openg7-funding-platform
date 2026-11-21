@@ -1,88 +1,94 @@
-<fieldset [disabled]="disabled()" data-og7="media-usage-editor">
-  <legend>{{ 'funding.followup.media.usage.title' | translate }}</legend>
-  <p>{{ 'funding.followup.media.usage.separate' | translate }}</p>
-  @if (value()?.state === 'needs_confirmation') {
-    <p role="status">
-      {{ 'funding.followup.media.usage.historical' | translate }}
-    </p>
-  }
-  @if (value()?.state === 'withdrawn') {
-    <p role="status">
-      {{ 'funding.followup.media.usage.withdrawn' | translate }}
-    </p>
-  }
-  @if (usesSuggestedScope()) {
-    <p data-og7="media-usage-suggestion">
-      {{ 'funding.followup.media.usage.suggestedScope' | translate }}
-    </p>
-  }
-  @if (compactTerms()) {
-    <div data-og7="media-usage-scope-summary">
-      <p>{{ 'funding.followup.media.usage.scopeSummary' | translate }}</p>
-      <ul>
-        <li>
-          {{ 'funding.followup.media.usage.channels' | translate }} :
-          @for (
-            channel of selectedChannels();
-            track channel;
-            let last = $last
-          ) {
-            {{ 'funding.offer.channels.' + channel | translate
-            }}{{ last ? '' : ', ' }}
-          }
-        </li>
-        <li>
-          {{ 'funding.followup.media.usage.targets' | translate }} :
-          @for (target of selectedTargets(); track target; let last = $last) {
-            {{ target.toUpperCase() }}{{ last ? '' : ', ' }}
-          }
-        </li>
-        <li>
-          {{ 'funding.followup.media.usage.transformations' | translate }} :
-          @for (
-            transform of selectedTransforms();
-            track transform;
-            let last = $last
-          ) {
-            {{
-              'funding.followup.media.usage.transforms.' + transform
-                | translate
-            }}{{ last ? '' : ', ' }}
-          }
-        </li>
-        @if (credit()) {
+<fieldset
+  [disabled]="disabled()"
+  [class.confirmation-only]="confirmationOnly()"
+  data-og7="media-usage-editor"
+>
+  @if (!confirmationOnly()) {
+    <legend>{{ 'funding.followup.media.usage.title' | translate }}</legend>
+    <p>{{ 'funding.followup.media.usage.separate' | translate }}</p>
+    @if (value()?.state === 'needs_confirmation') {
+      <p role="status">
+        {{ 'funding.followup.media.usage.historical' | translate }}
+      </p>
+    }
+    @if (value()?.state === 'withdrawn') {
+      <p role="status">
+        {{ 'funding.followup.media.usage.withdrawn' | translate }}
+      </p>
+    }
+    @if (usesSuggestedScope()) {
+      <p data-og7="media-usage-suggestion">
+        {{ 'funding.followup.media.usage.suggestedScope' | translate }}
+      </p>
+    }
+    @if (compactTerms()) {
+      <div data-og7="media-usage-scope-summary">
+        <p>{{ 'funding.followup.media.usage.scopeSummary' | translate }}</p>
+        <ul>
           <li>
-            {{ 'funding.followup.media.usage.credit' | translate }} :
-            {{ credit() }}
+            {{ 'funding.followup.media.usage.channels' | translate }} :
+            @for (
+              channel of selectedChannels();
+              track channel;
+              let last = $last
+            ) {
+              {{ 'funding.offer.channels.' + channel | translate
+              }}{{ last ? '' : ', ' }}
+            }
           </li>
-        }
-        @if (restrictions()) {
           <li>
-            {{ 'funding.followup.media.usage.restrictions' | translate }} :
-            {{ restrictions() }}
+            {{ 'funding.followup.media.usage.targets' | translate }} :
+            @for (target of selectedTargets(); track target; let last = $last) {
+              {{ target.toUpperCase() }}{{ last ? '' : ', ' }}
+            }
           </li>
-        }
-      </ul>
-    </div>
-    <details data-og7="media-usage-customize">
-      <summary>
-        {{ 'funding.followup.media.usage.customize' | translate }}
-      </summary>
+          <li>
+            {{ 'funding.followup.media.usage.transformations' | translate }} :
+            @for (
+              transform of selectedTransforms();
+              track transform;
+              let last = $last
+            ) {
+              {{
+                'funding.followup.media.usage.transforms.' + transform
+                  | translate
+              }}{{ last ? '' : ', ' }}
+            }
+          </li>
+          @if (credit()) {
+            <li>
+              {{ 'funding.followup.media.usage.credit' | translate }} :
+              {{ credit() }}
+            </li>
+          }
+          @if (restrictions()) {
+            <li>
+              {{ 'funding.followup.media.usage.restrictions' | translate }} :
+              {{ restrictions() }}
+            </li>
+          }
+        </ul>
+      </div>
+      <details data-og7="media-usage-customize">
+        <summary>
+          {{ 'funding.followup.media.usage.customize' | translate }}
+        </summary>
+        <ng-container [ngTemplateOutlet]="permissionFields" />
+      </details>
+      <details data-og7="media-usage-terms">
+        <summary>
+          {{ 'funding.followup.media.usage.readTerms' | translate }}
+        </summary>
+        <p>{{ terms().text }}</p>
+        <small>{{
+          'funding.followup.media.usage.termsVersion'
+            | translate: { version: terms().version }
+        }}</small>
+      </details>
+      <p>{{ 'funding.followup.media.usage.automaticEvidence' | translate }}</p>
+    } @else {
       <ng-container [ngTemplateOutlet]="permissionFields" />
-    </details>
-    <details data-og7="media-usage-terms">
-      <summary>
-        {{ 'funding.followup.media.usage.readTerms' | translate }}
-      </summary>
-      <p>{{ terms().text }}</p>
-      <small>{{
-        'funding.followup.media.usage.termsVersion'
-          | translate: { version: terms().version }
-      }}</small>
-    </details>
-    <p>{{ 'funding.followup.media.usage.automaticEvidence' | translate }}</p>
-  } @else {
-    <ng-container [ngTemplateOutlet]="permissionFields" />
+    }
   }
   <ng-template #permissionFields>
     <fieldset>

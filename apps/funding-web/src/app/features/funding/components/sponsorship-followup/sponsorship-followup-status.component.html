@@ -98,11 +98,17 @@
       @if (commitment.state === 'needs_confirmation' || !commitment.offer) {
         <p role="status">{{ 'funding.offer.needsConfirmation' | translate }}</p>
       } @else {
-        @if (commitment.provenance === 'qualified_historical') {
-          <p>{{ 'funding.offer.qualifiedHistorical' | translate }}</p>
-        }
-        <openg7-sponsorship-offer-summary [offer]="commitment.offer" />
-        <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+        <details
+          class="sponsorship-benefits-recap"
+          data-og7="followup-offer-terms"
+        >
+          <summary>{{ 'funding.offer.viewTerms' | translate }}</summary>
+          @if (commitment.provenance === 'qualified_historical') {
+            <p>{{ 'funding.offer.qualifiedHistorical' | translate }}</p>
+          }
+          <openg7-sponsorship-offer-summary [offer]="commitment.offer" />
+          <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+        </details>
       }
       @if (commitment.obligations?.length) {
         <section

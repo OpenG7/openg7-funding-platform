@@ -205,111 +205,140 @@
       }
     }
   </div>
-  <fieldset class="consent-options">
+  <fieldset class="consent-options" data-og7="public-visibility-options">
     <legend>
-      {{ 'funding.home.contribution.consentLegend' | translate }}
+      {{ 'funding.home.contribution.publicVisibilityLegend' | translate }}
     </legend>
-    <label class="consent-option">
-      <input
-        type="checkbox"
-        [checked]="publicDisplayConsent()"
-        (change)="setPublicDisplayConsent($event)"
-      />
-      <span>{{
-        'funding.home.contribution.publicDisplayConsent' | translate
-      }}</span>
-    </label>
-    <ng-container *ngIf="publicDisplayConsent()">
-      <label for="public-display-name">{{
-        'funding.home.contribution.publicDisplayNameLabel' | translate
-      }}</label>
-      <input
-        id="public-display-name"
-        type="text"
-        required
-        maxlength="100"
-        [placeholder]="
-          'funding.home.contribution.publicDisplayNamePlaceholder' | translate
-        "
-        [value]="publicDisplayName()"
-        [attr.aria-invalid]="!publicDisplayName().trim()"
-        [attr.aria-describedby]="
-          !publicDisplayName().trim() ? 'public-display-name-help' : null
-        "
-        (input)="setPublicDisplayName($event)"
-      />
-      <p
-        id="public-display-name-help"
-        class="input-help"
-        *ngIf="!publicDisplayName().trim()"
-      >
-        {{ 'funding.home.contribution.publicDisplayNameRequired' | translate }}
-      </p>
-    </ng-container>
-    <label class="consent-option">
-      <input
-        type="checkbox"
-        [checked]="displayAmountConsent()"
-        (change)="setDisplayAmountConsent($event)"
-      />
-      <span>{{
-        'funding.home.contribution.displayAmountConsent' | translate
-      }}</span>
-    </label>
-    <label class="consent-option required">
-      <input
-        type="checkbox"
-        [checked]="nonCharityAcknowledged()"
-        (change)="setNonCharityAcknowledged($event)"
-      />
-      <span>{{
-        'funding.home.contribution.nonCharityNotice' | translate
-      }}</span>
-    </label>
-  </fieldset>
-  @if (contributionType() === 'sponsorship_interest') {
-    @if (charter.state() === 'loading') {
-      <p role="status">{{ 'funding.charter.loading' | translate }}</p>
-    }
-    @if (charter.state() === 'error') {
-      <p role="alert">{{ 'funding.charter.unavailable' | translate }}</p>
-      <button type="button" (click)="charter.load()">
-        {{ 'funding.followup.retry' | translate }}
-      </button>
-    }
-    @if (charter.charter()?.active) {
-      <section data-og7="sponsorship-charter">
-        <h3>{{ 'funding.charter.title' | translate }}</h3>
-        <p style="white-space: pre-wrap">{{ charter.text() }}</p>
-        <label class="consent-option required"
-          ><input
-            type="checkbox"
-            [checked]="charterAccepted()"
-            (change)="acceptCharter($event)"
-            data-og7="charter-acceptance"
-          /><span>{{
-            'funding.charter.acceptance'
-              | translate: { version: charter.charter()?.policyVersion }
-          }}</span></label
+    <div class="consent-items">
+      <label class="consent-option">
+        <input
+          type="checkbox"
+          [checked]="publicDisplayConsent()"
+          (change)="setPublicDisplayConsent($event)"
+        />
+        <span>{{
+          'funding.home.contribution.publicDisplayConsent' | translate
+        }}</span>
+      </label>
+      <ng-container *ngIf="publicDisplayConsent()">
+        <label for="public-display-name">{{
+          'funding.home.contribution.publicDisplayNameLabel' | translate
+        }}</label>
+        <input
+          id="public-display-name"
+          type="text"
+          required
+          maxlength="100"
+          [placeholder]="
+            'funding.home.contribution.publicDisplayNamePlaceholder' | translate
+          "
+          [value]="publicDisplayName()"
+          [attr.aria-invalid]="!publicDisplayName().trim()"
+          [attr.aria-describedby]="
+            !publicDisplayName().trim() ? 'public-display-name-help' : null
+          "
+          (input)="setPublicDisplayName($event)"
+        />
+        <p
+          id="public-display-name-help"
+          class="input-help"
+          *ngIf="!publicDisplayName().trim()"
         >
-      </section>
-    }
-    @if (offer.quote(); as quoted) {
+          {{
+            'funding.home.contribution.publicDisplayNameRequired' | translate
+          }}
+        </p>
+      </ng-container>
+      <label class="consent-option">
+        <input
+          type="checkbox"
+          [checked]="displayAmountConsent()"
+          (change)="setDisplayAmountConsent($event)"
+        />
+        <span>{{
+          'funding.home.contribution.displayAmountConsent' | translate
+        }}</span>
+      </label>
+    </div>
+  </fieldset>
+  <fieldset class="consent-options" data-og7="required-confirmations">
+    <legend>
+      {{ 'funding.home.contribution.requiredConfirmationsLegend' | translate }}
+    </legend>
+    <div class="consent-items">
       <label class="consent-option required">
         <input
           type="checkbox"
-          [checked]="offer.accepted()"
-          (change)="acceptOffer($event)"
-          data-og7="offer-acceptance"
+          required
+          [checked]="nonCharityAcknowledged()"
+          (change)="setNonCharityAcknowledged($event)"
         />
         <span>{{
-          'funding.offer.acceptance'
-            | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+          'funding.home.contribution.nonCharityNotice' | translate
         }}</span>
       </label>
-    }
-  }
-  <button type="submit" class="gold-cta" [disabled]="!canStartCheckout()">
+      @if (contributionType() === 'sponsorship_interest') {
+        @if (charter.state() === 'loading') {
+          <p role="status">{{ 'funding.charter.loading' | translate }}</p>
+        }
+        @if (charter.state() === 'error') {
+          <p role="alert">{{ 'funding.charter.unavailable' | translate }}</p>
+          <button type="button" (click)="charter.load()">
+            {{ 'funding.followup.retry' | translate }}
+          </button>
+        }
+        @if (charter.charter()?.active) {
+          <section class="consent-items" data-og7="sponsorship-charter">
+            <h3>{{ 'funding.charter.title' | translate }}</h3>
+            <p style="white-space: pre-wrap">{{ charter.text() }}</p>
+            <label class="consent-option required"
+              ><input
+                type="checkbox"
+                required
+                [checked]="charterAccepted()"
+                (change)="acceptCharter($event)"
+                data-og7="charter-acceptance"
+              /><span>{{
+                'funding.charter.acceptance'
+                  | translate: { version: charter.charter()?.policyVersion }
+              }}</span></label
+            >
+          </section>
+        }
+        @if (offer.quote(); as quoted) {
+          <label class="consent-option required">
+            <input
+              type="checkbox"
+              required
+              [checked]="offer.accepted()"
+              (change)="acceptOffer($event)"
+              data-og7="offer-acceptance"
+            />
+            <span>{{
+              'funding.offer.acceptance'
+                | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+            }}</span>
+          </label>
+        }
+      }
+    </div>
+  </fieldset>
+  <p
+    *ngIf="hasPendingConfirmations()"
+    id="contribution-confirmations-help"
+    class="input-help"
+    data-og7="contribution-confirmations-help"
+  >
+    {{ 'funding.home.contribution.requiredConfirmationsHelp' | translate }}
+  </p>
+  <button
+    type="submit"
+    class="gold-cta"
+    [disabled]="!canStartCheckout()"
+    [attr.aria-describedby]="
+      hasPendingConfirmations() ? 'contribution-confirmations-help' : null
+    "
+  >
     {{ 'funding.nav.supportCta' | translate }}
   </button>
   <p class="payment-note">
