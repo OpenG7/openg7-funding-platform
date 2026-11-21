@@ -10,14 +10,19 @@ const benefitLabels: Record<SponsorshipBenefitId, string> = {
   facebook_batch:
     'Inclusion dans une publication collective de reconnaissance sur Facebook',
   linkedin_batch:
-    'Inclusion dans une publication collective de reconnaissance sur LinkedIn'
+    'Inclusion dans une publication collective de reconnaissance sur LinkedIn',
+  facebook_individual:
+    'Publication individuelle de reconnaissance sur Facebook',
+  linkedin_individual: 'Publication individuelle de reconnaissance sur LinkedIn'
 };
 
 const socialChannelByBenefit: Partial<
   Record<SponsorshipBenefitId, SponsorFeedChannel>
 > = {
   facebook_batch: 'facebook',
-  linkedin_batch: 'linkedin'
+  linkedin_batch: 'linkedin',
+  facebook_individual: 'facebook',
+  linkedin_individual: 'linkedin'
 };
 
 /** Recorded terms are descriptive snapshots; never re-resolve their amount against today's pricing. */
@@ -46,11 +51,14 @@ export const formatRecordedSponsorshipBenefits = (
 
 export const resolveSponsorshipSocialChannels = (
   amount: number
-): readonly SponsorFeedChannel[] =>
-  resolveSponsorshipBenefits(amount).achievedBenefits.flatMap((benefit) => {
-    const channel = socialChannelByBenefit[benefit];
-    return channel ? [channel] : [];
-  });
+): readonly SponsorFeedChannel[] => [
+  ...new Set(
+    resolveSponsorshipBenefits(amount).achievedBenefits.flatMap((benefit) => {
+      const channel = socialChannelByBenefit[benefit];
+      return channel ? [channel] : [];
+    })
+  )
+];
 
 export const formatSponsorshipBenefitList = (
   amount: number,

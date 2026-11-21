@@ -49,7 +49,7 @@ const fixture = (accepts) => {
           return { rows: [] };
         }
         if (sql.includes('INSERT INTO sponsorship_obligation_timing')) {
-          assert.equal(createdObligations, 3);
+          assert.equal(createdObligations, 5);
           assert.deepEqual(values, ['commitment']);
           assert.match(sql, /ON CONFLICT\(obligation_id\) DO NOTHING/);
           assert.doesNotMatch(sql, /origin_at|due_at/);
@@ -65,7 +65,7 @@ const fixture = (accepts) => {
         accepts ? 'accepted_offer' : 'historical_unverified'
       );
       assert.equal(insert[3], accepts ? 'active' : 'needs_confirmation');
-      assert.equal(createdObligations, accepts ? 3 : 0);
+      assert.equal(createdObligations, accepts ? 5 : 0);
       assert.equal(initializedTiming, accepts ? 1 : 0);
     }
   };

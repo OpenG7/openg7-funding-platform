@@ -11,6 +11,7 @@ import {
 } from './account-reservations.js';
 import {
   preparationEligibilitySql,
+  preparationMinimumParticipantsSql,
   preparationModerationSql,
   preparationModerationSubjectSql
 } from './preparation-sources.js';
@@ -34,6 +35,7 @@ export interface PreparationCalendarBatch {
   starts_at: Date;
   capacity: number;
   publication_format: SponsorshipPublicationFormat | null;
+  minimum_participants?: number;
   has_delivery: boolean;
   delivery_id: string | null;
   delivery_feed_id: PublicationFeedId | null;
@@ -142,6 +144,7 @@ export async function preparationCalendar(
     await db.query<PreparationCalendarBatch>(
       `SELECT DISTINCT COALESCE(r.feed_id,route.feed_id) AS feed_id,b.id AS batch_id,COALESCE(s.starts_at,b.scheduled_at) AS starts_at,
        LEAST(b.capacity,COALESCE(s.capacity,b.capacity)) AS capacity,b.publication_format,(job.id IS NOT NULL) AS has_delivery,
+       COALESCE((SELECT max(${preparationMinimumParticipantsSql('member')}) FROM sponsor_publication_drafts member WHERE member.batch_id=b.id),1) AS minimum_participants,
        job.id AS delivery_id,job.feed_id AS delivery_feed_id,job.account_id AS delivery_account_id,job.mode AS delivery_mode,job.scheduled_at AS delivery_scheduled_at,
        (b.status='open' AND (s.id IS NULL OR s.status='open') AND (job.id IS NULL OR (job.status='draft' AND job.auto_managed))
         AND (job.id IS NULL OR ${preparationModerationSubjectSql('publication_delivery', 'job.id')})

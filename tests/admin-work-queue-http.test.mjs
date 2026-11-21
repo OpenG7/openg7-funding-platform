@@ -97,8 +97,8 @@ test(
         401
       );
       for (const [contributionType, amount, status] of [
-        ['sponsorship_interest', 49.99, 400],
-        ['sponsorship_interest', 50, 200],
+        ['sponsorship_interest', 4.99, 400],
+        ['sponsorship_interest', 5, 200],
         ['sponsorship_interest', 75.25, 200],
         ['personal_support', 50, 200],
         ['personal_support', 75.25, 400]

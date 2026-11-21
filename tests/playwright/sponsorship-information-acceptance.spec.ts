@@ -22,6 +22,7 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 
@@ -232,7 +233,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await signInAsAdmin(otherAdmin);
       await company.goto('/fonds-des-batisseurs?intent=sponsorship#support');
       const form = company.locator('[data-og7="contribution-form"]');
-      await form.getByRole('button', { name: '250 $', exact: true }).click();
+      await setAcceptanceSponsorshipAmount(form, 250);
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(2).check();

@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import type {
   SponsorshipCommitmentRecord,
-  SponsorshipOfferSnapshot
+  SponsorshipOfferSnapshot,
+  SponsorshipBenefitId
 } from '@openg7/funding-core';
 
 import { acceptanceSql } from './acceptance-database.js';
@@ -75,7 +76,8 @@ export async function adjustAcceptanceObligationDestination(
   request: APIRequestContext,
   contributionId: string,
   channel: 'facebook' | 'linkedin',
-  target: 'openg7' | 'openg20'
+  target: 'openg7' | 'openg20',
+  benefitId?: SponsorshipBenefitId
 ): Promise<void> {
   const headers = await adminSessionHeaders(request);
   const current = await request.get(
@@ -90,6 +92,7 @@ export async function adjustAcceptanceObligationDestination(
   const obligations = commitment.obligations.filter(
     (obligation) =>
       obligation.channel === channel &&
+      (!benefitId || obligation.benefitId === benefitId) &&
       ['pending', 'blocked'].includes(obligation.state)
   );
   expect(obligations).toHaveLength(1);
@@ -114,6 +117,14 @@ export async function adjustAcceptanceObligationDestination(
   const result = (await response.json()) as {
     commitment: SponsorshipCommitmentRecord;
   };
+  expect(result.commitment.offer).toEqual(commitment.offer);
+  const otherDestinations = (value: SponsorshipCommitmentRecord) =>
+    value.obligations
+      .filter((item) => item.id !== obligation.id)
+      .map(({ id, target, version }) => ({ id, target, version }));
+  expect(otherDestinations(result.commitment)).toEqual(
+    otherDestinations(commitment)
+  );
   expect(
     result.commitment.obligations.find((item) => item.id === obligation.id)
   ).toMatchObject({

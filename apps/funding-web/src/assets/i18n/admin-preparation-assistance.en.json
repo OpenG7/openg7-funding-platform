@@ -151,6 +151,7 @@
     "formats": {
       "unknown": "To confirm",
       "collective_text": "Collective text",
+      "individual_text": "Individual text",
       "individual_portrait": "Individual portrait",
       "collective_composite": "Collective visual",
       "image_collection": "Image collection"

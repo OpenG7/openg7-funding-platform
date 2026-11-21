@@ -23,7 +23,7 @@ export type PreparationOpportunityPlanner = Awaited<
 >;
 type OpportunityFacts = Pick<
   PublicationPreparationEntry,
-  'feedId' | 'status' | 'reason' | 'publicationFormat'
+  'feedId' | 'status' | 'reason' | 'publicationFormat' | 'minimumParticipants'
 > &
   Partial<
     Pick<PublicationPreparationEntry, 'deliveryId' | 'batchId' | 'scheduledAt'>
@@ -146,7 +146,11 @@ export async function createPreparationOpportunityPlanner(
       );
       if (!capability.available)
         return result('FORMAT_UNAVAILABLE', 'REVIEW_FORMAT');
-      if (capability.multiImage && feed.capacity < 2)
+      const minimumParticipants = Math.max(
+        entry.minimumParticipants ?? 1,
+        capability.multiImage ? 2 : 1
+      );
+      if (feed.capacity < minimumParticipants)
         return result('CAPACITY_INSUFFICIENT', 'REVIEW_CALENDAR');
       const individual = selectPublicationRecognitionSources({
         existingSources: [],
@@ -168,7 +172,10 @@ export async function createPreparationOpportunityPlanner(
         if (
           selection.existingIssue ||
           !selection.retained.some((s) => s.id === source.id) ||
-          (capability.multiImage && selection.retained.length < 2)
+          new Set(
+            selection.retained.map((participant) => participant.contributionId)
+          ).size <
+            Math.max(minimumParticipants, batch?.minimum_participants ?? 1)
         )
           continue;
         const withinHorizon = dates.get(feed.id)!.current.has(date);
@@ -179,10 +186,15 @@ export async function createPreparationOpportunityPlanner(
           withinHorizon
         );
       }
-      // A solitary collection source is not a sendable proposal; preparation may
-      // pair it with another compatible source, but this projection reserves none.
-      return capability.multiImage
-        ? result('GROUP_PARTICIPANTS_REQUIRED', 'WAIT_FOR_GROUP')
+      // No complete collective batch is observed here. Preparation can search
+      // the waiting sources; this projection does not assert that partners are absent.
+      return minimumParticipants > 1
+        ? result(
+            'GROUP_PARTICIPANTS_REQUIRED',
+            (entry.minimumParticipants ?? 1) > 1
+              ? 'PREPARE_FEED'
+              : 'WAIT_FOR_GROUP'
+          )
         : result('NO_COMPATIBLE_RECURRENCE', 'REVIEW_CALENDAR');
     }
   };

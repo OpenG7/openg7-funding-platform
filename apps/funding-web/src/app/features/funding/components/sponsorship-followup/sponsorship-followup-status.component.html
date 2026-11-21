@@ -151,6 +151,14 @@
                     }}
                   </p>
                 }
+                @if ((obligation.minimumParticipants ?? 1) > 1) {
+                  <p>
+                    {{
+                      'funding.offer.minimumParticipants'
+                        | translate: { count: obligation.minimumParticipants }
+                    }}
+                  </p>
+                }
                 @if (evidenceFor(obligation); as evidence) {
                   <p>
                     <a

@@ -627,14 +627,24 @@ export class AdminAutomaticRunsService {
         !['openg7', 'openg20'].includes(obligation.target)
       )
         continue;
-      const key = obligation.target + ':' + obligation.channel;
+      const key =
+        obligation.target +
+        ':' +
+        obligation.channel +
+        ':' +
+        obligation.benefitId;
       if (seen.has(key)) continue;
       seen.add(key);
       const next = (
         await db.query<{ id: string; state: string }>(
           `SELECT id,state FROM sponsorship_obligations WHERE contribution_id=$1::uuid AND target=$2 AND channel=$3
-         AND state IN ('pending','blocked') ORDER BY ordinal,id LIMIT 1`,
-          [balance.contributionId, obligation.target, obligation.channel]
+         AND benefit_id=$4 AND state IN ('pending','blocked') ORDER BY ordinal,id LIMIT 1`,
+          [
+            balance.contributionId,
+            obligation.target,
+            obligation.channel,
+            obligation.benefitId
+          ]
         )
       ).rows[0];
       if (next?.id !== obligation.id || next.state !== 'pending') continue;

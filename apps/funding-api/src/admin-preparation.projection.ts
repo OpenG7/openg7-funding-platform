@@ -338,7 +338,8 @@ export async function projectPreparation(
       if (
         open.some(
           (obligation) =>
-            obligation.format && obligation.format !== 'collective_text'
+            obligation.format &&
+            !['collective_text', 'individual_text'].includes(obligation.format)
         ) &&
         !assets.rows.some(
           (asset) =>

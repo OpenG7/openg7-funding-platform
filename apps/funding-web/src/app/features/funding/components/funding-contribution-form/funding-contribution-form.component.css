@@ -376,6 +376,10 @@
   margin-top: 0.2rem;
 }
 
+.amount-grid.sponsorship-amounts {
+  @apply tw:grid-cols-3;
+}
+
 .sponsorship-selection-note {
   background: var(--surface-page);
   border: 1px solid var(--border-color);

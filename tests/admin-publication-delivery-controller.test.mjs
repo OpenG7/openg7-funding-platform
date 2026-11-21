@@ -496,6 +496,39 @@ test('drawer close rechecks its context after a valid discard verdict and before
     });
 });
 
+test('individual text can be saved without a photo and cannot be selected for multiple sponsors', async (t) => {
+  const f = fixture(t);
+  f.controller.open(
+    delivery({
+      publicationFormat: 'individual_text',
+      sponsors: [
+        sponsor({ reviewStatus: 'approved', presentationApproved: false })
+      ]
+    })
+  );
+  await Promise.resolve();
+  assert.equal(f.controller.formats.includes('individual_text'), true);
+  assert.equal(f.controller.derived('individual_text'), false);
+  assert.equal(f.controller.formatAvailable('individual_text'), true);
+  assert.equal(f.controller.mediaSelectionValid(), true);
+  assert.deepEqual(f.controller.edit.photoSelections, []);
+  assert.equal(f.controller.dirty(), false);
+  f.controller.edit.message = 'Individual recognition without an image promise';
+  await f.controller.save();
+  assert.equal(
+    f.calls.commands[0].command.publicationFormat,
+    'individual_text'
+  );
+  assert.equal(f.calls.commands[0].command.mediaId, null);
+  assert.deepEqual(f.calls.commands[0].command.photoSelections, []);
+  f.controller.open(
+    delivery({ sponsors: [sponsor(), sponsor({ id: 'another-sponsor' })] })
+  );
+  assert.equal(f.controller.formatAvailable('individual_text'), false);
+  f.controller.changeFormat('individual_text');
+  assert.equal(f.controller.edit.publicationFormat, 'collective_text');
+});
+
 test('derived portraits preserve their exact photos and format while the source mediaId remains null', async (t) => {
   const f = fixture(t),
     photos = [

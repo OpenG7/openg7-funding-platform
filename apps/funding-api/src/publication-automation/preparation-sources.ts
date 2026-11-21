@@ -4,7 +4,11 @@ import {
   type PublicationRecognitionSource
 } from '../../../../packages/funding-core/src/index.js';
 import { moderationApprovedSql } from '../moderation/policy.js';
-import { publicationDraftFormatSql } from '../fund-publication-draft-obligations.persistence.js';
+import {
+  publicationDraftFormatSql,
+  publicationDraftMinimumParticipantsSql,
+  publicationDraftNeedsApprovedDossierSql
+} from '../fund-publication-draft-obligations.persistence.js';
 import { publicationSourceUncertainSql } from '../fund-publication-draft-retirement.persistence.js';
 
 import { audit } from './context.js';
@@ -30,10 +34,13 @@ export interface PreparationSource extends Source {
   name: string | null;
   source_fingerprint_material: string;
   publication_format: import('@openg7/funding-core').SponsorshipPublicationFormat;
+  minimum_participants: number;
 }
 
 /** The recorded format governs grouping; legacy drafts retain their recorded agreement. */
 export const preparationFormatSql = publicationDraftFormatSql;
+export const preparationMinimumParticipantsSql =
+  publicationDraftMinimumParticipantsSql;
 
 export const recognitionSource = (
   source: Source & { name: string | null }
@@ -65,6 +72,7 @@ export const preparationEligibilitySql = (
    AND ${draft}.status IN ('draft','approved','scheduled')
    AND ${contribution}.status='paid' AND ${contribution}.public_display_consent IS TRUE
    AND ${contribution}.sponsor_review_status IN ('pending_review','approved')
+   AND (${contribution}.sponsor_review_status='approved' OR NOT ${publicationDraftNeedsApprovedDossierSql(draft)})
    AND ${eligibleDestination(contribution, target, channel)}
    AND ${contribution}.sponsor_feed_status<>'hidden'
    AND NOT ${publicationSourceUncertainSql(`${contribution}.id`, `${draft}.channel`)}
@@ -117,7 +125,7 @@ export async function preparationCandidates(
   if (limit <= 0) return [];
   return (
     await db.query<PreparationSource>(
-      `SELECT d.*,c.sponsor_company_name AS name,${preparationFingerprintSql()} AS source_fingerprint_material,${preparationFormatSql()} AS publication_format
+      `SELECT d.*,c.sponsor_company_name AS name,${preparationFingerprintSql()} AS source_fingerprint_material,${preparationFormatSql()} AS publication_format,${preparationMinimumParticipantsSql()} AS minimum_participants
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
        WHERE ${preparationCandidateSql()}
        ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,

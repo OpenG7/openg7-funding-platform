@@ -130,6 +130,7 @@ export type PublicationPreparationReason =
   | 'MODERATION_REVIEW_REQUIRED'
   | 'AWAITING_APPROVAL';
 export interface PublicationPreparationEntry {
+  readonly minimumParticipants?: number;
   draftId: string;
   sponsorshipId: string;
   name: string;
@@ -150,6 +151,7 @@ export interface PublicationPreparationEntry {
 }
 /** A possible first private preparation, distinct from a persisted source draft. */
 export interface PublicationPreparationCandidate {
+  readonly minimumParticipants?: number;
   readonly obligationId: string;
   readonly sponsorshipId: string;
   readonly name: string;

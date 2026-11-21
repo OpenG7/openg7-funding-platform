@@ -47,6 +47,7 @@ export class PublicationDeliveryMediaController {
   private readonly collectionResources: BlobPreviewResource[] = [];
   readonly formats: readonly SponsorshipPublicationFormat[] = [
     'collective_text',
+    'individual_text',
     'individual_portrait',
     'collective_composite',
     'image_collection'
@@ -255,17 +256,24 @@ export class PublicationDeliveryMediaController {
   }
 
   derived(format: SponsorshipPublicationFormat | undefined): boolean {
-    return !!format && format !== 'collective_text';
-  }
-
-  formatAvailable(format: SponsorshipPublicationFormat): boolean {
     return (
+      !!format &&
       publicationFormatCapability(
         (this.selected()?.feedId ?? this.ports.composeFeed()).split(':')[1] ??
           '',
         format
-      ).available &&
-      (format !== 'individual_portrait' ||
+      ).requiresImage
+    );
+  }
+
+  formatAvailable(format: SponsorshipPublicationFormat): boolean {
+    const capability = publicationFormatCapability(
+      (this.selected()?.feedId ?? this.ports.composeFeed()).split(':')[1] ?? '',
+      format
+    );
+    return (
+      capability.available &&
+      (!capability.requiresSingleSponsor ||
         this.selected()?.sponsors.length === 1)
     );
   }

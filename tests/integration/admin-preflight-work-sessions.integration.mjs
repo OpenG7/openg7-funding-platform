@@ -27,6 +27,7 @@ import {
   observePostgresTransactions
 } from './support/disposable-postgres.mjs';
 import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { recordPreDualPublicationFixtureAgreement } from './support/pre-dual-publication-agreement-fixture.mjs';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 const origin = 'https://synthetic-work-sessions.invalid';
@@ -39,7 +40,7 @@ const command = (session, action, extra = {}) => ({
   ...extra
 });
 
-async function sponsor(pool) {
+async function sponsor(pool, { beforeDualPublicationMigration = false } = {}) {
   const id = (
     await pool.query(
       `INSERT INTO fund_contributions(contribution_type,amount_cents,currency,status,paid_at,
@@ -48,9 +49,15 @@ async function sponsor(pool) {
       'Private prepared content for a synthetic persistent workshop',TRUE,'approved',TRUE) RETURNING id`
     )
   ).rows[0].id;
-  await recordFixtureSponsorshipAgreement(pool, id, {
-    channels: ['facebook', 'linkedin']
-  });
+  if (beforeDualPublicationMigration)
+    await recordPreDualPublicationFixtureAgreement(pool, id, [
+      'facebook',
+      'linkedin'
+    ]);
+  else
+    await recordFixtureSponsorshipAgreement(pool, id, {
+      channels: ['facebook', 'linkedin']
+    });
   await approveFixtureSubject(pool, { type: 'sponsorship', id });
   for (const channel of ['facebook', 'linkedin'])
     await withPostgresTransaction(pool, (db) =>
@@ -216,7 +223,9 @@ test(
         { database: name }
       )
     );
-    const existing = await sponsor(pool);
+    const existing = await sponsor(pool, {
+      beforeDualPublicationMigration: true
+    });
     const businessTables = [
       'fund_contributions',
       'sponsorship_obligations',
@@ -226,7 +235,13 @@ test(
       Promise.all(
         businessTables.map(async (table) => [
           table,
-          (await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows
+          (await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows.map(
+            (row) => {
+              const historical = { ...row };
+              delete historical.minimum_participants;
+              return historical;
+            }
+          )
         ])
       );
     const beforeMigration = await snapshot();
@@ -240,6 +255,14 @@ test(
       await snapshot(),
       beforeMigration,
       'the additive upgrade does not rewrite business content'
+    );
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT minimum_participants FROM sponsorship_obligations ORDER BY id'
+        )
+      ).rows,
+      [{ minimum_participants: 1 }, { minimum_participants: 1 }]
     );
     const role = 'og7_work_session_runtime';
     const password = randomBytes(32).toString('hex');

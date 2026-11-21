@@ -330,15 +330,17 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
     fingerprint: companyPayload.offerAcceptance!.fingerprint,
     amount_minor: 50000,
     currency: 'CAD',
-    obligations: 3,
+    obligations: 5,
     invoices: 1,
     fulfilled: 0
   });
-  const benefits = companyProof[0]!.benefits as { channel: string }[];
-  expect(benefits.map((benefit) => benefit.channel).sort()).toEqual([
-    'facebook',
-    'linkedin',
-    'website'
+  const benefits = companyProof[0]!.benefits as { id: string }[];
+  expect(benefits.map((benefit) => benefit.id).sort()).toEqual([
+    'facebook_batch',
+    'facebook_individual',
+    'linkedin_batch',
+    'linkedin_individual',
+    'website_mention'
   ]);
   const companyResult = (await companyResponse.json()) as {
     checkoutId: string;

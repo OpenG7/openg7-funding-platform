@@ -510,7 +510,9 @@ export class AdminSponsorSchedulingController {
       'POST_MISMATCH',
       'REMOTE_POST_UNVERIFIED',
       'MEDIA_RECONCILIATION_REQUIRED',
-      'COLLECTION_REQUIRES_MULTIPLE_SPONSORS'
+      'COLLECTION_REQUIRES_MULTIPLE_SPONSORS',
+      'COLLECTIVE_REQUIRES_MULTIPLE_SPONSORS',
+      'INDIVIDUAL_REQUIRES_ONE_SPONSOR'
     ].includes(code)
       ? code
       : 'generic';

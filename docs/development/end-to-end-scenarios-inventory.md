@@ -23,7 +23,7 @@ Deuxième priorité testée le 23 septembre 2026 : **commandite de 500 CAD → d
 Facebook et LinkedIn simulés**. La recette cible les scénarios 6, 11, 18, 20,
 35, 36 et 39, ainsi que la pause et la reprise des destinations du scénario 41.
 La visibilité de la fiche Web reste une décision distincte des envois sociaux.
-Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--commandite-de-500-cad-et-deux-destinations).
+La recette courante utilise 15 CAD. Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--commandite-de-15-cad-et-deux-destinations).
 
 Troisième priorité testée le 23 septembre 2026 : **remboursements partiels puis
 intégral → avoirs et courriels → totaux et transparence**. Les variantes 200 puis

@@ -1,7 +1,7 @@
 import { sponsorshipPublicationJourney } from './support/sponsorship-publication-journey.js';
 import { test } from './support/test.js';
 
-test('500 CAD: real Funding relay and Preflight worker, explicit adoption, Web evidence and independent simulated Facebook/LinkedIn deliveries', async ({
+test('15 CAD: real Funding relay and Preflight worker, explicit adoption, Web evidence and independent simulated Facebook/LinkedIn deliveries', async ({
   page,
   context,
   request,

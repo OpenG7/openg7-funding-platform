@@ -155,6 +155,7 @@ export class AdminSponsorshipCommitmentsComponent {
   );
   readonly formatChoices = [
     'collective_text',
+    'individual_text',
     'individual_portrait',
     'collective_composite'
   ] as const;
@@ -302,6 +303,13 @@ export class AdminSponsorshipCommitmentsComponent {
         : [
             `${this.i18n.t(prefix + 'format')} : ${this.i18n.t(prefix + 'formats.' + (benefit.format ?? 'unknown'))}`
           ]),
+      ...((benefit.minimumParticipants ?? 1) > 1
+        ? [
+            this.i18n.t('funding.offer.minimumParticipants', {
+              count: benefit.minimumParticipants
+            })
+          ]
+        : []),
       `${this.i18n.t(prefix + 'deadline')} : ${this.period(benefit.deadlineDays)}`,
       `${this.i18n.t(prefix + 'duration')} : ${this.period(benefit.durationDays)}`,
       ...benefit.requiredElements.map((element) =>
@@ -317,6 +325,7 @@ export class AdminSponsorshipCommitmentsComponent {
       case 'collective_text':
         return 'publications';
       case 'individual_portrait':
+      case 'individual_text':
         return 'person';
       case 'collective_composite':
         return 'grid';
@@ -556,6 +565,8 @@ export class AdminSponsorshipCommitmentsComponent {
       | 'target'
       | 'quantity'
       | 'format'
+      | 'service'
+      | 'minimumParticipants'
       | 'deadlineDays'
       | 'durationDays',
     event: Event

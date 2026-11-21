@@ -6,15 +6,30 @@ Apply the complete current schema, including
 [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql) and
 [046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql), plus
 [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql) and
-[052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql),
+[052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql) and
+[072](../../apps/funding-api/migrations/072_sponsorship_dual_publications.sql),
 before this API. The [Checkout contract](checkout.md) captures the server offer
 before Stripe. Confirmed payment activates obligations once; payment, consent,
 moderation, visibility and publication remain independent. Existing financial
 facts, issued invoices and queued email bodies are preserved.
 
-New `sponsorship-v3` quotes require `company_name` for Website and collective-text
-benefits; images are optional enrichment for those formats. Portraits, composites
-and collections retain their approved-presentation requirement. Older snapshots,
+New `sponsorship-v4` quotes contain cumulative, separately identified services:
+
+| Minimum CAD | Recorded services                                     |
+| ----------- | ----------------------------------------------------- |
+| 5           | `website_mention`, `facebook_batch`, `linkedin_batch` |
+| 10          | Previous services plus `facebook_individual`          |
+| 15          | Previous services plus `linkedin_individual`          |
+
+The active thresholds belong to `DEFAULT_SPONSORSHIP_PRICING_CONFIG`. Each
+service has quantity one per sponsorship. Social collective services use
+`collective_text` and `minimumParticipants: 2`; individual services use
+`individual_text` and `minimumParticipants: 1`. Both text formats require only
+`company_name`. Portraits, composites and collections require an approved
+presentation. Individual and collective services on the same channel have
+different obligation IDs, schedules, reservations and fulfilment evidence.
+An individual publication leaves the collective obligation open, and conversely.
+Older snapshots,
 fingerprints and accepted requirements remain unchanged. An image promised by an
 older offer remains due even while an intermediate text-only Website profile is
 visible. No historical offer is reinterpreted from the current price list.
@@ -139,8 +154,9 @@ lock new commands until an exact retry. No private draft is written to browser
 storage. After closing/reloading, read current server state before any new action.
 
 `format` is required only for a social `format` adjustment: `collective_text`,
-`individual_portrait` or `collective_composite`. `image_collection` is refused
-with `FORMAT_UNAVAILABLE` while no qualified multi-image adapter exists. Old
+`individual_text`, `individual_portrait`, `collective_composite` or LinkedIn
+`image_collection`. Individual services retain a single-sponsor format;
+collective services with a minimum of two cannot become portraits. Old
 offers omit the field and old obligations keep a nullable format: only text is
 promised, never a silently upgraded image. Historical qualification may record
 an explicitly evidenced format. Original accepted snapshots and their hashes

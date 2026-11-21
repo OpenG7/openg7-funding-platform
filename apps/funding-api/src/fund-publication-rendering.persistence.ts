@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 
 import {
+  publicationFormatCapability,
   selectPublicationRecognitionSources,
   type PublicationRecognitionSource
 } from '../../../packages/funding-core/src/index.js';
@@ -96,7 +97,9 @@ export async function publicationMembershipFits(
           member.publication_format !== format ||
           (member.batch_format && member.batch_format !== format)
       ) ||
-      (format === 'individual_portrait' && group.length !== 1)
+      (publicationFormatCapability(first.channel, format)
+        .requiresSingleSponsor &&
+        group.length !== 1)
     )
       return false;
     if (

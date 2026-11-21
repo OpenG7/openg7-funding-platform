@@ -395,6 +395,14 @@ pending or blocked benefit obligation. Private preparation neither approves nor
 completes that obligation; see the
 [construction tasks](../development/sponsorship-publication-tasks.md#sp09).
 
+For `sponsorship-v4`, planning starts only after dossier approval. Collective
+and individual entitlements have separate source drafts and exact obligations.
+`individual_text` accepts one sponsor without a photo; collective services carry
+`minimumParticipants: 2` and wait for another compatible sponsor without holding
+up the individual service. Group size is rechecked before final authorization,
+dispatch and fulfilment. Existing offers without a minimum retain their earlier
+behaviour. Preparation never authorizes the resulting publication.
+
 ## Configuration and activation
 
 Apply the missing additive migrations through

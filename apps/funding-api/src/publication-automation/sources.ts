@@ -6,7 +6,11 @@ import type {
   SponsorshipPublicationFormat
 } from '@openg7/funding-core';
 
-import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
+import {
+  publicationFormatCapability,
+  selectPublicationRecognitionSources
+} from '../../../../packages/funding-core/src/index.js';
+import { publicationDraftNeedsApprovedDossierSql } from '../fund-publication-draft-obligations.persistence.js';
 
 import { assert } from './policy.js';
 import {
@@ -17,7 +21,8 @@ import {
   preparationModerationSubjectSql,
   preparationCandidateSql,
   PREPARATION_SCAN_LIMIT,
-  preparationFormatSql
+  preparationFormatSql,
+  preparationMinimumParticipantsSql
 } from './preparation-sources.js';
 
 export { eligibleDestination } from './preparation-sources.js';
@@ -123,7 +128,7 @@ export async function repairSources(
   if (existing.some((source) => !source.preparation_moderation_allowed))
     return [];
   const candidates =
-    format === 'collective_text'
+    format === 'collective_text' || format === 'individual_text'
       ? ((
           await db.query(
             `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,c.sponsor_company_name AS name
@@ -138,7 +143,10 @@ export async function repairSources(
   const selected = selectPublicationRecognitionSources({
     existingSources: existing.map(recognitionSource),
     candidates: candidates.map(recognitionSource),
-    capacity: format === 'individual_portrait' ? 1 : batch.capacity
+    capacity: publicationFormatCapability(channel!, format)
+      .requiresSingleSponsor
+      ? 1
+      : batch.capacity
   });
   // A repair recipe must keep every eligible existing member intact. An invalid
   // retained base requires a source correction, not a proposal that cannot apply.
@@ -177,11 +185,38 @@ export async function sources(
   );
   const all = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id${lock ? ' FOR UPDATE OF d,c' : ''}`,
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,
+        ${preparationFormatSql()} AS publication_format,${preparationMinimumParticipantsSql()} AS minimum_participants,
+        ${publicationDraftNeedsApprovedDossierSql()} AS requires_approved_dossier,
+        (${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id${lock ? ' FOR UPDATE OF d,c' : ''}`,
       [batchId]
     )
   ).rows;
   assert(all.length > 0 && all.length <= batch.capacity, 'EMPTY_BATCH');
+  const format =
+    batch.publication_format ?? all[0]?.publication_format ?? 'collective_text';
+  const capability = publicationFormatCapability(feedId.split(':')[1]!, format);
+  assert(
+    all.every((source) => (source.publication_format ?? format) === format),
+    'FORMAT_COMMITMENT_MISMATCH'
+  );
+  assert(
+    !capability.requiresSingleSponsor || all.length === 1,
+    format === 'individual_portrait'
+      ? 'PORTRAIT_REQUIRES_ONE_SPONSOR'
+      : 'INDIVIDUAL_REQUIRES_ONE_SPONSOR'
+  );
+  const minimumParticipants = Math.max(
+    capability.multiImage ? 2 : 1,
+    ...all.map((source) => source.minimum_participants ?? 1)
+  );
+  assert(
+    new Set(all.map((source) => source.contribution_id)).size >=
+      minimumParticipants,
+    capability.multiImage
+      ? 'COLLECTION_REQUIRES_MULTIPLE_SPONSORS'
+      : 'COLLECTIVE_REQUIRES_MULTIPLE_SPONSORS'
+  );
   assert(
     all.every(
       (d) =>
@@ -189,7 +224,9 @@ export async function sources(
         ['draft', 'approved', 'scheduled'].includes(d.status) &&
         d.public_display_consent &&
         (d.sponsor_review_status === 'approved' ||
-          (allowPending && d.sponsor_review_status === 'pending_review')) &&
+          (allowPending &&
+            !d.requires_approved_dossier &&
+            d.sponsor_review_status === 'pending_review')) &&
         d.destination_eligible &&
         d.payment_status === 'paid' &&
         d.sponsor_feed_status !== 'hidden'

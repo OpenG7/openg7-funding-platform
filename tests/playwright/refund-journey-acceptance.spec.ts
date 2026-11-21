@@ -19,6 +19,7 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 
 const refundUrl = '/api/admin/sponsorships/refund';
 const amountMinor = 50000;
@@ -98,7 +99,7 @@ for (const amounts of [[20000, 30000], [50000]]) {
       await form
         .getByRole('button', { name: /Commandite d'entreprise/ })
         .click();
-      await form.getByRole('button', { name: '500 $', exact: true }).click();
+      await setAcceptanceSponsorshipAmount(form, 500);
       await form.getByRole('checkbox').nth(0).uncheck();
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();

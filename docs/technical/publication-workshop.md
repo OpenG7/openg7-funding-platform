@@ -215,7 +215,8 @@ distante et la recette synthétique possèdent leurs propres flags et n’active
 pas ce relais.
 
 Déployer le contrat éditorial Preflight acceptant `linkedin` avant d’activer le
-producteur Funding qui transmet les trois prestations d’une offre de 500 CAD.
+producteur Funding qui transmet les destinations Web, Facebook et LinkedIn
+prévues dans le dossier.
 Les contextes Web/Facebook existants restent compatibles. Un serveur Preflight
 plus ancien doit refuser une destination inconnue; ce refus ne permet ni de
 supprimer LinkedIn de la mission, ni de la transformer en Facebook. La mission
@@ -246,8 +247,10 @@ node scripts/admin-acceptance.mjs --preflight-root C:\GitHub\openg7-preflight sp
 
 Le profil prépare une pile jetable, ses bases et une identité OAuth/JWKS locale.
 Il exécute le relais Funding, l’API et le worker Preflight avec l’IA, Stripe et
-les transports sociaux simulés. Le parcours vise les trois prestations de
-500 CAD, l’adoption humaine puis les décisions Funding distinctes. Relever les
+les transports sociaux simulés. Le parcours part d’une commandite de 15 CAD,
+prépare une variante par destination, puis vérifie l’adoption humaine et les
+décisions Funding distinctes. Les autres passages promis restent suivis dans
+Funding. Relever les
 résultats de chaque étape dans les artefacts de la recette; la présence de cette
 commande ne constitue pas un résultat d’exécution.
 
@@ -256,7 +259,7 @@ Funding. Les reçus Facebook/LinkedIn en mode `mock` restent simulés et ne
 soldent pas leurs obligations. La notification métier finale vers Preflight
 conserve son état de raccordement propre; aucune clôture globale n’en est déduite.
 
-La régression de l’offre de 500 CAD dans
+La régression d’une offre historique de 500 CAD dans
 `tests/integration/publication-workshop.integration.mjs` vérifie trois variantes,
 la réutilisation du brouillon LinkedIn natif, l’adoption idempotente et la
 préservation d’une correction humaine LinkedIn. Elle utilise un PostgreSQL

@@ -10,6 +10,7 @@
       "support": "Contacter l’équipe pour vérifier cette tentative",
       "resumeAmount": "Reprendre la commandite de {{amount}}",
       "format": "Format :",
+      "minimumParticipants": "Publication collective avec au moins {{count}} commanditaires.",
       "defaultFormat": "Selon l’offre affichée",
       "resetFormats": "Retirer les choix de format et relire l’offre",
       "currentObligations": "État actuel des prestations",
@@ -60,6 +61,7 @@
       "formatHelp": "Ces choix s’appliquent aux canaux compris dans l’offre affichée. Les formats avec image nécessitent une photo autorisée et revue. Sur LinkedIn, la collection regroupe de 2 à 10 commanditaires, chacun avec sa photo ; sa programmation peut attendre une seconde participation.",
       "formats": {
         "collective_text": "Texte collectif",
+        "individual_text": "Texte individuel",
         "individual_portrait": "Portrait individuel",
         "collective_composite": "Montage collectif",
         "image_collection": "Collection d’images — LinkedIn"
@@ -79,8 +81,8 @@
       "acceptance": "Je confirme ma commandite de {{amount}}.",
       "channels": {
         "website": "mention sur le site",
-        "facebook": "publication groupée sur Facebook",
-        "linkedin": "publication groupée sur LinkedIn"
+        "facebook": "publication sur Facebook",
+        "linkedin": "publication sur LinkedIn"
       },
       "elements": {
         "company_name": "nom de l’entreprise",
@@ -997,12 +999,14 @@
           "kicker": "Entreprise",
           "title": "Commandite d'entreprise",
           "copy": "Soutenez OpenG7 et faites connaître votre entreprise auprès de notre communauté.",
-          "includedByDefault": "Inclus par défaut",
-          "amountBased": "Selon le montant",
+          "includedByDefault": "Reconnaissance collective",
+          "amountBased": "Mise en avant individuelle",
           "benefits": {
-            "facebook": "Inclusion dans une publication collective de reconnaissance sur Facebook",
-            "linkedin": "Inclusion dans une publication collective de reconnaissance sur LinkedIn",
-            "openg7": "Mention de votre entreprise sur OpenG7.org"
+            "facebook": "Une participation collective sur Facebook dès {{amount}}",
+            "linkedin": "Une participation collective sur LinkedIn dès {{amount}}",
+            "openg7": "Une mention de votre entreprise sur OpenG7.org dès {{amount}}",
+            "facebookIndividual": "Une publication individuelle sur Facebook dès {{amount}}",
+            "linkedinIndividual": "Une publication individuelle sur LinkedIn dès {{amount}}"
           },
           "upcoming": {
             "openg7": "Mention sur OpenG7.org à partir de {{amount}}.",
@@ -1019,7 +1023,7 @@
           "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
           "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
           "manualReviewNote": "Toute commandite fait l’objet d’une revue humaine. Le paiement ne garantit aucune approbation éditoriale. Les présences sur les réseaux sociaux exigent une autorisation distincte, selon les avantages et les disponibilités applicables.",
-          "amountFormatError": "Le montant minimal pour une commandite est de 50 $.",
+          "amountFormatError": "Le montant minimal pour une commandite est de 5 $.",
           "disabled": "Temporairement indisponible",
           "minimumAmountError": "Le montant minimal pour une commandite est de {{ minimum }}."
         },
@@ -1730,6 +1734,8 @@
         "website_mention": "Mention de votre entreprise sur OpenG7.org",
         "facebook_batch": "Inclusion dans une publication collective de reconnaissance sur Facebook",
         "linkedin_batch": "Inclusion dans une publication collective de reconnaissance sur LinkedIn",
+        "facebook_individual": "Publication individuelle de reconnaissance sur Facebook",
+        "linkedin_individual": "Publication individuelle de reconnaissance sur LinkedIn",
         "manual": "Ces présences sont soumises à une décision manuelle et ne sont jamais publiées automatiquement au paiement."
       },
       "form": {

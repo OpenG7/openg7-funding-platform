@@ -21,6 +21,11 @@ import { runAcceptancePublicationWorker } from './support/acceptance-publication
 import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
+import {
+  approveAcceptanceSponsorshipDossier,
+  expectAcceptanceCollectivesPending
+} from './support/acceptance-sponsorship-dossier.js';
 import {
   confirmAcceptanceMediaUsage,
   updateAcceptanceMediaUsage
@@ -201,7 +206,7 @@ test('lost social responses survive restart and recover through verified reconci
         await form
           .getByRole('button', { name: /Commandite d'entreprise/ })
           .click();
-        await form.getByRole('button', { name: '500 $', exact: true }).click();
+        await setAcceptanceSponsorshipAmount(form, 500);
         await form.getByRole('checkbox').nth(0).check();
         await form.locator('#public-display-name').fill(name);
         await form.getByRole('checkbox').nth(1).uncheck();
@@ -290,7 +295,10 @@ test('lost social responses survive restart and recover through verified reconci
               request,
               company.record.id,
               channel,
-              'openg20'
+              'openg20',
+              channel === 'facebook'
+                ? 'facebook_individual'
+                : 'linkedin_individual'
             );
         await page.goto(
           '/admin/fundraiser/sponsors?sponsorshipId=' +
@@ -318,6 +326,11 @@ test('lost social responses survive restart and recover through verified reconci
             ).assets.every((a) => a.reviewStatus === 'approved')
           )
           .toBe(true);
+        await approveAcceptanceSponsorshipDossier(
+          page,
+          request,
+          company.record.id
+        );
       }
       for (const feedId of feeds) await command({ action: 'prepare', feedId });
     });
@@ -335,6 +348,7 @@ test('lost social responses survive restart and recover through verified reconci
         );
         for (const job of company.jobs) {
           expect(job.sponsors).toHaveLength(1);
+          expect(job.publicationFormat).toBe('individual_text');
           await approve(
             job,
             company.scenario === 'control'
@@ -358,6 +372,7 @@ test('lost social responses survive restart and recover through verified reconci
           }
           expect(await receipt(job.id)).toEqual({ requests: [], posts: [] });
         }
+        await expectAcceptanceCollectivesPending(request, company.record.id);
       }
       expect(Date.now()).toBeLessThan(due.getTime());
       for (const id of feeds) {
