@@ -23,9 +23,10 @@ validation ouvre le groupe avant d'y placer le focus.
 
 Le gestionnaire des médias reste chargé après le formulaire. Les autorisations
 nécessaires au téléversement restent visibles. Pour chaque fichier existant,
-**Droits d'utilisation** déplie l'éditeur déjà présent ; l'ouverture et la
-fermeture ne confirment aucun droit et conservent les modifications locales.
-Retirer des droits ou proposer une image garde sa commande et sa confirmation.
+**Détails et actions** présente le nom, les dimensions, le retrait des droits et
+la proposition d'une photo. L'éditeur **Autorisations d’usage de l’image** n'y
+figure plus. Ouvrir le panneau ne modifie aucun droit enregistré ; le retrait
+conserve sa confirmation explicite.
 Le raccourci **Revue et demandes**, dans le bandeau supérieur,
 rejoint le bloc de modération existant. La consultation, la correction autorisée
 et la demande de réexamen conservent leurs états et leurs actions distincts.

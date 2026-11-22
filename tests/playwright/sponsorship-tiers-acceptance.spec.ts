@@ -39,7 +39,7 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import {
   confirmAcceptanceMediaUsage,
-  updateAcceptanceMediaUsage
+  setupAcceptanceMediaUsageViaApi
 } from './support/acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
@@ -457,7 +457,7 @@ for (const amount of [5, 10, 15]) {
               company.locator('[data-og7="media-upload-attempt"]')
             ).toHaveCount(0, { timeout: 15000 });
             if (publicConsent && filename === 'photo.png')
-              await updateAcceptanceMediaUsage(company, filename, {
+              await setupAcceptanceMediaUsageViaApi(company, filename, {
                 channels: ['website', 'facebook']
               });
           }

@@ -304,7 +304,15 @@
               "
               (click)="dismiss(attempt)"
             >
-              &times;
+              <svg
+                class="media-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M3 6h18M9 6V4h6v2M5 6l1 15h12l1-15M10 10v7m4-7v7" />
+              </svg>
             </button>
           </div>
           <div>
@@ -409,7 +417,15 @@
                 "
                 (click)="deleteMedia(asset)"
               >
-                &times;
+                <svg
+                  class="media-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M3 6h18M9 6V4h6v2M5 6l1 15h12l1-15M10 10v7m4-7v7" />
+                </svg>
               </button>
             </div>
             <strong class="media-type">{{
@@ -447,29 +463,6 @@
                 <p data-og7="media-usage-filename">
                   {{ asset.originalFilename }}
                 </p>
-                <details
-                  #mediaRights
-                  class="media-rights"
-                  data-og7="followup-media-rights"
-                  [attr.data-og7-id]="asset.id"
-                >
-                  <summary>
-                    {{ 'funding.followup.media.usage.title' | translate }}
-                  </summary>
-                  <openg7-sponsor-media-usage-editor
-                    [value]="asset.usage ?? null"
-                    [disabled]="busy()"
-                    [compactTerms]="true"
-                    [locale]="i18n.currentLanguage()"
-                    (saved)="
-                      usageController.updateUsage(
-                        asset,
-                        $event.usage,
-                        $event.termsAcceptance
-                      )
-                    "
-                  />
-                </details>
                 <button
                   class="secondary-button"
                   type="button"

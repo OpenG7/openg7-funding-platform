@@ -21,6 +21,14 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.media-upload-attempt .media-preview button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.media-upload-attempt .media-preview button .media-icon {
+  color: inherit;
+}
 .media-heading,
 .media-correction-header {
   display: flex;
