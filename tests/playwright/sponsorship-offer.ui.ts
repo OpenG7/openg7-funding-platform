@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import {
   createSponsorshipOfferSnapshot,
   normalizeSponsorshipOfferSnapshot,
@@ -53,6 +53,21 @@ interface CheckoutLockFixture {
   task: Promise<void>;
 }
 
+async function expectStaticOfferCards(summary: Locator, version: string) {
+  await expect(
+    summary.locator('details, summary, button, a, [role="button"], [tabindex]')
+  ).toHaveCount(0);
+  await expect(
+    summary.locator(
+      '[data-og7="offer-benefit-terms"], [data-og7="offer-snapshot-version"], [data-og7="offer-snapshot-amount"], [data-og7="offer-benefit-group-size"]'
+    )
+  ).toHaveCount(0);
+  await expect(summary).not.toContainText(version);
+  await expect(summary).not.toContainText(
+    /Sponsorship amount|Montant de commandite|Destination\s*:|Required elements|Éléments requis|publication deadline|délai de publication|Délai de réalisation|exposure duration|durée d’exposition/i
+  );
+}
+
 async function canonicalRecovery(
   page: Page,
   snapshot?: Record<string, string>
@@ -89,7 +104,7 @@ async function canonicalRecovery(
 export function registerSponsorshipCommitmentTests() {
   for (const english of [false, true]) {
     const suffix = english ? 'EN mobile @mobile' : 'FR desktop';
-    test(`sponsorship offer exposure due date remains open until continuity evidence is recorded ${suffix} @offer-ui`, async ({
+    test(`sponsorship offer summarizes recorded benefits without exposing timing details or inventing delivery ${suffix} @offer-ui`, async ({
       page
     }) => {
       await page.setViewportSize(
@@ -151,31 +166,27 @@ export function registerSponsorshipCommitmentTests() {
         }
       });
       await visit(page, english);
-      const obligation = page.locator(
-        '[data-og7="followup-current-obligations"] [data-og7-id="website-duration"]'
-      );
-      const exposure = obligation.locator(
-        '[data-og7="followup-obligation-timing"]'
-      );
-      await expect(exposure).toContainText(
-        english
-          ? 'Duration needs confirmation with continuity evidence'
-          : 'Durée à confirmer avec preuve de continuité'
-      );
-      await expect(exposure.locator('time').nth(0)).toHaveAttribute(
-        'datetime',
-        startedAt
-      );
-      await expect(exposure.locator('time').nth(1)).toHaveAttribute(
-        'datetime',
-        dueAt
-      );
-      await expect(obligation).toContainText(
-        english ? 'Awaiting delivery' : 'À réaliser'
-      );
       await expect(
-        obligation.locator('[data-og7="followup-obligation-proof"]')
+        page.locator('[data-og7="followup-current-obligations"]')
       ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="followup-obligation-timing"]')
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="followup-fulfilment-evidence"]')
+      ).toHaveCount(0);
+      const recap = page.locator('[data-og7="followup-offer-terms"]');
+      await expect(recap).toHaveJSProperty('open', false);
+      await recap.locator(':scope > summary').focus();
+      await page.keyboard.press('Enter');
+      const benefit = recap.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="website_mention"]'
+      );
+      await expect(benefit).toBeVisible();
+      await expect(benefit).toHaveAccessibleName(/OpenG7|OPENG7/i);
+      const cards = recap.locator('[data-og7="offer-compact-summary"]');
+      await expectStaticOfferCards(cards, offer.version);
+      await expect(cards.locator('time')).toHaveCount(0);
       await expect(
         page.locator('[data-og7="followup-fulfilment-evidence"]')
       ).toHaveCount(0);
@@ -185,7 +196,7 @@ export function registerSponsorshipCommitmentTests() {
         )
       ).toBe(true);
     });
-    test(`sponsorship offer each fulfilled passage links to its exact proof and keeps the remaining passage open ${suffix} @offer-ui`, async ({
+    test(`sponsorship offer keeps recorded evidence separate from static cards without inventing evidence for other passages ${suffix} @offer-ui`, async ({
       page
     }) => {
       await page.setViewportSize(
@@ -247,33 +258,13 @@ export function registerSponsorshipCommitmentTests() {
         }
       });
       await visit(page, english);
-      const obligations = page.locator(
-        '[data-og7="followup-current-obligations"]'
-      );
-      const first = obligations.locator('[data-og7-id="passage-one"]');
-      const second = obligations.locator('[data-og7-id="passage-two"]');
-      const link = first.getByRole('link', {
-        name: english
-          ? 'View evidence for passage #1'
-          : 'Voir la preuve du passage nº 1'
-      });
-      await expect(link).toHaveAttribute(
-        'href',
-        /#sponsorship-evidence-passage-one-proof$/
-      );
-      await expect(second).toContainText(
-        english ? 'Awaiting delivery' : 'À réaliser'
-      );
-      await expect(second.getByRole('link')).toHaveCount(0);
       await expect(
-        obligations.locator('[data-og7-id="passage-mismatched"] a')
+        page.locator('[data-og7="followup-current-obligations"]')
       ).toHaveCount(0);
-      const before = new URL(page.url());
-      expect(before.searchParams.has('token')).toBe(false);
-      await link.focus();
-      await page.keyboard.press('Enter');
+      const section = page.locator('[data-og7="followup-fulfilment-evidence"]');
+      await expect(section).toBeVisible();
+      await expect(section.locator('li')).toHaveCount(1);
       const proof = page.locator('#sponsorship-evidence-passage-one-proof');
-      await expect(proof).toBeFocused();
       await expect(proof.locator('time')).toHaveAttribute(
         'datetime',
         deliveredAt
@@ -285,15 +276,28 @@ export function registerSponsorshipCommitmentTests() {
         'href',
         evidence.externalPostUrl
       );
-      expect(new URL(page.url()).searchParams.has('token')).toBe(false);
-      expect(new URL(page.url()).pathname).toBe(before.pathname);
-      expect(new URL(page.url()).search).toBe(before.search);
-      await expect(link).toHaveAttribute(
-        'href',
-        before.pathname +
-          before.search +
-          '#sponsorship-evidence-passage-one-proof'
+      await expect(proof.getByRole('link')).toHaveAttribute('target', '_blank');
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'rel',
+        'noopener noreferrer'
       );
+      const recap = page.locator('[data-og7="followup-offer-terms"]');
+      await expect(recap).toHaveJSProperty('open', false);
+      await recap.locator(':scope > summary').click();
+      const benefit = recap.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="facebook_batch"]'
+      );
+      await expect(benefit).toHaveAccessibleName(/2\s*×/);
+      await expect(
+        benefit.locator('[data-og7="offer-benefit-header"]')
+      ).toBeVisible();
+      await expectStaticOfferCards(
+        recap.locator('[data-og7="offer-compact-summary"]'),
+        'two-passages'
+      );
+      await expect(section.locator('li')).toHaveCount(1);
+      await expect(recap.getByRole('link')).toHaveCount(0);
+      expect(new URL(page.url()).searchParams.has('token')).toBe(false);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -467,7 +471,7 @@ export function registerSponsorshipCommitmentTests() {
         )
       ).toBe(true);
     });
-    test(`sponsorship offer current obligations stay separate from accepted terms ${suffix}`, async ({
+    test(`sponsorship offer icon terms preserve separate collective and individual promises after later adjustments ${suffix}`, async ({
       page
     }) => {
       await page.setViewportSize(
@@ -536,58 +540,114 @@ export function registerSponsorshipCommitmentTests() {
       });
       await visit(page, english);
       const summary = page.locator('[data-og7="followup-commitment"]'),
-        current = summary.locator('[data-og7="followup-current-obligations"]');
-      await expect(current).toBeVisible();
+        recap = summary.locator('[data-og7="followup-offer-terms"]');
       await expect(
-        summary.locator('[data-og7="followup-offer-terms"]')
-      ).toHaveJSProperty('open', false);
+        summary.locator('[data-og7="followup-current-obligations"]')
+      ).toHaveCount(0);
       await expect(
-        summary.locator('openg7-sponsorship-offer-summary')
-      ).toContainText('immutable-original-offer');
-      await expect(current).toContainText('OPENG20');
-      await expect(current).toContainText(
+        summary.locator('[data-og7="followup-obligation-timing"]')
+      ).toHaveCount(0);
+      await expect(recap).toHaveJSProperty('open', false);
+      await recap.locator(':scope > summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(
+        recap.locator('[data-og7="sponsorship-terms-count"]')
+      ).toHaveText(english ? '5 benefits included' : '5 prestations incluses');
+      const notice = recap.locator(
+        'aside[data-og7="sponsorship-terms-notice"]'
+      );
+      await expect(notice).toBeVisible();
+      await expect(notice).toContainText(
+        english
+          ? 'Publications require approval'
+          : 'Publications soumises à validation'
+      );
+      await expect(notice).toContainText(
+        english ? 'manual decision' : 'décision manuelle'
+      );
+      await expect(notice).toContainText(
+        english
+          ? 'never published automatically upon payment'
+          : 'jamais publiées automatiquement au paiement'
+      );
+      const compact = recap.locator('[data-og7="offer-compact-summary"]');
+      await expect(compact).toBeVisible();
+      await expect(
+        compact.locator('article[data-og7="offer-benefit-card"]')
+      ).toHaveCount(saved.benefits.length);
+      if (english) {
+        const cards = await compact
+          .locator('article[data-og7="offer-benefit-card"]')
+          .evaluateAll((elements) =>
+            elements.map((element) => {
+              const { left, top, bottom } = element.getBoundingClientRect();
+              return { left, top, bottom };
+            })
+          );
+        for (let index = 1; index < cards.length; index++) {
+          expect(
+            Math.abs(cards[index].left - cards[0].left)
+          ).toBeLessThanOrEqual(1);
+          expect(cards[index].top).toBeGreaterThanOrEqual(
+            cards[index - 1].bottom
+          );
+        }
+      }
+      await summary.screenshot({
+        path: test
+          .info()
+          .outputPath(`sponsorship-terms-${english ? 'en' : 'fr'}.png`)
+      });
+      const collective = compact.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="facebook_batch"]'
+      );
+      const individual = compact.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="facebook_individual"]'
+      );
+      await expect(
+        compact.locator(
+          '[data-og7="offer-benefit-card"][data-og7-id="website_mention"] [data-og7="offer-benefit-category"]'
+        )
+      ).toHaveAttribute('data-og7-id', 'web');
+      await expect(
+        compact.locator(
+          '[data-og7="offer-benefit-card"][data-og7-id="website_mention"] [data-og7="offer-benefit-category"]'
+        )
+      ).toHaveText('Web');
+      await expect(
+        collective.locator('[data-og7="offer-benefit-category"]')
+      ).toHaveAttribute('data-og7-id', 'collective');
+      await expect(
+        collective.locator('[data-og7="offer-benefit-category"]')
+      ).toHaveText(english ? 'Collective' : 'Collectif');
+      await expect(
+        individual.locator('[data-og7="offer-benefit-category"]')
+      ).toHaveAttribute('data-og7-id', 'individual');
+      await expect(
+        individual.locator('[data-og7="offer-benefit-category"]')
+      ).toHaveText(english ? 'Individual' : 'Individuel');
+      for (const card of [collective, individual]) {
+        await expect(card).toHaveAccessibleName(/4\s*×/);
+        await expect(card).toHaveAccessibleName(/Facebook/i);
+        await expect(card).toHaveAccessibleName(/OPENG7/i);
+        await expect(
+          card.locator('div[data-og7="offer-benefit-header"]')
+        ).toBeVisible();
+        await expect(card).not.toHaveCSS('cursor', 'pointer');
+      }
+      await expect(collective).toHaveAccessibleName(
+        english ? /Collective text/ : /Texte collectif/
+      );
+      await expect(individual).toHaveAccessibleName(
+        english ? /Individual text/ : /Texte individuel/
+      );
+      await expectStaticOfferCards(compact, saved.version);
+      await expect(compact).not.toContainText('OPENG20');
+      await expect(compact).not.toContainText(
         english ? 'Individual portrait' : 'Portrait individuel'
       );
-      await expect(current).toContainText(
-        english ? 'Editorial review required' : 'Revue éditoriale requise'
-      );
-      await expect(
-        summary.locator('openg7-sponsorship-offer-summary')
-      ).not.toContainText('OPENG20');
-      await expect(current).not.toContainText('moderation_review_required');
-      const unknown = current.locator('[data-og7-id="synthetic-obligation"]');
-      await expect(
-        unknown.locator('[data-og7="followup-obligation-deadline"]')
-      ).toContainText(
-        english ? 'Origin needs verification' : 'L’origine doit être vérifiée'
-      );
-      await expect(
-        unknown.locator('[data-og7="followup-obligation-duration"]')
-      ).toContainText(
-        english ? 'Duration is unsupported' : 'Durée non prise en charge'
-      );
-      await expect(
-        unknown.locator('[data-og7="followup-obligation-overdue"]')
-      ).toHaveCount(0);
-      const timed = current.locator(
-        '[data-og7-id="synthetic-website-obligation"]'
-      );
-      await expect(
-        timed.locator('[data-og7="followup-obligation-deadline"]')
-      ).not.toContainText(
-        english ? 'Origin needs verification' : 'L’origine doit être vérifiée'
-      );
-      await expect(
-        timed.locator('[data-og7="followup-obligation-overdue"]')
-      ).toContainText(
-        english ? 'benefit remains outstanding' : 'prestation reste à réaliser'
-      );
-      await expect(
-        timed.locator('[data-og7="followup-obligation-duration"]')
-      ).toContainText(english ? 'continuity evidence' : 'preuve de continuité');
-      await expect(current).not.toContainText(
-        english ? 'Delivery recorded' : 'Réalisation enregistrée'
-      );
+      await expect(compact).not.toContainText('moderation_review_required');
+      await expect(compact.locator('time')).toHaveCount(0);
       expect(
         (
           await new AxeBuilder({ page })
@@ -595,8 +655,33 @@ export function registerSponsorshipCommitmentTests() {
             .analyze()
         ).violations
       ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      if (!english) {
+        await page.setViewportSize({ width: 900, height: 900 });
+        const cards = compact.locator('article[data-og7="offer-benefit-card"]');
+        const [first, second] = await Promise.all([
+          cards.nth(0).boundingBox(),
+          cards.nth(1).boundingBox()
+        ]);
+        expect(first).not.toBeNull();
+        expect(second).not.toBeNull();
+        expect(Math.abs(first!.y - second!.y)).toBeLessThanOrEqual(1);
+        expect(second!.x).toBeGreaterThan(first!.x);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+        await summary.screenshot({
+          path: test.info().outputPath('sponsorship-terms-wide-fr.png')
+        });
+      }
     });
-    test(`sponsorship offer private follow-up displays frozen server terms without current pricing ${suffix}`, async ({
+    test(`sponsorship offer private follow-up preserves frozen benefits without technical details or current pricing ${suffix}`, async ({
       page
     }) => {
       await page.setViewportSize(
@@ -610,7 +695,7 @@ export function registerSponsorshipCommitmentTests() {
           {
             id: 'website_mention',
             channel: 'website',
-            target: 'openg7',
+            target: 'openg20',
             quantity: 1,
             requiredElements: ['company_name'],
             deadlineDays: null,
@@ -619,12 +704,11 @@ export function registerSponsorshipCommitmentTests() {
           {
             id: 'facebook_batch',
             channel: 'facebook',
-            target: 'openg7',
+            target: 'openg20',
             quantity: 4,
             requiredElements: ['company_name'],
             deadlineDays: null,
-            durationDays: null,
-            format: 'collective_text'
+            durationDays: null
           }
         ]
       });
@@ -648,7 +732,7 @@ export function registerSponsorshipCommitmentTests() {
       await visit(page, english);
       const summary = page.locator('[data-og7="followup-commitment"]'),
         terms = summary.locator('[data-og7="followup-offer-terms"]'),
-        toggle = terms.locator('summary'),
+        toggle = terms.locator(':scope > summary'),
         savedOffer = terms.locator('openg7-sponsorship-offer-summary');
       await expect(summary.getByRole('heading', { level: 3 })).toHaveText(
         english ? 'Your sponsorship terms' : 'Conditions de votre commandite'
@@ -657,32 +741,42 @@ export function registerSponsorshipCommitmentTests() {
         english ? 'View terms' : 'Voir les conditions'
       );
       await expect(terms).toHaveJSProperty('open', false);
-      await expect(
-        savedOffer.getByText('sponsorship-v3', { exact: false })
-      ).toBeHidden();
+      await expect(savedOffer).toBeHidden();
       await toggle.focus();
       await toggle.press('Enter');
       await expect(terms).toHaveJSProperty('open', true);
-      await expect(savedOffer).toBeVisible();
-      await expect(savedOffer).toContainText('sponsorship-v3');
-      await expect(savedOffer.locator('li')).toHaveCount(saved.benefits.length);
       await expect(
-        savedOffer.locator('[data-og7="offer-benefit-group-size"]')
-      ).toHaveCount(0);
+        terms.locator('[data-og7="sponsorship-terms-count"]')
+      ).toHaveText(english ? '2 benefits included' : '2 prestations incluses');
+      await expect(
+        terms.locator('aside[data-og7="sponsorship-terms-notice"]')
+      ).toBeVisible();
+      await expect(savedOffer).toBeVisible();
+      await expect(
+        savedOffer.locator('article[data-og7="offer-benefit-card"]')
+      ).toHaveCount(saved.benefits.length);
       await expect(
         savedOffer.locator('[data-og7-id="facebook_individual"]')
       ).toHaveCount(0);
       await expect(
         savedOffer.locator('[data-og7-id="linkedin_individual"]')
       ).toHaveCount(0);
-      await expect(
-        savedOffer.locator('[data-og7-id="facebook_batch"] strong')
-      ).toContainText('4 ×');
-      await expect(savedOffer).toContainText(
-        english
-          ? 'no fixed publication deadline'
-          : 'Aucun délai de publication fixe'
+      const benefit = savedOffer.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="facebook_batch"]'
       );
+      const header = benefit.locator('div[data-og7="offer-benefit-header"]');
+      await expect(header).toContainText('4 ×');
+      await expect(benefit).toHaveAccessibleName(/Facebook/);
+      await expect(benefit).toHaveAccessibleName(/4\s*×/);
+      await expect(benefit).toHaveAccessibleName(/OPENG20/);
+      await expect(
+        benefit.locator('[data-og7="offer-benefit-category"]')
+      ).toHaveCount(0);
+      await expect(
+        benefit.locator('[data-og7="offer-benefit-format"]')
+      ).toHaveCount(0);
+      await expect(savedOffer).not.toContainText('OPENG7');
+      await expectStaticOfferCards(savedOffer, saved.version);
       await expect(summary).not.toContainText('new-tariff-v2');
       expect(quotes).toBe(0);
       expect(
@@ -697,6 +791,7 @@ export function registerSponsorshipCommitmentTests() {
           () => document.documentElement.scrollWidth <= innerWidth + 1
         )
       ).toBe(true);
+      await toggle.focus();
       await toggle.press('Enter');
       await expect(terms).toHaveJSProperty('open', false);
       await expect(savedOffer).toBeHidden();
@@ -735,6 +830,9 @@ export function registerSponsorshipCommitmentTests() {
       await expect(
         summary.locator('[data-og7="followup-offer-terms"]')
       ).toHaveCount(0);
+      await expect(
+        summary.locator('[data-og7="sponsorship-terms-count"]')
+      ).toHaveCount(0);
       await expect(summary.locator('li')).toHaveCount(0);
       current = {
         ...current,
@@ -753,15 +851,20 @@ export function registerSponsorshipCommitmentTests() {
         .click();
       const terms = summary.locator('[data-og7="followup-offer-terms"]');
       await expect(terms).toHaveJSProperty('open', false);
-      await terms.locator('summary').click();
-      await expect(summary).toContainText('qualified-history-v1');
+      await terms.locator(':scope > summary').click();
+      const benefit = terms.locator(
+        'article[data-og7="offer-benefit-card"][data-og7-id="website_mention"]'
+      );
+      await expect(benefit).toBeVisible();
+      await expect(benefit).toHaveAccessibleName(/2\s*×/);
+      await expectStaticOfferCards(
+        terms.locator('[data-og7="offer-compact-summary"]'),
+        'qualified-history-v1'
+      );
       await expect(summary).toContainText(
         english ? 'clarified and recorded' : 'clarifiées et consignées'
       );
       await expect(summary.getByRole('status')).toHaveCount(0);
-      await expect(
-        summary.locator('[data-og7-id="website_mention"] strong')
-      ).toContainText('2 ×');
     });
   }
 }

@@ -1,3 +1,4 @@
+import { MINIMUM_PERSONAL_CONTRIBUTION_AMOUNT } from '../../../../packages/funding-core/src/index.js';
 import {
   buildContributionReceiptDescription,
   createContributionPublicReference,
@@ -244,6 +245,8 @@ export const createPublicHttpHandlers = ({
     getPublicFundingRuntimeConfig: () => ({
       business_sponsorship_enabled: businessSponsorshipEnabled,
       allowed_contribution_amounts: [...allowedContributionAmounts],
+      personal_contribution_minimum_amount:
+        MINIMUM_PERSONAL_CONTRIBUTION_AMOUNT,
       last_updated_at: new Date().toISOString()
     }),
     getPublicTransparencySummary: () =>
@@ -265,7 +268,6 @@ export const createPublicHttpHandlers = ({
     projectId,
     isProduction,
     businessSponsorshipEnabled,
-    allowedContributionAmounts,
     PUBLIC_DISPLAY_NAME_MAX_LENGTH,
     stripeApiHost,
     navigableSimulatedCheckout,

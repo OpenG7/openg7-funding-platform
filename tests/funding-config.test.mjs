@@ -261,7 +261,6 @@ test('Stripe charge.updated backfills contribution transaction fees', () => {
 test('Checkout sessions require fundraiser metadata and consent fields', () => {
   const source = readFundingApiSource();
 
-  assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
   assert.ok(source.includes("'personal_support'"));
   assert.ok(source.includes("'sponsorship_interest'"));
   assert.ok(source.includes('parsed.nonCharityAcknowledged !== true'));
@@ -889,7 +888,7 @@ test('Sponsorship pricing config resolves tiers and benefits from the real paid 
   );
 });
 
-test('Contribution form uses sponsorship pricing and the personal server allowlist', () => {
+test('Contribution form keeps sponsorship pricing, personal suggestions and the announced personal minimum', () => {
   const source = readFundingHomeSource();
   const config = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts',
@@ -925,9 +924,11 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
   );
 
   assert.ok(source.includes('this.allowedAmounts().includes(amount)'));
+  assert.ok(source.includes('personalContributionMinimumAmount'));
+  assert.ok(source.includes('isValidPersonalContributionAmount'));
 });
 
-test('Checkout API validates sponsorship custom amounts against the real minimum, not the fixed personal allowlist', () => {
+test('Checkout API uses the public contribution policies and preserves sponsorship gating', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/public-payments.http.ts',
     'utf8'
@@ -936,7 +937,10 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   // Checkout consumes the same public core rule as the Web. Behavior is also
   // exercised in public-payments-http.test.mjs and through the local HTTP API
   // in admin-work-queue-http.test.mjs.
-  assert.match(source, /import\s*\{\s*isValidSponsorshipAmount\s*\}\s*from/);
+  assert.match(
+    source,
+    /import\s*\{[^}]*isValidSponsorshipAmount[^}]*\}\s*from/s
+  );
   assert.equal(source.includes('const sponsorshipMinimumAmount ='), false);
   assert.ok(source.includes('const isSponsorshipContribution ='));
   assert.ok(
@@ -947,8 +951,7 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(
     source.includes('const isAmountAllowed = isSponsorshipContribution')
   );
-  assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
-  assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
+  assert.ok(source.includes('isValidPersonalContributionAmount'));
 });
 
 test('Sponsorship follow-up benefits come from the immutable server offer, never current pricing or client details', () => {

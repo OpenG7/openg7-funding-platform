@@ -3,6 +3,8 @@ import path from 'node:path';
 import type { ContributionType } from '@openg7/funding-core';
 import type Stripe from 'stripe';
 
+import { isValidPersonalContributionAmount } from '../../../packages/funding-core/src/index.js';
+
 import {
   loadAdminAssistantConfig,
   type AdminAssistantConfig
@@ -245,7 +247,7 @@ export const loadApiRuntimeHttpConfig = (
     (env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50')
       .split(',')
       .map((amount) => Number(amount.trim()))
-      .filter((amount) => Number.isFinite(amount) && amount > 0)
+      .filter(isValidPersonalContributionAmount)
   );
   // Local E2E overrides; absent settings keep the SDK defaults.
   const stripeApiHost = env.STRIPE_API_HOST;

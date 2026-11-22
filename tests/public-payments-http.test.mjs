@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/public-payments.http.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
-import { CheckoutOperationError } from '../dist/apps/funding-api/src/checkout-operations.service.js';
+import {
+  CheckoutOperationError,
+  createDurableCheckoutService
+} from '../dist/apps/funding-api/src/checkout-operations.service.js';
 import { quoteSponsorshipOffer } from '../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../dist/packages/funding-core/src/index.js';
 
@@ -42,7 +46,6 @@ const fixture = ({
     projectId: 'synthetic-server-project',
     isProduction: true,
     businessSponsorshipEnabled: true,
-    allowedContributionAmounts: new Set([5, 10, 25, 50]),
     PUBLIC_DISPLAY_NAME_MAX_LENGTH: 100,
     stripeApiHost: undefined,
     navigableSimulatedCheckout: false,
@@ -191,7 +194,9 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
     [true, 400, 'Invalid checkout request body.'],
     [25, 400, 'Invalid checkout request body.'],
     ['"synthetic-checkout"', 400, 'Invalid checkout request body.'],
-    [{ ...payload, amount: 7 }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: 0 }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: -5 }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: 1e30 }, 400, 'Checkout amount is not allowed.'],
     [{ ...payload, amount: 'invalid' }, 400, 'Checkout amount is not allowed.'],
     [{ ...payload, amount: '25' }, 400, 'Checkout amount is not allowed.'],
     [{ ...payload, amount: [25] }, 400, 'Checkout amount is not allowed.'],
@@ -341,6 +346,136 @@ test('Checkout maps integer CAD units, server project, consent and provider resu
     ]
   );
   assert.equal('paid' in persisted, false);
+});
+
+test('personal Checkout accepts exact custom amounts above the minimum without sponsorship terms', async () => {
+  for (const amount of [5, 5.01, 7, 7.25, 12.34, 123.45]) {
+    const f = fixture();
+    const result = await f.invoke({ ...payload, amount });
+    assert.equal(result.status, 200);
+    const provider = f.calls.find(({ name }) => name === 'provider').value;
+    const persisted = f.calls.find(({ name }) => name === 'persist').value;
+    assert.equal(
+      provider.line_items[0].price_data.unit_amount,
+      Math.round(amount * 100)
+    );
+    assert.equal(persisted.amountCents, Math.round(amount * 100));
+    assert.equal(provider.metadata.contributionType, 'personal_support');
+    assert.equal(provider.metadata.requiresReview, 'false');
+    assert.equal(
+      f.calls.some(({ name }) => name === 'offer'),
+      false
+    );
+  }
+});
+
+function readOnlyDurableFixture(readOperation) {
+  const statements = [];
+  const providerCalls = [];
+  const db = new EventEmitter();
+  db.query = async (sql) => {
+    statements.push(sql);
+    if (sql.includes('pg_try_advisory_lock'))
+      return { rows: [{ locked: true }] };
+    if (sql.includes('FROM checkout_operations WHERE key_hash')) {
+      const operation = readOperation();
+      return { rows: operation ? [operation] : [] };
+    }
+    if (sql.includes('pg_advisory_unlock')) return { rows: [{}] };
+    assert.fail('This scenario must not write a durable operation: ' + sql);
+  };
+  db.release = () => {};
+  const runCheckout = createDurableCheckoutService(
+    { connect: async () => db },
+    {
+      checkout: {
+        sessions: {
+          create: async (...args) => {
+            providerCalls.push(args);
+            assert.fail('This scenario must not contact Stripe.');
+          }
+        }
+      }
+    }
+  );
+  return { runCheckout, statements, providerCalls };
+}
+
+test('a new personal amount below 5 CAD is refused before any durable insert or provider call', async () => {
+  for (const amount of [2, 4.99]) {
+    const durable = readOnlyDurableFixture(() => null);
+    const f = fixture({ runCheckout: durable.runCheckout });
+    const result = await f.invoke({ ...payload, amount });
+    assert.equal(result.status, 400);
+    assert.equal(result.payload.code, 'CHECKOUT_AMOUNT_INVALID');
+    assert.equal(result.payload.error, 'Checkout amount is not allowed.');
+    assert.ok(
+      durable.statements.some((sql) => sql.includes('FROM checkout_operations'))
+    );
+    assert.ok(
+      durable.statements.every((sql) => !/INSERT|UPDATE|BEGIN/.test(sql))
+    );
+    assert.deepEqual(durable.providerCalls, []);
+    assert.ok(
+      !f.calls.some(({ name }) =>
+        ['provider', 'persist', 'offer'].includes(name)
+      )
+    );
+
+    const local = fixture({ stripeEnabled: false, isProduction: false });
+    assert.deepEqual(await local.invoke({ ...payload, amount }), {
+      handled: true,
+      status: 400,
+      payload: { error: 'Checkout amount is not allowed.' }
+    });
+    assert.deepEqual(
+      local.calls.map(({ name }) => name),
+      ['body', 'response']
+    );
+  }
+});
+
+test('an exact historical 2 CAD personal operation replays while its changed payload conflicts', async () => {
+  let originalHash;
+  const stored = {
+    id: '00000000-0000-4000-8000-000000000002',
+    state: 'completed',
+    params: {},
+    contribution_input: {},
+    provider_result: {
+      checkoutId: session.id,
+      redirectUrl: session.url,
+      status: 'redirected',
+      stripePaymentIntentId: session.payment_intent
+    },
+    retry_allowed: true
+  };
+  const durable = readOnlyDurableFixture(() => ({
+    ...stored,
+    request_hash: originalHash
+  }));
+  const f = fixture({
+    runCheckout: async (input) => {
+      originalHash ??= input.requestHash;
+      return durable.runCheckout(input);
+    }
+  });
+  for (let replay = 0; replay < 2; replay++) {
+    const result = await f.invoke({ ...payload, amount: 2 });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.payload, {
+      checkoutId: session.id,
+      redirectUrl: session.url,
+      status: 'redirected'
+    });
+  }
+  const changed = await f.invoke({ ...payload, amount: 2.01 });
+  assert.equal(changed.status, 409);
+  assert.equal(changed.payload.code, 'CHECKOUT_IDEMPOTENCY_CONFLICT');
+  assert.deepEqual(durable.providerCalls, []);
+  assert.ok(
+    durable.statements.every((sql) => !/INSERT|UPDATE|BEGIN/.test(sql))
+  );
 });
 
 test('Custom sponsorship Checkout sends a follow-up URL and persists only the token hash', async () => {

@@ -13,7 +13,10 @@ import type {
 import type { PoolClient } from 'pg';
 import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
 
-import { isValidSponsorshipAmount } from '../../../packages/funding-core/src/index.js';
+import {
+  isValidPersonalContributionAmount,
+  isValidSponsorshipAmount
+} from '../../../packages/funding-core/src/index.js';
 
 import { validateCharterAcceptance } from './moderation/charter.js';
 import {
@@ -46,7 +49,6 @@ export interface PublicPaymentsHttpDependencies {
   readonly projectId: string;
   readonly isProduction: boolean;
   readonly businessSponsorshipEnabled: boolean;
-  readonly allowedContributionAmounts: ReadonlySet<number>;
   readonly PUBLIC_DISPLAY_NAME_MAX_LENGTH: number;
   readonly stripeApiHost: string | undefined;
   readonly navigableSimulatedCheckout: boolean;
@@ -103,7 +105,6 @@ export const createPublicPaymentsHttpHandler = ({
   projectId,
   isProduction,
   businessSponsorshipEnabled,
-  allowedContributionAmounts,
   PUBLIC_DISPLAY_NAME_MAX_LENGTH,
   stripeApiHost,
   navigableSimulatedCheckout,
@@ -218,7 +219,9 @@ export const createPublicPaymentsHttpHandler = ({
         ? durableCheckoutConfigured
           ? Math.round(amount * 100) > 0
           : isValidSponsorshipAmount(amount)
-        : allowedContributionAmounts.has(amount);
+        : durableCheckoutConfigured
+          ? Math.round(amount * 100) > 0
+          : isValidPersonalContributionAmount(amount);
 
       if (
         !Number.isFinite(amount) ||
@@ -442,6 +445,13 @@ export const createPublicPaymentsHttpHandler = ({
               }
             : {}),
           prepare: (operationId) => {
+            // An exact durable replay keeps its stored terms; only a new
+            // personal operation must satisfy today's minimum.
+            if (
+              !isSponsorshipContribution &&
+              !isValidPersonalContributionAmount(amount)
+            )
+              throw new CheckoutOperationError('CHECKOUT_AMOUNT_INVALID', 400);
             const quote = isSponsorshipContribution
               ? quoteSponsorshipOffer(
                   Math.round(amount * 100),
@@ -578,9 +588,11 @@ export const createPublicPaymentsHttpHandler = ({
         writeJson(request, response, failure.status, {
           code: failure.code,
           error:
-            failure.code === 'CHECKOUT_RECONCILIATION_REQUIRED'
-              ? 'Checkout requires verification before retrying.'
-              : 'Checkout could not be started. Retry with the same idempotency key.'
+            failure.code === 'CHECKOUT_AMOUNT_INVALID'
+              ? 'Checkout amount is not allowed.'
+              : failure.code === 'CHECKOUT_RECONCILIATION_REQUIRED'
+                ? 'Checkout requires verification before retrying.'
+                : 'Checkout could not be started. Retry with the same idempotency key.'
         });
         return true;
       }

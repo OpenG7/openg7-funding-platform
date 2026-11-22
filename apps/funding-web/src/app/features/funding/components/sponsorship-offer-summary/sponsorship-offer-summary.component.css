@@ -20,3 +20,123 @@ li {
 p {
   margin: 0.4rem 0;
 }
+
+:host(.compact-mode) {
+  container-name: sponsorship-offer;
+  container-type: inline-size;
+}
+
+.compact-offers {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+  margin-block-start: 0.5rem;
+}
+
+li.compact-offer {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.benefit-card {
+  min-width: 0;
+  border: 1px solid #dbe6df;
+  border-radius: 0.9rem;
+  background: var(--surface-panel);
+  box-shadow: 0 3px 12px rgb(22 58 36 / 6%);
+}
+
+.benefit-card-header {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  min-height: 8.5rem;
+  padding: 1rem;
+  color: var(--text-main);
+}
+
+.benefit-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.7rem;
+  background: #e8f4ec;
+  color: #12603e;
+}
+
+.benefit-icon svg {
+  width: 1.65rem;
+  height: 1.65rem;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.benefit-icon .brand-mark {
+  fill: currentColor;
+  stroke: none;
+}
+
+.benefit-labels {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+  line-height: 1.35;
+}
+
+.benefit-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.benefit-heading strong {
+  color: var(--text-main);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.benefit-category {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e1f2e3;
+  color: #185a36;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.benefit-format {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: normal;
+}
+
+.benefit-quantity {
+  justify-self: start;
+  padding: 0.25rem 0.65rem;
+  border-radius: 0.5rem;
+  background: #eaf5ed;
+  color: #145a38;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+@container sponsorship-offer (min-width: 30rem) {
+  .compact-offers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .compact-offers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

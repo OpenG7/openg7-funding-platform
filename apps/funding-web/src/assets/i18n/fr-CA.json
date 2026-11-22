@@ -70,6 +70,17 @@
       "amount": "Montant de commandite : {{amount}}",
       "savedTitle": "Conditions de votre commandite",
       "viewTerms": "Voir les conditions",
+      "includedBenefit": "{{count}} prestation incluse",
+      "includedBenefits": "{{count}} prestations incluses",
+      "webPresence": "Présence Web",
+      "legacyTextFormat": "Texte",
+      "categories": {
+        "web": "Web",
+        "collective": "Collectif",
+        "individual": "Individuel"
+      },
+      "manualValidationTitle": "Publications soumises à validation",
+      "manualValidationNotice": "Ces prestations sont soumises à une décision manuelle et ne sont jamais publiées automatiquement au paiement.",
       "needsConfirmation": "Les conditions initiales de cette commandite historique doivent être confirmées. Cela ne signifie pas qu’aucune prestation n’a été convenue. Contactez l’équipe OpenG7 avec votre référence pour clarifier ces engagements.",
       "qualifiedHistorical": "Les conditions de cette commandite historique ont été clarifiées et consignées par l’équipe OpenG7.",
       "destination": "Destination : {{target}}",
@@ -1142,7 +1153,9 @@
         "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
         "error": "Impossible de démarrer le paiement.",
         "verificationRequired": "Cette demande de paiement nécessite une vérification. Contactez l’équipe OpenG7 avant de réessayer.",
-        "personalAmountHint": "Les contributions personnelles acceptent ces montants : {{ amounts }}.",
+        "personalAmountHint": "Choisissez une suggestion ou entrez un montant d’au moins {{ minimum }}, avec un maximum de deux décimales.",
+        "personalMinimumAmountError": "Le montant minimal pour une contribution personnelle est de {{ minimum }}.",
+        "personalPresetAmountHint": "Choisissez l’un des montants proposés pour votre contribution personnelle : {{ amounts }}.",
         "publicDisplayNameRequired": "Indiquez le nom à afficher publiquement."
       },
       "finance": {

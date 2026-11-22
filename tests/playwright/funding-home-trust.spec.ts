@@ -69,7 +69,12 @@ test.beforeEach(async ({ page }) => {
         }
       });
     if (pathname === '/api/public/funding-config') {
-      await route.fulfill({ json: { business_sponsorship_enabled: false } });
+      await route.fulfill({
+        json: {
+          business_sponsorship_enabled: false,
+          personal_contribution_minimum_amount: 5
+        }
+      });
     } else if (pathname === '/api/public/fund-transparency') {
       await route.fulfill({ json: emptyReport });
     } else {
@@ -315,7 +320,11 @@ test('failed runtime configuration keeps a requested sponsorship disabled withou
   expect(availabilityRequests).toBe(0);
 });
 
-async function enableSponsorship(page: Page, amounts = [5, 10, 25, 50]) {
+async function enableSponsorship(
+  page: Page,
+  amounts = [5, 10, 25, 50],
+  personalMinimum: number | null = 5
+) {
   await page.route('**/api/sponsorship-offer?**', (route) =>
     route.fulfill({
       json: sponsorshipOfferQuote(
@@ -327,7 +336,10 @@ async function enableSponsorship(page: Page, amounts = [5, 10, 25, 50]) {
     route.fulfill({
       json: {
         business_sponsorship_enabled: true,
-        allowed_contribution_amounts: amounts
+        allowed_contribution_amounts: amounts,
+        ...(personalMinimum === null
+          ? {}
+          : { personal_contribution_minimum_amount: personalMinimum })
       }
     })
   );
@@ -344,6 +356,22 @@ const checkoutButton = (page: Page) =>
   contributionForm(page).getByRole('button', { name: /Soutenir OpenG7/i });
 const acknowledge = (page: Page) =>
   page.getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i).check();
+
+async function captureMockedCheckouts(page: Page) {
+  const requests: Record<string, unknown>[] = [];
+  await page.route('**/api/checkout-sessions', (route) => {
+    expect(route.request().method()).toBe('POST');
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        status: 'mocked',
+        checkoutId: 'personal-browser-test-' + requests.length,
+        redirectUrl: 'https://example.test/unused'
+      }
+    });
+  });
+  return requests;
+}
 
 async function expectConfirmationSpacing(
   page: Page,
@@ -806,34 +834,141 @@ for (const language of ['fr-CA', 'en'] as const) {
   });
 }
 
-test('the personal form follows the server allowlist and rejects arbitrary amounts', async ({
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`personal suggestions allow exact custom amounts from 5 CAD and retain required consent (${language})`, async ({
+    page
+  }) => {
+    await enableSponsorship(page, [15, 75]);
+    const requests = await captureMockedCheckouts(page);
+    await page.setViewportSize(
+      language === 'en'
+        ? { width: 390, height: 844 }
+        : { width: 1280, height: 900 }
+    );
+    await page.goto(`${language === 'en' ? '/en' : ''}/fonds-des-batisseurs`);
+    const form = contributionForm(page);
+    const amount = form.locator('#custom-contribution');
+    const submit = form.locator('button[type="submit"]');
+    const acknowledgment = form.getByLabel(
+      language === 'en'
+        ? /OpenG7 is an independent project/i
+        : /OpenG7 est un projet ind.pendant en d.veloppement/i
+    );
+    const preset = (value: number) =>
+      form.getByRole('button', {
+        name: new RegExp(`^(?:CA)?\\$?\\s*${value}\\s*\\$?$`)
+      });
+    await expect(preset(15)).toHaveAttribute('aria-pressed', 'true');
+    await expect(amount).toBeVisible();
+    await expect(form.locator('[data-og7="offer-acceptance"]')).toHaveCount(0);
+    await expect(
+      form.locator('[data-og7="sponsorship-offer-status"]')
+    ).toHaveCount(0);
+
+    await acknowledgment.check();
+    for (const value of ['0', '4.99', '-5', '1e3', '7.001']) {
+      await amount.fill(value);
+      await expect(amount).toHaveValue(value);
+      await amount.blur();
+      await expect(amount).toHaveAttribute('aria-invalid', 'true');
+      await expect(submit).toBeDisabled();
+      await form.dispatchEvent('submit');
+    }
+    // The existing maxlength limits typed text; the parser must also reject
+    // unsafe minor units if an input event supplies a longer value.
+    const unsafeAmount = '90071992547409.92';
+    await amount.evaluate((element: HTMLInputElement, value) => {
+      element.value = value;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }, unsafeAmount);
+    await amount.blur();
+    await expect(amount).toHaveValue(unsafeAmount);
+    await expect(amount).toHaveAttribute('aria-invalid', 'true');
+    await expect(submit).toBeDisabled();
+    await form.dispatchEvent('submit');
+    expect(requests).toHaveLength(0);
+
+    for (const [value, expected] of [
+      ['7', 7],
+      ['20', 20],
+      ['75', 75],
+      ['12,34', 12.34],
+      ['12.34', 12.34]
+    ] as const) {
+      await acknowledgment.uncheck();
+      await amount.fill(value);
+      await amount.blur();
+      await expect(amount).toHaveAttribute('aria-invalid', 'false');
+      await expect(submit).toBeDisabled();
+      const before = requests.length;
+      await form.dispatchEvent('submit');
+      expect(requests).toHaveLength(before);
+      await acknowledgment.check();
+      await expect(submit).toBeEnabled();
+      await submit.click();
+      await expect.poll(() => requests.length).toBe(before + 1);
+      expect(requests[before]).toMatchObject({
+        amount: expected,
+        currency: 'CAD',
+        contributionType: 'personal_support',
+        nonCharityAcknowledged: true,
+        publicDisplayConsent: false,
+        displayAmountConsent: false
+      });
+      expect(requests[before]).not.toHaveProperty('offerAcceptance');
+      expect(requests[before]).not.toHaveProperty('charterAcceptance');
+      await expect(form).toHaveAttribute('aria-busy', 'false');
+    }
+    await preset(75).click();
+    await expect(amount).toHaveValue('');
+    await expect(preset(75)).toHaveAttribute('aria-pressed', 'true');
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect.poll(() => requests.length).toBe(6);
+    expect(requests[5]).toMatchObject({
+      amount: 75,
+      currency: 'CAD',
+      contributionType: 'personal_support',
+      nonCharityAcknowledged: true
+    });
+  });
+}
+
+test('an older API without a personal minimum keeps personal presets usable and hides the custom field', async ({
   page
 }) => {
-  await enableSponsorship(page, [15, 75]);
+  await enableSponsorship(page, [15, 75], null);
+  const requests = await captureMockedCheckouts(page);
   await page.goto('/fonds-des-batisseurs');
-  await expect(
-    contributionForm(page).getByRole('button', { name: /^15\s*\$$/ })
-  ).toHaveAttribute('aria-pressed', 'true');
-  await acknowledge(page);
-  const amount = page.getByLabel('Autre montant', { exact: false });
-  await amount.fill('12,34');
-  await expect(amount).toHaveAttribute('aria-invalid', 'true');
-  await expect(checkoutButton(page)).toBeDisabled();
-  await expect(page.locator('#custom-contribution-help')).toContainText(
-    /15.*75/
+  const form = contributionForm(page);
+  await expect(form.locator('#custom-contribution')).toBeHidden();
+  await expect(form.getByRole('button', { name: /^15\s*\$$/ })).toHaveAttribute(
+    'aria-pressed',
+    'true'
   );
-  await amount.fill('75');
+  await form.getByRole('button', { name: /^75\s*\$$/ }).click();
+  await acknowledge(page);
   await expect(checkoutButton(page)).toBeEnabled();
+  await checkoutButton(page).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({
+    amount: 75,
+    currency: 'CAD',
+    contributionType: 'personal_support',
+    nonCharityAcknowledged: true
+  });
 });
 
 test('invalid sponsorship input is preserved and blocked instead of silently changing the amount', async ({
   page
 }) => {
   await enableSponsorship(page);
+  const requests = await captureMockedCheckouts(page);
   await page.goto('/fonds-des-batisseurs');
   await page.getByRole('button', { name: /Commandite d'entreprise/i }).click();
   await acknowledge(page);
-  const amount = page.locator('#custom-contribution');
+  const form = contributionForm(page);
+  const amount = form.locator('#custom-contribution');
   for (const value of ['-50', '1e3', '50.999', '4']) {
     await amount.fill(value);
     await amount.blur();
@@ -841,12 +976,27 @@ test('invalid sponsorship input is preserved and blocked instead of silently cha
     await expect(amount).toHaveAttribute('aria-invalid', 'true');
     await expect(checkoutButton(page)).toBeDisabled();
   }
-  await amount.fill('50,25');
+  await amount.fill('50.25');
+  await amount.blur();
+  const retainedAmount = await amount.inputValue();
+  expect(retainedAmount.replace(',', '.')).toBe('50.25');
   await expect(amount).toHaveAttribute('aria-invalid', 'false');
   await page.locator('[data-og7="offer-acceptance"]').check();
   await expect(checkoutButton(page)).toBeEnabled();
   await page.getByRole('button', { name: /Contribution personnelle/i }).click();
-  await expect(checkoutButton(page)).toBeDisabled();
+  await expect(amount).toHaveValue(retainedAmount);
+  await expect(amount).toHaveAttribute('aria-invalid', 'false');
+  await expect(form.locator('[data-og7="offer-acceptance"]')).toHaveCount(0);
+  await expect(checkoutButton(page)).toBeEnabled();
+  await checkoutButton(page).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({
+    amount: 50.25,
+    currency: 'CAD',
+    contributionType: 'personal_support',
+    nonCharityAcknowledged: true
+  });
+  expect(requests[0]).not.toHaveProperty('offerAcceptance');
 });
 
 test('monthly progress ignores historical contributions and advances at the UTC month boundary', async ({

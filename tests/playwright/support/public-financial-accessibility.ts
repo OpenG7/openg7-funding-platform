@@ -63,6 +63,7 @@ export async function installPublicFinancialAccessibilityFixtures(page: Page) {
         return route.fulfill({
           json: {
             business_sponsorship_enabled: true,
+            personal_contribution_minimum_amount: 5,
             allowed_contribution_amounts: [5, 10, 25, 50]
           }
         });

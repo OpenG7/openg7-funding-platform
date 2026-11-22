@@ -30,17 +30,26 @@ reste lisible si les données publiques sont indisponibles.
 
 ## Montants
 
-`GET /api/public/funding-config` expose désormais `allowed_contribution_amounts`,
-issu de `FUNDING_ALLOWED_AMOUNTS`, en plus des champs existants. Ce champ est
-optionnel dans le contrat pour les déploiements progressifs : un ancien serveur
-conserve le comportement fondé sur la configuration locale du Web. L'API continue
-à valider chaque demande de Checkout.
+`GET /api/public/funding-config` expose `allowed_contribution_amounts`, issu de
+`FUNDING_ALLOWED_AMOUNTS`. Cette clé historique fournit les suggestions affichées
+sur les boutons; elle ne limite plus les nouvelles contributions personnelles à
+une liste fixe. `personal_contribution_minimum_amount` annonce le minimum personnel,
+en CAD et en unités majeures : 5 $ dans la politique courante.
 
-Les contributions personnelles sont limitées à cette liste. Les commandites
-acceptent les montants personnalisés respectant le minimum existant. Le passage
-de personnel à commandite remplace un montant prédéfini incompatible par le
-premier montant admissible. Une saisie personnalisée reste visible et doit être
-corrigée explicitement si elle devient invalide.
+Le formulaire permet un montant libre à partir de ce minimum, par exemple 7 $,
+20 $, 75 $ ou 12,34 $. Les commandites conservent leur minimum et leurs prestations
+propres. Une saisie personnalisée valide reste utilisable lors d'un changement de
+type; un montant invalide reste visible et doit être corrigé explicitement.
+
+Ces champs sont optionnels pour les déploiements progressifs. Le nouveau Web
+n'affiche le champ personnel « Autre montant » qu'après réception d'un minimum
+serveur valide. Un ancien serveur conserve ses boutons et sa validation de liste;
+un ancien Web ignore le nouveau champ et continue de proposer ses montants fixes.
+L'API valide toujours chaque nouvelle demande indépendamment du navigateur.
+
+La règle courante s'applique aux nouvelles opérations. Le rejeu exact d'une
+opération durable déjà acceptée conserve son montant et ses conditions; il ne
+permet pas de créer une nouvelle contribution sous le minimum.
 
 Le parseur accepte le point ou la virgule et au plus deux décimales. Il vérifie
 des unités mineures entières avant conversion vers le contrat Checkout existant

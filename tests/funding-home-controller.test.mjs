@@ -1,12 +1,31 @@
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 import test from 'node:test';
 
-import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
 import {
   CheckoutOfferChangedError,
   CheckoutRecoveryUnavailableError,
   CheckoutReconciliationRequiredError
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+
+const coreUrl = new URL(
+  '../dist/packages/funding-core/src/index.js',
+  import.meta.url
+).href;
+const workspaceResolution = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    return specifier === '@openg7/funding-core'
+      ? { url: coreUrl, shortCircuit: true }
+      : nextResolve(specifier, context);
+  }
+});
+let FundingHomeController;
+try {
+  ({ FundingHomeController } =
+    await import('../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js'));
+} finally {
+  workspaceResolution.deregister();
+}
 
 const report = (overrides = {}) => ({
   data_source: 'database',
@@ -157,6 +176,7 @@ test('SSR retains unavailable state without requests, monitor calls or browser a
   assert.equal(f.controller.hasTransparencySnapshot(), false);
   assert.equal(f.controller.lastTransparencySync(), null);
   assert.equal(f.controller.currentMonth(), '');
+  assert.equal(f.controller.personalContributionMinimumAmount(), null);
   assert.equal(f.controller.loadingState(), 'idle');
 });
 
@@ -326,7 +346,8 @@ test('runtime configuration failure disables sponsorship and clears availability
   let reads = 0;
   f.ports.funding.getPublicFundingConfig = async () => ({
     business_sponsorship_enabled: true,
-    allowed_contribution_amounts: [15, 75]
+    allowed_contribution_amounts: [15, 75],
+    personal_contribution_minimum_amount: 5
   });
   f.ports.funding.getSponsorshipBatchAvailability = async () => {
     reads++;
@@ -335,6 +356,7 @@ test('runtime configuration failure disables sponsorship and clears availability
   await f.controller.loadPublicFundingConfig();
   assert.deepEqual(f.controller.allowedContributionAmounts(), [15, 75]);
   assert.equal(f.controller.sponsorshipSelectionEnabled(), true);
+  assert.equal(f.controller.personalContributionMinimumAmount(), 5);
   assert.equal(f.controller.sponsorshipBatchAvailability(), availability);
   assert.equal(reads, 1);
   f.ports.funding.getPublicFundingConfig = async () => {
@@ -342,8 +364,76 @@ test('runtime configuration failure disables sponsorship and clears availability
   };
   await f.controller.loadPublicFundingConfig();
   assert.equal(f.controller.sponsorshipSelectionEnabled(), false);
+  assert.equal(f.controller.personalContributionMinimumAmount(), null);
   assert.equal(f.controller.sponsorshipBatchAvailability(), null);
   assert.equal(reads, 1);
+});
+
+test('personal custom amounts are enabled only by an exact valid server minimum, independently of suggestions', async (t) => {
+  const f = fixture(t);
+  for (const minimum of [5, 7, 12.34]) {
+    f.ports.funding.getPublicFundingConfig = async () => ({
+      business_sponsorship_enabled: false,
+      allowed_contribution_amounts: [10, 25, 50],
+      personal_contribution_minimum_amount: minimum
+    });
+    await f.controller.loadPublicFundingConfig();
+    assert.equal(f.controller.personalContributionMinimumAmount(), minimum);
+    assert.deepEqual(f.controller.allowedContributionAmounts(), [10, 25, 50]);
+    assert.equal(f.controller.sponsorshipSelectionEnabled(), false);
+  }
+});
+
+test('legacy or malformed server minimums remove the personal custom amount capability', async (t) => {
+  const f = fixture(t);
+  for (const minimum of [
+    undefined,
+    null,
+    '5',
+    0,
+    4.99,
+    5.001,
+    Infinity,
+    NaN,
+    Number.MAX_SAFE_INTEGER
+  ]) {
+    f.controller.personalContributionMinimumAmount.set(5);
+    f.ports.funding.getPublicFundingConfig = async () => ({
+      business_sponsorship_enabled: false,
+      allowed_contribution_amounts: [7, 20, 75],
+      ...(minimum === undefined
+        ? {}
+        : { personal_contribution_minimum_amount: minimum })
+    });
+    await f.controller.loadPublicFundingConfig();
+    assert.equal(
+      f.controller.personalContributionMinimumAmount(),
+      null,
+      String(minimum)
+    );
+    assert.deepEqual(f.controller.allowedContributionAmounts(), [7, 20, 75]);
+  }
+});
+
+test('a late configuration cannot reenable personal custom amounts after a newer legacy response', async (t) => {
+  const f = fixture(t);
+  const oldConfig = deferred();
+  f.ports.funding.getPublicFundingConfig = () => oldConfig.promise;
+  const pending = f.controller.loadPublicFundingConfig();
+  f.ports.funding.getPublicFundingConfig = async () => ({
+    business_sponsorship_enabled: false,
+    allowed_contribution_amounts: [20, 75]
+  });
+  await f.controller.loadPublicFundingConfig();
+  oldConfig.resolve({
+    business_sponsorship_enabled: true,
+    personal_contribution_minimum_amount: 5,
+    allowed_contribution_amounts: [5, 10]
+  });
+  await pending;
+  assert.equal(f.controller.personalContributionMinimumAmount(), null);
+  assert.deepEqual(f.controller.allowedContributionAmounts(), [20, 75]);
+  assert.equal(f.controller.sponsorshipSelectionEnabled(), false);
 });
 
 test('disabled configuration uses fallback amounts and invalidates older availability responses', async (t) => {

@@ -83,6 +83,20 @@ format, ordinal, state, version and evidence ID. Blocking reasons use a bounded
 public code list; unknown reasons become `null`. An adjustment updates this work
 projection without rewriting the accepted offer. Only the token's dossier is read.
 
+The private follow-up page renders accepted benefits as cards inside “View terms”.
+Its count uses the recorded benefit rows; each card retains its own quantity.
+Channel icons and Web/collective/individual badges distinguish explicit formats;
+unformatted historical social terms remain text without an inferred category.
+The grid uses two columns when space permits and one on mobile. Cards are static
+summaries of channel, format, category and quantity, followed by a manual-approval
+notice. Version, amount, required elements and timing clauses are omitted from
+these cards; the stored offer and the full pre-payment view retain their terms.
+Only “View terms” is expandable. These presentation choices never create an
+approval or trigger publication.
+The page omits the current-obligations status block; recorded publications remain
+in their separate section. The API projections and administrative tracking stay
+unchanged, and the icons never recalculate historical terms from current prices.
+
 Owner-only `POST /api/admin/sponsorship-commitments/qualify` requires:
 
 ```text
