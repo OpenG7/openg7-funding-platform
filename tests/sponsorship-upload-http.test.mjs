@@ -190,11 +190,11 @@ test(
       };
       assert.equal((await upload(0)).status, 400);
       assert.equal(
-        (await upload(8388608)).status,
+        (await upload(3145728)).status,
         404,
         'file at byte limit reaches access check'
       );
-      for (const size of [8388609, 8388608 + 128 * 1024 + 1]) {
+      for (const size of [3145729, 3145728 + 128 * 1024 + 1, 8388608]) {
         const response = await upload(size);
         assert.equal(response.status, 413);
         assert.equal(response.payload.code, 'SPONSOR_MEDIA_TOO_LARGE');

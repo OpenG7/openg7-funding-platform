@@ -1572,10 +1572,14 @@ for (const english of [false, true]) {
       english ? '3 / 3 photos saved' : '3 / 3 photos enregistrées'
     );
     await expect(
-      page.getByText(
-        english ? '1 logo and up to 3 photos.' : '1 logo et 3 photos maximum.',
-        { exact: false }
-      )
+      page
+        .locator('[data-og7="followup-media-consent"]')
+        .getByRole('listitem')
+        .filter({
+          hasText: english
+            ? '1 logo and up to 3 photos'
+            : '1 logo et 3 photos maximum'
+        })
     ).toBeVisible();
     await expect(
       page.getByLabel(english ? 'Add logo' : 'Ajouter le logo', { exact: true })

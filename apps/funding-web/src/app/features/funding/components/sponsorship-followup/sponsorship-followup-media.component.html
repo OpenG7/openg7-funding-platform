@@ -1,148 +1,270 @@
 <section
   #mediaSection
-  class="media-manager"
+  class="sponsorship-media media-manager"
   tabindex="-1"
   data-og7="followup-media-consent"
   aria-labelledby="media-title"
   [attr.aria-busy]="busy()"
 >
-  <header>
-    <h3 id="media-title">{{ 'funding.followup.media.title' | translate }}</h3>
+  <header class="media-header">
+    <div class="media-heading">
+      <span class="media-heading-icon"
+        ><svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect x="6" y="3" width="15" height="15" rx="2" />
+          <path
+            d="M6 6H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1m-12-4 4-4 4 4 3-3 4 4"
+          />
+          <circle cx="15" cy="7" r="1" /></svg
+      ></span>
+      <h3 id="media-title">{{ 'funding.followup.media.title' | translate }}</h3>
+    </div>
     <p>{{ 'funding.followup.media.privacy' | translate }}</p>
-    <p>
-      {{
-        'funding.followup.media.limits'
-          | translate
-            : {
-                size: size(limits().maxUploadBytes),
-                count: limits().maxSupportingImages
-              }
-      }}
-    </p>
-    <p *ngIf="loaded()" data-og7="followup-photo-count" role="status">
-      {{
-        'funding.followup.media.photoCount'
-          | translate
-            : { count: photoCount(), max: limits().maxSupportingImages }
-      }}
-    </p>
-    <p
-      *ngIf="!canUploadMedia()"
-      class="media-payment-note"
-      data-og7="followup-media-unavailable"
-      role="status"
-    >
-      {{ uploadDisabledMessage() | translate }}
-    </p>
-    <p *ngIf="hasApprovedLogo()">
-      {{ 'funding.followup.media.approvedLogo' | translate }}
-    </p>
+    <ul class="media-requirements" role="list">
+      <li>
+        <svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="m3 16 5-5 5 5 4-4 4 4" />
+          <circle cx="15" cy="8" r="1" />
+        </svg>
+        {{ acceptedFormats() }}
+      </li>
+      <li>
+        <svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <ellipse cx="12" cy="5" rx="8" ry="3" />
+          <path
+            d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0M4 7v4c0 4 16 4 16 0"
+          /></svg
+        >{{
+          'funding.followup.media.maxFileSize'
+            | translate: { size: size(limits().maxUploadBytes) }
+        }}
+      </li>
+      <li>
+        <svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M3 3h8l10 10-8 8L3 11V3Z" />
+          <circle cx="7.5" cy="7.5" r="1" /></svg
+        >{{
+          'funding.followup.media.maxFiles'
+            | translate: { count: limits().maxSupportingImages }
+        }}
+      </li>
+    </ul>
   </header>
+  <p
+    *ngIf="!canUploadMedia()"
+    class="media-payment-note media-notice"
+    data-og7="followup-media-unavailable"
+    role="status"
+  >
+    {{ uploadDisabledMessage() | translate }}
+  </p>
+  <p *ngIf="hasApprovedLogo()" class="media-notice">
+    {{ 'funding.followup.media.approvedLogo' | translate }}
+  </p>
   <div *ngIf="loadError()" class="notice-panel error" role="alert">
     <p>{{ 'funding.followup.media.loadError' | translate }}</p>
     <button type="button" [disabled]="busy()" (click)="refresh()">
       {{ 'funding.followup.retry' | translate }}
     </button>
   </div>
-  <label
-    >{{ 'funding.followup.media.description' | translate }}
-    <input
-      type="text"
-      maxlength="300"
-      [value]="altText()"
-      (input)="setAltText($event)"
-      [disabled]="!canUploadMedia() || busy()"
-    />
-    <small>{{ 'funding.followup.media.descriptionHelp' | translate }}</small>
-  </label>
-  <div class="toolbar">
-    <label class="media-upload-control"
-      >{{
-        (hasActiveLogo()
-          ? 'funding.followup.media.replaceLogo'
-          : 'funding.followup.media.addLogo'
-        ) | translate
-      }}
-      <input
-        type="file"
-        [accept]="limits().acceptedMimeTypes.join(',')"
-        [disabled]="
-          !canUploadMedia() ||
-          busy() ||
-          !loaded() ||
-          loadError() ||
-          hasApprovedLogo() ||
-          hasUnresolvedUpload()
-        "
-        (change)="selectMedia('logo', $event)"
-      />
-    </label>
-    <label class="media-upload-control"
-      >{{ 'funding.followup.media.addPhotos' | translate }}
-      <input
-        type="file"
-        [accept]="limits().acceptedMimeTypes.join(',')"
-        multiple
-        [disabled]="
-          !canUploadMedia() ||
-          busy() ||
-          !loaded() ||
-          loadError() ||
-          !canAddSupportingImage() ||
-          hasUnresolvedUpload()
-        "
-        (change)="selectMedia('supporting_image', $event)"
-      />
-    </label>
-    @if (selectedUpload(); as selected) {
-      <section class="media-upload-selection" data-og7="media-upload-selection">
-        <h4>{{ 'funding.followup.media.selectedFiles' | translate }}</h4>
-        <ul>
-          @for (file of selected.files; track $index) {
-            <li>{{ file.name }}</li>
-          }
-        </ul>
-        <openg7-sponsor-media-usage-editor
-          [disabled]="busy() || !canUploadMedia() || hasUnresolvedUpload()"
-          [saveButton]="false"
-          [compactTerms]="true"
-          [confirmationOnly]="true"
-          [locale]="i18n.currentLanguage()"
-          [contextKey]="selected"
-          (valueChange)="uploadUsage.set($event)"
-          (acceptanceChange)="uploadAcceptance.set($event)"
+
+  <div class="media-upload-grid" data-og7="media-upload-grid">
+    <article
+      class="media-upload-card"
+      data-og7="media-upload-logo-card"
+      aria-labelledby="media-logo-title"
+    >
+      <svg
+        class="media-icon media-card-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="m3 16 5-5 5 5 4-4 4 4" />
+        <circle cx="15" cy="8" r="1" />
+      </svg>
+      <div class="media-card-copy">
+        <h4 id="media-logo-title">
+          {{ 'funding.followup.media.logoTitle' | translate }}
+        </h4>
+        <p>
+          {{
+            'funding.followup.media.logoHelp'
+              | translate
+                : {
+                    size: size(limits().maxUploadBytes),
+                    count: limits().maxSupportingImages
+                  }
+          }}
+        </p>
+      </div>
+      <label class="media-upload-control"
+        ><svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" /></svg
+        >{{
+          (hasActiveLogo()
+            ? 'funding.followup.media.replaceLogo'
+            : 'funding.followup.media.addLogo'
+          ) | translate
+        }}
+        <input
+          type="file"
+          data-og7="followup-upload-logo"
+          [accept]="limits().acceptedMimeTypes.join(',')"
+          [disabled]="
+            !canUploadMedia() ||
+            busy() ||
+            !loaded() ||
+            loadError() ||
+            hasApprovedLogo() ||
+            hasUnresolvedUpload()
+          "
+          (change)="selectMedia('logo', $event)"
         />
-        <div class="toolbar media-upload-actions">
-          <button
-            type="button"
-            [disabled]="
-              busy() ||
-              !canUploadMedia() ||
-              !loaded() ||
-              loadError() ||
-              !uploadUsage() ||
-              !uploadAcceptance() ||
-              (selected.kind === 'logo' && hasApprovedLogo()) ||
-              hasUnresolvedUpload()
-            "
-            (click)="sendMedia()"
-            data-og7="media-upload-send"
-          >
-            {{ 'funding.followup.media.sendSelected' | translate }}
-          </button>
-          <button
-            type="button"
-            [disabled]="busy()"
-            (click)="cancelSelection()"
-            data-og7="media-upload-cancel"
-          >
-            {{ 'funding.followup.media.usage.cancel' | translate }}
-          </button>
-        </div>
-      </section>
-    }
+      </label>
+    </article>
+    <article
+      class="media-upload-card"
+      data-og7="media-upload-photos-card"
+      aria-labelledby="media-photos-title"
+    >
+      <svg
+        class="media-icon media-card-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect x="6" y="3" width="15" height="15" rx="2" />
+        <path
+          d="M6 6H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1m-12-4 4-4 4 4 3-3 4 4"
+        />
+        <circle cx="15" cy="7" r="1" />
+      </svg>
+      <div class="media-card-copy">
+        <h4 id="media-photos-title">
+          {{ 'funding.followup.media.photosTitle' | translate }}
+        </h4>
+        <p>
+          {{
+            'funding.followup.media.photosHelp'
+              | translate
+                : {
+                    size: size(limits().maxUploadBytes),
+                    count: limits().maxSupportingImages
+                  }
+          }}
+        </p>
+      </div>
+      <label class="media-upload-control"
+        ><svg
+          class="media-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" /></svg
+        >{{ 'funding.followup.media.addPhotos' | translate }}
+        <input
+          type="file"
+          data-og7="followup-upload-photos"
+          [accept]="limits().acceptedMimeTypes.join(',')"
+          multiple
+          [disabled]="
+            !canUploadMedia() ||
+            busy() ||
+            !loaded() ||
+            loadError() ||
+            !canAddSupportingImage() ||
+            hasUnresolvedUpload()
+          "
+          (change)="selectMedia('supporting_image', $event)"
+        />
+      </label>
+    </article>
   </div>
-  <p role="status">
+  @if (selectedUpload(); as selected) {
+    <section class="media-upload-selection" data-og7="media-upload-selection">
+      <h4>{{ 'funding.followup.media.selectedFiles' | translate }}</h4>
+      <ul>
+        @for (file of selected.files; track $index) {
+          <li>{{ file.name }}</li>
+        }
+      </ul>
+      <openg7-sponsor-media-usage-editor
+        [disabled]="busy() || !canUploadMedia() || hasUnresolvedUpload()"
+        [saveButton]="false"
+        [compactTerms]="true"
+        [confirmationOnly]="true"
+        [locale]="i18n.currentLanguage()"
+        [contextKey]="selected"
+        (valueChange)="uploadUsage.set($event)"
+        (acceptanceChange)="uploadAcceptance.set($event)"
+      />
+      <div class="toolbar media-upload-actions">
+        <button
+          type="button"
+          [disabled]="
+            busy() ||
+            !canUploadMedia() ||
+            !loaded() ||
+            loadError() ||
+            !uploadUsage() ||
+            !uploadAcceptance() ||
+            (selected.kind === 'logo' && hasApprovedLogo()) ||
+            hasUnresolvedUpload()
+          "
+          (click)="sendMedia()"
+          data-og7="media-upload-send"
+        >
+          {{ 'funding.followup.media.sendSelected' | translate }}
+        </button>
+        <button
+          type="button"
+          [disabled]="busy()"
+          (click)="cancelSelection()"
+          class="secondary-button"
+          data-og7="media-upload-cancel"
+        >
+          {{ 'funding.followup.media.usage.cancel' | translate }}
+        </button>
+      </div>
+    </section>
+  }
+  <p class="media-feedback" role="status" [class.sr-only]="!message()">
     {{
       message()
         ? ('funding.followup.media.' + message()!.key
@@ -150,210 +272,377 @@
         : ''
     }}
   </p>
-  <p *ngIf="loaded() && !photoCount()">
-    {{ 'funding.followup.media.missingPhoto' | translate }}
-  </p>
-  <section data-og7="media-preference" aria-labelledby="media-preference-title">
-    <h4 id="media-preference-title">
-      {{ 'funding.followup.media.usage.preferenceTitle' | translate }}
-    </h4>
-    <p>{{ 'funding.followup.media.usage.preferenceSeparate' | translate }}</p>
-    @if (preference().state !== 'none') {
-      <p role="status">
-        {{
-          'funding.followup.media.usage.preferenceStates.' + preference().state
-            | translate
-        }}
-      </p>
-    }
-    @if (!preference().available) {
-      <p role="status">
-        {{ 'funding.followup.media.usage.preferenceUnavailable' | translate }}
-      </p>
-    }
-    @if (preference().sponsorExplanation) {
-      <p>{{ preference().sponsorExplanation }}</p>
-    }
-    <label
-      >{{ 'funding.followup.media.usage.correction' | translate
-      }}<textarea
-        rows="3"
-        maxlength="1000"
-        [value]="usageController.correction()"
-        (input)="usageController.correction.set($any($event.target).value)"
-        [disabled]="busy()"
-      ></textarea>
-    </label>
-    <button
-      type="button"
-      [disabled]="busy() || usageController.correction().trim().length < 10"
-      (click)="usageController.propose(null)"
-    >
-      {{ 'funding.followup.media.usage.requestCorrection' | translate }}
-    </button>
-    @if (usageController.notice()) {
-      <p role="status">
-        {{
-          'funding.followup.media.usage.' + usageController.notice() | translate
-        }}
-      </p>
-    }
-    @if (usageController.pending()) {
-      <button
-        type="button"
-        [disabled]="busy()"
-        (click)="usageController.retry()"
-        data-og7="media-usage-retry"
-      >
-        {{ 'funding.followup.media.usage.retry' | translate }}
-      </button>
-    }
-  </section>
-  <div class="media-list">
-    <article
-      *ngFor="let attempt of attempts()"
-      class="media-upload-attempt"
-      data-og7="media-upload-attempt"
-      [class.failed]="attempt.status === 'failed'"
-    >
-      <div class="media-preview">
-        <img
-          *ngIf="attempt.previewUrl"
-          [src]="attempt.previewUrl"
-          [alt]="
-            'funding.followup.media.preview'
-              | translate: { name: attempt.filename }
-          "
-        />
-        <span *ngIf="!attempt.previewUrl" aria-hidden="true">!</span>
-        <button
-          type="button"
-          [disabled]="
-            busy() ||
-            attempt.status === 'uncertain' ||
-            attempt.status === 'retryable'
-          "
-          [attr.aria-label]="
-            'funding.followup.media.remove'
-              | translate: { name: attempt.filename }
-          "
-          (click)="dismiss(attempt)"
+
+  @if (attempts().length) {
+    <div class="media-list">
+      @for (attempt of attempts(); track attempt.id) {
+        <article
+          class="media-upload-attempt"
+          data-og7="media-upload-attempt"
+          [class.failed]="attempt.status === 'failed'"
         >
-          &times;
-        </button>
-      </div>
-      <div>
-        <strong>{{ attempt.filename }}</strong>
-        <p [attr.role]="attempt.status === 'failed' ? 'alert' : null">
-          {{
-            'funding.followup.media.' + attempt.feedback.key
-              | translate: attempt.feedback.params
-          }}
-        </p>
-        @if (attempt.status === 'uncertain' || attempt.status === 'retryable') {
-          <button
-            type="button"
-            [disabled]="busy()"
-            (click)="retryUpload(attempt)"
-            data-og7="media-upload-retry"
+          <div class="media-preview">
+            <img
+              *ngIf="attempt.previewUrl"
+              [src]="attempt.previewUrl"
+              [alt]="
+                'funding.followup.media.preview'
+                  | translate: { name: attempt.filename }
+              "
+            />
+            <span *ngIf="!attempt.previewUrl" aria-hidden="true">!</span>
+            <button
+              type="button"
+              [disabled]="
+                busy() ||
+                attempt.status === 'uncertain' ||
+                attempt.status === 'retryable'
+              "
+              [attr.aria-label]="
+                'funding.followup.media.remove'
+                  | translate: { name: attempt.filename }
+              "
+              (click)="dismiss(attempt)"
+            >
+              &times;
+            </button>
+          </div>
+          <div>
+            <strong>{{ attempt.filename }}</strong>
+            <p [attr.role]="attempt.status === 'failed' ? 'alert' : null">
+              {{
+                'funding.followup.media.' + attempt.feedback.key
+                  | translate: attempt.feedback.params
+              }}
+            </p>
+            @if (
+              attempt.status === 'uncertain' || attempt.status === 'retryable'
+            ) {
+              <button
+                type="button"
+                [disabled]="busy()"
+                (click)="retryUpload(attempt)"
+                data-og7="media-upload-retry"
+              >
+                {{
+                  (attempt.status === 'uncertain'
+                    ? 'funding.followup.media.verifyUpload'
+                    : 'funding.followup.media.retryExactUpload'
+                  ) | translate
+                }}
+              </button>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+  @if (assets().length) {
+    <section
+      class="media-gallery"
+      data-og7="media-gallery"
+      aria-labelledby="media-gallery-title"
+    >
+      <header class="media-gallery-header">
+        <h4 id="media-gallery-title">
+          <svg
+            class="media-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
           >
-            {{
-              (attempt.status === 'uncertain'
-                ? 'funding.followup.media.verifyUpload'
-                : 'funding.followup.media.retryExactUpload'
-              ) | translate
-            }}
-          </button>
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="m3 16 5-5 5 5 4-4 4 4" />
+            <circle cx="15" cy="8" r="1" /></svg
+          >{{
+            (assets().length === 1
+              ? 'funding.followup.media.galleryTitleSingular'
+              : 'funding.followup.media.galleryTitle'
+            ) | translate: { count: assets().length }
+          }}
+        </h4>
+        <p class="media-privacy">
+          <svg
+            class="media-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="5" y="10" width="14" height="11" rx="2" />
+            <path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2" /></svg
+          >{{ 'funding.followup.media.galleryPrivacy' | translate }}
+        </p>
+      </header>
+      <div class="media-gallery-grid" data-og7="media-gallery-grid">
+        @for (asset of assets(); track asset.id) {
+          <article
+            class="media-item"
+            data-og7="followup-media"
+            [attr.data-og7-id]="asset.id"
+            [class.media-item-logo]="asset.kind === 'logo'"
+          >
+            <div class="media-preview">
+              <img
+                *ngIf="previews()[asset.id]"
+                [src]="previews()[asset.id]"
+                [alt]="
+                  asset.altText ||
+                  ('funding.followup.media.' + asset.kind | translate)
+                "
+              />
+              <span *ngIf="!previews()[asset.id]">{{
+                'funding.followup.media.previewUnavailable' | translate
+              }}</span>
+              <button
+                *ngIf="asset.reviewStatus !== 'approved'"
+                type="button"
+                [disabled]="!canUploadMedia() || busy()"
+                [attr.aria-label]="
+                  'funding.followup.media.remove'
+                    | translate
+                      : {
+                          name:
+                            'funding.followup.media.' + asset.kind | translate
+                        }
+                "
+                (click)="deleteMedia(asset)"
+              >
+                &times;
+              </button>
+            </div>
+            <strong class="media-type">{{
+              'funding.followup.media.' + asset.kind | translate
+            }}</strong>
+            <p
+              class="media-review-status"
+              [attr.data-status]="asset.reviewStatus"
+            >
+              {{
+                'funding.followup.media.review.' + asset.reviewStatus
+                  | translate
+              }}
+            </p>
+            <details
+              class="media-item-details"
+              data-og7="media-item-details"
+              [open]="mediaConsentRequested()"
+            >
+              <summary>
+                {{ 'funding.followup.media.detailsActions' | translate }}
+                <span class="sr-only">: {{ asset.originalFilename }}</span>
+                <svg
+                  class="media-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </summary>
+              <div class="media-item-actions">
+                <small>{{ asset.width }} × {{ asset.height }} px</small>
+                <p data-og7="media-usage-filename">
+                  {{ asset.originalFilename }}
+                </p>
+                <details
+                  #mediaRights
+                  class="media-rights"
+                  data-og7="followup-media-rights"
+                  [attr.data-og7-id]="asset.id"
+                >
+                  <summary>
+                    {{ 'funding.followup.media.usage.title' | translate }}
+                  </summary>
+                  <openg7-sponsor-media-usage-editor
+                    [value]="asset.usage ?? null"
+                    [disabled]="busy()"
+                    [compactTerms]="true"
+                    [locale]="i18n.currentLanguage()"
+                    (saved)="
+                      usageController.updateUsage(
+                        asset,
+                        $event.usage,
+                        $event.termsAcceptance
+                      )
+                    "
+                  />
+                </details>
+                <button
+                  class="secondary-button"
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="usageController.withdraw(asset)"
+                  data-og7="media-usage-withdraw"
+                >
+                  {{ 'funding.followup.media.usage.withdraw' | translate }}
+                </button>
+                @if (asset.kind === 'supporting_image') {
+                  <button
+                    class="secondary-button"
+                    type="button"
+                    [disabled]="busy() || asset.usage?.state === 'withdrawn'"
+                    (click)="usageController.propose(asset)"
+                    data-og7="media-preference-propose"
+                  >
+                    {{ 'funding.followup.media.usage.propose' | translate }}
+                  </button>
+                  @if (preference().preferredAssetId === asset.id) {
+                    <p>
+                      {{ 'funding.followup.media.usage.preferred' | translate }}
+                    </p>
+                  }
+                }
+              </div>
+            </details>
+          </article>
         }
       </div>
-    </article>
-    <article
-      *ngFor="let asset of assets()"
-      class="media-item"
-      data-og7="followup-media"
-    >
-      <div class="media-preview">
-        <img
-          *ngIf="previews()[asset.id]"
-          [src]="previews()[asset.id]"
-          [alt]="
-            asset.altText ||
-            ('funding.followup.media.' + asset.kind | translate)
-          "
-        />
-        <span *ngIf="!previews()[asset.id]">{{
-          'funding.followup.media.previewUnavailable' | translate
-        }}</span>
-        <button
-          *ngIf="asset.reviewStatus !== 'approved'"
-          type="button"
-          [disabled]="!canUploadMedia() || busy()"
-          [attr.aria-label]="
-            'funding.followup.media.remove'
-              | translate
-                : { name: 'funding.followup.media.' + asset.kind | translate }
-          "
-          (click)="deleteMedia(asset)"
-        >
-          &times;
-        </button>
-      </div>
-      <div>
-        <strong>{{
-          'funding.followup.media.' + asset.kind | translate
-        }}</strong>
-        <p>
+    </section>
+  } @else if (loaded() && !loadError() && !attempts().length) {
+    <p class="media-empty" data-og7="media-gallery-empty">
+      {{ 'funding.followup.media.empty' | translate }}
+    </p>
+  }
+  <p
+    *ngIf="loaded()"
+    class="media-photo-count"
+    data-og7="followup-photo-count"
+    role="status"
+  >
+    {{
+      'funding.followup.media.photoCount'
+        | translate: { count: photoCount(), max: limits().maxSupportingImages }
+    }}
+  </p>
+  <section
+    class="media-description"
+    data-og7="media-description"
+    aria-labelledby="media-description-title"
+  >
+    <h4 id="media-description-title">
+      <svg
+        class="media-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d="M5 3h14v14l-4 4H5V3Zm10 18v-4h4M8 7h8M8 11h8M8 15h3" /></svg
+      ><label for="media-description">{{
+        'funding.followup.media.description' | translate
+      }}</label>
+    </h4>
+    <input
+      id="media-description"
+      type="text"
+      aria-describedby="media-description-help"
+      [placeholder]="
+        'funding.followup.media.descriptionPlaceholder' | translate
+      "
+      maxlength="300"
+      [value]="altText()"
+      (input)="setAltText($event)"
+      [disabled]="!canUploadMedia() || busy()"
+    />
+    <p id="media-description-help" class="media-help">
+      <svg
+        class="media-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v6m0-10v1" /></svg
+      >{{ 'funding.followup.media.descriptionHelp' | translate }}
+    </p>
+  </section>
+  <section
+    class="media-correction"
+    data-og7="media-preference"
+    aria-labelledby="media-preference-title"
+  >
+    <div data-og7="media-correction">
+      <header class="media-correction-header">
+        <span class="media-heading-icon"
+          ><svg
+            class="media-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d="m4 18 11-11 3 3L7 21H4v-3Zm9-9 3 3M6 3v6M3 6h6m10-4v4m-2-2h4m-2 10v6m-3-3h6"
+            /></svg
+        ></span>
+        <div>
+          <h4 id="media-preference-title">
+            {{ 'funding.followup.media.usage.preferenceTitle' | translate }}
+          </h4>
+          <p>
+            {{ 'funding.followup.media.usage.preferenceSeparate' | translate }}
+          </p>
+        </div>
+      </header>
+      @if (preference().state !== 'none') {
+        <p role="status">
           {{
-            'funding.followup.media.review.' + asset.reviewStatus | translate
+            'funding.followup.media.usage.preferenceStates.' +
+              preference().state | translate
           }}
         </p>
-        <small>{{ asset.width }} × {{ asset.height }} px</small>
-        <p data-og7="media-usage-filename">{{ asset.originalFilename }}</p>
-        <details
-          #mediaRights
-          class="media-rights"
-          data-og7="followup-media-rights"
-          [attr.data-og7-id]="asset.id"
-        >
-          <summary>
-            {{ 'funding.followup.media.usage.title' | translate }}
-          </summary>
-          <openg7-sponsor-media-usage-editor
-            [value]="asset.usage ?? null"
-            [disabled]="busy()"
-            [compactTerms]="true"
-            [locale]="i18n.currentLanguage()"
-            (saved)="
-              usageController.updateUsage(
-                asset,
-                $event.usage,
-                $event.termsAcceptance
-              )
-            "
-          />
-        </details>
+      }
+      @if (!preference().available) {
+        <p role="status">
+          {{ 'funding.followup.media.usage.preferenceUnavailable' | translate }}
+        </p>
+      }
+      @if (preference().sponsorExplanation) {
+        <p>{{ preference().sponsorExplanation }}</p>
+      }
+      <label
+        >{{ 'funding.followup.media.usage.correction' | translate
+        }}<textarea
+          rows="3"
+          [placeholder]="
+            'funding.followup.media.correctionPlaceholder' | translate
+          "
+          maxlength="1000"
+          [value]="usageController.correction()"
+          (input)="usageController.correction.set($any($event.target).value)"
+          [disabled]="busy()"
+        ></textarea>
+      </label>
+      <button
+        class="secondary-button"
+        type="button"
+        [disabled]="busy() || usageController.correction().trim().length < 10"
+        (click)="usageController.propose(null)"
+      >
+        {{ 'funding.followup.media.usage.requestCorrection' | translate }}
+      </button>
+      @if (usageController.notice()) {
+        <p role="status">
+          {{
+            'funding.followup.media.usage.' + usageController.notice()
+              | translate
+          }}
+        </p>
+      }
+      @if (usageController.pending()) {
         <button
           type="button"
           [disabled]="busy()"
-          (click)="usageController.withdraw(asset)"
-          data-og7="media-usage-withdraw"
+          (click)="usageController.retry()"
+          data-og7="media-usage-retry"
         >
-          {{ 'funding.followup.media.usage.withdraw' | translate }}
+          {{ 'funding.followup.media.usage.retry' | translate }}
         </button>
-        @if (asset.kind === 'supporting_image') {
-          <button
-            type="button"
-            [disabled]="busy() || asset.usage?.state === 'withdrawn'"
-            (click)="usageController.propose(asset)"
-            data-og7="media-preference-propose"
-          >
-            {{ 'funding.followup.media.usage.propose' | translate }}
-          </button>
-          @if (preference().preferredAssetId === asset.id) {
-            <p>{{ 'funding.followup.media.usage.preferred' | translate }}</p>
-          }
-        }
-      </div>
-    </article>
-  </div>
+      }
+    </div>
+  </section>
 </section>

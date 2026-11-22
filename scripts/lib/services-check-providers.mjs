@@ -150,9 +150,9 @@ export function checkSponsorMediaStorage(context) {
   optionalPositiveInteger(
     'Sponsor media',
     'FUNDING_SPONSOR_MEDIA_MAX_BYTES',
-    '8388608',
-    'set a sponsor media upload limit between 1 and 8388608 bytes',
-    8388608
+    '3145728',
+    'set a sponsor media upload limit between 1 and 3145728 bytes',
+    3145728
   );
   optionalPositiveInteger(
     'Sponsor media',

@@ -41,7 +41,10 @@ import {
   imports: [CommonModule, TranslatePipe, SponsorMediaUsageEditorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sponsorship-followup-media.component.html',
-  styleUrls: ['./sponsorship-followup.css']
+  styleUrls: [
+    './sponsorship-followup.css',
+    './sponsorship-followup-media.component.css'
+  ]
 })
 export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly token = input.required<string>();
@@ -77,6 +80,20 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly hasUnresolvedUpload = this.controller.hasUnresolvedUpload;
   readonly previews = this.controller.previews;
   readonly limits = this.controller.limits;
+  readonly acceptedFormats = computed(() =>
+    new Intl.ListFormat(this.i18n.currentLanguage(), {
+      type: 'disjunction'
+    }).format(
+      this.limits().acceptedMimeTypes.map(
+        (mime) =>
+          ({
+            'image/jpeg': 'JPEG',
+            'image/png': 'PNG',
+            'image/webp': 'WebP'
+          })[mime] ?? mime
+      )
+    )
+  );
   readonly usageController = new SponsorshipMediaUsageController({
     service: this.service,
     token: () => this.token(),

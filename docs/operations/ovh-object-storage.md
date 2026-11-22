@@ -32,7 +32,7 @@ Configuration OVH attendue:
 
 ```env
 SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
-FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608
+FUNDING_SPONSOR_MEDIA_MAX_BYTES=3145728
 FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=100
 SPONSOR_MEDIA_REGION=bhs
 SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
@@ -135,12 +135,19 @@ les metadonnees dans PostgreSQL. La limite par fichier est configuree par
 `FUNDING_SPONSOR_MEDIA_MAX_BYTES` et le nombre maximal de photos de presentation
 par `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES`.
 
-La taille doit être un entier de 1 à 8 388 608 octets; une configuration invalide
+La taille doit être un entier de 1 à 3 145 728 octets (3 Mio), pour les logos
+comme pour les photos; une configuration invalide
 arrête le démarrage de l'API. Ce plafond conserve la marge multipart sous les
 9 Mio autorisés par Nginx et Traefik. Le nombre de photos doit être un entier
-de 1 à 100. Les valeurs par défaut sont 8 Mio et cent photos,
+de 1 à 100. Les valeurs par défaut sont 3 Mio et cent photos,
 auxquelles s'ajoute un logo actif. Les images dépassant 40 millions de pixels
 sont refusées même si leur fichier est petit.
+
+Avant de redémarrer une installation existante, abaisser toute valeur
+`FUNDING_SPONSOR_MEDIA_MAX_BYTES` supérieure à `3145728`, notamment l'ancien
+plafond `8388608`. Sinon, le démarrage est refusé. Cette limite s'applique aux
+nouveaux téléversements; les fichiers déjà enregistrés restent conservés.
+L'enveloppe des proxys reste à 9 Mio.
 
 Avant décodage et écriture, l'API vérifie le quota, le logo approuvé et
 l'admissibilité du dossier. La transaction vérifie à nouveau ces conditions
