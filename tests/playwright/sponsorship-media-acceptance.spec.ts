@@ -30,7 +30,7 @@ import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { setAcceptanceSponsorshipAmount } from './support/acceptance-sponsorship-amount.js';
 import {
   confirmAcceptanceMediaUsage,
-  updateAcceptanceMediaUsage
+  setupAcceptanceMediaUsageViaApi
 } from './support/acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
@@ -292,7 +292,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await expect(
           company.locator('[data-og7="media-upload-attempt"]')
         ).toHaveCount(0);
-        await updateAcceptanceMediaUsage(company, filename!, {
+        await setupAcceptanceMediaUsageViaApi(company, filename!, {
           channels: ['website', 'facebook', 'linkedin']
         });
       }
@@ -603,7 +603,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         });
         await confirmAcceptanceMediaUsage(company);
         expect((await uploaded).ok()).toBe(true);
-        await updateAcceptanceMediaUsage(company, 'replacement.png', {
+        await setupAcceptanceMediaUsageViaApi(company, 'replacement.png', {
           channels: ['website', 'facebook', 'linkedin']
         });
         const pending = (await assets()).find((a) => a.kind === 'logo')!;

@@ -8,9 +8,10 @@ Les anciennes photos gérées par `sponsor_media_assets` cessent d’être visib
 jusqu’à qualification des droits et nouvelle revue du contenu courant. Les
 fichiers restent conservés ; cette interruption ne vaut ni suppression ni accord.
 
-Le suivi privé demande explicitement les canaux, destinations, transformations,
-crédit et restrictions avant un téléversement. L’acceptation du commanditaire
-enregistre automatiquement la preuve correspondante. Les droits initiaux et leurs
+Le suivi privé demande l’acceptation explicite des conditions avant un
+téléversement, pour le périmètre initial Site Web / OpenG7 / adaptation technique.
+L’acceptation du commanditaire enregistre automatiquement la preuve correspondante.
+Les droits initiaux et leurs
 modifications sont conservés dans un historique immuable, avec acteur et requête.
 L’administration présente les autorisations en lecture seule, sans saisie de preuve
 ni formulaire de règles communes, d’exceptions ou d’héritage.
@@ -20,11 +21,12 @@ ni formulaire de règles communes, d’exceptions ou d’héritage.
 Le suivi commanditaire propose les fichiers avant leur envoi. Le commanditaire
 voit la liste choisie, le périmètre d’utilisation et les conditions FR/EN de
 [`sponsor-media-terms.ts`](../../packages/funding-core/src/sponsor-media-terms.ts).
-La proposition courante est Site Web / OpenG7 / adaptation technique; les autres
-canaux, destinations, transformations, crédits et restrictions restent modifiables.
+Le périmètre initial est Site Web / OpenG7 / adaptation technique. Le suivi
+ne présente plus d’éditeur d’autorisations sur les fichiers déjà téléversés.
 La confirmation est décochée à chaque sélection. **Envoyer les fichiers** transmet
 uniquement cette sélection et l’acceptation explicite du texte affiché.
-Les mêmes conditions accompagnent une nouvelle confirmation de droits dans le suivi.
+Les droits enregistrés restent conservés ; consulter les fichiers n’accorde
+aucun usage supplémentaire.
 
 Le contrat `SponsorMediaTermsAcceptance` contient version, empreinte, langue et
 `accepted: true`. Le serveur vérifie ces valeurs contre le texte canonique puis
@@ -98,10 +100,11 @@ le worker assure ensuite la livraison. Une réponse incertaine se réconcilie pa
 lecture du reçu, sans nouvel envoi. Aucune URL privée ne revient dans le reçu ou
 l’audit.
 
-Le lien ouvre les autorisations dans le suivi privé après chargement des médias.
-Il ne coche aucune case et n’accorde aucun droit. Le commanditaire peut examiner
-les photos et confirmer les conditions pour chacune ; ces confirmations restent
-distinctes de la revue administrative et de la publication. Le paramètre de section
+Le lien rejoint la liste des médias et déplie **Détails et actions** après leur
+chargement. Il ne coche aucune case et n’accorde aucun droit. L’éditeur
+d’autorisations ayant été retiré des fichiers existants, ce volet ne permet plus
+de confirmer les conditions des photos ajoutées par l’administration. Ces fichiers
+restent bloqués tant qu’un accord valide n’est pas enregistré. Le paramètre de section
 ne réduit ni n’élargit les droits du lien privé existant. Les fichiers ajoutés
 après la demande ne sont pas couverts par le snapshot de cette demande.
 
@@ -146,6 +149,12 @@ un 409 sans code reconnu conserve la commande à vérifier. Le suivi privé et l
 contrôles administratifs appliquent cette distinction. Modifier ou retirer les
 droits remet le fichier en revue, invalide sa N0 et bloque les prochains envois concernés.
 Le retrait ne prétend pas supprimer une publication déjà diffusée ailleurs.
+
+Les recettes navigateur de publication préparent leurs autorisations élargies avec
+`setupAcceptanceMediaUsageViaApi`, via ce contrat public et uniquement dans leur
+pile jetable. Le téléversement et son acceptation initiale restent exercés dans
+l’interface. Cette précondition synthétique ne qualifie pas un éditeur
+d’autorisations pour les fichiers existants dans le suivi privé.
 
 Une restriction libre exige une lecture humaine explicitement confirmée et auditée
 avant l’approbation N0 du contenu courant. Le contrôle d’envoi revalide les droits,

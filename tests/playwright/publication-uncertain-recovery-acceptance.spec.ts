@@ -28,7 +28,7 @@ import {
 } from './support/acceptance-sponsorship-dossier.js';
 import {
   confirmAcceptanceMediaUsage,
-  updateAcceptanceMediaUsage
+  setupAcceptanceMediaUsageViaApi
 } from './support/acceptance-media-usage.js';
 import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 import { adjustAcceptanceObligationDestination } from './support/acceptance-agreement.js';
@@ -252,7 +252,7 @@ test('lost social responses survive restart and recover through verified reconci
           await expect(
             page.locator('[data-og7="media-upload-attempt"]')
           ).toHaveCount(0);
-          await updateAcceptanceMediaUsage(page, filename!, {
+          await setupAcceptanceMediaUsageViaApi(page, filename!, {
             channels: ['website', 'facebook', 'linkedin'],
             targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
           });

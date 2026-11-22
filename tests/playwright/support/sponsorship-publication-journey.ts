@@ -34,7 +34,7 @@ import { createAcceptanceCollectivePartner } from './acceptance-collective-partn
 import { approveAcceptanceSponsorshipDossier } from './acceptance-sponsorship-dossier.js';
 import {
   confirmAcceptanceMediaUsage,
-  updateAcceptanceMediaUsage
+  setupAcceptanceMediaUsageViaApi
 } from './acceptance-media-usage.js';
 import {
   approveAcceptanceMedia,
@@ -322,7 +322,7 @@ export async function sponsorshipPublicationJourney(
           company.locator('[data-og7="media-upload-attempt"]')
         ).toHaveCount(0, { timeout: 15000 });
         if (filename === 'photo-demo.png')
-          await updateAcceptanceMediaUsage(company, filename, {
+          await setupAcceptanceMediaUsageViaApi(company, filename, {
             channels: ['website', 'facebook', 'linkedin']
           });
       }

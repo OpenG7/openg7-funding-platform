@@ -71,7 +71,9 @@
               "buildTarget": "funding-web:build:production"
             },
             "development": {
-              "buildTarget": "funding-web:build:development"
+              "buildTarget": "funding-web:build:development",
+              "hmr": false,
+              "liveReload": true
             }
           },
           "defaultConfiguration": "development"

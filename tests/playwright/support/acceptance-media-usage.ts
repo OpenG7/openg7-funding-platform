@@ -1,11 +1,15 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Locator, Page } from '@playwright/test';
 import {
-  SPONSOR_MEDIA_USAGE_CHANNELS,
-  SPONSOR_MEDIA_USAGE_TARGETS,
-  SPONSOR_MEDIA_TRANSFORMATIONS,
-  type SponsorMediaUsageRights
+  getSponsorMediaUsageTerms,
+  type SponsorMediaAsset,
+  type SponsorMediaUsageRequest,
+  type SponsorMediaUsageRights,
+  type SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { acceptanceComposeArgs } from './acceptance-database.js';
 import { expect } from './test.js';
 
 /** Saved media actions stay compact until the sponsor opens their disclosure. */
@@ -31,8 +35,12 @@ export async function confirmAcceptanceMediaUsage(page: Page): Promise<void> {
   await selection.locator('[data-og7="media-upload-send"]').click();
 }
 
-/** Broader synthetic usage is explicitly accepted through the saved file's UI. */
-export async function updateAcceptanceMediaUsage(
+/**
+ * Seed broader publication rights through the public API in the disposable recipe.
+ * This fixture is separate from the upload's UI acceptance; it does not exercise
+ * a sponsor-facing editor for saved files.
+ */
+export async function setupAcceptanceMediaUsageViaApi(
   page: Page,
   filename: string,
   {
@@ -43,52 +51,98 @@ export async function updateAcceptanceMediaUsage(
     restrictions = null
   }: Partial<Omit<SponsorMediaUsageRights, 'state'>> = {}
 ): Promise<void> {
-  const media = page.locator('[data-og7="followup-media"]').filter({
-    has: page.getByText(filename, { exact: true })
-  });
-  await expect(media).toBeVisible();
-  await openAcceptanceMediaActions(page, media);
-  const disclosure = media.locator('[data-og7="followup-media-rights"]');
+  acceptanceComposeArgs();
+  const pageUrl = new URL(page.url());
+  const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
   if (
-    !(await disclosure.evaluate((element: HTMLDetailsElement) => element.open))
+    !configuredBaseUrl ||
+    pageUrl.origin !== new URL(configuredBaseUrl).origin ||
+    !['127.0.0.1', 'localhost', '[::1]'].includes(pageUrl.hostname)
   )
-    await disclosure.locator(':scope > summary').click();
-  const editor = disclosure.locator('[data-og7="media-usage-editor"]');
-  await expect(editor).toBeVisible();
-  const customize = editor.locator('[data-og7="media-usage-customize"]');
-  if (
-    !(await customize.evaluate((element: HTMLDetailsElement) => element.open))
-  )
-    await customize.locator(':scope > summary').click();
-  for (const channel of SPONSOR_MEDIA_USAGE_CHANNELS)
-    await editor
-      .locator(`[data-og7-id="channel:${channel}"]`)
-      .setChecked(channels.includes(channel));
-  for (const target of SPONSOR_MEDIA_USAGE_TARGETS)
-    await editor
-      .locator(`[data-og7-id="target:${target}"]`)
-      .setChecked(targets.includes(target));
-  for (const transformation of SPONSOR_MEDIA_TRANSFORMATIONS)
-    await editor
-      .locator(`[data-og7-id="transform:${transformation}"]`)
-      .setChecked(transformations.includes(transformation));
-  await editor.locator('[data-og7="media-usage-credit"]').fill(credit ?? '');
-  await editor
-    .locator('[data-og7="media-usage-restrictions"]')
-    .fill(restrictions ?? '');
-  const confirmation = editor.locator('[data-og7="media-usage-confirmation"]');
-  await confirmation.check();
-  await expect(confirmation).toBeChecked();
-  const completed = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/api/sponsorship-followup/media/usage') &&
-      response.request().method() === 'POST'
+    throw new Error(
+      'Synthetic media usage requires the disposable Web origin.'
+    );
+
+  const token = await page.evaluate(
+    () =>
+      new URL(window.location.href).searchParams.get('token') ||
+      window.sessionStorage.getItem('openg7-sponsorship-followup-token') ||
+      ''
   );
-  await editor.locator('[data-og7="media-usage-save"]').click();
-  const response = await completed;
-  expect(response.ok(), await response.text()).toBe(true);
+  if (!token)
+    throw new Error(
+      'Synthetic media usage requires a current follow-up token.'
+    );
+
+  const endpoint = new URL('/api/sponsorship-followup/media', pageUrl.origin);
+  const snapshotResponse = await page.request.get(endpoint.href, {
+    params: { token }
+  });
+  expect(
+    snapshotResponse.ok(),
+    `Synthetic media snapshot failed (${snapshotResponse.status()}).`
+  ).toBe(true);
+  const snapshot = (await snapshotResponse.json()) as SponsorshipMediaResponse;
+  const matches = snapshot.assets.filter(
+    (asset) => asset.originalFilename === filename
+  );
+  expect(matches).toHaveLength(1);
+  const asset = matches[0]!;
+  expect(asset.usage?.state).toBe('confirmed');
+  expect(asset.usageAcceptance?.source).toBe('platform_acceptance');
+  const { version, fingerprint, locale } = getSponsorMediaUsageTerms(
+    asset.usageAcceptance!.locale
+  );
+  const payload: SponsorMediaUsageRequest = {
+    token,
+    requestId: randomUUID(),
+    assetId: asset.id,
+    expectedVersion: asset.version,
+    confirmed: true,
+    usage: {
+      state: 'confirmed',
+      channels,
+      targets,
+      transformations,
+      credit,
+      restrictions
+    },
+    termsAcceptance: { version, fingerprint, locale, accepted: true }
+  };
+  const response = await page.request.post(endpoint.href + '/usage', {
+    headers: { Origin: pageUrl.origin },
+    data: payload
+  });
+  expect(
+    response.ok(),
+    `Synthetic media setup failed (${response.status()}).`
+  ).toBe(true);
+  const result = (await response.json()) as {
+    updated: true;
+    asset: SponsorMediaAsset;
+  };
+  expect(result.updated).toBe(true);
+  expect(result.asset.id).toBe(asset.id);
+  expect(result.asset.usage).toEqual(payload.usage);
+
+  const refreshed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === endpoint.pathname &&
+      response.request().method() === 'GET'
+  );
+  await page
+    .getByRole('button', {
+      name: locale === 'en' ? 'Refresh status' : 'Actualiser le statut',
+      exact: true
+    })
+    .click();
+  const refreshedResponse = await refreshed;
+  expect(refreshedResponse.ok()).toBe(true);
+  const current = (await refreshedResponse.json()) as SponsorshipMediaResponse;
+  expect(current.assets.find((item) => item.id === asset.id)?.version).toBe(
+    result.asset.version
+  );
   await expect(
     page.locator('[data-og7="followup-media-consent"]')
   ).toHaveAttribute('aria-busy', 'false');
-  await expect(confirmation).not.toBeChecked();
 }

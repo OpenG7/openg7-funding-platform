@@ -35,7 +35,12 @@ devient pas prête, `yarn 1` ne démarre pas Angular.
 
 Ouvrir **https://localhost** : Traefik transmet les pages et le WebSocket de
 recompilation à Angular sur `127.0.0.1:4200`; `/api` continue vers l'API Docker.
-Les sauvegardes sont surveillées toutes les secondes. L'origine HTTPS, les
+Les sauvegardes sont surveillées toutes les secondes et déclenchent un
+rechargement complet de la page. Le remplacement à chaud des composants (HMR)
+est désactivé dans le profil de développement : il peut conserver une définition
+de requête Angular périmée après la suppression d'un élément du composant et
+interrompre le rendu du suivi. Redémarrer Angular après un changement de ce profil.
+L'origine HTTPS, les
 cookies sécurisés, les contrôles d'origine et le callback Keycloak sont conservés.
 Le Web compilé reste accessible sur `http://localhost:8080`.
 

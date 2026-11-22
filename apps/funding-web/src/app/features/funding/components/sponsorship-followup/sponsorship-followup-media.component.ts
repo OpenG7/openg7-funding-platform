@@ -16,8 +16,7 @@ import {
   effect,
   untracked,
   afterRenderEffect,
-  viewChild,
-  viewChildren
+  viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
@@ -121,8 +120,6 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
   readonly canAddSupportingImage = this.controller.canAddSupportingImage;
   private readonly mediaSection =
     viewChild<ElementRef<HTMLElement>>('mediaSection');
-  private readonly mediaRights =
-    viewChildren<ElementRef<HTMLDetailsElement>>('mediaRights');
   private focusedMediaConsentToken: string | null = null;
   private readonly refreshPending = signal(false);
 
@@ -143,15 +140,8 @@ export class SponsorshipFollowupMediaComponent implements OnInit, OnChanges {
         return;
       const token = this.token();
       const section = this.mediaSection()?.nativeElement;
-      const rights = this.mediaRights();
-      if (
-        this.focusedMediaConsentToken === token ||
-        !section ||
-        rights.length !== this.assets().length
-      )
-        return;
+      if (this.focusedMediaConsentToken === token || !section) return;
       this.focusedMediaConsentToken = token;
-      for (const panel of rights) panel.nativeElement.open = true;
       section.focus({ preventScroll: true });
       section.scrollIntoView({ block: 'start' });
     });

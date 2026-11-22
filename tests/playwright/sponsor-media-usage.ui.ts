@@ -17,8 +17,7 @@ import {
 } from './support/sponsorship-followup.js';
 import {
   confirmAcceptanceMediaUsage,
-  openAcceptanceMediaActions,
-  updateAcceptanceMediaUsage
+  openAcceptanceMediaActions
 } from './support/acceptance-media-usage.js';
 import { createMediaWorkspaceFixture } from './media-review-workspace/fixture.js';
 
@@ -460,7 +459,7 @@ export function registerPrivateMediaUsageTests(): void {
         ).violations
       ).toEqual([]);
     });
-    test(`image usage shared consent link opens the media list after loading without granting rights ${suffix}`, async ({
+    test(`image usage shared consent link opens saved media actions without restoring the rights editor ${suffix}`, async ({
       page
     }) => {
       await viewport(page);
@@ -504,16 +503,10 @@ export function registerPrivateMediaUsageTests(): void {
         .all())
         await expect(actions).toHaveJSProperty('open', true);
       const disclosures = section.locator('[data-og7="followup-media-rights"]');
-      await expect(disclosures).toHaveCount(2);
-      for (const disclosure of await disclosures.all()) {
-        await expect(disclosure).toHaveJSProperty('open', true);
-        await expect(
-          disclosure.locator('[data-og7="media-usage-confirmation"]')
-        ).not.toBeChecked();
-        await expect(
-          disclosure.locator('[data-og7="media-usage-save"]')
-        ).toBeDisabled();
-      }
+      await expect(disclosures).toHaveCount(0);
+      await expect(
+        section.locator('[data-og7="media-usage-editor"]')
+      ).toHaveCount(0);
       await expect(section).toContainText('synthetic.png');
       await expect(section).toContainText('second-synthetic.png');
       const url = new URL(page.url());
@@ -522,48 +515,15 @@ export function registerPrivateMediaUsageTests(): void {
       expect(posts).toEqual([]);
       expect(state.commands).toEqual([]);
       expect(state.uploads).toEqual([]);
+      expect(state.assets[0]!.usage).toEqual(rights);
+      expect(state.assets[1]!.usage).toEqual(unknown);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
         )
       ).toBe(true);
-
-      // A subsequent explicit decision must not reopen other files or steal focus.
-      await disclosures.nth(1).locator(':scope > summary').click();
-      const editor = disclosures
-        .first()
-        .locator('[data-og7="media-usage-editor"]');
-      await editor.locator('[data-og7="media-usage-confirmation"]').check();
-      let releaseSave!: () => void;
-      const saveGate = new Promise<void>((resolve) => {
-        releaseSave = resolve;
-      });
-      await page.route(
-        '**/api/sponsorship-followup/media/usage',
-        async (route) => {
-          await saveGate;
-          return route.fallback();
-        }
-      );
-      await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(section).toHaveAttribute('aria-busy', 'true');
-      const otherControl = page.locator('[data-og7="followup-open-review"]');
-      await otherControl.focus();
-      releaseSave();
-      await expect(section).toHaveAttribute('aria-busy', 'false');
-      await expect(otherControl).toBeFocused();
-      await expect(disclosures.nth(1)).toHaveJSProperty('open', false);
-      expect(posts).toEqual(['/api/sponsorship-followup/media/usage']);
-      expect(state.commands).toHaveLength(1);
-      expect(state.commands[0]).toMatchObject({
-        assetId: id,
-        expectedVersion: 'v1',
-        confirmed: true,
-        termsAcceptance: { accepted: true, locale: english ? 'en' : 'fr-CA' }
-      });
-      expect(state.assets[1]!.usage).toEqual(unknown);
     });
-    test(`image usage ignores unknown link sections and keeps consent unchecked ${suffix}`, async ({
+    test(`image usage ignores unknown link sections and keeps saved media actions closed ${suffix}`, async ({
       page
     }) => {
       await viewport(page);
@@ -580,58 +540,60 @@ export function registerPrivateMediaUsageTests(): void {
           '&section=unknown-section'
       );
       const section = page.locator('[data-og7="followup-media-consent"]');
-      await expect(
-        section.locator('[data-og7="followup-media-rights"]')
-      ).toHaveCount(1);
+      await expect(section.locator('[data-og7="followup-media"]')).toHaveCount(
+        1
+      );
       await expect(section).toHaveAttribute('aria-busy', 'false');
       await expect(section).not.toBeFocused();
       await expect(
-        section.locator('[data-og7="followup-media-rights"]')
+        section.locator('[data-og7="media-item-details"]')
       ).toHaveJSProperty('open', false);
       await expect(
-        section.locator('[data-og7="media-usage-confirmation"]')
-      ).not.toBeChecked();
+        section.locator('[data-og7="followup-media-rights"]')
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-og7="media-usage-editor"]')
+      ).toHaveCount(0);
       expect(posts).toEqual([]);
       expect(state.commands).toEqual([]);
       expect(state.uploads).toEqual([]);
     });
-    test(`image usage disclosure preserves edits without confirming rights ${suffix}`, async ({
+    test(`image usage saved media details keep recorded rights unchanged without an editable permissions section ${suffix}`, async ({
       page
     }) => {
       await viewport(page);
       const state = await privateMedia(page, [asset()]);
       await visit(page, english);
-      const disclosure = page.locator(
-        `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
+      const media = page.locator(
+        `[data-og7="followup-media"][data-og7-id="${id}"]`
       );
-      await openAcceptanceMediaActions(page);
-      const editor = disclosure.locator('[data-og7="media-usage-editor"]');
-      const summary = disclosure.locator(':scope > summary');
-      await expect(disclosure).toHaveJSProperty('open', false);
-      await expect(editor).toHaveCount(1);
+      const details = media.locator('[data-og7="media-item-details"]');
+      const summary = details.locator(':scope > summary');
+      await expect(details).toHaveJSProperty('open', false);
       await summary.focus();
       await page.keyboard.press('Enter');
-      await expect(disclosure).toHaveJSProperty('open', true);
-      await editor
-        .locator('[data-og7="media-usage-customize"] > summary')
-        .click();
-      const credit = editor.locator('[data-og7="media-usage-credit"]');
-      const confirmation = editor.locator(
-        '[data-og7="media-usage-confirmation"]'
-      );
-      await expect(credit).toHaveValue(rights.credit!);
-      await expect(confirmation).not.toBeChecked();
-      await credit.fill('Synthetic retained media credit');
-      await summary.focus();
-      await page.keyboard.press('Enter');
-      await expect(disclosure).toHaveJSProperty('open', false);
-      await expect(credit).toHaveValue('Synthetic retained media credit');
-      await summary.press('Enter');
-      await expect(disclosure).toHaveJSProperty('open', true);
-      await expect(confirmation).not.toBeChecked();
+      await expect(details).toHaveJSProperty('open', true);
+      await expect(details).toContainText('synthetic.png');
       await expect(
-        editor.locator('[data-og7="media-usage-save"]')
-      ).toBeDisabled();
+        details.locator('[data-og7="followup-media-rights"]')
+      ).toHaveCount(0);
+      await expect(
+        details.locator('[data-og7="media-usage-editor"]')
+      ).toHaveCount(0);
+      await expect(
+        details.locator('[data-og7="media-preference-propose"]')
+      ).toBeEnabled();
+      await expect(
+        details.locator('[data-og7="media-usage-withdraw"]')
+      ).toBeEnabled();
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(details).toHaveJSProperty('open', false);
+      await summary.press('Enter');
+      await expect(details).toHaveJSProperty('open', true);
+      await expect(
+        details.locator('[data-og7="media-usage-save"]')
+      ).toHaveCount(0);
       expect(state.commands).toEqual([]);
       expect(state.uploads).toEqual([]);
       expect(state.assets[0].usage).toEqual(rights);
@@ -755,56 +717,50 @@ export function registerPrivateMediaUsageTests(): void {
         )
       ).toBe(true);
     });
-    test(`image usage amendments capture explicit current terms without a manual evidence field ${suffix}`, async ({
+    test(`image usage saved media never bypasses explicit consent for a new upload ${suffix}`, async ({
       page
     }) => {
       await viewport(page);
       const state = await privateMedia(page, [asset()]);
       await visit(page, english);
-      const disclosure = page.locator(
-        `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
-      );
       await openAcceptanceMediaActions(page);
-      await disclosure.locator(':scope > summary').click();
-      const editor = disclosure.locator('[data-og7="media-usage-editor"]');
-      await expect(
-        editor.locator('[data-og7="media-usage-evidence"]')
-      ).toHaveCount(0);
-      await expect(
-        editor.locator('[data-og7="media-usage-scope-summary"]')
-      ).toContainText('OPENG7');
-      await editor.locator('[data-og7="media-usage-terms"] > summary').click();
-      const { version, fingerprint, locale, text } = getSponsorMediaUsageTerms(
-        english ? 'en' : 'fr-CA'
+      const input = page.getByLabel(
+        english ? 'Add photos' : 'Ajouter des photos',
+        { exact: true }
       );
+      await expect(input).toBeEnabled();
+      await input.setInputFiles({
+        name: 'new-synthetic.png',
+        mimeType: 'image/png',
+        buffer: png
+      });
+      const selection = page.locator('[data-og7="media-upload-selection"]');
+      const editor = selection.locator('[data-og7="media-usage-editor"]');
+      await expect(editor).toBeVisible();
       await expect(
-        editor.locator('[data-og7="media-usage-terms"]')
-      ).toContainText(text);
+        page.locator('[data-og7="followup-media-rights"]')
+      ).toHaveCount(0);
       const confirmation = editor.locator(
         '[data-og7="media-usage-confirmation"]'
       );
-      await editor
-        .locator('[data-og7="media-usage-customize"] > summary')
-        .click();
-      await editor
-        .locator('[data-og7="media-usage-credit"]')
-        .fill('Unsaved synthetic credit');
+      const send = selection.locator('[data-og7="media-upload-send"]');
+      await expect(confirmation).not.toBeChecked();
+      await expect(send).toBeDisabled();
       await confirmation.check();
-      await editor.locator('[data-og7="media-usage-cancel"]').click();
-      await expect(confirmation).not.toBeChecked();
-      await expect(
-        editor.locator('[data-og7="media-usage-credit"]')
-      ).toHaveValue(rights.credit!);
+      await expect(send).toBeEnabled();
+      await selection.locator('[data-og7="media-upload-cancel"]').click();
+      await expect(selection).toHaveCount(0);
       expect(state.commands).toEqual([]);
-      await updateAcceptanceMediaUsage(page, 'synthetic.png', rights);
-      await expect(confirmation).not.toBeChecked();
-      expect(state.commands).toHaveLength(1);
-      expect(state.commands[0]).toMatchObject({
-        assetId: id,
-        expectedVersion: 'v1',
-        usage: rights,
-        termsAcceptance: { version, fingerprint, locale, accepted: true }
+      expect(state.uploads).toEqual([]);
+      expect(state.assets[0]!.usage).toEqual(rights);
+      await input.setInputFiles({
+        name: 'another-synthetic.png',
+        mimeType: 'image/png',
+        buffer: png
       });
+      await expect(selection).toBeVisible();
+      await expect(confirmation).not.toBeChecked();
+      await expect(send).toBeDisabled();
     });
     test(`image usage upload checks uncertain receipts and retries the exact accepted file ${suffix}`, async ({
       page
