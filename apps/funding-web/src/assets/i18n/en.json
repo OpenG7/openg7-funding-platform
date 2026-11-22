@@ -70,6 +70,17 @@
       "amount": "Sponsorship amount: {{amount}}",
       "savedTitle": "Your sponsorship terms",
       "viewTerms": "View terms",
+      "includedBenefit": "{{count}} benefit included",
+      "includedBenefits": "{{count}} benefits included",
+      "webPresence": "Web presence",
+      "legacyTextFormat": "Text",
+      "categories": {
+        "web": "Web",
+        "collective": "Collective",
+        "individual": "Individual"
+      },
+      "manualValidationTitle": "Publications require approval",
+      "manualValidationNotice": "These benefits require a manual decision and are never published automatically upon payment.",
       "needsConfirmation": "The original terms for this historical sponsorship need to be confirmed. This does not mean that no benefit was agreed. Contact the OpenG7 team with your reference to clarify these commitments.",
       "qualifiedHistorical": "The terms of this historical sponsorship have been clarified and recorded by the OpenG7 team.",
       "destination": "Destination: {{target}}",
@@ -1142,7 +1153,9 @@
         "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment.",
         "verificationRequired": "This payment request requires verification. Contact the OpenG7 team before trying again.",
-        "personalAmountHint": "Personal contributions accept these amounts: {{ amounts }}.",
+        "personalAmountHint": "Choose a suggestion or enter at least {{ minimum }}, with no more than two decimal places.",
+        "personalMinimumAmountError": "The minimum personal contribution amount is {{ minimum }}.",
+        "personalPresetAmountHint": "Choose one of the suggested amounts for your personal contribution: {{ amounts }}.",
         "publicDisplayNameRequired": "Enter the name you want to display publicly."
       },
       "finance": {

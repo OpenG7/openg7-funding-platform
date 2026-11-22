@@ -89,6 +89,7 @@
   </ol>
   @if (current.commitment; as commitment) {
     <section
+      class="sponsorship-terms"
       data-og7="followup-commitment"
       aria-labelledby="followup-commitment-title"
     >
@@ -99,131 +100,70 @@
         <p role="status">{{ 'funding.offer.needsConfirmation' | translate }}</p>
       } @else {
         <details
-          class="sponsorship-benefits-recap"
+          class="sponsorship-terms-details"
           data-og7="followup-offer-terms"
         >
-          <summary>{{ 'funding.offer.viewTerms' | translate }}</summary>
+          <summary>
+            <svg
+              class="terms-chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+            <span>{{ 'funding.offer.viewTerms' | translate }}</span>
+          </summary>
+          <header
+            class="sponsorship-terms-header"
+            data-og7="sponsorship-terms-count"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="m3 7 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 17l9 5 9-5" />
+            </svg>
+            <span class="benefits-count">
+              {{
+                (commitment.offer.benefits.length === 1
+                  ? 'funding.offer.includedBenefit'
+                  : 'funding.offer.includedBenefits'
+                ) | translate: { count: commitment.offer.benefits.length }
+              }}
+            </span>
+          </header>
           @if (commitment.provenance === 'qualified_historical') {
             <p>{{ 'funding.offer.qualifiedHistorical' | translate }}</p>
           }
-          <openg7-sponsorship-offer-summary [offer]="commitment.offer" />
-          <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+          <openg7-sponsorship-offer-summary
+            [offer]="commitment.offer"
+            [compact]="true"
+          />
+          <aside
+            class="sponsorship-terms-notice"
+            data-og7="sponsorship-terms-notice"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v6M12 7v1" />
+            </svg>
+            <div>
+              <strong>{{
+                'funding.offer.manualValidationTitle' | translate
+              }}</strong>
+              <p>{{ 'funding.offer.manualValidationNotice' | translate }}</p>
+            </div>
+          </aside>
         </details>
-      }
-      @if (commitment.obligations?.length) {
-        <section
-          data-og7="followup-current-obligations"
-          aria-labelledby="followup-current-obligations-title"
-        >
-          <h4 id="followup-current-obligations-title">
-            {{ 'funding.offer.currentObligations' | translate }}
-          </h4>
-          <p>{{ 'funding.offer.currentObligationsSeparate' | translate }}</p>
-          <ul role="list">
-            @for (obligation of commitment.obligations; track obligation.id) {
-              <li [attr.data-og7-id]="obligation.id">
-                <strong
-                  >{{
-                    'funding.offer.channels.' + obligation.channel | translate
-                  }}
-                  · {{ obligation.target.toUpperCase() }} ·
-                  {{ obligation.ordinal }}</strong
-                >
-                <p>
-                  {{
-                    'funding.offer.obligationStates.' + obligation.state
-                      | translate
-                  }}
-                </p>
-                @if (obligation.format) {
-                  <p>
-                    {{ 'funding.offer.format' | translate }}
-                    {{
-                      'funding.offer.formats.' + obligation.format | translate
-                    }}
-                  </p>
-                }
-                @if (obligation.blockedReason) {
-                  <p>
-                    {{
-                      'funding.offer.obligationBlocking.' +
-                        obligation.blockedReason | translate
-                    }}
-                  </p>
-                }
-                @if ((obligation.minimumParticipants ?? 1) > 1) {
-                  <p>
-                    {{
-                      'funding.offer.minimumParticipants'
-                        | translate: { count: obligation.minimumParticipants }
-                    }}
-                  </p>
-                }
-                @if (evidenceFor(obligation); as evidence) {
-                  <p>
-                    <a
-                      [href]="evidenceHref(evidence.id)"
-                      (click)="focusEvidence(evidence.id)"
-                      data-og7="followup-obligation-proof"
-                      >{{
-                        'funding.offer.viewPassageEvidence'
-                          | translate: { ordinal: obligation.ordinal }
-                      }}</a
-                    >
-                  </p>
-                } @else if (obligation.fulfilmentEvidenceId) {
-                  <p>{{ 'funding.offer.fulfilmentRecorded' | translate }}</p>
-                }
-                @if (obligation.timing; as timing) {
-                  <div data-og7="followup-obligation-timing">
-                    @if (timing.deadlineDays !== null) {
-                      <p data-og7="followup-obligation-deadline">
-                        {{ 'funding.offer.timingDue' | translate }}
-                        {{
-                          timing.dueAt
-                            ? dateLabel(timing.dueAt)
-                            : ('funding.offer.timingOriginUnknown' | translate)
-                        }}
-                      </p>
-                      @if (timing.overdue) {
-                        <p data-og7="followup-obligation-overdue">
-                          {{ 'funding.offer.timingOverdue' | translate }}
-                        </p>
-                      }
-                    }
-                    @if (timing.durationDays !== null) {
-                      <p data-og7="followup-obligation-duration">
-                        {{
-                          'funding.offer.timingDurationStates.' +
-                            timing.durationState | translate
-                        }}
-                      </p>
-                    }
-                    @if (timing.startObservation; as observation) {
-                      <p>
-                        {{ 'funding.offer.timingStarted' | translate }}
-                        <time [attr.datetime]="observation.observedAt">{{
-                          dateLabel(observation.observedAt)
-                        }}</time>
-                      </p>
-                      <p>
-                        {{
-                          'funding.offer.timingEarliestCompletion' | translate
-                        }}
-                        <time
-                          [attr.datetime]="observation.earliestCompletionAt"
-                          >{{
-                            dateLabel(observation.earliestCompletionAt)
-                          }}</time
-                        >
-                      </p>
-                    }
-                  </div>
-                }
-              </li>
-            }
-          </ul>
-        </section>
       }
     </section>
   } @else {

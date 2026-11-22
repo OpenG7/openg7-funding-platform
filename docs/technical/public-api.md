@@ -8,6 +8,20 @@ Prepared public charter, private decisions, corrections and human reconsideratio
 [moderation contracts](../operations/sponsorship-moderation.md). Public terms remain
 inactive until explicit editorial validation and matching server policy.
 
+## Contribution suggestions and minimum
+
+`GET /api/public/funding-config` exposes `business_sponsorship_enabled`,
+`allowed_contribution_amounts` and `personal_contribution_minimum_amount`.
+The historical `allowed_contribution_amounts` key now supplies suggested button
+amounts in major CAD units. New personal contributions accept other exact amounts
+at or above the announced minimum, currently 5 CAD.
+
+The minimum field is optional during rolling upgrades. The updated Web enables
+the personal custom-amount input only after receiving a valid minimum. With an
+older API, it retains the preset-only journey. Older Web clients ignore the new
+field and continue using their existing buttons. See the
+[home journey](../funding-home.md#montants) and [Checkout contract](checkout.md).
+
 ## Public sponsorship page
 
 Approved, consented sponsorships are exposed through:

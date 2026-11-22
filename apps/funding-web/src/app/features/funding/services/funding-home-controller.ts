@@ -1,4 +1,5 @@
 import { computed, signal } from '@angular/core';
+import { isValidPersonalContributionAmount } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot,
@@ -50,6 +51,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 /** One home page's public projections and checkout intent; the API confirms payment. */
 export class FundingHomeController {
   readonly allowedContributionAmounts;
+  readonly personalContributionMinimumAmount = signal<number | null>(null);
   readonly sponsorshipBatchAvailability =
     signal<PublicSponsorshipBatchAvailabilityResponse | null>(null);
   readonly sponsorshipSelectionEnabled = signal<boolean>(false);
@@ -182,6 +184,14 @@ export class FundingHomeController {
         runtimeConfig.allowed_contribution_amounts ??
           this.ports.config.contributionAmounts
       );
+      const personalMinimum =
+        runtimeConfig.personal_contribution_minimum_amount;
+      this.personalContributionMinimumAmount.set(
+        typeof personalMinimum === 'number' &&
+          isValidPersonalContributionAmount(personalMinimum)
+          ? personalMinimum
+          : null
+      );
       this.sponsorshipSelectionEnabled.set(
         runtimeConfig.business_sponsorship_enabled
       );
@@ -192,6 +202,7 @@ export class FundingHomeController {
     } catch {
       if (this.disposed || generation !== this.configGeneration) return;
       this.sponsorshipSelectionEnabled.set(false);
+      this.personalContributionMinimumAmount.set(null);
     }
     this.sponsorshipBatchAvailability.set(null);
   }

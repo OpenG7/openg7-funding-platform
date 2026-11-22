@@ -177,6 +177,104 @@ summary {
   font-weight: 700;
   padding-block: 0.75rem;
 }
+.sponsorship-terms {
+  min-width: 0;
+  margin-top: 1.5rem;
+  padding: clamp(0.85rem, 2vw, 1.25rem);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  background: var(--surface-panel);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 4%);
+}
+.sponsorship-terms::before {
+  display: block;
+  width: 3rem;
+  height: 0.25rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  background: var(--color-primary);
+  content: '';
+}
+.sponsorship-terms > h3 {
+  margin-block: 0 1rem;
+  font-size: 1.1rem;
+  line-height: 1.35;
+}
+.sponsorship-terms-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.8rem;
+  border-radius: 0.65rem;
+  background: var(--surface-raised);
+  color: var(--text-main);
+  list-style: none;
+}
+.sponsorship-terms-details > summary::-webkit-details-marker {
+  display: none;
+}
+.terms-chevron {
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sponsorship-terms-details[open] > summary .terms-chevron {
+  transform: rotate(90deg);
+}
+.sponsorship-terms-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-block: 1rem;
+  padding: 0.85rem;
+  border-radius: 0.65rem;
+  background: var(--surface-raised);
+  color: var(--color-primary);
+}
+.sponsorship-terms-header > svg,
+.sponsorship-terms-notice > svg {
+  flex: 0 0 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  stroke: var(--color-primary);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.benefits-count {
+  min-width: 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-color);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.sponsorship-terms-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--surface-raised);
+}
+.sponsorship-terms-notice > div {
+  min-width: 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.sponsorship-terms-notice p {
+  margin-block: 0.4rem 0;
+  color: var(--text-soft);
+}
 .notice-panel,
 .form-error-summary {
   @apply tw:p-4;

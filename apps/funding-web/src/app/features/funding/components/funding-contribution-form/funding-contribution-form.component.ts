@@ -16,7 +16,11 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import { isValidSponsorshipAmount } from '@openg7/funding-core';
+import {
+  isValidPersonalContributionAmount,
+  isValidSponsorshipAmount,
+  MINIMUM_PERSONAL_CONTRIBUTION_AMOUNT
+} from '@openg7/funding-core';
 import type {
   CheckoutConsentPayload,
   ContributionType,
@@ -120,6 +124,23 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly allowedAmounts = input<readonly number[]>(
     this.config.contributionAmounts
   );
+  readonly personalContributionMinimumAmount = input<number | null>(null);
+  readonly personalMinimumAmount = computed(() => {
+    const minimum = this.personalContributionMinimumAmount();
+    return minimum !== null && isValidPersonalContributionAmount(minimum)
+      ? minimum
+      : null;
+  });
+  readonly showCustomContribution = computed(
+    () =>
+      this.contributionType() === 'sponsorship_interest' ||
+      this.personalMinimumAmount() !== null
+  );
+  readonly customContributionMinimumAmount = computed(() =>
+    this.contributionType() === 'sponsorship_interest'
+      ? this.config.sponsorship.minimumAmount
+      : (this.personalMinimumAmount() ?? MINIMUM_PERSONAL_CONTRIBUTION_AMOUNT)
+  );
   readonly loadingState = input<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
@@ -203,11 +224,16 @@ export class FundingContributionFormComponent implements OnChanges {
       .join(', ')
   );
   readonly customContributionHelpKey = computed(() => {
+    const personal = this.contributionType() === 'personal_support';
+    if (personal && this.personalMinimumAmount() === null)
+      return 'funding.home.contribution.personalPresetAmountHint';
     const value = this.customContributionValue();
     if (value.length > 0 && this.parseCustomContributionAmount(value) === null)
       return 'funding.home.contribution.amountFormatError';
-    if (this.contributionType() === 'personal_support')
-      return 'funding.home.contribution.personalAmountHint';
+    if (personal)
+      return this.hasInvalidCustomContribution()
+        ? 'funding.home.contribution.personalMinimumAmountError'
+        : 'funding.home.contribution.personalAmountHint';
     return this.hasInvalidCustomContribution()
       ? 'funding.home.contribution.sponsorship.minimumAmountError'
       : 'funding.home.contribution.amountFormatHint';
@@ -239,7 +265,13 @@ export class FundingContributionFormComponent implements OnChanges {
             parseContributionMinor(String(amount)) &&
           this.offer.quote()?.currency === this.config.currency) ||
           isValidSponsorshipAmount(amount, this.config.sponsorship)
-      : this.allowedAmounts().includes(amount);
+      : this.isAllowedPersonalAmount(amount);
+  }
+  private isAllowedPersonalAmount(amount: number): boolean {
+    const minimum = this.personalMinimumAmount();
+    return minimum === null
+      ? this.allowedAmounts().includes(amount)
+      : isValidPersonalContributionAmount(amount) && amount >= minimum;
   }
   private isFreshOfferAmountAllowed(amountMinor: number | null): boolean {
     return (
@@ -248,16 +280,22 @@ export class FundingContributionFormComponent implements OnChanges {
     );
   }
   private reconcilePreset(): void {
+    const retainedSponsorship =
+      this.contributionType() === 'sponsorship_interest' &&
+      this.offer.retained();
     if (
       !this.customContributionValue() &&
       (!this.isAllowedAmount(this.selectedContributionAmount()) ||
-        (this.contributionType() === 'sponsorship_interest' &&
-          !this.offer.retained() &&
+        (!retainedSponsorship &&
           !this.activeAmountPresets().includes(
             this.selectedContributionAmount()
           )))
     ) {
-      this.selectedContributionAmount.set(this.activeAmountPresets()[0] ?? 0);
+      this.selectedContributionAmount.set(
+        this.activeAmountPresets().find((amount) =>
+          this.isAllowedAmount(amount)
+        ) ?? 0
+      );
     }
   }
   setContributionType(type: ContributionType): void {

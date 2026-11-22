@@ -205,6 +205,14 @@ test('runtime config uses its supplied environment and preserves valid values', 
   assert.deepEqual([...config.allowedContributionAmounts], [7, 12.5]);
 });
 
+test('personal contribution suggestions keep only exact safe amounts at or above 5 CAD', () => {
+  const config = loadApiRuntimeConfig({
+    FUNDING_ALLOWED_AMOUNTS:
+      '1,4.99,5,5.00,7,7.25,12.345,1e30,25,Infinity,invalid'
+  });
+  assert.deepEqual([...config.allowedContributionAmounts], [5, 7, 7.25, 25]);
+});
+
 test('optional limits fall back on invalid values while zero and blank quotas are retained', () => {
   const positiveSettings = {
     FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS:

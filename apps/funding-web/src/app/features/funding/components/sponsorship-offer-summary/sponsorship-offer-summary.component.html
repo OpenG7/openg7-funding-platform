@@ -1,59 +1,153 @@
-<p>{{ 'funding.offer.version' | translate: { version: offer().version } }}</p>
-<p>{{ 'funding.offer.amount' | translate: { amount: amount() } }}</p>
-<ul role="list">
+@if (!compact()) {
+  <p>{{ 'funding.offer.version' | translate: { version: offer().version } }}</p>
+  <p>{{ 'funding.offer.amount' | translate: { amount: amount() } }}</p>
+}
+<ul
+  role="list"
+  [class.compact-offers]="compact()"
+  [attr.data-og7]="compact() ? 'offer-compact-summary' : null"
+>
   @for (benefit of offer().benefits; track benefit.id) {
-    <li [attr.data-og7-id]="benefit.id">
-      <strong
-        >{{ benefit.quantity }} ×
-        {{ 'funding.offer.channels.' + benefit.channel | translate }}</strong
-      >
-      <p>
-        {{
-          'funding.offer.destination'
-            | translate: { target: benefit.target.toUpperCase() }
-        }}
-      </p>
-      @if (benefit.format) {
-        <p data-og7="offer-benefit-format">
-          {{ 'funding.offer.format' | translate }}
-          {{ 'funding.offer.formats.' + benefit.format | translate }}
-        </p>
-      }
-      @if ((benefit.minimumParticipants ?? 1) > 1) {
-        <p data-og7="offer-benefit-group-size">
+    <li
+      [class.compact-offer]="compact()"
+      [attr.data-og7-id]="compact() ? null : benefit.id"
+    >
+      <ng-template #benefitTerms>
+        <strong
+          >{{ benefit.quantity }} ×
+          {{ 'funding.offer.channels.' + benefit.channel | translate }}</strong
+        >
+        <p>
           {{
-            'funding.offer.minimumParticipants'
-              | translate: { count: benefit.minimumParticipants }
+            'funding.offer.destination'
+              | translate: { target: benefit.target.toUpperCase() }
           }}
         </p>
-      }
-      <p>
-        {{ 'funding.offer.required' | translate }}
-        @for (
-          element of benefit.requiredElements;
-          track element;
-          let last = $last
-        ) {
-          {{ 'funding.offer.elements.' + element | translate
-          }}{{ last ? '.' : ', ' }}
+        @if (benefit.format) {
+          <p data-og7="offer-benefit-format">
+            {{ 'funding.offer.format' | translate }}
+            {{ 'funding.offer.formats.' + benefit.format | translate }}
+          </p>
         }
-      </p>
-      <p>
-        {{
-          (benefit.deadlineDays === null
-            ? 'funding.offer.noDeadline'
-            : 'funding.offer.deadline'
-          ) | translate: { days: benefit.deadlineDays }
-        }}
-      </p>
-      <p>
-        {{
-          (benefit.durationDays === null
-            ? 'funding.offer.noDuration'
-            : 'funding.offer.duration'
-          ) | translate: { days: benefit.durationDays }
-        }}
-      </p>
+        @if ((benefit.minimumParticipants ?? 1) > 1) {
+          <p data-og7="offer-benefit-group-size">
+            {{
+              'funding.offer.minimumParticipants'
+                | translate: { count: benefit.minimumParticipants }
+            }}
+          </p>
+        }
+        <p>
+          {{ 'funding.offer.required' | translate }}
+          @for (
+            element of benefit.requiredElements;
+            track element;
+            let last = $last
+          ) {
+            {{ 'funding.offer.elements.' + element | translate
+            }}{{ last ? '.' : ', ' }}
+          }
+        </p>
+        <p>
+          {{
+            (benefit.deadlineDays === null
+              ? 'funding.offer.noDeadline'
+              : 'funding.offer.deadline'
+            ) | translate: { days: benefit.deadlineDays }
+          }}
+        </p>
+        <p>
+          {{
+            (benefit.durationDays === null
+              ? 'funding.offer.noDuration'
+              : 'funding.offer.duration'
+            ) | translate: { days: benefit.durationDays }
+          }}
+        </p>
+      </ng-template>
+      @if (compact()) {
+        <article
+          class="benefit-card"
+          data-og7="offer-benefit-card"
+          [attr.data-og7-id]="benefit.id"
+          [attr.aria-label]="
+            benefit.quantity +
+            ' × ' +
+            ('funding.offer.channels.' + benefit.channel | translate) +
+            ' — ' +
+            ('funding.offer.destination'
+              | translate: { target: benefit.target.toUpperCase() }) +
+            ' — ' +
+            (compactFormatKey(benefit) | translate) +
+            (benefitCategory(benefit)
+              ? ' — ' +
+                ('funding.offer.categories.' + benefitCategory(benefit)
+                  | translate)
+              : '')
+          "
+        >
+          <div class="benefit-card-header" data-og7="offer-benefit-header">
+            <span class="benefit-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                focusable="false"
+                aria-hidden="true"
+              >
+                @switch (benefit.channel) {
+                  @case ('website') {
+                    <circle cx="12" cy="12" r="9" />
+                    <ellipse cx="12" cy="12" rx="4" ry="9" />
+                    <path d="M3 12h18M5 6.5h14M5 17.5h14" />
+                  }
+                  @case ('facebook') {
+                    <path
+                      class="brand-mark"
+                      d="M14 21v-8h3l.5-4H14V7c0-1.1.4-2 2-2h2V1.5A22 22 0 0 0 15 1c-3 0-5 1.8-5 5v3H7v4h3v8z"
+                    />
+                  }
+                  @case ('linkedin') {
+                    <path
+                      class="brand-mark"
+                      d="M4 9h4v12H4zm6 0h4v1.6c.7-1.1 1.8-1.9 3.5-1.9 3 0 3.5 2 3.5 4.6V21h-4v-6.9c0-1.4 0-3.1-1.8-3.1S14 12.5 14 14V21h-4z"
+                    />
+                    <circle class="brand-mark" cx="6" cy="4.5" r="2.2" />
+                  }
+                }
+              </svg>
+            </span>
+            <span class="benefit-labels">
+              <span class="benefit-heading">
+                <strong>{{
+                  benefit.channel === 'website'
+                    ? benefit.target === 'openg7'
+                      ? 'OpenG7'
+                      : 'OpenG20'
+                    : benefit.channel === 'facebook'
+                      ? 'Facebook'
+                      : 'LinkedIn'
+                }}</strong>
+                @if (benefitCategory(benefit); as category) {
+                  <span
+                    class="benefit-category"
+                    data-og7="offer-benefit-category"
+                    [attr.data-og7-id]="category"
+                    >{{
+                      'funding.offer.categories.' + category | translate
+                    }}</span
+                  >
+                }
+              </span>
+              <span class="benefit-format">{{
+                compactFormatKey(benefit) | translate
+              }}</span>
+              <span class="benefit-quantity">{{ benefit.quantity }} ×</span>
+            </span>
+          </div>
+        </article>
+      } @else {
+        <ng-container [ngTemplateOutlet]="benefitTerms" />
+      }
     </li>
   }
 </ul>

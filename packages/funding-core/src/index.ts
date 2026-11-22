@@ -8,6 +8,11 @@ export type {
 export { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 
 export {
+  MINIMUM_PERSONAL_CONTRIBUTION_AMOUNT,
+  isValidPersonalContributionAmount
+} from './contribution-amounts.js';
+
+export {
   isValidSponsorshipAmount,
   resolveSponsorshipBenefits,
   resolveSponsorshipTierFromOffer,

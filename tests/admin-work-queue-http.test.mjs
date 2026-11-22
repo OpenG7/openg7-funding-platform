@@ -100,8 +100,9 @@ test(
         ['sponsorship_interest', 4.99, 400],
         ['sponsorship_interest', 5, 200],
         ['sponsorship_interest', 75.25, 200],
+        ['personal_support', 4.99, 400],
         ['personal_support', 50, 200],
-        ['personal_support', 75.25, 400]
+        ['personal_support', 75.25, 200]
       ]) {
         for (const prefix of ['', '/api']) {
           let offerAcceptance;

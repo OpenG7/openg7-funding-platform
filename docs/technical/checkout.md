@@ -1,5 +1,14 @@
 # Durable Checkout requests
 
+New personal-support requests accept exact CAD amounts from 5 CAD, including
+amounts outside the suggested buttons. Amounts must be numeric, finite and
+representable as safe integer minor units with at most two decimals. The API
+checks the minimum before preparing a new operation or calling Stripe; browser
+validation is advisory. An exact replay of an already accepted durable operation
+retains its original amount, including an older amount below the current minimum.
+Changing that payload remains an idempotency conflict. Personal contributions
+still confer no sponsorship benefits and require their existing consent.
+
 `POST /api/checkout-sessions` (also `/checkout-sessions`) requires an opaque
 `idempotencyKey` of 16–128 ASCII letters, digits, underscores or hyphens when
 Stripe Checkout is configured. Use a fresh UUID for a new contribution and keep

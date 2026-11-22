@@ -95,7 +95,6 @@ export interface PublicHttpCompositionContext
       | 'projectId'
       | 'isProduction'
       | 'businessSponsorshipEnabled'
-      | 'allowedContributionAmounts'
       | 'stripeApiHost'
       | 'navigableSimulatedCheckout'
       | 'isAllowedContributionType'
@@ -126,6 +125,7 @@ export interface PublicHttpCompositionContext
   readonly stripe: Stripe | null;
   readonly stripeWebhookSecret: ApiRuntimeConfig['stripeWebhookSecret'];
   readonly publicBaseUrl: ApiRuntimeConfig['publicBaseUrl'];
+  readonly allowedContributionAmounts: ApiRuntimeConfig['allowedContributionAmounts'];
   readonly sponsorMediaStorage: PublicSponsorMediaHttpDependencies['sponsorMediaStorage'] &
     SponsorshipFollowupMediaHttpDependencies['sponsorMediaStorage'];
   readonly readStripeTransparency:

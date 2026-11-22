@@ -10,7 +10,6 @@ import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 
-import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
 import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 // The root build emits workspaces under dist/, without package-local builds.
@@ -29,6 +28,8 @@ const workspaceHook = registerHooks({
 });
 const { FundingService } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/funding.service.js');
+const { FundingHomeController } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js');
 const { CheckoutAttempts } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js');
 const { coordinateCheckoutRecovery } =

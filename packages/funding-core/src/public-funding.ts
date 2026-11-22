@@ -62,8 +62,10 @@ export interface PublicBuildersResponse {
 
 export interface PublicFundingRuntimeConfig {
   readonly business_sponsorship_enabled: boolean;
-  /** Optional during rolling upgrades; amounts use the existing Checkout major-unit contract. */
+  /** Suggested buttons in CAD major units; legacy clients also use this as their allowlist. */
   readonly allowed_contribution_amounts?: readonly number[];
+  /** Optional during rolling upgrades; presence advertises flexible personal amounts in CAD major units. */
+  readonly personal_contribution_minimum_amount?: number;
   readonly last_updated_at: string;
 }
 

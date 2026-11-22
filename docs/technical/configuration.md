@@ -11,6 +11,7 @@ Set these variables for API and webhook processing:
 - `STRIPE_SECRET_KEY` — required for real checkout and Stripe-direct public statistics.
 - `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
+- `FUNDING_ALLOWED_AMOUNTS` — comma-separated personal contribution suggestions for the preset buttons, defaulting to `5,10,25,50`. Valid suggestions use at most two decimals and start at 5 CAD; this list does not restrict custom personal amounts. The public API announces the personal minimum separately.
 
 - `FUNDING_BUSINESS_SPONSORSHIP_ENABLED` - set to `true` only when the business sponsorship flow is ready to accept new sponsorship checkouts. Defaults to `false`.
 - `FUNDING_ADMIN_AUTH_MODE` - `oidc` is required in production for named accounts, MFA, API roles and revocable sessions. `token` administration is limited to development/test.

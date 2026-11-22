@@ -415,6 +415,7 @@ test('Public funding binds runtime configuration and the no-DB transparency read
   );
   assert.equal(configuration.status, 200);
   assert.equal(configuration.payload.business_sponsorship_enabled, false);
+  assert.equal(configuration.payload.personal_contribution_minimum_amount, 5);
   assert.deepEqual(
     configuration.payload.allowed_contribution_amounts,
     [10, 50]
