@@ -1350,7 +1350,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR='));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES=524288'));
-  assert.ok(envExample.includes('FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608'));
+  assert.ok(envExample.includes('FUNDING_SPONSOR_MEDIA_MAX_BYTES=3145728'));
   assert.ok(
     envExample.includes('FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=100')
   );

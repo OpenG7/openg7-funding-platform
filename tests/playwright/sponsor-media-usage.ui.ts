@@ -17,6 +17,7 @@ import {
 } from './support/sponsorship-followup.js';
 import {
   confirmAcceptanceMediaUsage,
+  openAcceptanceMediaActions,
   updateAcceptanceMediaUsage
 } from './support/acceptance-media-usage.js';
 import { createMediaWorkspaceFixture } from './media-review-workspace/fixture.js';
@@ -66,7 +67,8 @@ const asset = (): SponsorMediaAsset => ({
 });
 async function privateMedia(
   page: Page,
-  initialAssets: readonly SponsorMediaAsset[] = []
+  initialAssets: readonly SponsorMediaAsset[] = [],
+  maxUploadBytes = 1024
 ) {
   await mock(page);
   const state = {
@@ -105,7 +107,7 @@ async function privateMedia(
         assets: state.assets,
         preference: state.preference,
         limits: {
-          maxUploadBytes: 1024,
+          maxUploadBytes,
           maxSupportingImages: 3,
           acceptedMimeTypes: ['image/png']
         }
@@ -162,6 +164,302 @@ export function registerPrivateMediaUsageTests(): void {
       page.setViewportSize(
         english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
       );
+    test(`image usage enforces the 3 MiB limit for logo and photos without bypassing consent ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const maxUploadBytes = 3 * 1024 * 1024;
+      const state = await privateMedia(page, [], maxUploadBytes);
+      await visit(page, english);
+      const section = page.locator('[data-og7="followup-media-consent"]');
+      await expect(
+        section.getByRole('listitem').filter({
+          hasText: english
+            ? 'Maximum 3 MB per file'
+            : '3 Mo maximum par fichier'
+        })
+      ).toBeVisible();
+      for (const hook of ['media-upload-logo-card', 'media-upload-photos-card'])
+        await expect(section.locator(`[data-og7="${hook}"]`)).toContainText(
+          english ? '3 MB' : '3 Mo'
+        );
+
+      const oversizedPng = Buffer.alloc(maxUploadBytes + 1);
+      png.copy(oversizedPng);
+      for (const kind of ['logo', 'photos']) {
+        const filename = `oversized-${kind}.png`;
+        const input = section.locator(`[data-og7="followup-upload-${kind}"]`);
+        await expect(input).toBeEnabled();
+        await input.setInputFiles({
+          name: filename,
+          mimeType: 'image/png',
+          buffer: oversizedPng
+        });
+        const selection = section.locator(
+          '[data-og7="media-upload-selection"]'
+        );
+        const confirmation = selection.locator(
+          '[data-og7="media-usage-confirmation"]'
+        );
+        const send = selection.locator('[data-og7="media-upload-send"]');
+        await expect(selection).toContainText(filename);
+        await expect(confirmation).not.toBeChecked();
+        await expect(send).toBeDisabled();
+        expect(state.uploads).toEqual([]);
+        await confirmation.check();
+        await expect(confirmation).toBeChecked();
+        await expect(send).toBeEnabled();
+        await send.click();
+        const attempt = section
+          .locator('[data-og7="media-upload-attempt"]')
+          .filter({ hasText: filename });
+        await expect(attempt.getByRole('alert')).toContainText(
+          english
+            ? 'file exceeds the 3 MB limit.'
+            : 'fichier dépasse la limite de 3 Mo.'
+        );
+        await expect(attempt.getByRole('img')).toHaveCount(0);
+        await expect(selection).toHaveCount(0);
+        await expect(input).toBeEnabled();
+        expect(state.uploads).toEqual([]);
+        expect(state.commands).toEqual([]);
+        expect(state.assets).toEqual([]);
+      }
+      await expect(section.locator('[data-og7="media-gallery"]')).toHaveCount(
+        0
+      );
+      await expect(
+        section.locator('[data-og7="followup-photo-count"]')
+      ).toContainText('0 / 3');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+    test(`image usage compact upload cards keep the empty gallery honest and adapt to available space ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page);
+      await visit(page, english);
+      const section = page.locator('[data-og7="followup-media-consent"]');
+      const logo = section.locator('[data-og7="media-upload-logo-card"]');
+      const photos = section.locator('[data-og7="media-upload-photos-card"]');
+      const logoInput = logo.getByLabel(
+        english ? 'Add logo' : 'Ajouter le logo',
+        {
+          exact: true
+        }
+      );
+      const photoInput = photos.getByLabel(
+        english ? 'Add photos' : 'Ajouter des photos',
+        { exact: true }
+      );
+      await expect(logoInput).toBeEnabled();
+      await expect(photoInput).toBeEnabled();
+      await expect(logoInput).toHaveAttribute('accept', 'image/png');
+      await expect(photoInput).toHaveAttribute('multiple', '');
+      await expect(
+        section.locator('[data-og7="media-gallery-empty"]')
+      ).toBeVisible();
+      await expect(section.locator('[data-og7="media-gallery"]')).toHaveCount(
+        0
+      );
+      await expect(section.locator('[data-og7="followup-media"]')).toHaveCount(
+        0
+      );
+      await expect(section.getByRole('img')).toHaveCount(0);
+      await expect(
+        section.locator('[data-og7="followup-photo-count"]')
+      ).toContainText('0 / 3');
+
+      const logoBox = (await logo.boundingBox())!;
+      const photosBox = (await photos.boundingBox())!;
+      if (english) {
+        expect(Math.abs(logoBox.x - photosBox.x)).toBeLessThan(1);
+        expect(photosBox.y).toBeGreaterThan(logoBox.y + logoBox.height);
+      } else {
+        expect(Math.abs(logoBox.y - photosBox.y)).toBeLessThan(1);
+        expect(photosBox.x).toBeGreaterThan(logoBox.x + logoBox.width);
+      }
+      await section.screenshot({
+        path: test.info().outputPath('media-empty.png')
+      });
+      await logoInput.focus();
+      await expect(logoInput).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(photoInput).toBeFocused();
+      const correction = section.locator('[data-og7="media-correction"]');
+      const correctionInput = correction.getByRole('textbox');
+      const sendCorrection = correction.getByRole('button', {
+        name: english
+          ? 'Send this correction request'
+          : 'Transmettre cette demande de correction',
+        exact: true
+      });
+      await correctionInput.fill('Too short');
+      await expect(sendCorrection).toBeDisabled();
+      await correctionInput.fill('Please crop this synthetic image.');
+      await expect(sendCorrection).toBeEnabled();
+      expect(state.commands).toEqual([]);
+      expect(state.uploads).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="followup-media-consent"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+    });
+    test(`image usage compact gallery shows saved types and actual review states separately from the photo quota ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const logo: SponsorMediaAsset = {
+        ...asset(),
+        id: '10000000-0000-4000-8000-000000000410',
+        kind: 'logo',
+        reviewStatus: 'approved',
+        originalFilename: 'synthetic-logo.png',
+        altText: 'Synthetic organization logo'
+      };
+      const pendingPhoto = asset();
+      const approvedPhoto: SponsorMediaAsset = {
+        ...asset(),
+        id: '10000000-0000-4000-8000-000000000411',
+        reviewStatus: 'approved',
+        originalFilename: 'approved-synthetic.png'
+      };
+      const rejectedPhoto: SponsorMediaAsset = {
+        ...asset(),
+        id: '10000000-0000-4000-8000-000000000412',
+        reviewStatus: 'rejected',
+        originalFilename: 'rejected-synthetic.png'
+      };
+      const state = await privateMedia(page, [
+        logo,
+        pendingPhoto,
+        approvedPhoto,
+        rejectedPhoto
+      ]);
+      await visit(page, english);
+      const section = page.locator('[data-og7="followup-media-consent"]');
+      const gallery = section.locator('[data-og7="media-gallery"]');
+      const cards = gallery.locator('[data-og7="followup-media"]');
+      await expect(cards).toHaveCount(4);
+      await expect(gallery.getByRole('heading')).toContainText('4');
+      await expect(
+        section.locator('[data-og7="media-gallery-empty"]')
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-og7="followup-photo-count"]')
+      ).toContainText('3 / 3');
+      await expect(cards.nth(0)).toContainText('Logo');
+      await expect(cards.nth(0)).toContainText(
+        english ? 'Approved' : 'Approuvé'
+      );
+      await expect(cards.nth(1)).toContainText(
+        english ? 'Presentation photo' : 'Photo de présentation'
+      );
+      await expect(cards.nth(1)).toContainText(
+        english ? 'Under review' : 'En validation'
+      );
+      await expect(cards.nth(2)).toContainText(
+        english ? 'Approved' : 'Approuvé'
+      );
+      await expect(cards.nth(3)).toContainText(
+        english ? 'Needs replacement' : 'À remplacer'
+      );
+      await expect(
+        section.getByLabel(english ? 'Replace logo' : 'Remplacer le logo', {
+          exact: true
+        })
+      ).toBeDisabled();
+      await expect(
+        section.getByLabel(english ? 'Add photos' : 'Ajouter des photos', {
+          exact: true
+        })
+      ).toBeDisabled();
+      await expect(
+        cards.nth(0).getByRole('img', { name: logo.altText! })
+      ).toBeVisible();
+      const tiles = await cards.evaluateAll((elements) =>
+        elements.map((element) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          return { x, y, width, height };
+        })
+      );
+      const columns = english ? 2 : 4;
+      for (let index = 1; index < columns; index++) {
+        expect(Math.abs(tiles[index].y - tiles[0].y)).toBeLessThan(1);
+        expect(tiles[index].x).toBeGreaterThan(
+          tiles[index - 1].x + tiles[index - 1].width
+        );
+      }
+      if (english) {
+        expect(Math.abs(tiles[2].x - tiles[0].x)).toBeLessThan(1);
+        expect(tiles[2].y).toBeGreaterThan(tiles[0].y + tiles[0].height);
+        expect(Math.abs(tiles[3].y - tiles[2].y)).toBeLessThan(1);
+      }
+      await section.screenshot({
+        path: test.info().outputPath('media-gallery.png')
+      });
+      const details = cards.nth(1).locator('[data-og7="media-item-details"]');
+      await expect(details).toHaveJSProperty('open', false);
+      await details.locator(':scope > summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(details).toHaveJSProperty('open', true);
+      await expect(
+        details.locator('[data-og7="media-preference-propose"]')
+      ).toBeEnabled();
+      const gridBox = (await gallery
+        .locator('[data-og7="media-gallery-grid"]')
+        .boundingBox())!;
+      const expandedBox = (await cards.nth(1).boundingBox())!;
+      expect(Math.abs(expandedBox.x - gridBox.x)).toBeLessThan(1);
+      expect(Math.abs(expandedBox.width - gridBox.width)).toBeLessThan(1);
+      expect(
+        await section.evaluate((element) => {
+          const gallery = element.querySelector('[data-og7="media-gallery"]')!;
+          const description = element.querySelector(
+            '[data-og7="media-description"]'
+          )!;
+          const correction = element.querySelector(
+            '[data-og7="media-correction"]'
+          )!;
+          return (
+            !!(
+              gallery.compareDocumentPosition(description) &
+              Node.DOCUMENT_POSITION_FOLLOWING
+            ) &&
+            !!(
+              description.compareDocumentPosition(correction) &
+              Node.DOCUMENT_POSITION_FOLLOWING
+            )
+          );
+        })
+      ).toBe(true);
+      expect(state.commands).toEqual([]);
+      expect(state.uploads).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="followup-media-consent"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+    });
     test(`image usage shared consent link opens the media list after loading without granting rights ${suffix}`, async ({
       page
     }) => {
@@ -201,6 +499,10 @@ export function registerPrivateMediaUsageTests(): void {
       await expect(section).not.toBeFocused();
       releaseMedia();
       await expect(section).toBeFocused();
+      for (const actions of await section
+        .locator('[data-og7="media-item-details"]')
+        .all())
+        await expect(actions).toHaveJSProperty('open', true);
       const disclosures = section.locator('[data-og7="followup-media-rights"]');
       await expect(disclosures).toHaveCount(2);
       for (const disclosure of await disclosures.all()) {
@@ -302,6 +604,7 @@ export function registerPrivateMediaUsageTests(): void {
       const disclosure = page.locator(
         `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
       );
+      await openAcceptanceMediaActions(page);
       const editor = disclosure.locator('[data-og7="media-usage-editor"]');
       const summary = disclosure.locator(':scope > summary');
       await expect(disclosure).toHaveJSProperty('open', false);
@@ -349,6 +652,10 @@ export function registerPrivateMediaUsageTests(): void {
         english ? 'Add photos' : 'Ajouter des photos',
         { exact: true }
       );
+      const description = page
+        .locator('[data-og7="media-description"]')
+        .getByRole('textbox');
+      await description.fill('First synthetic accessible description');
       await expect(input).toBeEnabled();
       await input.setInputFiles({
         name: 'synthetic.png',
@@ -398,6 +705,9 @@ export function registerPrivateMediaUsageTests(): void {
       await confirmAcceptanceMediaUsage(page);
       await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
       expect(state.uploads).toHaveLength(1);
+      expect(state.uploads[0]).toMatch(
+        /name="altText"\r\n\r\nFirst synthetic accessible description/
+      );
       expect(state.uploads[0]).toContain(
         JSON.stringify({
           state: 'confirmed',
@@ -417,6 +727,7 @@ export function registerPrivateMediaUsageTests(): void {
       );
       expect(state.uploads[0]).toMatch(/name="requestId"[\s\S]*?[a-f0-9-]{36}/);
       await expect(selection).toHaveCount(0);
+      await description.fill('A different description for the next image');
       await input.setInputFiles({
         name: 'second.png',
         mimeType: 'image/png',
@@ -430,6 +741,9 @@ export function registerPrivateMediaUsageTests(): void {
       ).toBeDisabled();
       await page.locator('[data-og7="media-upload-cancel"]').click();
       await expect(selection).toHaveCount(0);
+      await expect(description).toHaveValue(
+        'A different description for the next image'
+      );
       expect(state.uploads).toHaveLength(1);
       expect(
         (await new AxeBuilder({ page }).include('.media-manager').analyze())
@@ -450,6 +764,7 @@ export function registerPrivateMediaUsageTests(): void {
       const disclosure = page.locator(
         `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
       );
+      await openAcceptanceMediaActions(page);
       await disclosure.locator(':scope > summary').click();
       const editor = disclosure.locator('[data-og7="media-usage-editor"]');
       await expect(
@@ -538,6 +853,7 @@ export function registerPrivateMediaUsageTests(): void {
       const state = await privateMedia(page, [asset()]);
       await visit(page, english);
       const withdraw = page.locator('[data-og7="media-usage-withdraw"]');
+      await openAcceptanceMediaActions(page);
       page.once('dialog', (dialog) => dialog.dismiss());
       await withdraw.click();
       expect(state.commands).toHaveLength(0);
@@ -572,6 +888,7 @@ export function registerPrivateMediaUsageTests(): void {
       await viewport(page);
       const state = await privateMedia(page, [asset()]);
       await visit(page, english);
+      await openAcceptanceMediaActions(page);
       await page.locator('[data-og7="media-preference-propose"]').click();
       await expect(page.locator('[data-og7="media-preference"]')).toContainText(
         english ? 'Request under review' : 'Demande en cours de revue'
@@ -598,6 +915,7 @@ export function registerPrivateMediaUsageTests(): void {
       await viewport(page);
       const state = await privateMedia(page, [asset()]);
       await visit(page, english);
+      await openAcceptanceMediaActions(page);
       state.conflict = true;
       page.once('dialog', (dialog) => dialog.accept());
       await page.locator('[data-og7="media-usage-withdraw"]').click();
@@ -611,6 +929,9 @@ export function registerPrivateMediaUsageTests(): void {
       );
       expect(state.commands).toHaveLength(1);
       expect(state.commands[0].expectedVersion).toBe('v1');
+      await expect(
+        page.locator('[data-og7="media-item-details"]')
+      ).toHaveJSProperty('open', true);
       page.once('dialog', (dialog) => dialog.accept());
       await page.locator('[data-og7="media-usage-withdraw"]').click();
       await expect(

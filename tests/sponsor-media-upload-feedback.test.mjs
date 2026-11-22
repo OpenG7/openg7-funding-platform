@@ -9,7 +9,7 @@ import {
 } from '../dist/apps/funding-web/src/app/features/funding/services/sponsor-media-upload-feedback.js';
 
 const limits = {
-  maxUploadBytes: 8 * 1024 * 1024,
+  maxUploadBytes: 3 * 1024 * 1024,
   maxSupportingImages: 3,
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
@@ -41,7 +41,7 @@ test('media validation returns actionable feedback for empty, oversized and unsu
       { size: limits.maxUploadBytes + 1, type: 'image/jpeg' },
       limits
     ),
-    { key: 'tooLarge', params: { size: 8 } }
+    { key: 'tooLarge', params: { size: 3 } }
   );
   assert.deepEqual(
     getSponsorMediaFileValidationFeedback(

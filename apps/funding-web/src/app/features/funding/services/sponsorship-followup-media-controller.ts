@@ -81,7 +81,7 @@ export class SponsorshipFollowupMediaController {
   );
   readonly previews = signal<Record<string, string>>({});
   readonly limits = signal<SponsorMediaLimits>({
-    maxUploadBytes: 8 * 1024 * 1024,
+    maxUploadBytes: 3 * 1024 * 1024,
     maxSupportingImages: 3,
     acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
   });

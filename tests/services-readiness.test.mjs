@@ -129,10 +129,15 @@ test('media storage validates the selected driver and its byte envelope without 
       { SPONSOR_MEDIA_STORAGE_DRIVER: 'invalid' },
       ['SPONSOR_MEDIA_STORAGE_DRIVER']
     ],
-    ['maximum bytes', { FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388608' }, []],
+    ['maximum bytes', { FUNDING_SPONSOR_MEDIA_MAX_BYTES: '3145728' }, []],
     [
       'above maximum',
-      { FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388609' },
+      { FUNDING_SPONSOR_MEDIA_MAX_BYTES: '3145729' },
+      ['FUNDING_SPONSOR_MEDIA_MAX_BYTES']
+    ],
+    [
+      'previous 8 MiB limit',
+      { FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388608' },
       ['FUNDING_SPONSOR_MEDIA_MAX_BYTES']
     ],
     [
@@ -154,6 +159,11 @@ test('media storage validates the selected driver and its byte envelope without 
     await t.test(name, () =>
       assert.deepEqual(blockingFields(evaluate(changes)), missing)
     );
+  const defaultLimit = evaluate({
+    FUNDING_SPONSOR_MEDIA_MAX_BYTES: undefined
+  }).find((check) => check.label === 'FUNDING_SPONSOR_MEDIA_MAX_BYTES');
+  assert.equal(defaultLimit.status, 'warn');
+  assert.equal(defaultLimit.detail, 'not set; defaults to 3145728');
 });
 
 test('disabled and mock social publication do not demand live provider credentials', async (t) => {

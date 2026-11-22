@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import {
   SPONSOR_MEDIA_USAGE_CHANNELS,
   SPONSOR_MEDIA_USAGE_TARGETS,
@@ -7,6 +7,17 @@ import {
 } from '@openg7/funding-core';
 
 import { expect } from './test.js';
+
+/** Saved media actions stay compact until the sponsor opens their disclosure. */
+export async function openAcceptanceMediaActions(
+  page: Page,
+  media: Locator = page.locator('[data-og7="followup-media"]').first()
+): Promise<void> {
+  const details = media.locator('[data-og7="media-item-details"]');
+  await expect(details).toBeVisible();
+  if (!(await details.evaluate((element: HTMLDetailsElement) => element.open)))
+    await details.locator(':scope > summary').click();
+}
 
 /** Upload consent accepts the public journey's existing initial website scope. */
 export async function confirmAcceptanceMediaUsage(page: Page): Promise<void> {
@@ -36,6 +47,7 @@ export async function updateAcceptanceMediaUsage(
     has: page.getByText(filename, { exact: true })
   });
   await expect(media).toBeVisible();
+  await openAcceptanceMediaActions(page, media);
   const disclosure = media.locator('[data-og7="followup-media-rights"]');
   if (
     !(await disclosure.evaluate((element: HTMLDetailsElement) => element.open))

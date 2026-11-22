@@ -1,5 +1,5 @@
 // Keep the upload envelope below the 9 MiB limits in Nginx and Traefik.
-export const SPONSOR_MEDIA_MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+export const SPONSOR_MEDIA_MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
 export const SPONSOR_MEDIA_MULTIPART_OVERHEAD_BYTES = 128 * 1024;
 
 export function loadSponsorMediaLimits(env: NodeJS.ProcessEnv) {

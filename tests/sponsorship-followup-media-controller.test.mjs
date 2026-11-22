@@ -32,7 +32,7 @@ const { SponsorshipFollowupMediaController } =
 workspaceHook.deregister();
 
 const limits = {
-  maxUploadBytes: 8 * 1024 * 1024,
+  maxUploadBytes: 3 * 1024 * 1024,
   maxSupportingImages: 3,
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };

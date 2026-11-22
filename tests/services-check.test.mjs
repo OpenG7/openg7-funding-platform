@@ -78,12 +78,15 @@ test('readiness rejects ambiguous environment names and protects standalone NODE
   assert.match(result.output, /production requires OIDC and verified MFA/);
 });
 
-test('media readiness rejects a size that exceeds the supported proxy envelope', (t) => {
-  const { status, output } = checkConfig(t, {
-    FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388609'
-  });
-  assert.notEqual(status, 0);
-  assert.match(output, /FUNDING_SPONSOR_MEDIA_MAX_BYTES/);
+test('media readiness rejects sizes above 3 MiB, including the previous 8 MiB limit', (t) => {
+  for (const value of ['3145729', '8388608']) {
+    const { status, output } = checkConfig(t, {
+      FUNDING_SPONSOR_MEDIA_MAX_BYTES: value
+    });
+    assert.notEqual(status, 0);
+    assert.match(output, /FUNDING_SPONSOR_MEDIA_MAX_BYTES/);
+    assert.match(output, /between 1 and 3145728 bytes/);
+  }
 });
 
 test('services readiness check reports placeholders without leaking values', () => {

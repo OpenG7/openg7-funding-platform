@@ -124,7 +124,7 @@ FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS=5
 SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
 FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
 FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
-FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608
+FUNDING_SPONSOR_MEDIA_MAX_BYTES=3145728
 FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3
 SPONSOR_MEDIA_REGION=bhs
 SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
@@ -634,8 +634,13 @@ Applied:
 - Nginx `client_max_body_size 256k`, sauf `9m` sur le seul endpoint de
   televersement des medias de commandite
 - Traefik limite ce meme endpoint a `9 MiB`; l'API conserve la limite
-  fonctionnelle configuree par `FUNDING_SPONSOR_MEDIA_MAX_BYTES` (`8 MiB` par
+  fonctionnelle configuree par `FUNDING_SPONSOR_MEDIA_MAX_BYTES` (`3 MiB`, soit
+  `3145728` octets, pour les logos et les photos, par
   defaut et plafond maximal; les valeurs invalides sont refusees au demarrage)
+- Avant redemarrage d'une installation existante, abaisser toute valeur
+  `FUNDING_SPONSOR_MEDIA_MAX_BYTES` superieure a `3145728`, notamment l'ancien
+  plafond `8388608`; les fichiers deja enregistres restent conserves. Les limites
+  Nginx et Traefik de 9 MiB restent inchangees.
 - API body limit
 - API in-process rate limits for checkout, sponsorship follow-up, and admin sponsorship routes
 - `FUNDING_TRUSTED_PROXY_HOPS` est un réglage privé serveur : absent, il vaut

@@ -111,7 +111,7 @@ test('runtime config preserves absent-setting defaults without requiring provide
     config.sponsorMediaStorageConfig.localStorageDir,
     path.resolve('var/sponsor-logos')
   );
-  assert.equal(config.sponsorMediaMaxBytes, 8 * 1024 * 1024);
+  assert.equal(config.sponsorMediaMaxBytes, 3 * 1024 * 1024);
   assert.equal(config.sponsorMediaMaxSupportingImages, 100);
   assert.equal(config.trustedProxyHops, 0);
   assert.deepEqual(config.allowedOrigins, []);
@@ -323,11 +323,16 @@ test('strict proxy and media loaders reject invalid startup values', () => {
       () => loadApiRuntimeConfig({ FUNDING_TRUSTED_PROXY_HOPS: value }),
       /FUNDING_TRUSTED_PROXY_HOPS must be an integer between 0 and 8/
     );
-  for (const value of ['', '0', '1.5', '8388609', 'invalid'])
+  for (const value of ['', '0', '1.5', '3145729', '8388608', 'invalid'])
     assert.throws(
       () => loadApiRuntimeConfig({ FUNDING_SPONSOR_MEDIA_MAX_BYTES: value }),
-      /FUNDING_SPONSOR_MEDIA_MAX_BYTES must be an integer between 1 and 8388608/
+      /FUNDING_SPONSOR_MEDIA_MAX_BYTES must be an integer between 1 and 3145728/
     );
+  assert.equal(
+    loadApiRuntimeConfig({ FUNDING_SPONSOR_MEDIA_MAX_BYTES: '3145728' })
+      .sponsorMediaMaxBytes,
+    3145728
+  );
   assert.throws(
     () =>
       loadApiRuntimeConfig({
