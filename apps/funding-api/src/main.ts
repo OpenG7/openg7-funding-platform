@@ -358,7 +358,11 @@ const contributionActivity = dbPool
   : null;
 const adminPilotage =
   dbPool && publicationAutomation
-    ? new AdminPilotageService(dbPool, publicationAutomation)
+    ? new AdminPilotageService(
+        dbPool,
+        publicationAutomation,
+        new SponsorMediaWorkspaceService(dbPool, sponsorMediaStorage)
+      )
     : null;
 const backgroundWorkers = createApiBackgroundWorkers({
   hasDatabase,

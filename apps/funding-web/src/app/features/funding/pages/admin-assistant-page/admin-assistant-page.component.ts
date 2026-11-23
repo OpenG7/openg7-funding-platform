@@ -46,7 +46,6 @@ import {
   assistantDossierReturn
 } from '../../models/admin-assistant-navigation.js';
 
-import { AdminAssistantQueueComponent } from './admin-assistant-queue.component.js';
 import { AdminAssistantQuestionComponent } from './admin-assistant-question.component.js';
 import { AdminAssistantSummaryComponent } from './admin-assistant-summary.component.js';
 import { AdminAssistantLabels } from './admin-assistant-labels.js';
@@ -56,7 +55,7 @@ import {
 } from './admin-assistant.contracts.js';
 import { AdminAssistantController } from './admin-assistant-controller.js';
 
-/** Routed overview of the existing queue; preparation never sends or publishes. */
+/** Questions, summaries and contextual preparation; interventions belong to Attention. */
 @Component({
   selector: 'openg7-admin-assistant-page',
   standalone: true,
@@ -65,7 +64,6 @@ import { AdminAssistantController } from './admin-assistant-controller.js';
     TranslatePipe,
     AdminAssistantContextComponent,
     AdminAssistantDraftComponent,
-    AdminAssistantQueueComponent,
     AdminAssistantQuestionComponent,
     AdminAssistantSummaryComponent,
     AdminDrawerComponent,
@@ -203,9 +201,12 @@ export class AdminAssistantPageComponent {
               '[data-og7="assistant-items"] > li'
             )
           ).find((element) => element.dataset['og7Id'] === id);
-          row
-            ?.querySelector<HTMLButtonElement>('button')
-            ?.focus({ preventScroll: !!this.pendingScroll });
+          const target =
+            row?.querySelector<HTMLButtonElement>('button') ??
+            this.document.querySelector<HTMLAnchorElement>(
+              '[data-og7="assistant-full-queue"]'
+            );
+          target?.focus({ preventScroll: !!this.pendingScroll });
           this.pendingFocus = null;
         }
         if (this.pendingScroll) {
@@ -237,7 +238,7 @@ export class AdminAssistantPageComponent {
           emailTemplate: params.get('emailTemplate') || undefined,
           emailError: params.get('emailError') || undefined
         };
-        this.controller.setOverview(query, params.get('selected'));
+        this.controller.setOverview(query, params.get('selected'), false);
       });
   }
 

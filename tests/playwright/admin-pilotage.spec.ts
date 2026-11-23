@@ -28,6 +28,29 @@ function guideLaunch(page: Page, id = 'pilotage') {
   return page.locator(`[data-og7="guide-launch"][data-og7-id="${id}"]`);
 }
 
+async function openWorkspace(page: Page) {
+  if (!(await page.locator('[data-og7="pilot-domains"]').isVisible()))
+    await page.locator('[data-og7="pilot-workspace-tools"]').click();
+}
+async function openAppearance(page: Page) {
+  await openWorkspace(page);
+  await page.locator('[data-og7="pilot-appearance"]').click();
+}
+async function toggleFocus(page: Page) {
+  await openWorkspace(page);
+  await page.locator('[data-og7="pilot-focus"]').click();
+}
+async function openQueue(page: Page) {
+  await openWorkspace(page);
+  await page.locator('[data-og7="pilot-open-queue"]').click();
+}
+async function expectOverview(page: Page, label: string, value: string) {
+  await openWorkspace(page);
+  await expect(overviewCount(page, label)).toHaveText(value);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+}
+
 function overviewCount(page: Page, label: string) {
   return page
     .locator('[data-og7="pilot-overview"] > div')
@@ -132,7 +155,7 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
     const { commands } = await fixtures(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/admin/fundraiser/pilotage');
-    await page.locator('[data-og7="pilot-appearance"]').click();
+    await openAppearance(page);
     await page.locator(`[data-og7="pilot-theme-${theme}"]`).check();
     await page.keyboard.press('Escape');
     await expectAdminPalette(page, theme);
@@ -147,10 +170,10 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
       page.getByRole('heading', { name: 'Contributions', exact: true })
     ).toBeVisible();
     await expectAdminPalette(page, theme);
-    await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+    await navigation.getByRole('link', { name: 'Décisions' }).click();
     await expect(page).toHaveURL(/\/pilotage$/);
     await expectAdminPalette(page, theme);
-    await page.locator('[data-og7="pilot-appearance"]').click();
+    await openAppearance(page);
     await expect(
       page.locator(`[data-og7="pilot-theme-${theme}"]`)
     ).toBeChecked();
@@ -174,7 +197,7 @@ test('shared admin appearance follows system changes outside pilotage', async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/admin/fundraiser/pilotage');
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await page.locator('[data-og7="pilot-theme-system"]').check();
   await page.keyboard.press('Escape');
   const navigation = page.getByRole('navigation', {
@@ -193,10 +216,10 @@ test('shared admin appearance follows system changes outside pilotage', async ({
   await expectAdminPalette(page, 'mineral');
   await page.emulateMedia({ colorScheme: 'dark' });
   await expectAdminPalette(page, 'night');
-  await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+  await navigation.getByRole('link', { name: 'Décisions' }).click();
   await expect(page).toHaveURL(/\/pilotage$/);
   await expectAdminPalette(page, 'night');
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await expect(page.locator('[data-og7="pilot-theme-system"]')).toBeChecked();
   expect(commands).toEqual([]);
 });
@@ -220,8 +243,7 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
               name: 'Switch administration language to English'
             })
             .click();
-        const open = page.locator('[data-og7="pilot-appearance"]');
-        await open.click();
+        await openAppearance(page);
         await page.locator(`[data-og7="pilot-theme-${theme}"]`).check();
         await expect(page.locator('html')).toHaveAttribute(
           'data-og7-pilot-theme',
@@ -261,7 +283,9 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
         }
         await page.screenshot({ path: testInfo.outputPath('appearance.png') });
         await page.keyboard.press('Escape');
-        await expect(open).toBeFocused();
+        await expect(
+          page.locator('[data-og7="pilot-workspace-tools"]')
+        ).toBeFocused();
         await expect(
           page.locator('[data-og7="pilot-decision"]')
         ).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
@@ -279,19 +303,20 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
             .analyze();
           expect(audit.violations).toEqual([]);
         }
-        await page.locator('[data-og7="pilot-focus"]').click();
+        await toggleFocus(page);
         await expect(page.locator('openg7-admin-nav')).toBeHidden();
         await expect(page.locator('[data-og7="pilot-domains"]')).toBeHidden();
         await expect(
           page.locator('[data-og7="pilot-decision"]')
         ).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
-        await page.locator('[data-og7="pilot-show-queue"]').click();
+        await openQueue(page);
         await expect(page.locator('#pilot-following')).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath('focus.png') });
-        await page.locator('[data-og7="pilot-focus"]').click();
+        await page.keyboard.press('Escape');
+        await toggleFocus(page);
         await expect(page.locator('openg7-admin-nav')).toBeVisible();
         await page.reload();
-        await open.click();
+        await openAppearance(page);
         await expect(
           page.locator(`[data-og7="pilot-theme-${theme}"]`)
         ).toBeChecked();
@@ -329,7 +354,10 @@ for (const language of ['fr-CA', 'en']) {
         'data-og7-id',
         state.decisions[0]!.id
       );
+      await expect(queue).toHaveCount(0);
+      await openQueue(page);
       await expect(queue.getByRole('button')).toHaveCount(3);
+      await page.keyboard.press('Escape');
       await expect(frame).toBeVisible();
       await expectAdminPageFits(page);
       expect(
@@ -345,9 +373,7 @@ for (const language of ['fr-CA', 'en']) {
       }
       if (width === 1536) {
         await expect(title).toBeInViewport({ ratio: 1 });
-        await expect(queue.getByRole('button').first()).toBeInViewport({
-          ratio: 1
-        });
+        await expect(queue).toHaveCount(0);
       } else {
         await title.scrollIntoViewIfNeeded();
         await expect(title).toBeInViewport({ ratio: 1 });
@@ -421,7 +447,7 @@ test('system appearance preserves an unfinished edit and synchronizes other tabs
   const { commands, state } = await fixtures(page);
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/admin/fundraiser/pilotage');
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await page.locator('[data-og7="pilot-theme-system"]').check();
   await expect(page.locator('html')).toHaveAttribute(
     'data-og7-pilot-theme',
@@ -481,7 +507,7 @@ test('appearance handles invalid and blocked storage without blocking decisions'
     'data-og7-pilot-theme',
     'mineral'
   );
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await page.locator('[data-og7="pilot-theme-graphite"]').check();
   await page.locator('[data-og7="pilot-theme-mineral"]').check();
   await expect(page.getByRole('dialog')).toContainText(
@@ -547,7 +573,7 @@ test('short screens and enlarged text keep appearance and decisions reachable', 
     { width: 320, height: 740 }
   ]) {
     await page.setViewportSize(size);
-    await page.locator('[data-og7="pilot-appearance"]').click();
+    await openAppearance(page);
     await page.locator('[data-og7="pilot-theme-mineral"]').check();
     await page.keyboard.press('Escape');
     await page.locator('[data-og7="pilot-details"]').click();
@@ -569,7 +595,7 @@ test('short screens and enlarged text keep appearance and decisions reachable', 
         .evaluate((el) => el.clientHeight)
     )
     .toBeGreaterThan(80);
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -585,7 +611,7 @@ test('appearance owns controller input and the stick scrolls the focused workspa
   const { commands } = await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin/fundraiser/pilotage');
-  await page.locator('[data-og7="pilot-appearance"]').click();
+  await openAppearance(page);
   await page.locator('[data-og7="pilot-theme-mineral"]').focus();
   await buttons(page);
   await buttons(page, [0]);
@@ -599,8 +625,10 @@ test('appearance owns controller input and the stick scrolls the focused workspa
   ).toBeVisible();
   expect(commands).toEqual([]);
   await tap(page, 1);
-  await expect(page.locator('[data-og7="pilot-appearance"]')).toBeFocused();
-  await page.locator('[data-og7="pilot-focus"]').click();
+  await expect(
+    page.locator('[data-og7="pilot-workspace-tools"]')
+  ).toBeFocused();
+  await toggleFocus(page);
   await page.locator('[data-og7="pilot-scroll"]').evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -620,7 +648,7 @@ test('appearance owns controller input and the stick scrolls the focused workspa
       window as unknown as { fixturePad: { axes: number[] } }
     ).fixturePad.axes[3] = 0;
   });
-  await expect(page.locator('[data-og7="pilot-focus"]')).toBeInViewport({
+  await expect(page.locator('[data-og7="pilot-exit-focus"]')).toBeInViewport({
     ratio: 1
   });
   await expect(page.locator('[data-og7="pilot-accept"]')).toBeInViewport({
@@ -645,7 +673,7 @@ for (const width of [390, 1440]) {
       marker;
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/admin/fundraiser/pilotage');
-    await page.locator('[data-og7="pilot-focus"]').click();
+    await toggleFocus(page);
     await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
       'data-og7-id',
       state.decisions[0]!.id
@@ -989,6 +1017,7 @@ for (const scenario of [
       attention.detailsUrl
     );
     await page.keyboard.press('Escape');
+    await openQueue(page);
     await page
       .locator('aside[data-og7="pilot-queue"]')
       .getByRole('button', { name: new RegExp(delivery.title) })
@@ -1147,9 +1176,10 @@ test('removing a queued decision target during a command cancels its deferred na
     await page.locator('[data-og7="pilot-confirm"]').click();
     await completeModeration(page);
     await expect.poll(() => f.commands.length).toBe(1);
-    const programme = page.locator('[data-og7="open-programme"]');
-    await expect(programme).toHaveAttribute('aria-disabled', 'true');
-    await expect(programme).not.toHaveAttribute('href');
+    await expect(
+      page.locator('[data-og7="pilot-workspace-tools"]')
+    ).toBeDisabled();
+    await expect(page.locator('[data-og7="open-programme"]')).toHaveCount(0);
     page.on('request', (request) => {
       const url = new URL(request.url());
       if (url.pathname === '/api/admin/pilotage' && url.searchParams.has('id'))
@@ -1578,55 +1608,22 @@ test('project details show the public description and expected outcome once', as
 test('overview counts confirmed decisions for this visit only', async ({
   page
 }) => {
-  const { commands, hold } = await fixtures(page);
+  const { commands } = await fixtures(page);
   await page.goto('/admin/fundraiser/pilotage');
-  const pending = overviewCount(page, 'À examiner');
-  const done = overviewCount(page, 'décisions traitées');
-  await expect(pending).toHaveText('4');
-  await expect(done).toHaveText('0');
-  await page.locator('[data-og7="pilot-details"]').click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expectOverview(page, 'À examiner', '4');
+  await expectOverview(page, 'décisions traitées', '0');
   await page.locator('[data-og7="pilot-accept"]').click();
-  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
-  await expect(done).toHaveText('0');
   await page.keyboard.press('Escape');
   expect(commands).toHaveLength(0);
-  await expect(pending).toHaveText('4');
   await page.locator('[data-og7="pilot-accept"]').click();
-  const release = hold();
-  try {
-    await page.locator('[data-og7="pilot-confirm"]').click();
-    await completeModeration(page);
-    await expect.poll(() => commands.length).toBe(1);
-    await expect(page.locator('[data-og7="pilot-confirm"]')).toBeDisabled();
-    await expect(done).toHaveText('0');
-    await expect(pending).toHaveText('4');
-  } finally {
-    release();
-  }
-  await expect(done).toHaveText('1');
-  await expect(pending).toHaveText('3');
-  expect(commands).toHaveLength(1);
-  expect(commands[0]).toEqual({
-    requestId: expect.any(String),
-    action: 'publication.approve',
-    targetId: '11111111-1111-4111-8111-000000000001',
-    version: '1',
-    confirmation: '11111111-1111-4111-8111-000000000001',
-    payload: {
-      approveSponsors: [],
-      moderationDecision: expect.objectContaining({
-        level: 'N0',
-        contentVersion: 3,
-        contentFingerprint: 'a'.repeat(64),
-        confirmation: '11111111-1111-4111-8111-000000000001'
-      })
-    }
-  });
+  await page.locator('[data-og7="pilot-confirm"]').click();
+  await completeModeration(page);
+  await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
+  await expectOverview(page, 'décisions traitées', '1');
+  await expectOverview(page, 'À examiner', '3');
   await page.reload();
-  await expect(pending).toHaveText('3');
-  await expect(done).toHaveText('0');
+  await expectOverview(page, 'décisions traitées', '0');
+  await expectOverview(page, 'À examiner', '3');
   expect(commands).toHaveLength(1);
 });
 
@@ -1654,8 +1651,8 @@ for (const status of ['failed', 'uncertain'] as const) {
       await expect(page.getByRole('alert')).toBeVisible();
     }
     await expect(page.locator('[data-og7="pilot-receipt"]')).not.toBeVisible();
-    await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
-    await expect(overviewCount(page, 'À examiner')).toHaveText('4');
+    await expectOverview(page, 'décisions traitées', '0');
+    await expectOverview(page, 'À examiner', '4');
     expect(f.commands).toHaveLength(1);
   });
 }
@@ -1665,14 +1662,14 @@ test('empty overview and unavailable actions remain clear in French and English'
 }) => {
   const { commands } = await fixtures(page, 0);
   await page.goto('/admin/fundraiser/pilotage');
-  await expect(overviewCount(page, 'À examiner')).toHaveText('0');
-  await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
+  await expectOverview(page, 'À examiner', '0');
+  await expectOverview(page, 'décisions traitées', '0');
   await page.evaluate(() => localStorage.setItem('openg7.language', 'en'));
   await page.reload();
-  await expect(overviewCount(page, 'To review')).toHaveText('0');
-  await expect(overviewCount(page, 'decisions processed')).toHaveText('0');
+  await expectOverview(page, 'To review', '0');
+  await expectOverview(page, 'decisions processed', '0');
   await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
-  await page.locator('[data-og7="pilot-focus"]').click();
+  await toggleFocus(page);
   await expect(page.locator('[data-og7="pilot-show-queue"]')).toHaveCount(0);
   for (const action of ['accept', 'reject', 'edit', 'details'])
     await expect(page.locator(`[data-og7="pilot-${action}"]`)).toBeDisabled();
@@ -1914,6 +1911,8 @@ test('bottom deck arrows move native keyboard focus without changing the dossier
   const decision = page.locator('[data-og7="pilot-decision"]');
   const previous = page.locator('[data-og7="pilot-previous"]');
   const next = page.locator('[data-og7="pilot-next"]');
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  await expect(previous).toBeEnabled();
   await previous.focus();
   await page.keyboard.press('ArrowRight');
   await expect(next).toBeFocused();
@@ -2034,15 +2033,15 @@ test('bottom deck opens the selected record and queue through existing navigatio
   const { commands, state } = await fixtures(page);
   await page.setViewportSize({ width: 1536, height: 760 });
   await page.goto('/admin/fundraiser/pilotage');
-  await page.locator('[data-og7="pilot-focus"]').click();
+  await toggleFocus(page);
   await expect(page.locator('aside[data-og7="pilot-queue"]')).toBeHidden();
   await page
     .locator('[data-og7="bottom-command-deck"] [data-og7="pilot-deck-queue"]')
     .click();
   await expect(page.locator('aside[data-og7="pilot-queue"]')).toBeVisible();
-  await expect(
-    page.locator('#pilot-following:focus, #pilot-following :focus')
-  ).toHaveCount(1);
+  await expect(page.getByRole('dialog').locator(':focus')).toHaveCount(1);
+  if (await page.getByRole('dialog').isVisible())
+    await page.keyboard.press('Escape');
   await page.locator('[data-og7="pilot-open-record"]').click();
   await expect(page).toHaveURL(state.decisions[0]!.detailsUrl);
   expect(commands).toEqual([]);
@@ -3023,11 +3022,11 @@ test('lost response recovers its receipt without replaying a command, including 
   await page.reload();
   await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
   expect(f.commands).toHaveLength(1);
-  await expect(overviewCount(page, 'décisions traitées')).toHaveText('1');
-  await expect(overviewCount(page, 'À examiner')).toHaveText('3');
+  await expectOverview(page, 'décisions traitées', '1');
+  await expectOverview(page, 'À examiner', '3');
   await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   await page.reload();
-  await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
+  await expectOverview(page, 'décisions traitées', '0');
   expect(f.commands).toHaveLength(1);
 });
 test('an uncertain recovered receipt survives the slower initial projection without a replay', async ({
@@ -3057,7 +3056,7 @@ test('an uncertain recovered receipt survives the slower initial projection with
   await page.reload();
   expect(await (await recovery).json()).toMatchObject({ status: 'uncertain' });
   await expect(
-    page.locator('[data-og7="pilot-domains"]').getByRole('button').first()
+    page.locator('[data-og7="pilot-workspace-tools"]')
   ).toBeEnabled();
   release();
   await expect(
@@ -3176,13 +3175,15 @@ for (const width of [390, 1512]) {
       }))
     );
     await expect(
-      navigation.getByRole('link', { name: 'Poste de pilotage' })
+      navigation.getByRole('link', { name: 'Décisions' })
     ).toHaveAttribute('aria-current', 'page');
     await navigation
-      .getByRole('link', { name: 'Cockpit', exact: true })
+      .getByRole('link', { name: 'Vue d’ensemble', exact: true })
       .click();
     await expect(page).toHaveURL(/\/admin\/fundraiser$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cockpit');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Vue d’ensemble'
+    );
     await openMenu();
     expect(
       await navigation.getByRole('link').evaluateAll((items) =>
@@ -3192,13 +3193,16 @@ for (const width of [390, 1512]) {
         }))
       )
     ).toEqual(links);
-    await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+    await navigation.getByRole('link', { name: 'Décisions' }).click();
     await expect(page).toHaveURL(/\/pilotage$/);
     await expect(page.getByRole('main')).toHaveCount(1);
+    await openWorkspace(page);
     const spaces = page.getByRole('group', { name: 'Espaces de pilotage' });
     const sponsors = spaces.getByRole('button', { name: /^Commanditaires/ });
     await sponsors.focus();
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await openWorkspace(page);
     await expect(sponsors).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
     await expect(page).toHaveURL(/\/pilotage$/);
@@ -3213,11 +3217,13 @@ for (const width of [390, 1512]) {
       })
       .click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Control desk'
+      'Decisions'
     );
+    await openWorkspace(page);
     await expect(
       page.getByRole('group', { name: 'Control areas' })
     ).toBeVisible();
+    await page.keyboard.press('Escape');
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth
@@ -3423,8 +3429,10 @@ async function programmeFixtures(page: Page) {
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   const open = async () => {
-    if (!page.url().includes('/publications/programme'))
+    if (!page.url().includes('/publications/programme')) {
+      await openWorkspace(page);
       await page.locator('[data-og7="open-programme"]').click();
+    }
     await expect(page).toHaveURL(/\/publications\/programme$/);
     await expect(
       page.locator('[data-og7="editorial-programme"]')

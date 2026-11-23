@@ -12,16 +12,21 @@ import { prepareLocalIdentity } from './lib/local-identity.mjs';
 import { prepareLocalInitialUser } from './lib/keycloak-initial-user.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const help = `Usage: yarn docker:recreate [--dry-run] [--help]
+const help = `Usage: yarn docker:recreate [--build] [--dry-run] [--help]
 
 Recree Web/API avec la configuration .env/shell et les overlays actifs.
 Conserve les profils Compose existants, les images et les volumes.
+--build reconstruit les images Web/API avant recreation (yarn docker:rebuild).
 Avec .env, --dry-run exige Compose, sans contacter le daemon Docker.
 `;
 
 try {
   const options = process.argv.slice(2);
-  if (options.some((option) => !['--help', '-h', '--dry-run'].includes(option)))
+  if (
+    options.some(
+      (option) => !['--help', '-h', '--dry-run', '--build'].includes(option)
+    )
+  )
     throw new Error('Option inconnue. Consulter yarn docker:recreate --help.');
   if (options.includes('--help') || options.includes('-h')) console.log(help);
   else {
@@ -44,6 +49,7 @@ try {
         ...compose,
         'up',
         '-d',
+        ...(options.includes('--build') ? ['--build'] : []),
         '--force-recreate',
         ...(configurationEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true'
           ? ['--no-deps']

@@ -7,8 +7,6 @@ import type {
 
 import { expect, test } from './support/test.js';
 import {
-  blockAdminReviewWrites,
-  captureAdminDesign,
   expectAdminPageFits,
   prepareAdminDesignReview
 } from './support/admin-design-review.js';
@@ -305,586 +303,59 @@ async function fixtures(page: Page) {
   return { options, calls };
 }
 
-for (const language of ['fr-CA', 'en'] as const)
+for (const language of ['fr-CA', 'en'] as const) {
   for (const width of [390, 1536]) {
-    test(`Assistant composition keeps its queue and optional question accessible in ${language} at ${width}px`, async ({
+    test(`Assistant focuses on preparation in ${language} at ${width}px`, async ({
       page
-    }, testInfo) => {
+    }) => {
       await prepareAdminDesignReview(page);
-      const { options } = await fixtures(page);
-      options.mode = 'mock';
-      const writes = await blockAdminReviewWrites(page);
-      await page.addInitScript((locale) => {
-        localStorage.setItem('openg7.language', locale);
-      }, language);
-      await page.setViewportSize({
-        width,
-        height: width === 1536 ? 864 : 1000
-      });
-      await page.goto(base);
-      const queue = page.locator('[data-og7="assistant-items"]');
-      const categories = page.locator('[data-og7="assistant-categories"]');
-      const emailCategory = categories.locator(
-        '[data-og7-id="email_delivery_failed"]'
+      const { calls } = await fixtures(page);
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
       );
-      await expect(queue.locator(':scope > li')).toHaveCount(15);
-      await expect(
-        page.locator('[data-og7="assistant-recommendations"] > li')
-      ).toHaveCount(3);
-      const dueDate = new Intl.DateTimeFormat(language, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: 'America/Toronto'
-      }).format(new Date(publication.dueAt!));
-      await expect(queue).toContainText(dueDate);
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(base);
+      const link = page.locator('[data-og7="assistant-full-queue"]');
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', '/admin/fundraiser/attention');
+      await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
       await expect(
         page.locator('[data-og7="assistant-recommendations"]')
-      ).toContainText(dueDate);
-      await captureAdminDesign(page, testInfo, `assistant-${width}`);
-      if (width === 1536) {
-        await expect(emailCategory).toBeInViewport({ ratio: 1 });
-        await expect(queue.locator(':scope > li').first()).toBeInViewport({
-          ratio: 1
-        });
-      }
-      await emailCategory.focus();
-      await page.keyboard.press('Enter');
-      await expect(emailCategory).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-        '127'
-      );
-      const examine = queue.getByRole('button').first();
-      await examine.focus();
-      await page.keyboard.press('Enter');
-      await expect(page.getByRole('dialog')).toContainText(
-        emails[0]!.emailQueueId!
-      );
-      await page.keyboard.press('Escape');
-      await expect(examine).toBeFocused();
-      if (language === 'en') {
-        await page.evaluate(() => {
-          document.documentElement.style.fontSize = '200%';
-        });
-        await expectAdminPageFits(page);
-        const question = page.locator('[data-og7="assistant-question"]');
-        await question.locator('summary').click();
-        await expect(question.getByRole('textbox')).toBeVisible();
-        await question
-          .getByRole('textbox')
-          .fill('A synthetic question without submission');
-        await expectAdminPageFits(page);
-      }
-      expect(writes).toEqual([]);
-    });
-  }
-
-const overviewPalettes = {
-  mineral: {
-    panel: 'rgb(255, 255, 255)',
-    selected: 'rgb(237, 243, 250)',
-    text: 'rgb(23, 43, 80)'
-  },
-  night: {
-    panel: 'rgb(20, 35, 56)',
-    selected: 'rgb(36, 61, 83)',
-    text: 'rgb(241, 245, 252)'
-  },
-  graphite: {
-    panel: 'rgb(37, 41, 47)',
-    selected: 'rgb(56, 67, 79)',
-    text: 'rgb(243, 244, 246)'
-  }
-} as const;
-
-for (const theme of ['mineral', 'night', 'graphite'] as const)
-  for (const { language, width } of [
-    { language: 'fr-CA', width: 390 },
-    { language: 'en', width: 1280 }
-  ]) {
-    test(`Assistant queue and optional panels remain readable with ${theme} in ${language} at ${width}px`, async ({
-      page
-    }) => {
-      const { options, calls } = await fixtures(page);
-      options.mode = 'mock';
-      await page.addInitScript(
-        ({ language, theme }) => {
-          localStorage.setItem('openg7.language', language);
-          localStorage.setItem(
-            'openg7.pilotage.appearance.v1',
-            JSON.stringify({ theme, system: false })
-          );
-        },
-        { language, theme }
-      );
-      await page.setViewportSize({ width, height: 950 });
-      await page.goto(base);
-      const palette = overviewPalettes[theme];
-      const items = page.locator('[data-og7="assistant-items"]');
-      await expect(items.locator(':scope > li')).toHaveCount(15);
-      await expect(items.locator('..')).toHaveCSS(
-        'background-color',
-        palette.panel
-      );
-      const categories = page.locator('[data-og7="assistant-categories"]');
-      await expect(categories).toHaveCSS(
-        'flex-wrap',
-        width <= 640 ? 'nowrap' : 'wrap'
-      );
-      const category = categories.locator(
-        '[data-og7-id="email_delivery_failed"]'
-      );
-      await category.focus();
-      await page.keyboard.press('Enter');
-      await expect(category).toHaveAttribute('aria-pressed', 'true');
-      await expect(category).toHaveCSS('background-color', palette.selected);
-      await expect(category).toHaveCSS('color', palette.text);
-      const groups = page.locator('openg7-admin-assistant-filters details');
-      await expect(groups).toHaveAttribute('open', '');
-      await expect(groups.getByRole('button').first()).toHaveCSS(
-        'background-color',
-        palette.panel
-      );
-
-      const question = page.locator('[data-og7="assistant-question"]');
-      await question.locator('summary').click();
-      const input = question.getByRole('textbox');
-      await expect(input).toBeVisible();
-      await expect(input).toHaveCSS('background-color', palette.panel);
-      await expect(input).toHaveCSS('color', palette.text);
-      await input.fill('Question synthétique sans soumission');
-      await page.locator('[data-og7="assistant-summary"] summary').click();
-      const facts = page.locator('[data-og7="assistant-summary"] dl');
-      await expect(facts).toContainText('50 CAD');
-      await expect(facts.getByText('50 CAD', { exact: true })).toBeVisible();
-
-      const examine = items.getByRole('button').first();
-      await examine.focus();
-      await page.keyboard.press('Enter');
-      await expect(page.getByRole('dialog')).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(examine).toBeFocused();
-      expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="assistant-question"]')
+      ).toBeVisible();
+      await expect(
+        page.locator('[data-og7="assistant-summary"]')
+      ).toBeVisible();
+      await expectAdminPageFits(page);
       expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1
+        calls.filter(
+          (call) =>
+            call.path === '/api/admin/attention' &&
+            new URLSearchParams(call.search).get('pageSize') !== '1'
         )
-      ).toBe(true);
-    });
-  }
-
-for (const language of ['fr-CA', 'en'] as const)
-  for (const phase of ['review', 'waiting'] as const)
-    test(`Assistant preserves the ${phase} media filter and dossier destination in ${language}`, async ({
-      page
-    }) => {
-      const { calls } = await fixtures(page);
-      const media: AdminAttentionItem = {
-        ...sponsorship,
-        id: 'sponsorship_media_review:' + sponsorshipId,
-        type: 'sponsorship_media_review',
-        severity: phase === 'review' ? 'today' : 'informational',
-        adminUrl:
-          '/admin/fundraiser/sponsors?sponsorshipId=' +
-          sponsorshipId +
-          '&tab=media',
-        facts: {
-          reference: 'DEMO-301',
-          phase,
-          reviewCount: phase === 'review' ? 1 : 0,
-          authorizationRequiredCount: phase === 'waiting' ? 1 : 0,
-          missingAltCount: phase === 'review' ? 1 : 0,
-          changedAt: at,
-          daysWaiting: 0,
-          tab: 'media'
-        },
-        suggestedActions: []
-      };
-      const reads: URL[] = [];
-      await page.route('**/api/admin/attention?**', async (route) => {
-        const url = new URL(route.request().url());
-        reads.push(url);
-        await route.fulfill({
-          json: {
-            ...response(url, [media]),
-            typeCounts: { sponsorship_media_review: 1 },
-            overview: {
-              recommendations: phase === 'review' ? [media] : [],
-              emailGroups: []
-            }
-          }
-        });
-      });
-      await page.addInitScript((locale) => {
-        localStorage.setItem('openg7.language', locale);
-      }, language);
-      await page.goto(base + '?type=sponsorship_media_review');
-      const category = page.locator(
-        '[data-og7="assistant-categories"] [data-og7-id="sponsorship_media_review"]'
-      );
-      await expect(category).toHaveAttribute('aria-pressed', 'true');
-      await expect(category).toContainText(
-        language === 'fr-CA' ? 'Revue des médias' : 'Media review'
-      );
-      expect(reads[0]?.searchParams.get('type')).toBe(
-        'sponsorship_media_review'
-      );
-      const queue = page.locator('[data-og7="assistant-items"]');
-      await expect(queue.locator(':scope > li')).toHaveCount(1);
-      await queue.getByRole('button').click();
-      const dialog = page.getByRole('dialog');
-      await expect(dialog).toBeVisible();
-      await expect(dialog).not.toContainText('admin.attention.');
-      if (phase === 'waiting') {
-        await expect(dialog).toContainText(
-          language === 'fr-CA'
-            ? 'L’autorisation d’utilisation de ces médias est attendue.'
-            : 'Permission to use these media is pending.'
-        );
-        await expect(dialog).not.toContainText(
-          language === 'fr-CA'
-            ? 'Des médias autorisés attendent une revue humaine'
-            : 'Authorized media in this dossier need human review'
-        );
-      }
-      const destination = new URL(
-        (await dialog.getByRole('link').first().getAttribute('href')) ?? '',
-        page.url()
-      );
-      expect(destination.pathname).toBe('/admin/fundraiser/sponsors');
-      expect(destination.searchParams.get('sponsorshipId')).toBe(sponsorshipId);
-      expect(destination.searchParams.get('tab')).toBe('media');
-      expect(destination.searchParams.get('returnTo')).toContain(
-        'type=sponsorship_media_review'
-      );
+      ).toEqual([]);
       expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+      const accessibility = await new AxeBuilder({ page })
+        .include('[data-og7="assistant-overview"]')
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
     });
-
-test('Assistant categories and queue actions fit their available space', async ({
-  page
-}) => {
-  await fixtures(page);
-  await page.goto(base);
-  const categories = page.locator('[data-og7="assistant-categories"]');
-  const item = page.locator('[data-og7="assistant-items"] > li').first();
-  await expect(item).toBeVisible();
-  for (const width of [390, 639, 640, 641, 1000, 1536]) {
-    await page.setViewportSize({ width, height: 950 });
-    await expect(categories).toHaveCSS(
-      'flex-wrap',
-      width <= 640 ? 'nowrap' : 'wrap'
-    );
-    await expect(categories).toHaveCSS(
-      'overflow-x',
-      width <= 640 ? 'auto' : 'visible'
-    );
-    const lastCategory = categories.getByRole('button').last();
-    await lastCategory.focus();
-    // Chromium rounds the intersection of a focused item with its horizontal
-    // scrollport. Allow a fractional edge while bounding every clipped side.
-    await expect(lastCategory).toBeInViewport({ ratio: 0.99 });
-    const clippedEdges = await lastCategory.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const parent = element.closest<HTMLElement>(
-        '[data-og7="assistant-categories"]'
-      )!;
-      const strip = parent.getBoundingClientRect();
-      const left = Math.max(0, strip.left + parent.clientLeft);
-      const right = Math.min(
-        innerWidth,
-        strip.left + parent.clientLeft + parent.clientWidth
-      );
-      return [
-        left - rect.left,
-        rect.right - right,
-        -rect.top,
-        rect.bottom - innerHeight
-      ];
-    });
-    expect(Math.max(...clippedEdges)).toBeLessThanOrEqual(1);
-    expect((await lastCategory.boundingBox())!.height).toBeGreaterThanOrEqual(
-      44
-    );
-    const inspect = item.getByRole('button');
-    expect((await inspect.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth + 1
-      )
-    ).toBe(true);
   }
-});
-
-test('bounded overview, server pagination past 100, and email grouping survive reload', async ({
-  page
-}) => {
-  const { calls } = await fixtures(page);
-  await page.goto(base);
-  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
-    15
-  );
-  await expect(
-    page.locator('[data-og7="assistant-recommendations"] > li')
-  ).toHaveCount(3);
-  await page.screenshot({
-    path: test.info().outputPath('assistant-desktop.png')
-  });
-  expect(calls.some((call) => call.path.endsWith('/summary'))).toBe(false);
-  await page
-    .locator(
-      '[data-og7="assistant-categories"] [data-og7-id="email_delivery_failed"]'
-    )
-    .click();
-  await expect(
-    page.getByRole('button', {
-      name: 'Facture de commandite · Cause à examiner 71'
-    })
-  ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Suivi de commandite · Cause à examiner 56' })
-    .click();
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-    '56'
-  );
-  await expect(page).toHaveURL(/emailTemplate=sponsorship_followup/);
-  await page.reload();
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-    '56'
-  );
-  await page
-    .getByRole('button', { name: 'Tous les courriels', exact: true })
-    .click();
-  await page.goto(base + '?type=email_delivery_failed&page=9');
-  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
-    7
-  );
-  await expect(page.locator('[data-og7="assistant-items"]')).toContainText(
-    '00000126'
-  );
-  await expect(page.getByText('Page 9 sur 9')).toBeVisible();
-});
-
-test('exact email link returns to the same filtered page and selected item', async ({
-  page
-}) => {
-  await fixtures(page);
-  await page.goto(base + '?type=email_delivery_failed&page=9');
-  const row = page.locator('[data-og7="assistant-items"] > li').last();
-  await row.getByRole('button').click();
-  const selectedUrl = page.url();
-  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-  const link = dialog.getByRole('link', { name: 'Ouvrir ce courriel' });
-  await expect(link).toHaveAttribute(
-    'href',
-    /messageId=10000000-0000-4000-8000-000000000126/
-  );
-  await link.click();
-  await page
-    .getByRole('link', { name: 'Retour à l’Assistant', exact: true })
-    .click();
-  await expect(page).toHaveURL(selectedUrl);
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('000000000126');
-  await page.keyboard.press('Escape');
-  await expect(dialog).not.toBeVisible();
-  await expect(row.getByRole('button')).toBeFocused();
-  await expect(page.getByText('Page 9 sur 9')).toBeVisible();
-});
-
-test('drawer keeps focus and scroll, translates missing fields, and only prepares a draft', async ({
-  page
-}) => {
-  const { calls } = await fixtures(page);
-  await page.goto(base + '?type=sponsorship_needs_info');
-  const button = page
-    .locator('[data-og7="assistant-items"]')
-    .getByRole('button');
-  await button.click();
-  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-  await expect(
-    dialog.getByText('Photo de présentation', { exact: true })
-  ).toBeVisible();
-  await expect(dialog).not.toContainText('photo_presentation');
-  await dialog.getByRole('button', { name: 'Préparer une relance' }).click();
-  await expect(
-    dialog.getByText('Brouillon non envoyé, non publié et non enregistré.')
-  ).toBeVisible();
-  expect(
-    calls.filter((call) => call.method === 'POST').map((call) => call.path)
-  ).toEqual(['/api/admin/assistant/prepare']);
-  expect(
-    calls.find((call) => call.path.endsWith('/prepare'))?.body
-  ).toMatchObject({ reference: sponsorshipId, language: 'fr-CA' });
-  await page.keyboard.press('Escape');
-  await expect(button).toBeFocused();
-  await page.goto(base + '?type=email_delivery_failed');
-  const last = page
-    .locator('[data-og7="assistant-items"] > li')
-    .last()
-    .getByRole('button');
-  await last.scrollIntoViewIfNeeded();
-  const before = await page.evaluate(() => scrollY);
-  await last.click();
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(last).toBeFocused();
-  await expect.poll(() => page.evaluate(() => scrollY)).toBe(before);
-});
-
-test('opening and closing details preserves the queue query without duplicate overview reads', async ({
-  page
-}) => {
-  const { calls } = await fixtures(page);
-  await page.goto(base);
-  const rows = page.locator('[data-og7="assistant-items"] > li');
-  await expect(rows).toHaveCount(15);
-  const overviewReads = () =>
-    calls.filter(
-      (call) =>
-        call.path === '/api/admin/attention' &&
-        new URLSearchParams(call.search).get('overview') === 'true' &&
-        !new URLSearchParams(call.search).has('itemId')
-    );
-  expect(overviewReads()).toHaveLength(1);
-  await rows.first().getByRole('button').click();
-  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(rows.first().getByRole('button')).toBeFocused();
-  await rows.nth(1).getByRole('button').click();
-  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
-  expect(overviewReads()).toHaveLength(1);
-  expect(
-    calls.filter((call) => new URLSearchParams(call.search).has('itemId'))
-  ).toHaveLength(2);
-  await page.keyboard.press('Escape');
-  await page
-    .locator(
-      '[data-og7="assistant-categories"] [data-og7-id="email_delivery_failed"]'
-    )
-    .click();
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-    '127'
-  );
-  expect(overviewReads()).toHaveLength(2);
-});
-
-test('a preparation received after closing and reopening the drawer cannot restore its old draft', async ({
-  page
-}) => {
-  const { options, calls } = await fixtures(page);
-  await page.goto(base + '?type=sponsorship_needs_info');
-  const open = page.locator('[data-og7="assistant-items"] button');
-  await open.click();
-  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-  let release!: () => void;
-  options.draftResponseGate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const requested = page.waitForRequest('**/api/admin/assistant/prepare');
-  await dialog.getByRole('button', { name: 'Préparer une relance' }).click();
-  await requested;
-  await page.keyboard.press('Escape');
-  await expect(open).toBeFocused();
-  await open.click();
-  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
-  const received = page.waitForResponse('**/api/admin/assistant/prepare');
-  release();
-  await (await received).finished();
-  await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  );
-  await expect(dialog.locator('[data-og7="assistant-draft"]')).toHaveCount(0);
-  await expect(
-    dialog.getByRole('button', { name: 'Préparer une relance' })
-  ).toBeEnabled();
-  expect(
-    calls.filter((call) => call.method === 'POST').map((call) => call.path)
-  ).toEqual(['/api/admin/assistant/prepare']);
-});
-
-test('errors remain visible, refresh recovers, and missing sources never look empty', async ({
-  page
-}) => {
-  const { options } = await fixtures(page);
-  options.status = 502;
-  await page.goto(base);
-  await expect(page.locator('[data-og7="assistant-state"]')).toContainText(
-    'Impossible'
-  );
-  options.status = 200;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
-    15
-  );
-  options.status = 502;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
-  await expect(
-    page.locator('[data-og7="assistant-items"] button').first()
-  ).toBeDisabled();
-  options.status = 200;
-  options.unavailable = true;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
-  await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
-  options.unavailable = false;
-  options.empty = true;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText('0');
-});
-
-test('access denial and an expired session do not expose the previous queue', async ({
-  page
-}) => {
-  const { options } = await fixtures(page);
-  await page.goto(base);
-  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
-    15
-  );
-  options.status = 403;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
-  await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
-  options.status = 401;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page).toHaveURL(/admin\/login/);
-});
-
-test('a resolved item has an explicit state and a delayed response cannot reopen a closed drawer', async ({
-  page
-}) => {
-  const { options } = await fixtures(page);
-  options.resolved = true;
-  await page.goto(base + '?selected=' + encodeURIComponent(sponsorship.id));
-  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-  await expect(dialog).toContainText(/plus active/);
-  await page.keyboard.press('Escape');
-  options.resolved = false;
-  options.delay = 500;
-  await page.locator('[data-og7="assistant-items"] button').first().click();
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(dialog).not.toBeVisible();
-  await expect(page).not.toHaveURL(/selected=/);
-});
+}
 
 test('optional question and financial panels load on demand', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(base);
+  expect(
+    calls.some(
+      (call) => call.path.endsWith('/summary') || call.path.endsWith('/context')
+    )
+  ).toBe(false);
   await page.locator('[data-og7="assistant-question"] summary').click();
   await expect(page.locator('[data-og7="assistant-question"]')).toContainText(
     /désactivé/
@@ -892,131 +363,71 @@ test('optional question and financial panels load on demand', async ({
   await expect(
     page.locator('[data-og7="assistant-question"] input')
   ).toHaveCount(0);
-  await page.getByText('Résumé financier prudent', { exact: true }).click();
+  await page.locator('[data-og7="assistant-summary"] summary').click();
   await expect(page.getByText('Données synthétiques.')).toBeVisible();
   expect(calls.some((call) => call.path.endsWith('/summary'))).toBe(true);
   expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
 });
 
-test('French and English remain accessible at desktop and mobile widths', async ({
+test('an exact intervention link still opens its preparation without a general queue', async ({
   page
 }) => {
-  await fixtures(page);
-  await page.goto(base);
-  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
-    15
+  const { calls } = await fixtures(page);
+  await page.goto(base + '?selected=' + encodeURIComponent(sponsorship.id));
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('DEMO-301');
+  await dialog.getByRole('button', { name: /Préparer/ }).click();
+  await expect(dialog).toContainText('Relance DEMO-301');
+  expect(calls.filter((call) => call.path.endsWith('/prepare'))).toHaveLength(
+    1
   );
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page
-    .getByRole('button', { name: 'Switch administration language to English' })
-    .click();
-  await expect(
-    page.getByRole('heading', { name: 'Where to start?' })
-  ).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+  expect(
+    calls.filter(
+      (call) =>
+        call.path === '/api/admin/attention' &&
+        new URLSearchParams(call.search).get('pageSize') !== '1'
     )
-    .toBe(true);
-  await page.locator('[data-og7="assistant-items"] button').first().click();
-  await expect(
-    page.getByRole('dialog', { name: 'Item details' })
-  ).toBeVisible();
-  await expect(
-    page.getByText('Presentation image', { exact: true })
-  ).toBeVisible();
-  await page.screenshot({
-    path: test.info().outputPath('assistant-mobile.png')
-  });
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  ).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('[data-og7="assistant-full-queue"]')).toBeFocused();
 });
 
-for (const status of [401, 403]) {
-  test(`a ${status} preparation denial removes previously loaded private surfaces`, async ({
-    page
-  }) => {
-    const { options, calls } = await fixtures(page);
-    options.mode = 'mock';
-    await page.goto(base + '?type=sponsorship_needs_info');
-    const question = page.locator('[data-og7="assistant-question"]');
-    await question.locator('summary').click();
-    await question.getByRole('textbox').fill('Question synthétique privée');
-    expect(calls.filter((call) => call.path.endsWith('/query'))).toEqual([]);
-    await question
-      .getByRole('button', { name: 'Demander', exact: true })
-      .click();
-    await expect(
-      question.locator('[data-og7="assistant-answer"]')
-    ).toContainText('Réponse privée de démonstration.');
-    await page.locator('[data-og7="assistant-summary"] summary').click();
-    await expect(page.getByText('Données synthétiques.')).toBeVisible();
-    await page.locator('[data-og7="assistant-items"] button').click();
-    const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-    const prepare = dialog.getByRole('button', {
-      name: 'Préparer une relance'
-    });
-    await prepare.click();
-    await expect(dialog.getByText('Message de démonstration.')).toBeVisible();
-    options.prepareStatus = status;
-    await prepare.click();
-    if (status === 401) await expect(page).toHaveURL(/admin\/login/);
-    else {
-      await expect(dialog).toContainText('Votre session ne permet pas');
-      await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
-    }
-    await expect(page.locator('[data-og7="assistant-answer"]')).toHaveCount(0);
-    await expect(page.getByText('Données synthétiques.')).toHaveCount(0);
-    await expect(page.getByText('Message de démonstration.')).toHaveCount(0);
-    await expect(question.getByRole('textbox')).toHaveCount(0);
-    expect(
-      calls.filter((call) => call.method === 'POST').map((call) => call.path)
-    ).toEqual([
-      '/api/admin/assistant/query',
-      '/api/admin/assistant/prepare',
-      '/api/admin/assistant/prepare'
-    ]);
-  });
-}
-
-test('private question and summary responses cannot repopulate the page after a queue denial', async ({
+test('general questions remain available without browsing interventions', async ({
   page
 }) => {
-  const { options } = await fixtures(page);
+  const { options, calls } = await fixtures(page);
   options.mode = 'mock';
   await page.goto(base);
   const question = page.locator('[data-og7="assistant-question"]');
   await question.locator('summary').click();
-  await question.getByRole('textbox').fill('Question synthétique privée');
-  let release = () => {};
-  options.privateResponseGate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queryRequest = page.waitForRequest('**/api/admin/assistant/query');
+  await question
+    .getByRole('textbox')
+    .fill('Quels dossiers demandent une préparation?');
   await question.getByRole('button', { name: 'Demander', exact: true }).click();
-  await queryRequest;
-  const summaryRequest = page.waitForRequest('**/api/admin/assistant/summary');
-  await page.locator('[data-og7="assistant-summary"] summary').click();
-  await summaryRequest;
-  options.status = 403;
-  await page
-    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
-    .click();
-  await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
-  const receivedQuery = page.waitForResponse('**/api/admin/assistant/query');
-  const receivedSummary = page.waitForResponse(
-    '**/api/admin/assistant/summary'
-  );
-  release();
-  const responses = await Promise.all([receivedQuery, receivedSummary]);
-  await Promise.all(responses.map((response) => response.finished()));
-  await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  );
-  await expect(question.locator('[data-og7="assistant-answer"]')).toHaveCount(
-    0
-  );
-  await expect(question.getByRole('textbox')).toHaveCount(0);
-  await expect(page.getByText('Données synthétiques.')).toHaveCount(0);
-  await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
+  await expect(question).toContainText('Données simulées.');
+  expect(calls.filter((call) => call.path.endsWith('/query'))).toHaveLength(1);
+  expect(
+    calls.filter(
+      (call) => call.method === 'POST' && !call.path.endsWith('/query')
+    )
+  ).toEqual([]);
 });
+
+for (const status of [403, 503]) {
+  test(`exact intervention handles ${status} without showing a substitute dossier`, async ({
+    page
+  }) => {
+    const { options } = await fixtures(page);
+    options.status = status;
+    await page.goto(base + '?selected=' + encodeURIComponent(sponsorship.id));
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('[data-og7="assistant-detail"]')).toHaveCount(
+      0
+    );
+    await expect(dialog.getByRole('button', { name: /Préparer/ })).toHaveCount(
+      0
+    );
+  });
+}

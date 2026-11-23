@@ -9,6 +9,8 @@ préconditions et preuves, sans présumer leur activation en production.
 La [raffinerie économique](vision/economic-refinery.md) conserve l'intention
 fondatrice, distincte des fonctions et contrats; lecture selon la tâche.
 
+[Salle des moteurs : travaux proposés](development/salle-des-moteurs-intelligents.md).
+
 ## Guides fonctionnels actuels
 
 Partir du [socle agent](../AGENTS.md), puis lire les règles du chemin et du domaine.

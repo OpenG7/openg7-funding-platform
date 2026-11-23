@@ -56,6 +56,35 @@ test('reader, stale or uncertain decisions retain inspection while every mutatio
   }
 });
 
+test('a blocked publication offers scoped inspection without enabling its approval', () => {
+  const publication = { ...decision, publication: { id: 'publication-1' } };
+  const options = {
+    decision: publication,
+    primary: { id: 'publication.approve', blocked: 'CONNECTION_REQUIRED' },
+    publicationStatusLabel: 'View publication status',
+    blocked: true,
+    bindings: { primary: 2, secondary: 0, edit: 1, details: 3 }
+  };
+  const action = pilotageControllerActions(input(options))[0];
+  assert.equal(action.id, 'pilot-publication-status');
+  assert.equal(action.enabled, true);
+  assert.equal(action.requiresConfirmation, undefined);
+  assert.equal(action.shortcut.label, 'X');
+  assert.equal(
+    pilotageControllerActions(input({ ...options, busy: true }))[0].enabled,
+    false
+  );
+  const ready = pilotageControllerActions(
+    input({
+      ...options,
+      blocked: false,
+      primary: { id: 'publication.approve', blocked: null }
+    })
+  )[0];
+  assert.equal(ready.id, 'pilot-accept');
+  assert.equal(ready.requiresConfirmation, true);
+});
+
 test('server blocked actions cannot be enabled by a controller profile or another available action', () => {
   const actions = pilotageControllerActions(
     input({

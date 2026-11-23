@@ -384,3 +384,30 @@ test('recreate shortcut and help cannot execute Docker-ready or resolve environm
     assert.equal(existsSync(join(root, 'traefik/local')), false);
   }
 });
+
+test(
+  'rebuild uses the existing recreation flow and limits building to Web/API',
+  { skip: !composeAvailable },
+  (t) => {
+    const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+    assert.equal(scripts['docker:rebuild'], 'yarn docker:recreate --build');
+    const root = fixture(t);
+    createLocalTlsFixture(root);
+    const result = cli(root, ['--build']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.calls.length, 2);
+    assert.deepEqual(result.calls[1].args.slice(-6), [
+      'up',
+      '-d',
+      '--build',
+      '--force-recreate',
+      'api',
+      'web'
+    ]);
+    assert.deepEqual(result.calls[1].exportedPrivateNames, []);
+    const preview = cli(root, ['--build', '--dry-run']);
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.deepEqual(preview.calls, []);
+    assert.match(preview.stdout, /up -d --build --force-recreate api web/);
+  }
+);

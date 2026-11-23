@@ -43,7 +43,7 @@ Interrompre le relais Stripe ne stoppe pas les conteneurs : utiliser l'arrêt Do
 | Preflight seul | `yarn dev:preflight` |
 | Compilation TypeScript | `yarn build` |
 | Build Angular | `yarn workspace @openg7/funding-web build --configuration production` |
-| Tests Node / CI Docker | `yarn test` / `yarn 5` |
+| Tests Node / CI Docker | `yarn test` / `yarn 0` |
 | Lint / format | `yarn lint` / `yarn format:check` |
 | Documentation TypeDoc | `yarn docs` |
 | Standards, budgets et liens | `yarn docs:check` |
@@ -76,22 +76,22 @@ jusqu'à API/Web et la première connexion admin avant d'utiliser les raccourcis
 | Configuration existante sans relais Stripe | `yarn docker:up --environment autre` |
 | Previsualiser le demarrage local | `yarn docker:up:dev --dry-run` |
 | Stack détachée avec PostgreSQL | `yarn docker:up:dev --no-stripe-webhook` |
-| Image API, sans redémarrage | `yarn 4` (option `--no-cache`) |
+| Image API seule | `yarn docker:build:api` |
 | Mise à jour guidée | `yarn docker:update` |
 | Code local dans les images | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
 | Ajouter le listener Stripe local | `yarn docker:update --development --stripe-webhook` |
 | Conserver / supprimer les images dangling | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images` |
 | Arrêter sans supprimer les volumes | `yarn docker:down` |
 | Recréer Web/API avec les overlays configurés | `yarn docker:recreate` |
+| Reconstruire les images puis recréer Web/API | `yarn 4` ou `yarn docker:rebuild` |
 | Redémarrer un service | `docker compose restart web` (ou `api`, `traefik`) |
 | État / ressources | `docker compose ps` / `docker stats` |
 | Logs ciblés | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre) |
 | Valider sans exposer l'environnement | `docker compose config --quiet` |
 | Préflight de configuration Keycloak | `yarn keycloak:check` |
 
-`docker:recreate` conserve la configuration `.env`/shell et les profils Compose
-existants, dont le HTTPS Keycloak local. `--dry-run` affiche les commandes sans
-recréer les services ni générer de fichiers.
+`docker:rebuild` réutilise `docker:recreate --build` : volumes et overlays conservés;
+`--dry-run` sans mutation.
 
 `keycloak:check` lit la configuration locale sans afficher de valeurs privées.
 Lire un fichier d'environnement exige Docker Compose ; aucun service ne démarre

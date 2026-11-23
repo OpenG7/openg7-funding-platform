@@ -27,6 +27,14 @@ import type {
   PilotReceipt,
   PilotState
 } from '@openg7/funding-core';
+import type {
+  PublicationAutomationState,
+  PublicationFeed
+} from '@openg7/funding-core';
+import type {
+  SponsorMediaWorkspace,
+  SponsorMediaApproveAllPlan
+} from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminGuideComponent } from '../../components/admin-guide/admin-guide.component.js';
@@ -66,8 +74,12 @@ import type {
   ControllerContext
 } from '../../models/context-controller.models.js';
 import { AdminPilotageCommandWorkflow } from '../../services/admin-pilotage-command-workflow.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import { MediaPreviewCollection } from '../../components/media-review/media-preview-collection.js';
+import { MediaReviewThumbnailComponent } from '../../components/media-review/media-review-thumbnail.component.js';
 
 import { AdminPilotageReadController } from './admin-pilotage-read.controller.js';
+import { PilotDossierMediaComponent } from './pilot-dossier-media.component.js';
 import {
   matchesControllerContext,
   pilotageControllerActions,
@@ -85,7 +97,10 @@ type Panel =
   | 'help'
   | 'settings'
   | 'incident'
-  | 'appearance';
+  | 'appearance'
+  | 'workspace'
+  | 'publicationStatus'
+  | 'queue';
 
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
 @Component({
@@ -93,6 +108,8 @@ type Panel =
   host: { '[class.context-controller-expanded]': 'controllerExpanded()' },
   standalone: true,
   imports: [
+    MediaReviewThumbnailComponent,
+    PilotDossierMediaComponent,
     PilotAppearanceComponent,
     CommonModule,
     FormsModule,
@@ -128,6 +145,41 @@ export class AdminPilotagePageComponent {
   readonly appearance = inject(PilotAppearanceService);
   readonly concentrated = signal(false);
   readonly queueVisible = signal(false);
+  readonly mediaWorkspace = signal<SponsorMediaWorkspace | null>(null);
+  readonly mediaRefresh = signal(0);
+  readonly approvalPlan = signal<SponsorMediaApproveAllPlan | null>(null);
+  private readonly approvalContext = computed(
+    () =>
+      `${this.admin.sessionGeneration()}:${this.admin.identity()?.id ?? 'token'}:${this.admin.identity()?.role ?? 'token'}`
+  );
+  readonly approvalPreviews = new MediaPreviewCollection(
+    async (id, version) => {
+      try {
+        return await this.admin.mediaThumbnail(id, version);
+      } catch (error) {
+        if (
+          error instanceof AdminDashboardRequestError &&
+          [401, 403].includes(error.status)
+        ) {
+          this.approvalPlan.set(null);
+          this.approvalPreviews.clear();
+          this.error.set('READ_ONLY');
+          if (error.status === 401) this.admin.clearAdminSession();
+        }
+        throw error;
+      }
+    }
+  );
+  readonly position = computed(() => {
+    const index = this.queue().findIndex(
+      (item) => item.id === this.selected()?.id
+    );
+    return index < 0
+      ? 0
+      : ((this.state()?.page ?? 1) - 1) * (this.state()?.pageSize ?? 30) +
+          index +
+          1;
+  });
   readonly guideActive = signal(false);
   guideChanged(active: boolean): void {
     this.guideActive.set(active);
@@ -135,13 +187,19 @@ export class AdminPilotagePageComponent {
     this.controller.reset();
   }
   toggleConcentration(): void {
-    if (this.busy() || this.panel() || this.guideActive()) return;
+    if (
+      this.busy() ||
+      (this.panel() && this.panel() !== 'workspace') ||
+      this.guideActive()
+    )
+      return;
+    if (this.panel() === 'workspace') this.close();
     this.concentrated.update((value) => !value);
     this.queueVisible.set(false);
     this.controller.reset();
   }
   toggleQueue(): void {
-    this.queueVisible.update((value) => !value);
+    this.open('queue');
     this.controller.reset();
   }
   private readonly guide = viewChild(AdminGuideComponent);
@@ -204,6 +262,8 @@ export class AdminPilotagePageComponent {
     requestId: () => this.document.defaultView!.crypto.randomUUID(),
     resetInput: () => this.controller.reset(),
     settleCommand: () => {
+      this.approvalPreviews.clear();
+      this.approvalPlan.set(null);
       this.panel.set('');
       this.pending.set(null);
     },
@@ -218,7 +278,10 @@ export class AdminPilotagePageComponent {
     },
     denyWrites: () =>
       this.state.update((s) => (s ? { ...s, writable: false } : s)),
-    refresh: () => this.load(false)
+    refresh: () => {
+      this.mediaRefresh.update((value) => value + 1);
+      return this.load(false);
+    }
   });
   readonly domains: { id: PilotDomain; icon: AdminIconName }[] = [
     { id: 'publications', icon: 'publications' },
@@ -250,6 +313,36 @@ export class AdminPilotagePageComponent {
       (a) => !a.id.endsWith('.reject') && !a.id.endsWith('.edit')
     )
   );
+  readonly publicationBlocked = computed(
+    () =>
+      this.primary()?.id === 'publication.approve' &&
+      !!this.primary()?.blocked &&
+      !!this.selected()?.publication
+  );
+  readonly publicationStatus = signal<PublicationAutomationState | null>(null);
+  readonly publicationStatusLoading = signal(false);
+  readonly publicationStatusFailed = signal(false);
+  private publicationStatusGeneration = 0;
+  private readonly publicationStatusContext = computed(() =>
+    [
+      this.selected()?.id,
+      this.selected()?.version,
+      this.approvalContext()
+    ].join('|')
+  );
+  readonly dossierFeeds = computed(() => {
+    const data = this.publicationStatus();
+    const ids = new Set(data?.deliveries.map((delivery) => delivery.feedId));
+    const current = this.selected()?.publication?.feedId;
+    if (current) ids.add(current);
+    return data?.feeds.filter((feed) => ids.has(feed.id)) ?? [];
+  });
+  readonly publicationStatusScope = computed(() => {
+    const delivery = this.selected()?.publication;
+    return delivery?.sponsors.length === 1
+      ? { sponsorshipId: delivery.sponsors[0]!.id }
+      : { deliveryId: delivery?.id };
+  });
   readonly reject = computed(() =>
     this.selected()?.actions.find((a) => a.id.endsWith('.reject'))
   );
@@ -294,13 +387,14 @@ export class AdminPilotagePageComponent {
       busy: this.busy(),
       bindings: this.controller.profile().bindings,
       labels: {
-        accept: this.t('accept'),
+        accept: this.t(this.selected()?.sponsor ? 'approveAll' : 'accept'),
         reject: this.t('reject'),
         edit: this.t('edit'),
         details: this.t('details'),
         unavailable: this.t('controllerUnavailable')
       },
       blockedReason,
+      publicationStatusLabel: this.t('viewPublicationStatus'),
       explain: (code) => this.errorLabel(code)
     });
   });
@@ -348,6 +442,9 @@ export class AdminPilotagePageComponent {
     )
       return;
     switch (request.actionId) {
+      case 'pilot-publication-status':
+        void this.openPublicationStatus();
+        break;
       case 'pilot-accept':
         if (this.primary()) this.request(this.primary()!.id);
         break;
@@ -375,13 +472,7 @@ export class AdminPilotagePageComponent {
         void this.router.navigateByUrl(this.selected()!.detailsUrl);
         break;
       case 'pilot-queue':
-        this.queueVisible.set(true);
-        this.controller.reset();
-        this.document.defaultView?.requestAnimationFrame(() => {
-          if (this.panel() || this.document.querySelector('dialog[open]'))
-            return;
-          this.document.querySelector<HTMLElement>('#pilot-following')?.focus();
-        });
+        this.open('queue');
         break;
       case 'pilot-diagnostics':
         this.open('settings');
@@ -432,6 +523,20 @@ export class AdminPilotagePageComponent {
 
   constructor() {
     effect(() => {
+      this.publicationStatusContext();
+      untracked(() => {
+        this.clearPublicationStatus();
+        if (this.panel() === 'publicationStatus') this.close();
+      });
+    });
+    effect(() => {
+      this.approvalContext();
+      untracked(() => {
+        this.approvalPlan.set(null);
+        this.approvalPreviews.clear();
+      });
+    });
+    effect(() => {
       const id = this.pendingTarget();
       if (id !== null && !this.busy())
         untracked(() => {
@@ -449,6 +554,8 @@ export class AdminPilotagePageComponent {
     });
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
+      this.clearPublicationStatus();
+      this.approvalPreviews.dispose();
       this.reads.dispose();
       this.releaseController?.();
       if (this.confirmationFocusFrame)
@@ -696,6 +803,7 @@ export class AdminPilotagePageComponent {
     return translated !== existing ? translated : this.t('errors.generic');
   }
   async load(replace = false, page = this.state()?.page ?? 1): Promise<void> {
+    if (replace) this.mediaRefresh.update((value) => value + 1);
     if (this.targetedDecision() && !this.selected()) {
       if (replace) await this.openTargetDecision(this.requestedDecisionId);
       return;
@@ -708,6 +816,7 @@ export class AdminPilotagePageComponent {
   }
   async changeDomain(domain: PilotDomain | ''): Promise<void> {
     await this.replaceRead(this.reads.changeDomain(domain));
+    if (this.panel() === 'workspace') this.close();
   }
   next(direction = 1): void {
     if (this.reads.move(direction)) this.receipt.set(null);
@@ -772,13 +881,70 @@ export class AdminPilotagePageComponent {
   }
   close(): void {
     if (!this.busy()) {
+      this.clearPublicationStatus();
+      this.approvalPreviews.clear();
+      this.approvalPlan.set(null);
       this.reads.invalidatePanelReads();
       this.panel.set('');
       this.pending.set(null);
       this.controller.reset();
     }
   }
+  private clearPublicationStatus(): void {
+    ++this.publicationStatusGeneration;
+    this.publicationStatus.set(null);
+    this.publicationStatusLoading.set(false);
+    this.publicationStatusFailed.set(false);
+  }
+  async openPublicationStatus(): Promise<void> {
+    if (this.busy() || !this.selected()?.publication) return;
+    this.open('publicationStatus');
+    await this.refreshPublicationStatus();
+  }
+  async refreshPublicationStatus(): Promise<void> {
+    if (this.panel() !== 'publicationStatus' || !this.selected()?.publication)
+      return;
+    const generation = ++this.publicationStatusGeneration;
+    const context = this.approvalContext();
+    const decisionContext = this.publicationStatusContext();
+    this.publicationStatus.set(null);
+    this.publicationStatusFailed.set(false);
+    this.publicationStatusLoading.set(true);
+    try {
+      const data = await this.admin.publicationAutomation(
+        undefined,
+        this.publicationStatusScope()
+      );
+      if (
+        generation !== this.publicationStatusGeneration ||
+        context !== this.approvalContext() ||
+        decisionContext !== this.publicationStatusContext() ||
+        this.panel() !== 'publicationStatus'
+      )
+        return;
+      if (!('feeds' in data) || !('deliveries' in data))
+        throw new Error('AUTOMATION_UNAVAILABLE');
+      this.publicationStatus.set(data);
+    } catch (error) {
+      if (generation !== this.publicationStatusGeneration) return;
+      this.publicationStatusFailed.set(true);
+      if (error instanceof AdminDashboardRequestError && error.status === 401)
+        this.admin.clearAdminSession();
+    } finally {
+      if (generation === this.publicationStatusGeneration)
+        this.publicationStatusLoading.set(false);
+    }
+  }
+  publicationFeedStatus(feed: PublicationFeed): string {
+    if (feed.mode === 'disabled') return this.t('publicationHealth.disabled');
+    if (!feed.configured) return this.t('publicationHealth.unconfigured');
+    if (feed.connection !== 'ready')
+      return this.t('publicationHealth.' + feed.connection);
+    if (feed.paused) return this.t('publicationHealth.paused');
+    return this.t('publicationHealth.ready');
+  }
   async request(action: PilotAction): Promise<void> {
+    const approvalContext = this.approvalContext();
     let d = this.selected();
     const available = d?.actions.find((a) => a.id === action);
     if (!d || !available || available.blocked || this.blocked()) return;
@@ -789,6 +955,30 @@ export class AdminPilotagePageComponent {
         const detail = await this.reads.rereadForAction(d);
         if (!detail) return;
         d = detail;
+      } finally {
+        this.busy.set(false);
+      }
+    }
+    this.approvalPlan.set(null);
+    this.approvalPreviews.clear();
+    if (action === 'sponsor.approve') {
+      this.busy.set(true);
+      try {
+        const workspace = await this.admin.mediaWorkspace(d.targetId);
+        const plan = await this.admin.mediaApproveAllPlan({
+          requestId: crypto.randomUUID(),
+          contributionId: d.targetId,
+          expectedRevision: workspace.revision
+        });
+        if (
+          this.selected()?.id !== d.id ||
+          this.approvalContext() !== approvalContext
+        )
+          return;
+        this.approvalPlan.set(plan);
+      } catch {
+        this.error.set('MEDIA_APPROVAL_UNAVAILABLE');
+        return;
       } finally {
         this.busy.set(false);
       }
@@ -864,9 +1054,17 @@ export class AdminPilotagePageComponent {
       .slice(0, 16);
   }
   async confirm(): Promise<void> {
+    const approvalContext = this.approvalContext();
     const p = this.pending();
     if (!p || this.busy() || this.unresolved()) return;
     if (p.action === 'sponsor.reject' && this.reason.trim().length < 3) return;
+    if (
+      p.action === 'sponsor.approve' &&
+      (!this.approvalPlan() ||
+        this.approvalPlan()!.summary.blocked ||
+        this.approvalPlan()!.summary.notProcessable)
+    )
+      return;
     const payload: PilotCommand['payload'] =
       p.action === 'publication.approve'
         ? {
@@ -875,9 +1073,11 @@ export class AdminPilotagePageComponent {
               version: s.version
             }))
           }
-        : p.action === 'sponsor.reject'
-          ? { reason: this.reason.trim() }
-          : undefined;
+        : p.action === 'sponsor.approve'
+          ? { approveMediaPlanId: this.approvalPlan()!.id }
+          : p.action === 'sponsor.reject'
+            ? { reason: this.reason.trim() }
+            : undefined;
     if (
       [
         'sponsor.approve',
@@ -918,7 +1118,13 @@ export class AdminPilotagePageComponent {
             : 'N3',
         { internalReason: this.reason.trim() }
       );
-      if (!moderationDecision || this.pending() !== p || this.busy()) return;
+      if (
+        !moderationDecision ||
+        this.pending() !== p ||
+        this.busy() ||
+        this.approvalContext() !== approvalContext
+      )
+        return;
       await this.commands.send({
         ...p,
         payload: {
@@ -1152,6 +1358,7 @@ export class AdminPilotagePageComponent {
           )
         )
           active.click();
+        else if (this.publicationBlocked()) void this.openPublicationStatus();
         else if (this.primary()) this.request(this.primary()!.id);
         break;
       }

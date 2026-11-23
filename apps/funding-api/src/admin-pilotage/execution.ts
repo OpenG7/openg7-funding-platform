@@ -13,10 +13,15 @@ import { updateSponsorshipReview } from '../fund-contributions.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { ModerationError } from '../moderation/policy.js';
 import { lockModerationDependencies } from '../moderation/content.js';
+import { MediaWorkspaceError } from '../sponsor-media-workspace/policy.js';
 
 import { audit } from './audit.js';
 import type { PilotExecutionPorts } from './contracts.js';
 import { PilotError, requireValue } from './errors.js';
+import {
+  approvePilotageMedia,
+  verifyPilotageMedia
+} from './sponsor-approval.js';
 
 export class AdminPilotageExecution {
   constructor(
@@ -28,7 +33,10 @@ export class AdminPilotageExecution {
     try {
       return await this.executeCommand(c, actor);
     } catch (error) {
-      if (error instanceof ModerationError)
+      if (
+        error instanceof ModerationError ||
+        error instanceof MediaWorkspaceError
+      )
         throw new PilotError(error.code, error.status);
       throw error;
     }
@@ -147,7 +155,15 @@ export class AdminPilotageExecution {
       return 'SAVED';
     }
     if (c.action.startsWith('sponsor.')) {
+      const mediaReceipt = await approvePilotageMedia(
+        this.pool,
+        this.ports,
+        c,
+        actor
+      );
       return withPostgresTransaction(this.pool, async (db) => {
+        if (mediaReceipt)
+          await verifyPilotageMedia(db, c.targetId, mediaReceipt);
         if (c.action === 'sponsor.reject')
           await lockModerationDependencies(db, {
             type: 'sponsorship',
@@ -192,7 +208,13 @@ export class AdminPilotageExecution {
           r.decisionState === 'pending_independent_review'
             ? 'sponsor.independent_review_pending'
             : c.action,
-          c.targetId
+          c.targetId,
+          mediaReceipt
+            ? {
+                mediaPlanId: c.payload!.approveMediaPlanId,
+                mediaCount: mediaReceipt.items.length
+              }
+            : undefined
         );
         return r.decisionState === 'pending_independent_review'
           ? 'PENDING_INDEPENDENT_REVIEW'

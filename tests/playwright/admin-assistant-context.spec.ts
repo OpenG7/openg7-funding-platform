@@ -1203,7 +1203,7 @@ test('cockpit observes the fund without fetching an individual dossier or prepar
   const { calls } = await fixtures(page);
   await page.goto('/admin/fundraiser');
   await expect(
-    page.getByRole('heading', { name: 'Cockpit', exact: true })
+    page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })
   ).toBeVisible();
   await expect(page.locator('[data-og7="dashboard-refresh"]')).toBeEnabled();
   expect(

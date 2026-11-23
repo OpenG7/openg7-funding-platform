@@ -10,6 +10,7 @@ import { AdminPilotageExecution } from './admin-pilotage/execution.js';
 import { AdminPilotageReceipts } from './admin-pilotage/receipts.js';
 import { EditorialProgrammeService } from './editorial-programme.service.js';
 import type { PublicationAutomationService } from './publication-automation/service.js';
+import type { SponsorMediaWorkspaceService } from './sponsor-media-workspace/service.js';
 
 export { parsePilotCommand } from './admin-pilotage/command-policy.js';
 export { PilotError } from './admin-pilotage/errors.js';
@@ -20,11 +21,13 @@ export class AdminPilotageService {
 
   constructor(
     private readonly pool: Pool,
-    private readonly publications: PublicationAutomationService
+    private readonly publications: PublicationAutomationService,
+    media?: SponsorMediaWorkspaceService
   ) {
     this.editorial = new EditorialProgrammeService(pool, publications);
     const execution = new AdminPilotageExecution(pool, {
       editorial: this.editorial,
+      media,
       publications
     });
     this.receipts = new AdminPilotageReceipts(pool, (command, actor) =>

@@ -58,6 +58,9 @@ const commandDefinitions = {
     label: 'Démarrer la pile Docker des tests Playwright'
   },
   'docker:recreate': { label: 'Recréer les conteneurs Web et API' },
+  'docker:rebuild': {
+    label: 'Reconstruire les images puis recréer Web et API'
+  },
   'docker:update': {
     label: 'Mettre à jour Docker — choisir les options',
     note: 'Vérifier l’environnement choisi et les options de suppression d’images avant la mise à jour.'

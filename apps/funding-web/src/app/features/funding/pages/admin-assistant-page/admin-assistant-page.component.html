@@ -70,15 +70,11 @@
             · {{ 'admin.assistantOverview.intro' | translate }}
           </p>
         </div>
-        <button
-          type="button"
-          class="admin-button"
-          (click)="refresh()"
-          [disabled]="state() === 'loading'"
-        >
-          {{ 'admin.context.refresh' | translate }}
-        </button>
       </header>
+
+      @if (state() === 'forbidden') {
+        <p role="status">{{ 'admin.dashboard.forbiddenHelp' | translate }}</p>
+      }
 
       <openg7-admin-assistant-question
         [conversationState]="conversationState()"
@@ -92,38 +88,13 @@
         (submitted)="ask()"
       />
 
-      <div role="status" aria-live="polite" data-og7="assistant-state">
-        @if (state() === 'loading') {
-          <p>{{ 'admin.attention.loading' | translate }}</p>
-        }
-        @if (state() === 'error') {
-          <p class="notice error">
-            {{
-              (data() ? 'admin.attention.stale' : 'admin.attention.error')
-                | translate
-            }}
-          </p>
-        }
-        @if (state() === 'forbidden') {
-          <p>{{ 'admin.dashboard.forbiddenHelp' | translate }}</p>
-        }
-        @if (state() === 'unavailable') {
-          <p>{{ 'admin.attention.unavailable' | translate }}</p>
-        }
-      </div>
-
-      @if (data(); as response) {
-        <openg7-admin-assistant-queue
-          [data]="response"
-          [query]="query()"
-          [state]="state()"
-          (typeChanged)="filter($event)"
-          (priorityChanged)="priority($event)"
-          (emailGroupChanged)="emailGroup($event.template, $event.error)"
-          (itemOpened)="open($event)"
-          (pageChanged)="page($event)"
-        />
-      }
+      <a
+        class="admin-link"
+        data-og7="assistant-full-queue"
+        routerLink="/admin/fundraiser/attention"
+      >
+        {{ 'admin.assistantOverview.fullQueue' | translate }}
+      </a>
 
       <openg7-admin-assistant-summary
         [summaryState]="summaryState()"

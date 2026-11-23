@@ -1,6 +1,45 @@
 # Poste de pilotage administratif
 
 Route : `/admin/fundraiser/pilotage`, accessible depuis la navigation admin.
+Le dossier **À vous de décider** occupe désormais la largeur centrale. La barre
+compacte conserve le titre, l'espace et la position de la décision. **Espaces et
+suivi** ouvre les filtres, compteurs, Ma semaine, Apparence et Concentration dans
+un panneau. Celui-ci regroupe le suivi de session, les espaces avec leur compteur et leur
+sélection explicite, les raccourcis vers À suivre et Ma semaine, puis les
+préférences d’affichage. Choisir un espace ferme le panneau et affiche sa file.
+**File d’attente**, dans le bandeau de commandes, ouvre **À suivre**; choisir un
+dossier ferme ce panneau. Échap ferme les panneaux et restitue le focus.
+Les photos du dossier sont présentées ensemble avec leur statut et un aperçu agrandi.
+
+Lorsque l’action `publication.approve` porte un blocage serveur, la commande A
+devient **Voir l’état des publications**. Ce panneau consulte l’API native avec
+`sponsorshipId` pour une publication associée à un seul dossier, ou `deliveryId`
+pour une publication regroupant plusieurs dossiers. Il affiche les destinations
+présentes dans ces publications, leur mode, compte, connexion et pause, ainsi que
+le réglage du traitement automatique et les publications retournées (limite native
+de 200). Le réglage activé ne prouve pas la disponibilité du processus worker.
+Les liens rejoignent les réglages des destinations et les publications natives.
+L’ouverture et l’actualisation sont des lectures, sans test réseau fournisseur,
+approbation ni publication. Échec, fermeture et changement de contexte invalident
+les lectures privées; l’approbation disponible conserve sa confirmation habituelle.
+
+Pour une commandite, **Approuver tout · A** prépare un plan natif de tous les médias
+du dossier puis affiche leur liste avant la confirmation humaine. Les droits,
+restrictions, versions et blocages existants restent applicables. Le serveur
+vérifie le propriétaire du plan, le dossier et la version avant les mutations,
+puis revalide l'inventaire exact sous verrou avant d'approuver la fiche. Un ajout,
+retrait ou changement concurrent impose une nouvelle revue. Une photo ajoutée
+après l'opération reste à examiner. **Désapprouver cette photo** permet une décision
+N3 individuelle, sans retirer l'approbation de la fiche ou des autres photos;
+les restrictions natives de diffusion restent applicables.
+
+Les médias sont traités par le moteur existant avec un reçu durable par élément.
+Une interruption peut conserver des approbations partielles : aucun succès global
+n'est annoncé tant que la fiche et l'inventaire confirmé ne sont pas approuvés.
+Le reçu de pilotage conserve la commande; le reçu média conserve le même identifiant
+de requête. Réconcilier un résultat incertain avant toute nouvelle demande.
+Une approbation ne lance pas une publication; l'exposition du site reste retenue.
+
 La page utilise le cadre commun de l'administration : menu latéral, recherche,
 langue et menu repliable sur mobile. Les espaces de pilotage sont des filtres
 dans le contenu, sous le titre; ils changent la file sans quitter la page.
@@ -9,8 +48,8 @@ le parcours spécialisé. Les raccourcis du pilotage sont neutralisés lorsque
 le focus est dans la navigation globale ou la recherche; le retour aux décisions
 exige de relâcher la manette.
 
-Les quatre entrées du cadre administratif précisent leur rôle : **Cockpit —
-Observer**, **À traiter — Prioriser**, **Poste de pilotage — Décider** et
+Les quatre entrées du cadre administratif précisent leur rôle : **Vue d’ensemble —
+Observer**, **À traiter — Prioriser**, **Décisions — Décider** et
 **Assistant — Préparer**. Le repère Décider reste visible en concentration;
 l'Assistant conserve Préparer lorsqu'un dossier est sélectionné. Les liens
 rejoignent les écrans propriétaires existants, avec leurs droits et confirmations.
@@ -50,7 +89,7 @@ répétition générale, variantes de texte, préférences éditoriales et solut
 aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
 le [runbook éditorial](editorial-programme.md).
 
-Le Cockpit conserve indicateurs, aperçu de quatre tâches du jour, activité récente
+La Vue d’ensemble conserve indicateurs, aperçu de quatre tâches du jour, activité récente
 et santé globale. Les diagnostics systèmes et Stripe se déplient à la demande;
 le dossier individuel et sa préparation restent dans leurs écrans propriétaires.
 **À traiter** conserve l'ensemble des interventions. Ses liens de revue de
@@ -58,6 +97,11 @@ commandite et de reprise de courriel ouvrent la décision exacte dans le pilotag
 avec retour à la file filtrée. Les autres liens rejoignent leur écran métier.
 Une décision résolue, inaccessible ou indisponible n'est jamais remplacée par la
 première carte : un état explicite propose le dossier et le retour à la file.
+L’Assistant conserve les questions générales, les synthèses à la demande et la
+préparation depuis un dossier. Il ne présente plus de file générale : le lien
+**Ouvrir À traiter** rejoint la file propriétaire. Les liens directs existants vers
+une intervention restent utilisables pour sa préparation. Son entrée demeure
+dans la navigation principale.
 La file centrale du pilotage conserve les décisions dotées d'actions, y compris
 leurs blocages. Les alertes d'investigation restent dans À traiter et les dossiers;
 une incertitude de livraison y conserve son lien exact, sans relance proposée.

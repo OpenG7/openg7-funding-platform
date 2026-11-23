@@ -1,6 +1,8 @@
 {
   "admin": {
-    "serviceDemo": { "open": "Ouvrir les prestations (démo)" },
+    "serviceDemo": {
+      "open": "Ouvrir les prestations (démo)"
+    },
     "privacy": {
       "forbidden": "Votre compte ne permet plus de consulter ces données. Vérifiez vos accès avant de recharger.",
       "stale": "Dernier état connu : ces données n’ont pas pu être actualisées. Vérifiez leur état avant toute action."
@@ -616,7 +618,7 @@
     "assistantOverview": {
       "mock": "Conversation de démonstration sur les données administratives. Une question n’exécute aucune action.",
       "eyebrow": "Votre prochaine action",
-      "intro": "Repérez un blocage, examinez le dossier, puis préparez la suite.",
+      "intro": "Posez une question, consultez une synthèse ou préparez la suite depuis un dossier.",
       "next": "Par où commencer?",
       "order": "Une suggestion par catégorie, selon la priorité et l’échéance",
       "browse": "Explorer les éléments à traiter",
@@ -1571,7 +1573,7 @@
       "operations": "Opérations",
       "finance": "Finances",
       "system": "Système",
-      "dashboard": "Cockpit",
+      "dashboard": "Vue d’ensemble",
       "assistant": "Assistant",
       "preflight": "Preflight",
       "contributions": "Contributions",
@@ -1587,7 +1589,7 @@
       "signOut": "Déconnexion",
       "public": "Retour au fonds",
       "motto": "Bâtir aujourd’hui un impact durable demain.",
-      "pilotage": "Poste de pilotage"
+      "pilotage": "Décisions"
     },
     "guidance": {
       "toggle": "Guide administratif",
@@ -1972,7 +1974,7 @@
       "toFrench": "Passer l’administration en français"
     },
     "dashboard": {
-      "title": "Cockpit",
+      "title": "Vue d’ensemble",
       "subtitle": "Vue d’ensemble du fonds et de vos opérations.",
       "refresh": "Actualiser",
       "loading": "Actualisation du tableau de bord…",
@@ -3278,7 +3280,7 @@
       "exitFocus": "Quitter la concentration",
       "showQueue": "Afficher la file",
       "hideQueue": "Masquer la file",
-      "title": "Poste de pilotage",
+      "title": "Décisions",
       "targetUnavailable": "Cette décision n’est plus disponible ou ne peut pas être chargée. Consultez son dossier ou revenez à la file.",
       "backToQueue": "Retour à la file",
       "overview": "Vue d’ensemble",
@@ -3346,6 +3348,7 @@
       "menu": "Menu Pilotage",
       "help": "Aide",
       "keyboardHint": "Clavier : A accepter · B refuser · X modifier · Y détails",
+      "keyboardHintApproveAll": "Clavier : A approuver tout · B refuser · X modifier · Y détails",
       "confirm": "Confirmer la décision",
       "combinedApproval": "Commanditaires approuvés avec cette publication",
       "privateReview": "Cette validation ne rend pas leurs fiches publiques sur le site.",
@@ -3438,7 +3441,7 @@
         "publication_approve": "Approuver la publication et ses commanditaires",
         "publication_reject": "Refuser cette proposition",
         "publication_edit": "Enregistrer les changements",
-        "sponsor_approve": "Approuver ce commanditaire",
+        "sponsor_approve": "Approuver tout",
         "sponsor_reject": "Refuser ce commanditaire",
         "email_retry": "Autoriser une nouvelle tentative",
         "project_publish": "Publier cette réalisation",
@@ -3450,7 +3453,7 @@
         "publication_approve": "Publication autorisée pour la date prévue; envoi selon l’état de la destination et les contrôles au moment de l’envoi.",
         "publication_reject": "Proposition refusée et conservée dans l’historique. Aucun envoi.",
         "publication_edit": "Proposition modifiée, à relire avant son autorisation.",
-        "sponsor_approve": "Revue approuvée; la fiche reste privée jusqu’à une décision de visibilité distincte.",
+        "sponsor_approve": "Approuve la fiche et les médias confirmés. Une photo ajoutée ou remplacée ensuite reste à examiner. Chaque photo peut être désapprouvée séparément. Aucune publication automatique ; la fiche reste privée.",
         "sponsor_reject": "Revue refusée et tracée. Aucun remboursement n’est déclenché.",
         "email_retry": "Courriel replacé dans la file; l’envoi sera traité par le worker de courriels.",
         "project_publish": "La réalisation et son contenu deviennent visibles dans la transparence publique.",
@@ -3512,7 +3515,12 @@
         "REVIEW_REQUIRED": "Ce dossier doit être corrigé ou examiné dans son détail.",
         "VERSION_CONFLICT": "Le dossier a changé. Actualisez et relisez-le avant de décider.",
         "REVIEW_UNAVAILABLE": "Cette revue a déjà été traitée. Actualisez le dossier.",
-        "CALENDAR_HISTORY": "Cette publication est déjà traitée. Consultez le calendrier complet pour son historique."
+        "CALENDAR_HISTORY": "Cette publication est déjà traitée. Consultez le calendrier complet pour son historique.",
+        "MEDIA_APPROVAL_INCOMPLETE": "Approbation globale non terminée. Les médias déjà approuvés sont conservés ; la fiche reste à examiner. Relisez le dossier et son reçu avant une nouvelle tentative.",
+        "MEDIA_APPROVAL_CHANGED": "Approbation globale non terminée. Les médias déjà approuvés sont conservés ; la fiche reste à examiner. Relisez le dossier et son reçu avant une nouvelle tentative.",
+        "MEDIA_APPROVAL_UNAVAILABLE": "Approbation globale non terminée. Les médias déjà approuvés sont conservés ; la fiche reste à examiner. Relisez le dossier et son reçu avant une nouvelle tentative.",
+        "MEDIA_REVIEW_UNAVAILABLE": "Approbation globale non terminée. Les médias déjà approuvés sont conservés ; la fiche reste à examiner. Relisez le dossier et son reçu avant une nouvelle tentative.",
+        "MEDIA_PLAN_SCOPE_MISMATCH": "Approbation globale non terminée. Les médias déjà approuvés sont conservés ; la fiche reste à examiner. Relisez le dossier et son reçu avant une nouvelle tentative."
       },
       "day": "1 jour",
       "calibration": "Correspondance des entrées non standard",
@@ -3534,7 +3542,87 @@
       "programmeHelp": "Préparez le calendrier, les textes et les préférences éditoriales de vos publications.",
       "fiveMinutes": "Session de cinq minutes",
       "sessionDecisions": "décisions terminées",
-      "endSession": "Terminer la session"
+      "endSession": "Terminer la session",
+      "workspace": "Espaces et suivi",
+      "workspaceTools": "Espaces et suivi",
+      "viewPublicationStatus": "Voir l’état des publications",
+      "publicationStatus": "État des publications",
+      "keyboardHintPublicationStatus": "Clavier : A état des publications · B refuser · X modifier · Y détails",
+      "publicationHealth": {
+        "connectionBlocked": "L’approbation nécessite un compte de publication configuré et une connexion vérifiée pour cette destination. Consultez l’état actuel ci-dessous ou ouvrez ses réglages.",
+        "scope": "Publications du dossier associé, ou de la publication sélectionnée lorsqu’elle regroupe plusieurs dossiers.",
+        "readOnly": "Consultation uniquement : aucune vérification de connexion, approbation ou publication n’est lancée.",
+        "unavailable": "L’état des publications est indisponible. Actualisez pour réessayer.",
+        "workerEnabled": "Traitement automatique activé dans les réglages. Cela ne confirme pas que le processus de traitement est en marche.",
+        "workerDisabled": "Traitement automatique désactivé dans les réglages.",
+        "destinations": "Destinations de ce dossier",
+        "deliveries": "Publications associées",
+        "limit": "Jusqu’à 200 publications sont affichées dans ce périmètre.",
+        "account": "Compte de publication",
+        "noAccount": "Aucun compte configuré",
+        "connection": "Connexion du compte",
+        "destination": "Destination",
+        "lastCheck": "Dernière vérification",
+        "neverChecked": "Jamais vérifiée",
+        "openSettings": "Ouvrir les réglages des destinations",
+        "openDelivery": "Ouvrir cette publication",
+        "noDestination": "La destination n’a pas pu être retrouvée. Consultez les réglages dans Publications → Automatisation.",
+        "noDelivery": "Aucune publication retournée pour ce périmètre.",
+        "disabled": "Fournisseur désactivé",
+        "unconfigured": "Compte de publication non configuré",
+        "unchecked": "Connexion non vérifiée",
+        "expired": "Accès au compte expiré",
+        "error": "Dernière vérification en erreur",
+        "paused": "Destination en pause",
+        "active": "Destination active",
+        "ready": "Connexion vérifiée",
+        "modes": {
+          "mock": "Simulation",
+          "live": "Réel",
+          "disabled": "Désactivé"
+        },
+        "statuses": {
+          "draft": "À approuver",
+          "approved": "Approuvée · en attente d’envoi",
+          "publishing": "Envoi en cours",
+          "published": "Publiée",
+          "blocked": "Bloquée",
+          "uncertain": "Résultat à vérifier",
+          "rejected": "Refusée",
+          "cancelled": "Annulée"
+        }
+      },
+      "workspaceHelp": "Suivez votre progression et choisissez les décisions à examiner.",
+      "workspaceProgress": "Suivi de la session",
+      "chooseSpace": "Choisir un espace",
+      "chooseSpaceHelp": "Sélectionnez un espace pour retrouver ses décisions. Les compteurs indiquent les décisions à examiner.",
+      "workspaceShortcuts": "Poursuivre votre travail",
+      "workspaceQueueHelp": "Parcourir les prochains dossiers de cet espace.",
+      "workspaceProgrammeHelp": "Consulter les publications planifiées et les prochains créneaux.",
+      "workspacePreferences": "Votre espace de travail",
+      "workspaceAppearanceHelp": "Ajuster la taille du texte, le contraste et la disposition.",
+      "workspaceFocusHelp": "Donner plus de place à la décision en cours.",
+      "queue": "File d’attente",
+      "approveAll": "Approuver tout",
+      "approveAllScope": "Approuver cette fiche et tous les médias affichés ci-dessous :",
+      "approvalBlocked": "Certains médias ne peuvent pas être approuvés. Examinez leurs droits et leur contenu dans le dossier complet.",
+      "photos": "Photos du dossier",
+      "enlargePhoto": "Agrandir la photo",
+      "disapprovePhoto": "Désapprouver cette photo",
+      "noPhotos": "Aucune photo dans ce dossier.",
+      "mediaUnavailable": "Les photos ne sont pas disponibles. Actualisez avant de décider.",
+      "mediaStatus": {
+        "approved": "Approuvée",
+        "pending_review": "À examiner",
+        "rejected": "Refusée"
+      },
+      "mediaRights": "Droits d’utilisation",
+      "mediaClassification": {
+        "eligible": "Prête à approuver",
+        "already_approved": "Déjà approuvée",
+        "blocked": "Bloquée",
+        "not_processable": "Indisponible"
+      }
     },
     "setupEmail": {
       "newTest": "Envoyer un nouveau test",

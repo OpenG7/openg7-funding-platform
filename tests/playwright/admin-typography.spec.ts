@@ -17,11 +17,11 @@ const adminPages: {
 }[] = [
   {
     path: '/admin/fundraiser',
-    title: { 'fr-CA': 'Cockpit', en: 'Cockpit' }
+    title: { 'fr-CA': 'Vue d’ensemble', en: 'Overview' }
   },
   {
     path: '/admin/fundraiser/attention',
-    title: { 'fr-CA': 'À traiter', en: 'To do' }
+    title: { 'fr-CA': 'À traiter', en: 'Needs attention' }
   },
   {
     path: '/admin/fundraiser/assistant',
@@ -78,7 +78,7 @@ const adminPages: {
   },
   {
     path: '/admin/fundraiser/pilotage',
-    title: { 'fr-CA': 'Poste de pilotage', en: 'Control desk' }
+    title: { 'fr-CA': 'Décisions', en: 'Decisions' }
   },
   {
     path: '/admin/fundraiser/publications',

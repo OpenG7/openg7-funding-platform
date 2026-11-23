@@ -139,7 +139,12 @@ export class AdminPilotageReadController {
   }
 
   async changeDomain(domain: PilotDomain | ''): Promise<boolean> {
-    if (this.disposed || this.ports.busy() || this.ports.panel()) return false;
+    if (
+      this.disposed ||
+      this.ports.busy() ||
+      (this.ports.panel() && this.ports.panel() !== 'workspace')
+    )
+      return false;
     this.domain.set(domain);
     this.select(null);
     this.loading.set(true);

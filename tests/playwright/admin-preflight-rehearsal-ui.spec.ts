@@ -539,7 +539,7 @@ test('Preflight recipe ignores a late 401 after leaving and reopening the page',
   await expect.poll(() => state.reads).toBeGreaterThan(readsBefore);
   await page
     .locator('openg7-admin-nav nav')
-    .getByRole('link', { name: 'Cockpit', exact: true })
+    .getByRole('link', { name: 'Vue d’ensemble', exact: true })
     .click();
   await expect(panel(page)).toHaveCount(0);
   state.getGate = null;

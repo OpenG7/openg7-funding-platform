@@ -76,6 +76,8 @@ export interface PilotCommand {
   version: string;
   confirmation: string;
   payload?: {
+    /** Explicit immutable native media plan, confirmed together with the dossier. */
+    approveMediaPlanId?: string;
     message?: string;
     scheduledAt?: string;
     mediaId?: string | null;
