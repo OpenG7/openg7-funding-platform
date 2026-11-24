@@ -13,6 +13,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { currentModerationApproval } from '../playwright/support/moderation.js';
+import { openPilotageProgramme } from '../playwright/support/pilotage-workspace.js';
 
 import { startIdentityStack } from './stack.mjs';
 
@@ -52,7 +53,7 @@ test('editorial variants: exact review, distinct observations and explicit prefe
       new URL(page.url()).pathname !==
       '/admin/fundraiser/publications/programme'
     )
-      await page.locator('[data-og7="open-programme"]').click();
+      await openPilotageProgramme(page);
     else await refresh(page);
     await expect(programme(page)).toHaveAttribute('aria-busy', 'false');
     await programme(page)

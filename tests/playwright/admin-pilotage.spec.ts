@@ -1613,7 +1613,9 @@ test('overview counts confirmed decisions for this visit only', async ({
   await expectOverview(page, 'À examiner', '4');
   await expectOverview(page, 'décisions traitées', '0');
   await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(commands).toHaveLength(0);
   await page.locator('[data-og7="pilot-accept"]').click();
   await page.locator('[data-og7="pilot-confirm"]').click();
@@ -3197,7 +3199,7 @@ for (const width of [390, 1512]) {
     await expect(page).toHaveURL(/\/pilotage$/);
     await expect(page.getByRole('main')).toHaveCount(1);
     await openWorkspace(page);
-    const spaces = page.getByRole('group', { name: 'Espaces de pilotage' });
+    const spaces = page.getByRole('group', { name: 'Choisir un espace' });
     const sponsors = spaces.getByRole('button', { name: /^Commanditaires/ });
     await sponsors.focus();
     await page.keyboard.press('Enter');
@@ -3221,7 +3223,7 @@ for (const width of [390, 1512]) {
     );
     await openWorkspace(page);
     await expect(
-      page.getByRole('group', { name: 'Control areas' })
+      page.getByRole('group', { name: 'Choose a space' })
     ).toBeVisible();
     await page.keyboard.press('Escape');
     expect(

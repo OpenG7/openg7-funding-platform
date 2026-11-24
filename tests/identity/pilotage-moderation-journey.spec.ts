@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 
 import { recordFixtureSponsorshipAgreement } from '../integration/support/sponsorship-agreement-fixture.mjs';
+import { openPilotageWorkspace } from '../playwright/support/pilotage-workspace.js';
 
 import { startIdentityStack } from './stack.mjs';
 import { openAdminIdentity } from './support/admin-browser.js';
@@ -224,6 +225,7 @@ for (const conflict of [false, true]) {
       });
       const baseline = await snapshot();
       await page.reload();
+      await openPilotageWorkspace(page);
       await page
         .locator('[data-og7="pilot-domains"] [data-domain="publications"]')
         .click();

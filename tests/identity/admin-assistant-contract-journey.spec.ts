@@ -123,18 +123,15 @@ test('assistant overdue slot preparation is localized through real HTTP and crea
       const session = await openAdminIdentity(
         playwright.chromium,
         stack.origin,
-        '/admin/fundraiser/assistant?type=publication_late',
+        '/admin/fundraiser/assistant?selected=' +
+          encodeURIComponent(`publication_late:slot:${slot}`),
         'owner',
         language
       );
       sessions.push(session);
       const { page } = session;
-      await page
-        .locator(
-          `[data-og7="assistant-items"] [data-og7-id="publication_late:slot:${slot}"] button`
-        )
-        .click();
       const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
       const [result] = await Promise.all([
         page.waitForResponse(
           (r) => new URL(r.url()).pathname === '/api/admin/assistant/prepare'

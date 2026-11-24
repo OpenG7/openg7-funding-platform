@@ -790,7 +790,7 @@ test('all admin routes share a single layout, translated headings and mobile wid
       .click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     if (route === '') {
-      await expect(page.locator('h1')).toHaveText('Vue d’ensemble');
+      await expect(page.locator('h1')).toHaveText('Overview');
       await expect(
         page.locator('[data-og7="admin-workspace-mode"]')
       ).toHaveText('Observe');
