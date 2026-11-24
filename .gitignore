@@ -129,3 +129,4 @@ aws-credentials*
 *.aws-credentials
 *.agekey
 strapi/types/generated/contentTypes.d.ts
+/.local/blueprints/

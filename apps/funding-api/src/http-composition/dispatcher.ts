@@ -24,6 +24,7 @@ export const createHttpDispatcher = ({
     handleAdminCampaignsRequest,
     handleAdminContributionActivityRequest,
     handleAdminPublicationAutomationRequest,
+    handleAdminEngineRoomRequest,
     handleAdminSponsorshipMediaRequest,
     handleSponsorshipFollowupMediaRequest,
     handleReferenceLookupRequest,
@@ -114,6 +115,7 @@ export const createHttpDispatcher = ({
     if (await handleAdminAutomaticRunsRequest(request, response)) return;
     if (await handleAdminCampaignsRequest(request, response)) return;
     if (await handleAdminContributionActivityRequest(request, response)) return;
+    if (await handleAdminEngineRoomRequest?.(request, response)) return;
     if (await handleAdminPublicationAutomationRequest(request, response))
       return;
     if (await handleAdminSponsorshipMediaRequest(request, response)) return;

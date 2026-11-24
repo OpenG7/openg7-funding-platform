@@ -28,10 +28,6 @@ import type {
   PilotState
 } from '@openg7/funding-core';
 import type {
-  PublicationAutomationState,
-  PublicationFeed
-} from '@openg7/funding-core';
-import type {
   SponsorMediaWorkspace,
   SponsorMediaApproveAllPlan
 } from '@openg7/funding-core';
@@ -99,7 +95,6 @@ type Panel =
   | 'incident'
   | 'appearance'
   | 'workspace'
-  | 'publicationStatus'
   | 'queue';
 
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
@@ -319,30 +314,6 @@ export class AdminPilotagePageComponent {
       !!this.primary()?.blocked &&
       !!this.selected()?.publication
   );
-  readonly publicationStatus = signal<PublicationAutomationState | null>(null);
-  readonly publicationStatusLoading = signal(false);
-  readonly publicationStatusFailed = signal(false);
-  private publicationStatusGeneration = 0;
-  private readonly publicationStatusContext = computed(() =>
-    [
-      this.selected()?.id,
-      this.selected()?.version,
-      this.approvalContext()
-    ].join('|')
-  );
-  readonly dossierFeeds = computed(() => {
-    const data = this.publicationStatus();
-    const ids = new Set(data?.deliveries.map((delivery) => delivery.feedId));
-    const current = this.selected()?.publication?.feedId;
-    if (current) ids.add(current);
-    return data?.feeds.filter((feed) => ids.has(feed.id)) ?? [];
-  });
-  readonly publicationStatusScope = computed(() => {
-    const delivery = this.selected()?.publication;
-    return delivery?.sponsors.length === 1
-      ? { sponsorshipId: delivery.sponsors[0]!.id }
-      : { deliveryId: delivery?.id };
-  });
   readonly reject = computed(() =>
     this.selected()?.actions.find((a) => a.id.endsWith('.reject'))
   );
@@ -523,13 +494,6 @@ export class AdminPilotagePageComponent {
 
   constructor() {
     effect(() => {
-      this.publicationStatusContext();
-      untracked(() => {
-        this.clearPublicationStatus();
-        if (this.panel() === 'publicationStatus') this.close();
-      });
-    });
-    effect(() => {
       this.approvalContext();
       untracked(() => {
         this.approvalPlan.set(null);
@@ -554,7 +518,6 @@ export class AdminPilotagePageComponent {
     });
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
-      this.clearPublicationStatus();
       this.approvalPreviews.dispose();
       this.reads.dispose();
       this.releaseController?.();
@@ -881,7 +844,6 @@ export class AdminPilotagePageComponent {
   }
   close(): void {
     if (!this.busy()) {
-      this.clearPublicationStatus();
       this.approvalPreviews.clear();
       this.approvalPlan.set(null);
       this.reads.invalidatePanelReads();
@@ -890,58 +852,19 @@ export class AdminPilotagePageComponent {
       this.controller.reset();
     }
   }
-  private clearPublicationStatus(): void {
-    ++this.publicationStatusGeneration;
-    this.publicationStatus.set(null);
-    this.publicationStatusLoading.set(false);
-    this.publicationStatusFailed.set(false);
-  }
   async openPublicationStatus(): Promise<void> {
-    if (this.busy() || !this.selected()?.publication) return;
-    this.open('publicationStatus');
-    await this.refreshPublicationStatus();
-  }
-  async refreshPublicationStatus(): Promise<void> {
-    if (this.panel() !== 'publicationStatus' || !this.selected()?.publication)
-      return;
-    const generation = ++this.publicationStatusGeneration;
-    const context = this.approvalContext();
-    const decisionContext = this.publicationStatusContext();
-    this.publicationStatus.set(null);
-    this.publicationStatusFailed.set(false);
-    this.publicationStatusLoading.set(true);
-    try {
-      const data = await this.admin.publicationAutomation(
-        undefined,
-        this.publicationStatusScope()
-      );
-      if (
-        generation !== this.publicationStatusGeneration ||
-        context !== this.approvalContext() ||
-        decisionContext !== this.publicationStatusContext() ||
-        this.panel() !== 'publicationStatus'
-      )
-        return;
-      if (!('feeds' in data) || !('deliveries' in data))
-        throw new Error('AUTOMATION_UNAVAILABLE');
-      this.publicationStatus.set(data);
-    } catch (error) {
-      if (generation !== this.publicationStatusGeneration) return;
-      this.publicationStatusFailed.set(true);
-      if (error instanceof AdminDashboardRequestError && error.status === 401)
-        this.admin.clearAdminSession();
-    } finally {
-      if (generation === this.publicationStatusGeneration)
-        this.publicationStatusLoading.set(false);
-    }
-  }
-  publicationFeedStatus(feed: PublicationFeed): string {
-    if (feed.mode === 'disabled') return this.t('publicationHealth.disabled');
-    if (!feed.configured) return this.t('publicationHealth.unconfigured');
-    if (feed.connection !== 'ready')
-      return this.t('publicationHealth.' + feed.connection);
-    if (feed.paused) return this.t('publicationHealth.paused');
-    return this.t('publicationHealth.ready');
+    const decision = this.selected();
+    const publication = decision?.publication;
+    if (this.busy() || !publication) return;
+    this.persist();
+    await this.router.navigate(['/admin/fundraiser/engine-room'], {
+      queryParams: {
+        ...(publication.sponsors.length === 1
+          ? { sponsorshipId: publication.sponsors[0]!.id }
+          : { deliveryId: publication.id }),
+        decisionId: decision!.id
+      }
+    });
   }
   async request(action: PilotAction): Promise<void> {
     const approvalContext = this.approvalContext();

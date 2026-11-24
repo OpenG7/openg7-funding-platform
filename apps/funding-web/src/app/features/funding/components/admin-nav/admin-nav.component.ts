@@ -291,6 +291,12 @@ export class AdminNavComponent implements OnInit {
           key: 'preflight',
           url: '/admin/fundraiser/preflight',
           icon: 'cloud'
+        },
+        {
+          key: 'engineRoom',
+          labelKey: 'admin.engineRoom.title',
+          url: '/admin/fundraiser/engine-room',
+          icon: 'settings'
         }
       ]
     },

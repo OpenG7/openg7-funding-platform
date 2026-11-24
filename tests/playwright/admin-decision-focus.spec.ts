@@ -4,6 +4,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
+import { engineRoomFixture } from './support/engine-room.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const planId = '22222222-2222-4222-8222-222222222222';
@@ -408,112 +409,21 @@ async function publicationFixtures(page: import('@playwright/test').Page) {
   return { options, writes, queries };
 }
 
-for (const language of ['fr-CA', 'en']) {
-  test(`blocked publication opens scoped read-only engine status in ${language}`, async ({
-    page
-  }, info) => {
-    const { options, writes, queries } = await publicationFixtures(page);
-    await page.addInitScript(
-      (locale) => localStorage.setItem('openg7.language', locale),
-      language
-    );
-    await page.setViewportSize({
-      width: language === 'fr-CA' ? 390 : 1536,
-      height: 1000
-    });
-    await page.goto(base);
-    await expect(page.locator('[data-og7="pilot-accept"]')).toHaveCount(0);
-    const opener = page.locator('[data-og7="pilot-publication-status"]');
-    await expect(opener).toBeEnabled();
-    await opener.click();
-    const health = page.locator('[data-og7="pilot-publication-health"]');
-    await expect(
-      health.locator('[data-og7="pilot-publication-feed"]')
-    ).toHaveCount(1);
-    await expect(health).toContainText('Facebook');
-    await expect(health).toContainText('Simulation');
-    await expect(health).not.toContainText('unrelated');
-    const blocker = health.locator('[data-og7="pilot-publication-blocker"]');
-    await expect(blocker).toContainText('Facebook · CANADA');
-    await expect(blocker.getByRole('link')).toBeVisible();
-    await expect(blocker).not.toContainText('feed');
-    expect(queries[0]).toContain('sponsorshipId=' + planId);
-    const settings = new URL(
-      (await health
-        .locator('[data-og7="pilot-publication-feed-settings"]')
-        .getAttribute('href'))!,
-      page.url()
-    );
-    expect(settings.searchParams.get('settings')).toBe('feeds');
-    expect(settings.searchParams.get('feedId')).toBe('canada:facebook');
-    expect(
-      (
-        await new AxeBuilder({ page })
-          .include('[data-og7="admin-drawer"]')
-          .analyze()
-      ).violations
-    ).toEqual([]);
-    await page.screenshot({ path: info.outputPath('publication-status.png') });
-    await page.keyboard.press('Escape');
-    await expect(opener).toBeFocused();
-    options.fail = true;
-    await page.keyboard.press('a');
-    await expect(health.getByRole('alert')).toBeVisible();
-    await expect(
-      health.locator('[data-og7="pilot-publication-feed"]')
-    ).toHaveCount(0);
-    options.fail = false;
-    await health
-      .locator('[data-og7="pilot-publication-health-refresh"]')
-      .click();
-    await expect(
-      health.locator('[data-og7="pilot-publication-feed"]')
-    ).toHaveCount(1);
-    expect(writes).toEqual([]);
-  });
-}
-
-test('a late failed publication read cannot replace a reopened dossier status', async ({
+test('blocked approval opens the engine room with dossier context and exact decision return', async ({
   page
 }) => {
-  const { writes } = await publicationFixtures(page);
-  let release!: () => void;
-  let entered!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const started = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  let first = true;
-  await page.route(/\/publication-automation(?:\?|$)/, async (route) => {
-    if (!first) return route.fallback();
-    first = false;
-    entered();
-    await gate;
-    return route.fulfill({ status: 503, json: {} });
-  });
+  await publicationFixtures(page);
+  const { reads, writes } = await engineRoomFixture(page);
   await page.goto(base);
-  const opener = page.locator('[data-og7="pilot-publication-status"]');
-  await opener.click();
-  await started;
-  await page.keyboard.press('Escape');
-  await expect(opener).toBeFocused();
-  await opener.click();
-  const health = page.locator('[data-og7="pilot-publication-health"]');
-  await expect(
-    health.locator('[data-og7="pilot-publication-feed"]')
-  ).toHaveCount(1);
-  const late = page.waitForResponse(
-    (response) =>
-      response.url().includes('/publication-automation') &&
-      response.status() === 503
+  await expect(page.locator('[data-og7="pilot-accept"]')).toHaveCount(0);
+  await page.locator('[data-og7="pilot-publication-status"]').click();
+  await expect(page).toHaveURL(/engine-room\?sponsorshipId=/);
+  await expect(page.locator('[data-og7="engine-feed"]')).toHaveCount(1);
+  expect(reads[0]).toContain('sponsorshipId=' + planId);
+  await page.locator('[data-og7="engine-room-scope"] a').first().click();
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    'publication:' + id
   );
-  release();
-  await late;
-  await expect(health.getByRole('alert')).toHaveCount(0);
-  await expect(
-    health.locator('[data-og7="pilot-publication-feed"]')
-  ).toHaveCount(1);
   expect(writes).toEqual([]);
 });
