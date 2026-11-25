@@ -9,6 +9,7 @@
     "/admin/fundraiser/campaigns",
     "/admin/fundraiser/contributions",
     "/admin/fundraiser/email-queue",
+    "/admin/fundraiser/engine-room",
     "/admin/fundraiser/expenses",
     "/admin/fundraiser/invoices",
     "/admin/fundraiser/pilotage",
@@ -142,7 +143,11 @@
     },
     {
       "id": "A06",
-      "routes": ["/admin/fundraiser/pilotage", "/admin/fundraiser/sponsors"],
+      "routes": [
+        "/admin/fundraiser/pilotage",
+        "/admin/fundraiser/sponsors",
+        "/admin/fundraiser/engine-room"
+      ],
       "roles": ["owner"],
       "states": [
         "401",
@@ -151,13 +156,19 @@
         "409",
         "503",
         "late response",
-        "reload current content"
+        "reload current content",
+        "read-only engine observations and native publication settings preserved"
       ],
       "evidence": [
         {
           "level": "e2e",
           "file": "tests/identity/financial-access-revocation.spec.ts",
           "title": "moderation content refusals stay distinct, retries use real content and obsolete or revoked decisions never persist"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/playwright/admin-engine-room-acceptance.spec.ts",
+          "title": "engine room reads real owner observations without mutating publication settings"
         }
       ]
     },

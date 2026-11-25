@@ -12,16 +12,12 @@ dossier ferme ce panneau. Échap ferme les panneaux et restitue le focus.
 Les photos du dossier sont présentées ensemble avec leur statut et un aperçu agrandi.
 
 Lorsque l’action `publication.approve` porte un blocage serveur, la commande A
-devient **Voir l’état des publications**. Ce panneau consulte l’API native avec
-`sponsorshipId` pour une publication associée à un seul dossier, ou `deliveryId`
-pour une publication regroupant plusieurs dossiers. Il affiche les destinations
-présentes dans ces publications, leur mode, compte, connexion et pause, ainsi que
-le réglage du traitement automatique et les publications retournées (limite native
-de 200). Le réglage activé ne prouve pas la disponibilité du processus worker.
-Les liens rejoignent les réglages des destinations et les publications natives.
-L’ouverture et l’actualisation sont des lectures, sans test réseau fournisseur,
-approbation ni publication. Échec, fermeture et changement de contexte invalident
-les lectures privées; l’approbation disponible conserve sa confirmation habituelle.
+devient **Voir l’état des publications** et ouvre la
+[salle des moteurs](../technical/engine-room.md) avec `sponsorshipId` pour un
+dossier unique ou `deliveryId` pour une publication collective. Le retour conserve
+la décision exacte. La salle remplace le panneau de diagnostic, sans test de compte,
+approbation ni publication à l’ouverture. L’approbation disponible conserve sa
+confirmation habituelle.
 
 Pour une commandite, **Approuver tout · A** prépare un plan natif de tous les médias
 du dossier puis affiche leur liste avant la confirmation humaine. Les droits,

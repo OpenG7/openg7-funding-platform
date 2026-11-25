@@ -237,7 +237,10 @@ test('lost social responses survive restart and recover through verified reconci
           ['Ajouter des photos', 'photo.png']
         ]) {
           await page
-            .getByLabel('Description des images à téléverser')
+            .getByRole('textbox', {
+              name: 'Description des images à téléverser',
+              exact: true
+            })
             .fill('Présentation synthétique de ' + name);
           const upload = page.waitForResponse(
             (r) =>

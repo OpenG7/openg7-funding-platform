@@ -2001,7 +2001,7 @@ test('navigation cannot restore private edits for a different administrator', as
   ).toHaveCount(0);
 });
 
-test('each return from a dossier reloads the global Assistant queue once without loading optional private panels', async ({
+test('each return from a dossier keeps the Assistant free of a general queue and optional private reads', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
@@ -2038,10 +2038,9 @@ test('each return from a dossier reloads the global Assistant queue once without
     .getByRole('link', { name: 'Assistant', exact: true })
     .click();
   await expect(page).toHaveURL('/admin/fundraiser/assistant');
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-    '0 résultat(s) sur 0 intervention(s).'
-  );
-  expect(overviewReads()).toHaveLength(1);
+  await expect(page.locator('[data-og7="assistant-full-queue"]')).toBeVisible();
+  await expect(page.locator('[data-og7="assistant-count"]')).toHaveCount(0);
+  expect(overviewReads()).toHaveLength(0);
   await page.evaluate((next) => {
     history.pushState({}, '', next);
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -2054,17 +2053,9 @@ test('each return from a dossier reloads the global Assistant queue once without
     .getByRole('link', { name: 'Assistant', exact: true })
     .click();
   await expect(page).toHaveURL('/admin/fundraiser/assistant');
-  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
-    '0 résultat(s) sur 0 intervention(s).'
-  );
-  expect(overviewReads()).toHaveLength(2);
-  expect(
-    overviewReads().every(
-      (url) =>
-        url.searchParams.get('pageSize') === '15' &&
-        !url.searchParams.has('itemId')
-    )
-  ).toBe(true);
+  await expect(page.locator('[data-og7="assistant-full-queue"]')).toBeVisible();
+  await expect(page.locator('[data-og7="assistant-count"]')).toHaveCount(0);
+  expect(overviewReads()).toHaveLength(0);
   expect(
     calls.some(
       (call) => call.path.endsWith('/summary') || call.path.endsWith('/query')

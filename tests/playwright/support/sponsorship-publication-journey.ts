@@ -306,7 +306,10 @@ export async function sponsorshipPublicationJourney(
         ['Ajouter des photos', 'photo-demo.png']
       ]) {
         await company
-          .getByLabel('Description des images à téléverser')
+          .getByRole('textbox', {
+            name: 'Description des images à téléverser',
+            exact: true
+          })
           .fill(`Présentation de ${companyName}, image de démonstration.`);
         const upload = company.waitForResponse(
           (r) =>

@@ -504,7 +504,10 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         .png()
         .toBuffer();
       await company
-        .getByLabel('Description des images à téléverser')
+        .getByRole('textbox', {
+          name: 'Description des images à téléverser',
+          exact: true
+        })
         .fill('Présentation synthétique du dossier.');
       const photoUpload = company.getByLabel('Ajouter des photos');
       await expect(photoUpload).toBeEnabled();

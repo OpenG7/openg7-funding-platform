@@ -28,6 +28,7 @@ import {
   openSponsorshipWebsiteSettings,
   openDeclaredSponsorshipTracking
 } from './support/sponsorship-dossier.js';
+import { openPilotageProgramme } from './support/pilotage-workspace.js';
 
 for (const cause of ['rejection', 'destination'] as const)
   test(
@@ -385,7 +386,7 @@ for (const cause of ['rejection', 'destination'] as const)
         );
         await test.step('Preview and cancel change nothing; confirmed recomposition creates a draft with no publishing authority', async () => {
           await page.goto('/admin/fundraiser/pilotage');
-          await page.locator('[data-og7="open-programme"]').click();
+          await openPilotageProgramme(page);
           await page
             .getByRole('button', {
               name: 'Résoudre les incidents',

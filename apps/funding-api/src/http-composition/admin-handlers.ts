@@ -34,6 +34,8 @@ import { readAdminExpenseCreateReceipt } from '../expense-creation-receipts.repo
 import { createAdminEmailHttpHandler } from '../admin-email.http.js';
 import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
+import { createAdminEngineRoomHttpHandler } from '../admin-engine-room.http.js';
+import { readEngineRoom } from '../admin-engine-room.service.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { AdminPreparationService } from '../admin-preparation.service.js';
@@ -897,6 +899,28 @@ export const createAdminHttpHandlers = ({
       console.error(JSON.stringify(diagnostic))
   });
 
+  const handleAdminEngineRoomRequest = createAdminEngineRoomHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    writeJson,
+    read: (scope) =>
+      readEngineRoom(
+        {
+          publications: publicationAutomation
+            ? (filter) => publicationAutomation.state(undefined, filter)
+            : null,
+          connectorEnabled: preflightConfig?.enabled === true,
+          localPreparationEnabled: !!publicationWorkshop,
+          connector: async () => {
+            if (!dbPool || !preflightConfig?.enabled)
+              throw new Error('PREFLIGHT_UNAVAILABLE');
+            return connectorStatus(dbPool, preflightConfig.tenantId);
+          }
+        },
+        scope
+      )
+  });
+
   const handleAdminPublicationAutomationRequest =
     createAdminPublicationAutomationHttpHandler({
       publicBaseOrigin,
@@ -1054,6 +1078,7 @@ export const createAdminHttpHandlers = ({
     handleAdminAutomaticRunsRequest,
     handleAdminCampaignsRequest,
     handleAdminPublicationAutomationRequest,
+    handleAdminEngineRoomRequest,
     handleAdminSponsorshipRefundRequest,
     handleAdminStripeBackfillRequest,
     handleAdminContributionActivityRequest,

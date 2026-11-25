@@ -130,7 +130,8 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 24);
+  assert.equal(discovered.length, 25);
+  assert.ok(discovered.includes('/admin/fundraiser/engine-room'));
   assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
   assert.ok(discovered.includes('/admin/fundraiser/preflight'));
   assert.ok(discovered.includes('/admin/fundraiser/sponsors/quality'));

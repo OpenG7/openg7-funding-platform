@@ -80,6 +80,72 @@
   grid-template-columns: 15rem minmax(0, 1fr);
   @apply tw:min-h-screen;
 }
+.immersive-tools-toggle {
+  display: none;
+}
+.layout.immersive-layout {
+  --og7-admin-bg: #07121e;
+  --og7-admin-panel: #0d2232;
+  --og7-admin-raised: #173448;
+  --og7-admin-sidebar: #081723;
+  --og7-admin-text: #eff7ff;
+  --og7-admin-muted: #b9cddd;
+  --og7-admin-border: #3c5d73;
+  --og7-admin-focus: #ffd581;
+  --og7-admin-gold: #efc26e;
+  --admin-bg: #07121e;
+  --admin-panel: #0d2232;
+  --admin-panel-raised: #173448;
+  --admin-hover: #173448;
+  --admin-selected: #163a51;
+  --admin-sidebar: #081723;
+  --admin-text: #eff7ff;
+  --admin-muted: #b9cddd;
+  --admin-border: #3c5d73;
+  --admin-control-border: #69869b;
+  --admin-accent: #8bdef8;
+  --admin-focus: #ffd581;
+  --admin-subtle: #17364b;
+  --og7-admin-selected: #163a51;
+  --og7-admin-subtle: #18384d;
+  --og7-admin-accent: #8bdef8;
+  --og7-admin-primary: #efc26e;
+  --og7-admin-on-primary: #122335;
+  background: #07121e;
+  color: #eff7ff;
+}
+.immersive-layout main {
+  max-width: none;
+  padding: 0;
+}
+.immersive-layout .topbar {
+  min-height: 3.25rem;
+  padding: 0.5rem 1.25rem;
+  gap: 0.75rem;
+  box-shadow: none;
+}
+.immersive-layout .guidance-tools {
+  padding: 0;
+}
+@media (max-width: 860px) {
+  .immersive-layout .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.5rem 0.875rem;
+  }
+  .immersive-layout .immersive-tools-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .immersive-layout .tools {
+    display: none;
+    grid-column: 1 / -1;
+  }
+  .immersive-layout .tools.immersive-tools-open {
+    display: flex;
+  }
+}
 .workspace {
   @apply tw:min-w-0;
 }

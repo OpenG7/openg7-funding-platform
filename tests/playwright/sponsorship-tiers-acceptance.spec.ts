@@ -439,7 +439,10 @@ for (const amount of [5, 10, 15]) {
             ['Ajouter des photos', 'photo.png']
           ]) {
             await company
-              .getByLabel('Description des images à téléverser')
+              .getByRole('textbox', {
+                name: 'Description des images à téléverser',
+                exact: true
+              })
               .fill(`Image de démonstration de ${name}.`);
             const uploaded = company.waitForResponse(
               (r) =>

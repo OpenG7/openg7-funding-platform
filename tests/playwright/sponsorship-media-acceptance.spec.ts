@@ -277,7 +277,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         ['Ajouter des photos', 'backup.png']
       ]) {
         await company
-          .getByLabel('Description des images à téléverser')
+          .getByRole('textbox', {
+            name: 'Description des images à téléverser',
+            exact: true
+          })
           .fill('Présentation synthétique');
         const uploaded = company.waitForResponse(
           (r) =>
@@ -579,7 +582,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           .getByRole('button', { name: 'Modifier mes informations' })
           .click();
         await company
-          .getByLabel('Description des images à téléverser')
+          .getByRole('textbox', {
+            name: 'Description des images à téléverser',
+            exact: true
+          })
           .fill('Nouveau logo synthétique');
         const uploaded = company.waitForResponse(
           (r) =>

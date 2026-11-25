@@ -1,0 +1,521 @@
+<openg7-admin-layout [immersive]="true">
+  <section
+    class="engine-room"
+    data-og7="engine-room"
+    [attr.aria-busy]="loading()"
+    [class.observation-stale]="stale()"
+  >
+    <header class="room-heading">
+      <div class="room-emblem" aria-hidden="true">
+        <openg7-admin-icon name="settings" />
+      </div>
+      <div>
+        <p class="eyebrow">OpenG7 &middot; Funding Platform</p>
+        <h1>{{ t('title') }}</h1>
+        <p class="room-intro">{{ t('intro') }}</p>
+      </div>
+    </header>
+    <div class="scope-bar" data-og7="engine-room-scope">
+      <div class="scope-links">
+        <span class="scope-name"
+          ><openg7-admin-icon name="publications" />{{
+            t(
+              scope().deliveryId
+                ? 'collectiveScope'
+                : contextual()
+                  ? 'dossierScope'
+                  : 'platformScope'
+            )
+          }}</span
+        >
+        @if (decisionId()) {
+          <a
+            routerLink="/admin/fundraiser/pilotage"
+            [queryParams]="{ decisionId: decisionId() }"
+            >&larr; {{ t('backDecision') }}</a
+          >
+        } @else if (scope().sponsorshipId) {
+          <a
+            routerLink="/admin/fundraiser/sponsors"
+            [queryParams]="{ sponsorshipId: scope().sponsorshipId }"
+            >&larr; {{ t('backDossier') }}</a
+          >
+        }
+        @if (contextual()) {
+          <a routerLink="/admin/fundraiser/engine-room">{{
+            t('allEngines')
+          }}</a>
+        }
+      </div>
+      <div class="observation">
+        <span
+          >{{ t(stale() ? 'staleState' : 'observedAt') }}
+          {{ date(data()?.observedAt || null) }}</span
+        ><button
+          type="button"
+          (click)="load()"
+          [disabled]="loading()"
+          data-og7="engine-room-refresh"
+        >
+          {{ t('refresh') }}
+        </button>
+      </div>
+    </div>
+    @if (loading()) {
+      <p class="room-feedback" role="status">{{ t('loading') }}</p>
+    }
+    @if (failed()) {
+      <p class="room-feedback alert" role="alert">{{ t('unavailable') }}</p>
+    }
+    @if (data(); as snapshot) {
+      <nav class="mobile-engine-switch" [attr.aria-label]="t('chooseEngine')">
+        <button
+          type="button"
+          [attr.aria-pressed]="selected() === 'publications'"
+          (click)="selectEngine('publications')"
+          data-og7="engine-switch-publications"
+        >
+          G7 &middot; {{ t('publicationsShort') }}
+        </button>
+        <button
+          type="button"
+          [attr.aria-pressed]="selected() === 'preflight'"
+          (click)="selectEngine('preflight')"
+          data-og7="engine-switch-preflight"
+        >
+          PF &middot; Preflight
+        </button>
+      </nav>
+      <div class="room-layout">
+        <section
+          class="industrial-scene"
+          data-og7="engine-scene"
+          [attr.aria-label]="t('sceneLabel')"
+        >
+          <div class="ceiling-brand" aria-hidden="true">
+            Open<span>G7</span>
+          </div>
+          <div class="machinery">
+            <div
+              class="machine-rig funding-rig"
+              [class.mobile-hidden]="selected() !== 'publications'"
+            >
+              <button
+                class="machine-button"
+                type="button"
+                [class.selected]="
+                  selected() === 'publications' && !selectedFeed()
+                "
+                [attr.aria-pressed]="
+                  selected() === 'publications' && !selectedFeed()
+                "
+                aria-controls="room-inspector"
+                (click)="selectEngine('publications')"
+                data-og7="engine-publications"
+              >
+                <span class="machine-rotor"
+                  ><openg7-engine-motor symbol="G7" [state]="motorState()"
+                /></span>
+                <span class="machine-plaque"
+                  ><span class="machine-owner">FUNDING</span
+                  ><strong>{{ t('publicationsTitle') }}</strong
+                  ><span class="machine-mission">{{
+                    t('publicationsMission')
+                  }}</span
+                  ><span class="machine-state"
+                    ><openg7-admin-icon name="info" />{{
+                      stale() ? t('staleState') : publicationState()
+                    }}</span
+                  ></span
+                >
+                <span class="machine-foundation" aria-hidden="true"></span>
+              </button>
+              @if (snapshot.publications.available) {
+                <div
+                  class="module-bank"
+                  role="group"
+                  [attr.aria-label]="t('destinationModules')"
+                >
+                  @for (feed of snapshot.publications.feeds; track feed.id) {
+                    <button
+                      class="module-button"
+                      type="button"
+                      [class.selected]="selectedFeedId() === feed.id"
+                      [class.module-off]="feed.mode === 'disabled'"
+                      [attr.aria-pressed]="selectedFeedId() === feed.id"
+                      aria-controls="room-inspector"
+                      (click)="selectFeed(feed)"
+                      data-og7="engine-feed"
+                      [attr.data-og7-id]="feed.id"
+                    >
+                      <openg7-engine-motor
+                        [symbol]="feed.id.endsWith(':facebook') ? 'f' : 'in'"
+                        [state]="motorState(feed)"
+                      />
+                      <span class="module-plaque"
+                        ><strong>{{ feedName(feed) }}</strong
+                        ><span class="module-state"
+                          ><openg7-admin-icon
+                            [name]="
+                              feed.mode === 'disabled' ? 'logout' : 'info'
+                            "
+                          />{{
+                            stale() ? t('staleState') : pt(health(feed))
+                          }}</span
+                        ><span class="module-mode">{{
+                          pt('modes.' + feed.mode)
+                        }}</span></span
+                      >
+                    </button>
+                  } @empty {
+                    <p class="stage-notice">{{ t('noDestinations') }}</p>
+                  }
+                </div>
+              } @else {
+                <p class="stage-notice" role="status">
+                  {{ t('publicationsUnavailable') }}
+                </p>
+              }
+            </div>
+            <div
+              class="machine-rig preflight-rig"
+              [class.mobile-hidden]="selected() !== 'preflight'"
+            >
+              <button
+                class="machine-button"
+                type="button"
+                [class.selected]="selected() === 'preflight'"
+                [attr.aria-pressed]="selected() === 'preflight'"
+                aria-controls="room-inspector"
+                (click)="selectEngine('preflight')"
+                data-og7="engine-preflight"
+              >
+                <span class="machine-rotor"
+                  ><openg7-engine-motor
+                    symbol="PF"
+                    [state]="
+                      stale() || !snapshot.preflight.available
+                        ? 'unknown'
+                        : snapshot.preflight.connectorEnabled ||
+                            snapshot.preflight.localPreparationEnabled
+                          ? 'unknown'
+                          : 'off'
+                    "
+                /></span>
+                <span class="machine-plaque"
+                  ><span class="machine-owner">PREFLIGHT</span
+                  ><strong>{{ t('preflightTitle') }}</strong
+                  ><span class="machine-mission">{{
+                    t('preflightMission')
+                  }}</span
+                  ><span class="machine-state"
+                    ><openg7-admin-icon name="info" />{{
+                      stale() ? t('staleState') : preflightState()
+                    }}</span
+                  ></span
+                >
+                <span class="machine-foundation" aria-hidden="true"></span>
+              </button>
+              <div class="relay-console">
+                <span class="console-line" aria-hidden="true"></span
+                ><span>{{ t('relayHeartbeat') }}</span
+                ><strong>{{ t('heartbeat.' + heartbeat()) }}</strong
+                ><small>{{ t('remoteNotVerified') }}</small>
+              </div>
+            </div>
+          </div>
+          <p class="scene-caption">
+            <openg7-admin-icon name="person" />{{ t('selectMachine') }}
+          </p>
+        </section>
+        <aside
+          id="room-inspector"
+          class="engine-detail"
+          data-og7="engine-detail"
+          [attr.aria-label]="t('inspector')"
+        >
+          <header class="inspector-heading">
+            <p class="eyebrow">{{ t('inspector') }}</p>
+            <h2 aria-live="polite">{{ inspectionTitle() }}</h2>
+            <p class="inspection-state">
+              <span aria-hidden="true"></span>{{ inspectionState() }}
+            </p>
+          </header>
+          <div
+            class="inspector-switch"
+            role="group"
+            [attr.aria-label]="t('inspectionView')"
+          >
+            <button
+              type="button"
+              [attr.aria-pressed]="inspectorView() === 'overview'"
+              (click)="inspectorView.set('overview')"
+              data-og7="engine-overview-tab"
+            >
+              {{ t('overviewTab') }}
+            </button>
+            <button
+              type="button"
+              [attr.aria-pressed]="inspectorView() === 'diagnostic'"
+              (click)="inspectorView.set('diagnostic')"
+              data-og7="engine-diagnostic-tab"
+            >
+              {{ t('diagnosticTab') }}
+            </button>
+          </div>
+          @if (
+            selected() === 'publications' && !snapshot.publications.available
+          ) {
+            <p class="alert" role="status">
+              {{ t('publicationsUnavailable') }}
+            </p>
+          }
+          @if (selected() === 'preflight' && !snapshot.preflight.available) {
+            <p class="alert" role="status">{{ t('preflightUnavailable') }}</p>
+          }
+          @if (inspectorView() === 'overview') {
+            <div
+              class="inspection-facts"
+              tabindex="0"
+              role="region"
+              [attr.aria-label]="t('overviewTab')"
+            >
+              <section>
+                <openg7-admin-icon name="publications" />
+                <div>
+                  <h3>{{ t('missionLabel') }}</h3>
+                  <p>
+                    {{
+                      t(
+                        selected() === 'preflight'
+                          ? 'preflightMissionCompact'
+                          : selectedFeed()
+                            ? 'moduleMission'
+                            : 'publicationsMissionCompact'
+                      )
+                    }}
+                  </p>
+                </div>
+              </section>
+              <section>
+                <openg7-admin-icon name="info" />
+                <div>
+                  <h3>{{ t('observedState') }}</h3>
+                  @if (
+                    selected() === 'preflight' &&
+                    snapshot.preflight.connectorEnabled
+                  ) {
+                    <small
+                      >{{ t('heartbeat.' + heartbeat()) }} &middot;
+                      {{ t('remoteNotVerified') }}</small
+                    >
+                  } @else if (selected() === 'publications') {
+                    <small>{{ t('activityNotMeasured') }}</small>
+                  } @else {
+                    <p>{{ preflightState() }}</p>
+                  }
+                </div>
+              </section>
+              <section>
+                <openg7-admin-icon name="audit" />
+                <div>
+                  <h3>{{ t('consequenceLabel') }}</h3>
+                  <p>{{ consequence() }}</p>
+                </div>
+              </section>
+              <section>
+                <openg7-admin-icon name="person" />
+                <div>
+                  <h3>{{ t('humanDecision') }}</h3>
+                  <p>{{ t('humanApproval') }}</p>
+                </div>
+              </section>
+            </div>
+          } @else {
+            <div
+              class="diagnostic-content"
+              data-og7="engine-diagnostics"
+              tabindex="0"
+              role="region"
+              [attr.aria-label]="t('diagnosticTab')"
+            >
+              <p>
+                {{ t('lastObservation') }} · {{ date(snapshot.observedAt) }}
+              </p>
+              @if (selectedFeed(); as feed) {
+                <p class="diagnostic-origin">
+                  {{ t('destinationModule') }} &middot; {{ t('fundingOwner') }}
+                </p>
+                <dl>
+                  <div>
+                    <dt>{{ pt('account') }}</dt>
+                    <dd>{{ feed.accountId || pt('noAccount') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('executionMode') }}</dt>
+                    <dd>{{ pt('modes.' + feed.mode) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ pt('connection') }}</dt>
+                    <dd>{{ pt(feed.connection) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ pt('destination') }}</dt>
+                    <dd>{{ pt(feed.paused ? 'paused' : 'active') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('autoPrepare') }}</dt>
+                    <dd>{{ t(feed.autoPrepare ? 'enabled' : 'disabled') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ pt('lastCheck') }}</dt>
+                    <dd>{{ date(feed.checkedAt) }}</dd>
+                  </div>
+                </dl>
+              } @else if (selected() === 'publications') {
+                <p class="diagnostic-origin">{{ t('fundingOwner') }}</p>
+                <p>
+                  {{
+                    t(
+                      snapshot.publications.workerEnabled
+                        ? 'enabled'
+                        : 'disabled'
+                    )
+                  }}
+                </p>
+                <p>{{ t('workerUnknown') }}</p>
+                <p>{{ t('approvalBoundary') }}</p>
+              } @else {
+                <p class="diagnostic-origin">{{ t('preflightOwner') }}</p>
+                <p>{{ preflightState() }}</p>
+                @if (snapshot.preflight.connectorEnabled) {
+                  <dl>
+                    <div>
+                      <dt>{{ t('relayHeartbeat') }}</dt>
+                      <dd>{{ t('heartbeat.' + heartbeat()) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('lastRelaySeen') }}</dt>
+                      <dd>{{ date(snapshot.preflight.lastWorkerSeenAt) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('remoteConnection') }}</dt>
+                      <dd>{{ t('remoteNotVerified') }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('pendingGlobal') }}</dt>
+                      <dd>{{ snapshot.preflight.pending ?? '&#8212;' }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('quarantinedGlobal') }}</dt>
+                      <dd>{{ snapshot.preflight.quarantined ?? '&#8212;' }}</dd>
+                    </div>
+                  </dl>
+                }
+                <p>{{ t('preflightScope') }}</p>
+              }
+              @if (
+                selected() === 'publications' && snapshot.publications.available
+              ) {
+                <details class="publication-activity">
+                  <summary>{{ t('activity') }}</summary>
+                  <p class="muted">{{ t('activityScope') }}</p>
+                  <ul>
+                    @for (
+                      delivery of snapshot.publications.deliveries;
+                      track delivery.id
+                    ) {
+                      @if (
+                        !selectedFeed() || delivery.feedId === selectedFeedId()
+                      ) {
+                        <li data-og7="engine-delivery">
+                          <strong>{{ delivery.feedId }}</strong
+                          ><span>{{ pt('statuses.' + delivery.status) }}</span
+                          ><small>{{
+                            date(delivery.publishedAt || delivery.scheduledAt)
+                          }}</small
+                          ><a
+                            routerLink="/admin/fundraiser/publications/automation"
+                            [queryParams]="{ deliveryId: delivery.id }"
+                            >{{ pt('openDelivery') }} &rarr;</a
+                          >
+                        </li>
+                      }
+                    } @empty {
+                      <li>{{ t('noPublications') }}</li>
+                    }
+                  </ul>
+                </details>
+              }
+            </div>
+          }
+          <section class="interventions">
+            <h3>
+              <openg7-admin-icon name="settings" />{{ t('interventions') }}
+            </h3>
+            @if (selected() === 'publications') {
+              @if (snapshot.publications.available) {
+                <a
+                  routerLink="/admin/fundraiser/publications/automation"
+                  [queryParams]="{
+                    settings: 'feeds',
+                    feedId: selectedFeedId()
+                  }"
+                  data-og7="engine-settings-link"
+                  >{{ pt('openSettings') }}
+                  <span aria-hidden="true">&rsaquo;</span></a
+                ><a
+                  routerLink="/admin/fundraiser/publications/automation"
+                  [queryParams]="scope()"
+                  >{{ t('openPublicationWorkspace') }}
+                  <span aria-hidden="true">&rsaquo;</span></a
+                >
+              }
+            } @else {
+              <a routerLink="/admin/fundraiser/preflight"
+                >{{ t('openPreflight') }}
+                <span aria-hidden="true">&rsaquo;</span></a
+              >
+            }
+          </section>
+        </aside>
+      </div>
+      <footer
+        class="supervision-strip"
+        data-og7="engine-room-summary"
+        [attr.aria-label]="t('summary')"
+      >
+        <div class="supervision-count">
+          <openg7-admin-icon name="settings" /><strong>2</strong
+          ><span>{{ t('knownCapabilities') }}</span>
+        </div>
+        <div class="supervision-count">
+          <openg7-admin-icon name="grid" /><strong>{{
+            snapshot.publications.available
+              ? snapshot.publications.feeds.length
+              : '&#8212;'
+          }}</strong
+          ><span>{{ t('destinationsInScope') }}</span>
+        </div>
+        <div class="supervision-count">
+          <openg7-admin-icon name="info" /><strong>{{
+            snapshot.publications.available ? attention() : '&#8212;'
+          }}</strong
+          ><span>{{ t('destinationsToReview') }}</span>
+        </div>
+        <div class="supervision-note">
+          @if (stale()) {
+            <p role="status">
+              <openg7-admin-icon name="info" />{{ t('stale') }}
+            </p>
+          } @else {
+            <span>{{ t('readOnly') }}</span>
+          }
+          @if (snapshot.publications.partial) {
+            <p class="partial-note">{{ t('partialShort') }}</p>
+          }
+        </div>
+      </footer>
+    }
+  </section>
+</openg7-admin-layout>

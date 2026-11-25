@@ -5,6 +5,7 @@ import { defineBuiltWebSuite } from './ui/playwright-fixtures.config.mjs';
 export default defineBuiltWebSuite({
   testMatch: [
     'admin-decision-focus.spec.ts',
+    'admin-engine-room.spec.ts',
     'activity-hub-embedded.ui.spec.ts',
     'service-demo.ui.spec.ts',
     'admin-audit-ui.spec.ts',

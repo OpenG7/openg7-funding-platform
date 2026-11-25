@@ -3,6 +3,11 @@
 Date : 23 novembre 2026. Statut : proposition de travaux, non livrée.
 Périmètre recommandé : administration Funding, avec raccordement contrôlé à Preflight.
 
+Une première tranche en cours est décrite dans la [référence technique](../technical/engine-room.md).
+Cette analyse conserve les travaux restants; sa présence ne prouve pas une livraison.
+Le [blueprint de brainstorming](engine-room-blueprint/README.md) réunit concept,
+captures de l’interface locale et questions à explorer avec ChatGPT.
+
 ## Intention à conserver
 
 La salle doit permettre à un administrateur de comprendre ce qui travaille pour
