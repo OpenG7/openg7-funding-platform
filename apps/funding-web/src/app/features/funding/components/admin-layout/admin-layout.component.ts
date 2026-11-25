@@ -64,6 +64,7 @@ import {
       class="layout"
       [class.navigation-collapsed]="navigationCollapsed()"
       [class.pilotage-layout]="pilotage()"
+      [class.immersive-layout]="immersive()"
       [class.concentrated]="concentrated()"
       [class.controller-shell]="controllerRadial() && controllerDeck()"
       [class.controller-shell-expanded]="controllerExpanded()"
@@ -94,7 +95,24 @@ import {
             <openg7-admin-icon name="menu" />
           </button>
           <openg7-admin-global-search />
-          <div class="tools">
+          @if (immersive()) {
+            <button
+              type="button"
+              class="admin-button immersive-tools-toggle"
+              [attr.aria-expanded]="immersiveToolsOpen()"
+              aria-controls="admin-shell-tools"
+              (click)="immersiveToolsOpen.set(!immersiveToolsOpen())"
+            >
+              <openg7-admin-icon name="menu" />{{
+                'admin.shell.moreTools' | translate
+              }}
+            </button>
+          }
+          <div
+            class="tools"
+            id="admin-shell-tools"
+            [class.immersive-tools-open]="immersiveToolsOpen()"
+          >
             @if (guidance.guidance.available()) {
               <button
                 #guideButton
@@ -197,6 +215,8 @@ import {
 export class AdminLayoutComponent {
   readonly sponsorshipId = input<string>();
   readonly pilotage = input(false);
+  readonly immersive = input(false);
+  readonly immersiveToolsOpen = signal(false);
   readonly concentrated = input(false);
   readonly controllerRadial = input<TemplateRef<unknown> | null>(null);
   readonly controllerDeck = input<TemplateRef<unknown> | null>(null);

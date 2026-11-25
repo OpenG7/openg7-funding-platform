@@ -1,5 +1,3 @@
-import type { AdminWorkQueueResponse } from '@openg7/funding-core';
-
 import { signInAsAdmin } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
@@ -38,46 +36,17 @@ const stubbedAnswer = {
 };
 
 test.describe('Docker admin assistant', () => {
-  test('renders the deterministic attention summary', async ({ page }) => {
+  test('offers assistance and a link to the owner queue', async ({ page }) => {
     await signInAsAdmin(page);
-    const summaryResponse = page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/admin/attention?') &&
-        response.url().includes('overview=true')
-    );
     await page.goto('/admin/fundraiser/assistant');
-
     await expect(
-      page.getByRole('heading', { name: 'Explorer les éléments à traiter' })
-    ).toBeVisible();
-    await page.getByText('Résumé financier prudent', { exact: true }).click();
+      page.locator('[data-og7="assistant-full-queue"]')
+    ).toHaveAttribute('href', '/admin/fundraiser/attention');
+    await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
+    await page.locator('[data-og7="assistant-summary"] summary').click();
     await expect(
-      page.getByText('Montant brut payé', { exact: true })
+      page.locator('[data-og7="assistant-summary"] dl')
     ).toBeVisible();
-
-    const response = await summaryResponse;
-    expect(response.ok()).toBe(true);
-    const summary = (await response.json()) as AdminWorkQueueResponse;
-    for (const item of summary.items.filter(
-      (item) =>
-        item.type === 'sponsorship_needs_info' ||
-        item.type === 'sponsorship_needs_review'
-    )) {
-      expect(item.contributionId).toBeTruthy();
-      const expectedUrl = `/admin/fundraiser/sponsors?sponsorshipId=${encodeURIComponent(item.contributionId!)}`;
-      expect(item.adminUrl).toBe(expectedUrl);
-      await page
-        .locator('[data-og7="assistant-items"]')
-        .locator(`[data-og7-id="${item.id}"]`)
-        .getByRole('button')
-        .click();
-      const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
-      const href = await dialog
-        .getByRole('link', { name: 'Ouvrir le dossier', exact: true })
-        .getAttribute('href');
-      expect(href?.split('&returnTo=')[0]).toBe(expectedUrl);
-      await page.keyboard.press('Escape');
-    }
   });
 
   test('answers a question and never exposes a financial action button', async ({
@@ -125,31 +94,24 @@ test.describe('Docker admin assistant', () => {
     ).toHaveCount(0);
   });
 
-  test('shows an error state when the summary request fails and recovers on refresh', async ({
-    page
-  }) => {
+  test('an unavailable exact intervention can be retried', async ({ page }) => {
     await signInAsAdmin(page);
-
     await page.route('**/admin/attention?*', (route) =>
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: '{}'
-      })
+      route.fulfill({ status: 500, json: {} })
     );
-    await page.goto('/admin/fundraiser/assistant');
-
-    await expect(page.locator('[data-og7="assistant-state"]')).toBeVisible();
-
-    await page.unroute('**/admin/attention?*');
-    await page
+    await page.goto(
+      '/admin/fundraiser/assistant?selected=' +
+        encodeURIComponent('sponsorship_needs_info:' + sponsorshipId)
+    );
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await page.route('**/admin/attention?*', (route) =>
+      route.fulfill({ json: stubbedQueueWithReminder() })
+    );
+    await dialog
       .getByRole('button', { name: 'Actualiser le contexte', exact: true })
       .click();
-
-    await expect(page.locator('[data-og7="assistant-state"]')).toBeEmpty();
-    await expect(
-      page.getByRole('heading', { name: 'Explorer les éléments à traiter' })
-    ).toBeVisible();
+    await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
   });
 
   test('prepares a reminder draft clearly marked non envoyé / non publié', async ({
@@ -172,8 +134,10 @@ test.describe('Docker admin assistant', () => {
       })
     );
 
-    await page.goto('/admin/fundraiser/assistant');
-    await page.locator('[data-og7="assistant-items"] button').first().click();
+    await page.goto(
+      '/admin/fundraiser/assistant?selected=' +
+        encodeURIComponent('sponsorship_needs_info:' + sponsorshipId)
+    );
     await page
       .getByRole('button', { name: 'Préparer une relance', exact: true })
       .click();
@@ -374,10 +338,10 @@ test.describe('assistant dossier links', () => {
       await page.goto('/admin/fundraiser/assistant');
       let label = 'Ouvrir le dossier';
       if (source !== 'answer')
-        await page
-          .locator('[data-og7="assistant-items"] button')
-          .first()
-          .click();
+        await page.goto(
+          '/admin/fundraiser/assistant?selected=' +
+            encodeURIComponent('sponsorship_needs_info:' + sponsorshipId)
+        );
       if (source === 'draft') {
         await page
           .getByRole('button', { name: 'Préparer une relance', exact: true })

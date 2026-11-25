@@ -289,3 +289,27 @@ test('sponsor rejection preserves its reason error after envelope and payload ch
     '  Synthetic review  '
   );
 });
+
+test('native media plans are accepted only for an explicitly confirmed sponsor approval', () => {
+  const valid = command('sponsor.approve', {
+    payload: { approveMediaPlanId: sponsorId }
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(parsePilotCommand(valid))), valid);
+  for (const action of ['publication.approve', 'sponsor.reject', 'email.retry'])
+    assert.throws(
+      () =>
+        parsePilotCommand(
+          command(action, { payload: { approveMediaPlanId: sponsorId } })
+        ),
+      { code: 'INVALID_COMMAND' }
+    );
+  assert.throws(
+    () =>
+      parsePilotCommand(
+        command('sponsor.approve', {
+          payload: { approveMediaPlanId: 'not-a-plan' }
+        })
+      ),
+    { code: 'INVALID_COMMAND' }
+  );
+});

@@ -686,3 +686,23 @@ for (const outcome of ['resolve', 'reject']) {
     assert.equal(JSON.stringify(calls), counts);
   });
 }
+
+test('preparation landing skips the general queue while exact links and optional panels work', async (t) => {
+  const { controller, calls } = fixture(t);
+  controller.setOverview(query, null, false);
+  await settle();
+  controller.refresh();
+  await settle();
+  assert.equal(calls.queue.length, 0);
+  await controller.loadSummary(true);
+  await controller.loadConversation(true);
+  assert.equal(calls.summary.length, 1);
+  assert.equal(calls.context.length, 1);
+  controller.setOverview(query, 'synthetic-a', false);
+  await settle();
+  assert.deepEqual(
+    calls.queue.map((call) => call.input),
+    [{ itemId: 'synthetic-a', pageSize: 1 }]
+  );
+  assert.equal(controller.selected()?.id, 'synthetic-a');
+});

@@ -15,6 +15,7 @@ import {
   completeModeration,
   currentModerationApproval
 } from '../playwright/support/moderation.js';
+import { openPilotageProgramme } from '../playwright/support/pilotage-workspace.js';
 
 import { startIdentityStack } from './stack.mjs';
 
@@ -56,7 +57,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
       new URL(page.url()).pathname !==
       '/admin/fundraiser/publications/programme'
     ) {
-      await page.locator('[data-og7="open-programme"]').click();
+      await openPilotageProgramme(page);
     } else {
       const refreshed = page.waitForResponse(
         (response) =>
@@ -497,7 +498,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         .click();
       await owner.setViewportSize({ width: 390, height: 844 });
       if (!(await programme(owner).isVisible()))
-        await owner.locator('[data-og7="open-programme"]').click();
+        await openPilotageProgramme(owner);
       await expect(programme(owner)).toHaveAttribute('aria-busy', 'false');
       await programme(owner)
         .getByRole('button', { name: 'Rehearsal', exact: true })

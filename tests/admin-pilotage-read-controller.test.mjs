@@ -554,3 +554,20 @@ test('a current media failure is explicit and a dossier without media clears the
   assert.equal(f.read.previewFailed(), false);
   assert.equal(f.read.image(), '');
 });
+
+test('the workspace drawer may filter decisions while confirmation and edit panels retain ownership', async () => {
+  const f = fixture();
+  try {
+    f.panel.set('workspace');
+    assert.equal(await f.read.changeDomain('sponsors'), true);
+    assert.equal(f.read.domain(), 'sponsors');
+    assert.equal(f.calls.reads.at(-1).domain, 'sponsors');
+    for (const panel of ['confirm', 'edit', 'details']) {
+      f.panel.set(panel);
+      assert.equal(await f.read.changeDomain('email'), false);
+      assert.equal(f.read.domain(), 'sponsors');
+    }
+  } finally {
+    f.read.dispose();
+  }
+});

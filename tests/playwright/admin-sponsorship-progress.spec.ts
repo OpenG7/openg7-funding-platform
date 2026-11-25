@@ -4485,10 +4485,10 @@ test('returning to the cockpit preserves the dossier selection without fetching 
   ).length;
   await page
     .getByRole('navigation', { name: 'Navigation admin du fonds' })
-    .getByRole('link', { name: 'Cockpit', exact: true })
+    .getByRole('link', { name: 'Vue d’ensemble', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Cockpit', exact: true })
+    page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })
   ).toBeVisible();
   await expect(page.locator('[data-og7="dashboard-refresh"]')).toBeEnabled();
   await expect(progress(page)).toHaveCount(0);

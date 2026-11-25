@@ -78,6 +78,14 @@ function protectWorkspaceNavigation(
 
 export const adminRoutes: Routes = protectWorkspaceNavigation([
   {
+    path: 'fundraiser/engine-room',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-engine-room-page/admin-engine-room-page.component.js').then(
+        (m) => m.AdminEngineRoomPageComponent
+      )
+  },
+  {
     path: 'fundraiser/pilotage',
     canMatch: [adminSessionRequired],
     loadComponent: () =>

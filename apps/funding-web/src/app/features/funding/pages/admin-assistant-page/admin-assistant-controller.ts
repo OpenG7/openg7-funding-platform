@@ -73,13 +73,19 @@ export class AdminAssistantController {
   private privacyGeneration = 0;
   private queryKey = '';
   private overviewActive = true;
+  private queueEnabled = true;
   private disposed = false;
 
   constructor(private readonly ports: AdminAssistantPorts) {}
 
-  setOverview(query: AdminWorkQueueQuery, selectedId: string | null): void {
+  setOverview(
+    query: AdminWorkQueueQuery,
+    selectedId: string | null,
+    queueEnabled = true
+  ): void {
     if (this.disposed) return;
     this.overviewActive = true;
+    this.queueEnabled = queueEnabled;
     const key = JSON.stringify(query);
     const changed = key !== this.queryKey;
     if (changed) {
@@ -114,7 +120,7 @@ export class AdminAssistantController {
   }
 
   async load(): Promise<void> {
-    if (this.disposed || !this.overviewActive) return;
+    if (this.disposed || !this.overviewActive || !this.queueEnabled) return;
     const generation = ++this.generation;
     this.state.set('loading');
     try {

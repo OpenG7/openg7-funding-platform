@@ -60,6 +60,23 @@ justification; une note legacy n'est pas modifiée dans cette projection restrei
 
 ## Suivi privé, correction et réexamen
 
+### Approbation groupée dans Décisions
+
+Le pilotage réutilise `sponsor.approve` avec le champ optionnel
+`payload.approveMediaPlanId`, identifiant d'un plan `approve_all` natif préparé
+par le même acteur pour ce dossier. Sans ce champ, les consommateurs existants
+conservent l'approbation de la fiche seule. Avec ce champ, la confirmation couvre
+la liste complète du plan, puis la fiche; les décisions N0 des médias sont prises
+par leur service propriétaire. L'identifiant de commande est aussi celui du reçu
+média. La confirmation ne crée aucun droit d'utilisation manquant.
+
+Le serveur refuse un plan étranger, un dossier modifié et les médias bloqués.
+Avant la mutation finale, il verrouille le dossier et son espace média puis exige
+le même inventaire, les versions résultantes et le statut approuvé de chaque média.
+Les succès intermédiaires restent conservés si la fiche ne peut pas être approuvée.
+La désapprobation ultérieure d'un média utilise sa décision N3 native et ne refuse
+pas la fiche. Les nouvelles photos ne sont pas couvertes par une ancienne confirmation.
+
 `GET /api/sponsorship-followup/moderation?token=…` renvoie les décisions du dossier
 autorisé, leur explication externe, et les indicateurs `canCorrect` et
 `canRequestReconsideration`. Cette projection ne contient ni notes internes,

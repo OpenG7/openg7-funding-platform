@@ -20,6 +20,7 @@ export interface PilotageControllerActionsInput {
     string
   >;
   readonly blockedReason: string;
+  readonly publicationStatusLabel?: string;
   readonly explain: (code: string) => string;
 }
 
@@ -72,16 +73,34 @@ export function pilotageControllerActions(
       shortcut: shortcut(intent)
     };
   };
+  const inspectPublication =
+    !!input.publicationStatusLabel &&
+    !!input.decision?.publication &&
+    input.primary?.id === 'publication.approve' &&
+    !!input.primary.blocked;
   return [
-    decisionAction(
-      'pilot-accept',
-      input.labels.accept,
-      'check',
-      'success',
-      'primary',
-      input.primary,
-      true
-    ),
+    inspectPublication
+      ? {
+          id: 'pilot-publication-status',
+          label: input.publicationStatusLabel!,
+          icon: 'info',
+          zone: 'radial',
+          scope: 'selection',
+          tone: 'info',
+          enabled: !input.busy,
+          visible: true,
+          busy: input.busy,
+          shortcut: shortcut('primary')
+        }
+      : decisionAction(
+          'pilot-accept',
+          input.labels.accept,
+          'check',
+          'success',
+          'primary',
+          input.primary,
+          true
+        ),
     decisionAction(
       'pilot-reject',
       input.labels.reject,

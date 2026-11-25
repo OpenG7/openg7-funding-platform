@@ -1,6 +1,7 @@
 import type { PilotCommand } from '../../../../packages/funding-core/src/index.js';
 import type { EditorialProgrammeService } from '../editorial-programme.service.js';
 import type { PublicationAutomationService } from '../publication-automation/service.js';
+import type { SponsorMediaWorkspaceService } from '../sponsor-media-workspace/service.js';
 
 export type PilotCommandExecutor = (
   command: PilotCommand,
@@ -8,6 +9,7 @@ export type PilotCommandExecutor = (
 ) => Promise<string>;
 
 export interface PilotExecutionPorts {
+  readonly media?: Pick<SponsorMediaWorkspaceService, 'executeApproveAll'>;
   readonly editorial: Pick<
     EditorialProgrammeService,
     'apply' | 'preferences' | 'editWithIntent'

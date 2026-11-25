@@ -14,6 +14,7 @@ import { SERVICE_DELIVERY_TOUR_ENABLED } from '../../apps/funding-web/src/app/fe
 import { expect, sampledFrames, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 import { restoreLegacyGuideMode } from './support/admin-guidance-bookmarks.js';
+import { openPilotageWorkspace } from './support/pilotage-workspace.js';
 import {
   adminController,
   installAdminController
@@ -2385,9 +2386,10 @@ test('discovery workspace remains available in Pilotage concentration without re
   await expectDiscoveryHub(page);
   const retained = (await stored(page)).bookmark;
   await controller.activate(hook(page, 'toggle'));
+  await openPilotageWorkspace(page);
   const concentration = page.locator('[data-og7="pilot-focus"]');
   await concentration.click();
-  await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(shellGuide(page)).toBeHidden();
   // The visible controller cue selects the shared controls while the header is hidden.
   const controllerCue = page.locator('[data-og7="controller-menu-open"]');
@@ -2411,7 +2413,9 @@ test('discovery workspace remains available in Pilotage concentration without re
   await controller.press('B');
   await expect(hook(page, 'panel')).toBeHidden();
   await expect(page.locator('#admin-main')).toBeFocused();
+  await openPilotageWorkspace(page);
   await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
   expect(fixture.mutations).toEqual([]);
 });
 

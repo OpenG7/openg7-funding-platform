@@ -18,7 +18,12 @@ import { SponsorMediaApproveAllService } from '../../dist/apps/funding-api/src/s
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
-import { approveFixtureSubject } from './support/moderation-fixture.mjs';
+import { AdminPilotageExecution } from '../../dist/apps/funding-api/src/admin-pilotage/execution.js';
+import { AdminPilotageService } from '../../dist/apps/funding-api/src/admin-pilotage.service.js';
+import {
+  fixtureModerationDecision,
+  approveFixtureSubject
+} from './support/moderation-fixture.mjs';
 
 const actor = 'admin:00000000-0000-4000-8000-000000000004';
 const rights = {
@@ -189,6 +194,211 @@ test(
       ).rows[0];
     }
 
+    await t.test(
+      'pilotage approves the confirmed dossier and three photos, preserves later uploads and individual rejection',
+      async () => {
+        const id = await dossier();
+        const photos = [await upload(id), await upload(id), await upload(id)];
+        const plan = await prepare(id);
+        const version = (
+          await owner.query(
+            'SELECT updated_at::text AS version FROM fund_contributions WHERE id=$1',
+            [id]
+          )
+        ).rows[0].version;
+        const moderationDecision = await fixtureModerationDecision(pool, {
+          type: 'sponsorship',
+          id
+        });
+        const pilot = new AdminPilotageService(pool, {}, service);
+        const command = {
+          requestId: randomUUID(),
+          action: 'sponsor.approve',
+          targetId: id,
+          version,
+          confirmation: id,
+          payload: { approveMediaPlanId: plan.id, moderationDecision }
+        };
+        assert.equal((await pilot.command(command, actor)).code, 'APPROVED');
+        assert.equal((await pilot.command(command, actor)).code, 'APPROVED');
+        assert.equal(await n0(photos.map((photo) => photo.id)), 3);
+        assert.ok(
+          (await service.workspace(id)).assets.every(
+            (asset) => asset.reviewStatus === 'approved'
+          )
+        );
+        const row = (
+          await owner.query(
+            'SELECT sponsor_review_status,sponsor_site_visibility_held FROM fund_contributions WHERE id=$1',
+            [id]
+          )
+        ).rows[0];
+        assert.equal(row.sponsor_review_status, 'approved');
+        assert.equal(row.sponsor_site_visibility_held, true);
+        const added = await upload(id);
+        assert.equal(added.reviewStatus, 'pending_review');
+        const reject = await nativePlan(id, 'reject', [photos[0].id], {
+          reason: 'IP_RIGHTS',
+          internalReason: 'Synthetic rights refusal',
+          sponsorExplanation: 'Please supply an authorized photograph.'
+        });
+        await service.execute(execution(reject), actor);
+        assert.equal((await assetRow(photos[0].id)).review_status, 'rejected');
+        assert.equal((await assetRow(photos[1].id)).review_status, 'approved');
+        assert.equal(
+          (
+            await owner.query(
+              'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1',
+              [id]
+            )
+          ).rows[0].sponsor_review_status,
+          'approved'
+        );
+      }
+    );
+    await t.test(
+      'pilotage rejects foreign plans before media changes and does not approve a dossier with blocked media',
+      async () => {
+        const id = await dossier(),
+          other = await dossier();
+        await upload(id, { confirmed: false });
+        const plan = await prepare(id);
+        const version = (
+          await owner.query(
+            'SELECT updated_at::text AS version FROM fund_contributions WHERE id=$1',
+            [id]
+          )
+        ).rows[0].version;
+        const executor = new AdminPilotageExecution(pool, {
+          media: service,
+          editorial: {},
+          publications: {}
+        });
+        const command = {
+          requestId: randomUUID(),
+          action: 'sponsor.approve',
+          targetId: other,
+          version,
+          confirmation: other,
+          payload: { approveMediaPlanId: plan.id }
+        };
+        await assert.rejects(executor.execute(command, actor), {
+          code: 'MEDIA_PLAN_SCOPE_MISMATCH'
+        });
+        await assert.rejects(
+          executor.execute(
+            { ...command, targetId: id, confirmation: id },
+            actor
+          ),
+          { code: 'MEDIA_APPROVAL_INCOMPLETE' }
+        );
+        assert.equal(
+          (
+            await owner.query(
+              'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1',
+              [id]
+            )
+          ).rows[0].sponsor_review_status,
+          'pending_review'
+        );
+      }
+    );
+
+    await t.test(
+      'pilotage accepts already-approved media without duplicate decisions and blocks a concurrent added photo',
+      async () => {
+        const id = await dossier();
+        const photo = await upload(id);
+        await approveNative(id, photo);
+        const before = await n0([photo.id]);
+        const plan = await prepare(id);
+        const version = (
+          await owner.query(
+            'SELECT updated_at::text AS version FROM fund_contributions WHERE id=$1',
+            [id]
+          )
+        ).rows[0].version;
+        const executor = new AdminPilotageExecution(pool, {
+          media: service,
+          editorial: {},
+          publications: {}
+        });
+        const decision = await fixtureModerationDecision(pool, {
+          type: 'sponsorship',
+          id
+        });
+        assert.equal(
+          await executor.execute(
+            {
+              requestId: randomUUID(),
+              action: 'sponsor.approve',
+              targetId: id,
+              version,
+              confirmation: id,
+              payload: {
+                approveMediaPlanId: plan.id,
+                moderationDecision: decision
+              }
+            },
+            actor
+          ),
+          'APPROVED'
+        );
+        assert.equal(await n0([photo.id]), before);
+        const next = await dossier();
+        await upload(next);
+        const pending = await prepare(next);
+        const nextVersion = (
+          await owner.query(
+            'SELECT updated_at::text AS version FROM fund_contributions WHERE id=$1',
+            [next]
+          )
+        ).rows[0].version;
+        const concurrent = new AdminPilotageExecution(pool, {
+          media: {
+            executeApproveAll: async (...args) => {
+              const receipt = await service.executeApproveAll(...args);
+              await upload(next);
+              return receipt;
+            }
+          },
+          editorial: {},
+          publications: {}
+        });
+        await assert.rejects(
+          concurrent.execute(
+            {
+              requestId: randomUUID(),
+              action: 'sponsor.approve',
+              targetId: next,
+              version: nextVersion,
+              confirmation: next,
+              payload: { approveMediaPlanId: pending.id }
+            },
+            actor
+          ),
+          { code: 'MEDIA_APPROVAL_CHANGED' }
+        );
+        assert.equal(
+          (
+            await owner.query(
+              'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1',
+              [next]
+            )
+          ).rows[0].sponsor_review_status,
+          'pending_review'
+        );
+        const assets = (await service.workspace(next)).assets;
+        assert.equal(
+          assets.filter((a) => a.reviewStatus === 'approved').length,
+          1
+        );
+        assert.equal(
+          assets.filter((a) => a.reviewStatus === 'pending_review').length,
+          1
+        );
+      }
+    );
     await t.test(
       'the five-media example approves two native photos or logos, skips two approvals and preserves one missing consent',
       async () => {

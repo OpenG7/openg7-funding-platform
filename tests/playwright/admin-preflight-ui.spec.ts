@@ -459,7 +459,7 @@ for (const lateStatus of [200, 401]) {
     try {
       await page
         .locator('openg7-admin-nav nav')
-        .getByRole('link', { name: 'Cockpit', exact: true })
+        .getByRole('link', { name: 'Vue d’ensemble', exact: true })
         .click();
       await expect(page).toHaveURL('/admin/fundraiser');
       await expect(view(page)).toHaveCount(0);

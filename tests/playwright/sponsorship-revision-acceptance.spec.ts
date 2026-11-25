@@ -251,7 +251,10 @@ for (const review of ['pending', 'reapproved'] as const) {
         ['Ajouter des photos', 'photo.png']
       ]) {
         await company
-          .getByLabel('Description des images à téléverser')
+          .getByRole('textbox', {
+            name: 'Description des images à téléverser',
+            exact: true
+          })
           .fill('Présentation synthétique');
         const uploaded = company.waitForResponse(
           (r) =>

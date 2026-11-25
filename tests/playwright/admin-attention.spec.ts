@@ -906,7 +906,7 @@ test('queue is translated, keyboard usable and fits desktop and narrow mobile', 
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'To do', exact: true }).first()
+    page.getByRole('heading', { name: 'Needs attention', exact: true }).first()
   ).toBeVisible();
   await expect(page.locator('[data-og7-id="task-0"] h3')).toHaveText(
     'Failed email'

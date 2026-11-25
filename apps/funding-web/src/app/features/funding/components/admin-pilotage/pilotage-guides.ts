@@ -2,13 +2,13 @@ import type { AdminGuideStep } from '../admin-guide/admin-guide.component.js';
 
 export const PILOTAGE_GUIDE: readonly AdminGuideStep[] = [
   { id: 'automation', target: 'pilot-automation' },
-  { id: 'domains', target: 'pilot-domains' },
+  { id: 'domains', target: 'pilot-workspace-tools' },
   { id: 'decision', target: 'pilot-decision' },
   { id: 'summary', target: 'pilot-summary' },
   { id: 'details', target: 'pilot-details' },
   { id: 'actions', target: 'pilot-actions' },
-  { id: 'queue', target: 'pilot-queue' },
-  { id: 'week', target: 'open-programme' },
+  { id: 'queue', target: 'pilot-deck-queue' },
+  { id: 'week', target: 'pilot-workspace-tools' },
   { id: 'calendar', target: 'pilot-calendar' },
   { id: 'controller', target: 'pilot-controller' }
 ];

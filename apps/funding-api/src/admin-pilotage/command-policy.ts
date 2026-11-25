@@ -73,6 +73,7 @@ export function parsePilotCommand(value: unknown): PilotCommand {
         Object.keys(c.payload).every((k) =>
           [
             'message',
+            'approveMediaPlanId',
             'scheduledAt',
             'mediaId',
             'approveSponsors',
@@ -83,6 +84,12 @@ export function parsePilotCommand(value: unknown): PilotCommand {
             'moves'
           ].includes(k)
         ),
+      'INVALID_COMMAND',
+      400
+    );
+  if (c.payload?.approveMediaPlanId !== undefined)
+    requireValue(
+      c.action === 'sponsor.approve' && validId(c.payload.approveMediaPlanId),
       'INVALID_COMMAND',
       400
     );
@@ -169,6 +176,9 @@ export function parsePilotCommand(value: unknown): PilotCommand {
     ...(c.payload
       ? {
           payload: {
+            ...(c.payload.approveMediaPlanId
+              ? { approveMediaPlanId: c.payload.approveMediaPlanId }
+              : {}),
             message: c.payload.message,
             scheduledAt: c.payload.scheduledAt,
             mediaId: c.payload.mediaId,

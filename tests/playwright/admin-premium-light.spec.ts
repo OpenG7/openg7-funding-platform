@@ -332,7 +332,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       const mode = page.locator('[data-og7="admin-workspace-mode"]');
       const navigation = page.locator('#admin-sidebar nav');
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-        'Cockpit'
+        language === 'en' ? 'Overview' : 'Vue d’ensemble'
       );
       await expect(mode).toHaveText(language === 'en' ? 'Observe' : 'Observer');
       for (const [suffix, modeId, role] of [
@@ -368,15 +368,20 @@ for (const language of ['fr-CA', 'en'] as const) {
         );
         await expect(link).toHaveAttribute('aria-current', 'page');
         if (modeId === 'decide') {
+          await page.locator('[data-og7="pilot-workspace-tools"]').click();
           const concentration = page.locator('[data-og7="pilot-focus"]');
           await concentration.focus();
           await page.keyboard.press('Enter');
-          await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+          await expect(page.locator('[data-og7="pilotage"]')).toHaveClass(
+            /concentrated/
+          );
           await expect(mode).toBeVisible();
           await expect(mode).toHaveText(role);
-          await concentration.focus();
+          await page.locator('[data-og7="pilot-exit-focus"]').focus();
           await page.keyboard.press('Enter');
-          await expect(concentration).toHaveAttribute('aria-pressed', 'false');
+          await expect(page.locator('[data-og7="pilotage"]')).not.toHaveClass(
+            /concentrated/
+          );
         }
         if (modeId === 'prepare') {
           await page.goto(
@@ -394,7 +399,7 @@ for (const language of ['fr-CA', 'en'] as const) {
         ).toBe(true);
       }
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-        'Cockpit'
+        language === 'en' ? 'Overview' : 'Vue d’ensemble'
       );
       expect(writes).toEqual([]);
       expect(state.commands).toEqual([]);

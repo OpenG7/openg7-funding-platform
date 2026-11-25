@@ -228,7 +228,10 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
           ['Ajouter des photos', 'photo.png']
         ]) {
           await page
-            .getByLabel('Description des images à téléverser')
+            .getByRole('textbox', {
+              name: 'Description des images à téléverser',
+              exact: true
+            })
             .fill('Présentation synthétique de ' + name);
           const uploaded = page.waitForResponse(
             (r) =>

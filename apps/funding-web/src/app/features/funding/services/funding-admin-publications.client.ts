@@ -34,6 +34,24 @@ import { errorMessageFromResponse } from './funding-admin-response.js';
 export class FundingAdminPublicationsClient {
   constructor(private readonly session: FundingAdminSession) {}
 
+  async engineRoom(
+    scope: import('@openg7/funding-core').EngineRoomScope = {}
+  ): Promise<import('@openg7/funding-core').EngineRoomSnapshot> {
+    const query = new URLSearchParams();
+    if (scope.sponsorshipId) query.set('sponsorshipId', scope.sponsorshipId);
+    if (scope.deliveryId) query.set('deliveryId', scope.deliveryId);
+    const response = await this.session.requestAdminJson(
+      `/admin/engine-room${query.size ? '?' + query : ''}`,
+      { auth: 'saved', cache: 'no-store' }
+    );
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        'ENGINE_ROOM_UNAVAILABLE'
+      );
+    return response.json();
+  }
+
   async publicationReliabilityIncidents(
     filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
   ): Promise<

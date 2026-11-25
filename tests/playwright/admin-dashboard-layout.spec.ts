@@ -222,7 +222,7 @@ for (const language of ['fr-CA', 'en'] as const)
       await page.goto('/admin/fundraiser');
       const root = page.locator('[data-og7="admin-dashboard"]');
       const heading = root.getByRole('heading', {
-        name: 'Cockpit',
+        name: language === 'en' ? 'Overview' : 'Vue d’ensemble',
         exact: true
       });
       const metrics = root.locator('[data-og7="cockpit-metrics"]');
@@ -342,7 +342,7 @@ for (const language of ['fr-CA', 'en'] as const)
       await test.step('the primary control-desk link and the exact attention destination remain keyboard accessible', async () => {
         const primary = root.locator('[data-og7="dashboard-pilotage"]');
         await expect(primary).toHaveAccessibleName(
-          language === 'en' ? 'Control desk' : 'Poste de pilotage'
+          language === 'en' ? 'Decisions' : 'Décisions'
         );
         await expect(primary).toHaveAttribute(
           'href',
@@ -422,7 +422,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           await expect(aside).toHaveCSS('padding', '16px 12px');
           await expect(banner).toHaveCSS('border-bottom-color', palette.border);
           const active = nav.getByRole('link', {
-            name: 'Cockpit',
+            name: language === 'en' ? 'Overview' : 'Vue d’ensemble',
             exact: true
           });
           await expect(active).toHaveAttribute('aria-current', 'page');
@@ -574,7 +574,7 @@ test('default Premium Light palette keeps dashboard readable at 125% display sca
     'background-color',
     'rgb(245, 247, 251)'
   );
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toHaveCSS(
+  await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toHaveCSS(
     'color',
     'rgb(23, 43, 80)'
   );
@@ -678,7 +678,9 @@ test('dashboard displays truthful metrics and preserves every navigation destina
 }) => {
   await fixtures(page);
   await page.goto('/admin/fundraiser');
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Vue d’ensemble' })
+  ).toBeVisible();
   await expect(
     page.getByRole('article', { name: 'Net des encaissements' })
   ).toContainText('Brut moins frais confirmés');
@@ -699,7 +701,7 @@ test('dashboard displays truthful metrics and preserves every navigation destina
     ).toBeVisible();
   }
   for (const [label, suffix] of [
-    ['Cockpit', ''],
+    ['Vue d’ensemble', ''],
     ['Assistant', '/assistant'],
     ['Contributions', '/contributions'],
     ['Commandites', '/sponsors'],
@@ -715,10 +717,9 @@ test('dashboard displays truthful metrics and preserves every navigation destina
       nav.getByRole('link', { name: label, exact: true })
     ).toHaveAttribute('href', '/admin/fundraiser' + suffix);
   }
-  await expect(nav.getByRole('link', { name: 'Cockpit' })).toHaveAttribute(
-    'aria-current',
-    'page'
-  );
+  await expect(
+    nav.getByRole('link', { name: 'Vue d’ensemble' })
+  ).toHaveAttribute('aria-current', 'page');
   await expect(
     page
       .locator('[data-og7="cockpit-activity"]')
@@ -744,7 +745,9 @@ test('language persists across admin navigation and reload without changing publ
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Overview', level: 1 })
+  ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page
     .getByRole('banner')
@@ -753,15 +756,21 @@ test('language persists across admin navigation and reload without changing publ
   await expect(page).toHaveURL(/\/admin\/fundraiser\/assistant$/);
   await page
     .getByRole('navigation')
-    .getByRole('link', { name: 'Cockpit', exact: true })
+    .getByRole('link', { name: 'Overview', exact: true })
     .click();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Overview', level: 1 })
+  ).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Overview', level: 1 })
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Passer l’administration en français' })
     .click();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Vue d’ensemble' })
+  ).toBeVisible();
   await page.goto('/en/fonds-des-batisseurs');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.goto('/fonds-des-batisseurs');
@@ -912,7 +921,9 @@ test('server session rejection clears credentials and login returns to the dashb
   await page.unroute('**/api/admin/dashboard');
   await page.getByLabel(/Jeton admin/).fill('ui-fixture-token');
   await page.getByRole('button', { name: /Se connecter/ }).click();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Vue d’ensemble' })
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Déconnexion', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/login$/);
   expect(
@@ -1039,7 +1050,7 @@ test('mobile disclosure supports Escape, focus restoration and keyboard navigati
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await toggle.click();
-  await nav.getByRole('link', { name: 'Cockpit' }).click();
+  await nav.getByRole('link', { name: 'Vue d’ensemble' }).click();
   await expect(nav).toBeHidden();
   await expect(toggle).toBeFocused();
 });
@@ -1051,7 +1062,9 @@ test('desktop, tablet and mobile views fit their viewport with translated long c
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/admin/fundraiser');
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Vue d’ensemble' })
+  ).toBeVisible();
   for (const width of [1672, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: width > 800 ? 941 : 844 });
     expect(
@@ -1067,7 +1080,9 @@ test('desktop, tablet and mobile views fit their viewport with translated long c
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Overview', level: 1 })
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth

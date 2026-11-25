@@ -11,6 +11,7 @@ import type {
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { completeModeration } from './support/moderation.js';
 import { expect, test } from './support/test.js';
+import { openPilotageWorkspace } from './support/pilotage-workspace.js';
 
 // Only the disposable runner supplies this flag and a fresh PostgreSQL database.
 // The real API persists these synthetic drafts; social providers remain mocked.
@@ -94,17 +95,21 @@ for (const loseResponse of [false, true]) {
           commands.push(sent.postDataJSON() as PilotCommand);
       });
       await page.goto('/admin/fundraiser/pilotage');
+      await openPilotageWorkspace(page);
       await page
         .locator('[data-og7="pilot-domains"]')
         .getByRole('button', { name: /Publications/ })
         .click();
       const card = page.locator('[data-og7="pilot-decision"]');
       await expect(card).toBeVisible();
-      if ((await card.getAttribute('data-og7-id')) !== `publication:${id}`)
+      if ((await card.getAttribute('data-og7-id')) !== `publication:${id}`) {
+        await openPilotageWorkspace(page);
+        await page.locator('[data-og7="pilot-open-queue"]').click();
         await page
           .locator('[data-og7="pilot-queue"]')
           .getByRole('button', { name: new RegExp(message) })
           .click();
+      }
       await expect(card).toHaveAttribute('data-og7-id', `publication:${id}`);
       await expect(card).toContainText(message);
 

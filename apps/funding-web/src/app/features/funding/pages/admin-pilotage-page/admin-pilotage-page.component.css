@@ -478,6 +478,10 @@ h1 {
   flex: 1 1 auto;
   min-width: 0;
 }
+.context-controller-slot button[openg7-context-controller-action] {
+  gap: 0.4rem;
+  padding-inline: 0.5rem;
+}
 .a {
   background: #73cc60;
 }
@@ -651,6 +655,125 @@ h1 {
 }
 .panel-content dd {
   @apply tw:m-0 tw:wrap-anywhere;
+}
+.workspace-panel {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.workspace-description {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+  line-height: 1.6;
+}
+.workspace-panel .workspace-progress {
+  margin: 0;
+  overflow: hidden;
+}
+.panel-content .workspace-panel .overview-stat {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+  padding: 1rem;
+}
+.panel-content .workspace-panel .overview dd {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 1.75rem;
+}
+.panel-content .workspace-panel .overview .stat-context {
+  grid-row: 3;
+  font-size: var(--admin-caption-size);
+}
+.workspace-section {
+  margin: 0;
+  min-width: 0;
+}
+.workspace-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: var(--admin-body-size);
+  font-weight: 600;
+}
+.workspace-section .domain-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.75rem 0 0;
+  padding: 0;
+  gap: 0.5rem;
+}
+.workspace-panel .domain-filters button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  text-align: start;
+  min-height: 3.25rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  box-shadow: none;
+}
+.workspace-panel .domain-filters button:first-child {
+  grid-column: 1 / -1;
+}
+.workspace-panel .domain-filters button.active {
+  outline: 1px solid var(--domain-color);
+  outline-offset: -2px;
+}
+.workspace-panel .domain-filters .space-selected {
+  grid-column: 4;
+}
+.workspace-links {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.workspace-panel .workspace-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  text-align: start;
+  text-decoration: none;
+}
+.workspace-link > span {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.workspace-link strong {
+  font-size: var(--admin-body-size);
+  font-weight: 600;
+}
+.workspace-link small {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+  font-weight: 400;
+  line-height: 1.5;
+}
+.workspace-link > openg7-admin-icon:first-child {
+  color: var(--admin-accent);
+}
+.workspace-link > openg7-admin-icon:last-child {
+  color: var(--admin-muted);
+}
+.workspace-panel .workspace-link:hover:not(:disabled) {
+  border-color: var(--admin-focus);
+  background: var(--og7-admin-selected);
+}
+.workspace-preferences {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--admin-border);
+}
+@media (max-width: 600px) {
+  .workspace-section .domain-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panel-content .workspace-panel .overview-stat {
+    padding: 0.75rem;
+  }
 }
 .concentrated .domain-picker,
 .concentrated .pilot-tools,
@@ -895,4 +1018,73 @@ h1 {
 .up-next:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
+}
+
+/* Decision-first workspace: navigation is available in explicit drawers. */
+.compact-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.compact-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.compact-heading p {
+  flex: 1;
+  margin: 0;
+  color: var(--admin-muted);
+}
+.mode-label {
+  font-size: 0.8rem;
+  color: var(--admin-muted);
+}
+.pilot .workspace,
+.pilot.concentrated .workspace,
+.pilot.concentrated.queue-visible .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+.panel-content .up-next {
+  display: block;
+  max-height: none;
+}
+.panel-content .queue-scroll {
+  max-height: 65vh;
+}
+@media (max-width: 600px) {
+  .compact-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+  }
+  .compact-heading > button {
+    width: auto;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .compact-heading p {
+    font-size: 0.8rem;
+  }
+  .mode-label {
+    font-size: 0.7rem;
+  }
+  .compact-heading > div {
+    gap: 0.4rem;
+  }
+}
+.has-gallery .preview .visual {
+  display: none;
+}
+.has-gallery .preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+.concentrated .compact-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--admin-bg);
+  padding: 0.5rem 0;
 }

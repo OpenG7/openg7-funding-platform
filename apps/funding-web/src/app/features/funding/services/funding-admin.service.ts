@@ -465,6 +465,11 @@ export class FundingAdminService {
   ): Promise<PublicationAutomationState | { id?: string }> {
     return this.publicationsClient.publicationAutomation(command, filter);
   }
+  engineRoom(
+    scope: import('@openg7/funding-core').EngineRoomScope = {}
+  ): Promise<import('@openg7/funding-core').EngineRoomSnapshot> {
+    return this.publicationsClient.engineRoom(scope);
+  }
   publicationMedia(
     deliveryId?: string
   ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
