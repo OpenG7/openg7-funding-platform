@@ -480,6 +480,31 @@
           </section>
         </aside>
       </div>
+      @if (scope().sponsorshipId && !scope().deliveryId) {
+        <openg7-admin-golden-path
+          [observation]="snapshot.goldenPath || null"
+          [stale]="stale()"
+        />
+      } @else if (scope().deliveryId) {
+        <section class="scope-bar" data-og7="golden-path-participants">
+          <h2>{{ t('goldenPathLink') }}</h2>
+          @for (
+            delivery of snapshot.publications.deliveries;
+            track delivery.id
+          ) {
+            @for (sponsor of delivery.sponsors; track sponsor.id) {
+              <a
+                routerLink="/admin/fundraiser/engine-room"
+                [queryParams]="{
+                  sponsorshipId: sponsor.id,
+                  decisionId: decisionId()
+                }"
+                >{{ sponsor.name }}</a
+              >
+            }
+          }
+        </section>
+      }
       <footer
         class="supervision-strip"
         data-og7="engine-room-summary"

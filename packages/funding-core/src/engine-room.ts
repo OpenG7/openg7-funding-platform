@@ -3,6 +3,7 @@ import type {
   PublicationDelivery,
   PublicationFeed
 } from './publication-automation.js';
+import type { SponsorshipGoldenPathObservation } from './sponsorship-golden-path.js';
 
 /** A read projection, never a command or evidence of provider delivery. */
 export type EngineRoomScope = Pick<
@@ -10,6 +11,8 @@ export type EngineRoomScope = Pick<
   'sponsorshipId' | 'deliveryId'
 >;
 export interface EngineRoomSnapshot {
+  /** Absent on older APIs; null outside an exact dossier scope. */
+  readonly goldenPath?: SponsorshipGoldenPathObservation | null;
   readonly observedAt: string;
   readonly scope: EngineRoomScope;
   readonly publications: {

@@ -8,6 +8,150 @@ import type {
 export const engineDeliveryId = '11111111-1111-4111-8111-111111111111';
 export const engineSponsorId = '22222222-2222-4222-8222-222222222222';
 
+export function goldenPathObservation(): NonNullable<
+  EngineRoomSnapshot['goldenPath']
+> {
+  return {
+    status: 'available',
+    path: {
+      contributionId: engineSponsorId,
+      reference: 'SYNTHETIC-GP1',
+      observedAt: new Date().toISOString(),
+      version: 'synthetic-balance-v1',
+      paymentStatus: 'paid',
+      amountMinor: 1500,
+      currency: 'CAD',
+      state: 'waiting',
+      reasons: ['publication_scheduled'],
+      counts: {
+        expected: 2,
+        fulfilled: 1,
+        waived: 0,
+        outstanding: 1,
+        unknown: 0
+      },
+      commitment: {
+        id: engineDeliveryId,
+        offerId: engineDeliveryId,
+        state: 'active',
+        version: 1
+      },
+      steps: [
+        {
+          id: 'review',
+          state: 'complete',
+          reason: 'review_approved',
+          adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${engineSponsorId}&tab=overview`
+        }
+      ],
+      next: {
+        reason: 'publication_scheduled',
+        responsibility: 'platform',
+        adminUrl: `/admin/fundraiser/publications/automation?deliveryId=${engineDeliveryId}`
+      },
+      services: [
+        {
+          obligation: {
+            id: engineSponsorId,
+            benefitId: 'facebook_batch',
+            channel: 'facebook',
+            target: 'openg7',
+            ordinal: 1,
+            format: 'collective_text',
+            state: 'fulfilled',
+            version: 2,
+            evidence: {
+              id: 'qualified-synthetic-proof',
+              obligationId: engineSponsorId,
+              contributionId: engineSponsorId,
+              obligationVersion: 1,
+              channel: 'facebook',
+              target: 'openg7',
+              provenance: 'provider_verified',
+              deliveredAt: '2026-11-25T14:00:00Z',
+              externalPostUrl: null
+            }
+          },
+          preparation: {
+            status: 'approved',
+            version: 'prep-v1',
+            approvedAt: '2026-11-25T13:00:00Z',
+            blockers: []
+          },
+          workflow: {
+            obligationId: engineSponsorId,
+            channel: 'facebook',
+            target: 'openg7',
+            ordinal: 1,
+            state: 'complete',
+            responsibility: 'none',
+            reason: 'publication_done',
+            deliveryId: engineDeliveryId,
+            scheduledAt: null
+          },
+          executions: [
+            {
+              id: 'synthetic-draft-one',
+              obligationId: engineSponsorId,
+              deliveryId: engineDeliveryId,
+              deliveryStatus: 'published',
+              deliveryMode: 'live',
+              scheduledAt: null,
+              publishedAt: '2026-11-25T14:00:00Z'
+            }
+          ],
+          adminUrl: `/admin/fundraiser/campaigns?sponsorshipId=${engineSponsorId}&obligationId=${engineSponsorId}`
+        },
+        {
+          obligation: {
+            id: engineDeliveryId,
+            benefitId: 'facebook_batch',
+            channel: 'facebook',
+            target: 'openg7',
+            ordinal: 2,
+            format: 'collective_text',
+            state: 'pending',
+            version: 1
+          },
+          preparation: {
+            status: 'approved',
+            version: 'prep-v2',
+            approvedAt: '2026-11-25T14:00:00Z',
+            blockers: []
+          },
+          workflow: {
+            obligationId: engineDeliveryId,
+            channel: 'facebook',
+            target: 'openg7',
+            ordinal: 2,
+            state: 'waiting',
+            responsibility: 'platform',
+            reason: 'publication_scheduled',
+            deliveryId: engineDeliveryId,
+            scheduledAt: '2099-01-01T12:00:00Z'
+          },
+          executions: [
+            {
+              id: 'synthetic-draft-two',
+              obligationId: engineDeliveryId,
+              deliveryId: engineDeliveryId,
+              deliveryStatus: 'published',
+              deliveryMode: 'mock',
+              scheduledAt: '2099-01-01T12:00:00Z',
+              publishedAt: null
+            }
+          ],
+          adminUrl: `/admin/fundraiser/campaigns?sponsorshipId=${engineSponsorId}&obligationId=${engineDeliveryId}`
+        }
+      ],
+      partial: false,
+      sources: [
+        { owner: 'responsibilities', observedAt: new Date().toISOString() }
+      ]
+    }
+  };
+}
+
 export function engineSnapshot(): EngineRoomSnapshot {
   const feed: PublicationFeed = {
     id: 'openg7:facebook',

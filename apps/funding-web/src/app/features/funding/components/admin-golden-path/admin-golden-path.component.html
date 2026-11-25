@@ -1,0 +1,262 @@
+<section
+  class="golden-path"
+  data-og7="sponsorship-golden-path"
+  aria-labelledby="golden-path-title"
+>
+  <h2 id="golden-path-title">{{ t('title') }}</h2>
+  <p>{{ t('intro') }}</p>
+  @if (stale()) {
+    <p role="status">{{ t('stale') }}</p>
+  }
+  @if (observation()?.path; as path) {
+    <p class="reference">
+      {{ path.reference }} · {{ label('balance', path.state) }}
+    </p>
+    <p>{{ t('observedAt') }} {{ date(path.observedAt) }}</p>
+    @if (path.partial) {
+      <p role="status" data-og7="golden-path-partial">{{ t('partial') }}</p>
+    }
+    <dl class="counts" data-og7="golden-path-counts">
+      <div>
+        <dt>{{ t('expected') }}</dt>
+        <dd>{{ path.counts.expected }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('fulfilled') }}</dt>
+        <dd>{{ path.counts.fulfilled }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('waived') }}</dt>
+        <dd>{{ path.counts.waived }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('outstanding') }}</dt>
+        <dd>{{ path.counts.outstanding }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('unverified') }}</dt>
+        <dd>{{ path.counts.unknown }}</dd>
+      </div>
+    </dl>
+    @if (path.next; as next) {
+      <aside class="next" data-og7="golden-path-next">
+        <h3>{{ t('next') }}</h3>
+        <p>
+          {{ reason(next.reason) }} ·
+          {{ label('responsibility', next.responsibility) }}
+        </p>
+        <a [routerLink]="link(next.adminUrl)">{{ t('openNative') }}</a>
+      </aside>
+    }
+    <ol class="stages">
+      <li>
+        <h3>{{ t('payment') }}</h3>
+        <p>
+          {{ label('paymentStates', path.paymentStatus) }} ·
+          {{ amount(path.amountMinor, path.currency) }}
+        </p>
+        <a
+          routerLink="/admin/fundraiser/contributions"
+          [queryParams]="{ contributionId: path.contributionId }"
+          >{{ t('openPayment') }}</a
+        >
+      </li>
+      <li>
+        <h3>{{ t('agreement') }}</h3>
+        @if (path.commitment; as agreement) {
+          <p>
+            {{ label('agreementStates', agreement.state) }} · {{ t('version') }}
+            {{ agreement.version }}
+          </p>
+        } @else {
+          <p>{{ t('agreementMissing') }}</p>
+        }
+      </li>
+      <li>
+        <h3>{{ t('review') }}</h3>
+        <ul>
+          @for (step of path.steps; track step.id) {
+            @if (
+              step.id === 'identity' ||
+              step.id === 'media' ||
+              step.id === 'review'
+            ) {
+              <li>
+                <a [routerLink]="link(step.adminUrl)">{{
+                  label('steps', step.id)
+                }}</a>
+                · {{ label('progress', step.state) }}
+                <p>{{ reason(step.reason) }}</p>
+              </li>
+            }
+          }
+        </ul>
+      </li>
+      <li>
+        <h3>{{ t('preparation') }}</h3>
+        <p>{{ t('preparationHelp') }}</p>
+      </li>
+      <li>
+        <h3>{{ t('authorization') }}</h3>
+        <p>{{ t('authorizationHelp') }}</p>
+      </li>
+      <li>
+        <h3>{{ t('execution') }}</h3>
+        <p>{{ t('executionHelp') }}</p>
+      </li>
+      <li>
+        <h3>{{ t('proof') }}</h3>
+        <p>{{ t('proofHelp') }}</p>
+        <div class="services">
+          @for (service of path.services; track service.obligation.id) {
+            <details
+              data-og7="golden-path-service"
+              [attr.data-og7-id]="service.obligation.id"
+            >
+              <summary>
+                {{ label('channels', service.obligation.channel) }} ·
+                {{ service.obligation.target.toUpperCase() }} ·
+                {{ t('passage') }} {{ service.obligation.ordinal }} —
+                {{ label('obligationStates', service.obligation.state) }}
+                @if (service.obligation.evidence) {
+                  · {{ t('qualified') }}
+                }
+              </summary>
+              <p>
+                {{ t('format') }} :
+                {{ label('formats', service.obligation.format) }}
+              </p>
+              <h4>{{ t('preparation') }}</h4>
+              <p>
+                {{ label('preparationStates', service.preparation?.status) }}
+              </p>
+              @if (service.preparation?.serviceDecision; as decision) {
+                <p>
+                  {{ label('decisions', decision.decision) }} ·
+                  {{ date(decision.createdAt) }}
+                </p>
+              }
+              @for (
+                blocker of service.preparation?.blockers || [];
+                track blocker
+              ) {
+                <p>
+                  {{ reason(blocker) }} <code>{{ blocker }}</code>
+                </p>
+              }
+              <h4>{{ t('authorization') }}</h4>
+              @if (service.workflow; as workflow) {
+                <p>
+                  {{ label('workflowStates', workflow.state) }} ·
+                  {{ label('responsibility', workflow.responsibility) }}
+                </p>
+                <p>
+                  {{ reason(workflow.reason) }}
+                  <code>{{ workflow.reason }}</code>
+                </p>
+                @if (workflow.scheduledAt) {
+                  <p>{{ t('scheduledAt') }} {{ date(workflow.scheduledAt) }}</p>
+                }
+              } @else {
+                <p>{{ t('unknown') }}</p>
+              }
+              <h4>{{ t('execution') }}</h4>
+              @for (execution of service.executions; track execution.id) {
+                <p data-og7="golden-path-execution">
+                  {{ label('modes', execution.deliveryMode) }} ·
+                  {{ label('deliveryStates', execution.deliveryStatus) }}
+                </p>
+                @if (execution.deliveryId) {
+                  <a
+                    routerLink="/admin/fundraiser/publications/automation"
+                    [queryParams]="{ deliveryId: execution.deliveryId }"
+                    >{{ t('openDelivery') }}</a
+                  >
+                }
+              } @empty {
+                <p>{{ t('executionUnknown') }}</p>
+              }
+              <h4>{{ t('proof') }}</h4>
+              @if (service.obligation.evidence; as proof) {
+                <p data-og7="golden-path-proof">
+                  {{ t('qualified') }} · {{ date(proof.deliveredAt) }}
+                </p>
+                <p>{{ label('provenance', proof.provenance) }}</p>
+                <p>
+                  <code>{{ proof.id }}</code>
+                </p>
+              } @else {
+                <p>
+                  {{
+                    service.obligation.state === 'adjusted'
+                      ? t('waiverNotDelivery')
+                      : t('proofMissing')
+                  }}
+                </p>
+              }
+              @if (service.obligation.timing; as timing) {
+                @if (timing.durationDays !== null) {
+                  <p>
+                    {{ t('duration') }} : {{ timing.durationDays }} ·
+                    {{ label('durations', timing.durationState) }}
+                  </p>
+                }
+              }
+              <a [routerLink]="link(service.adminUrl)">{{
+                t('openService')
+              }}</a>
+              <p class="references">
+                <code>{{ service.obligation.id }}</code> · {{ t('version') }}
+                {{ service.obligation.version }}
+              </p>
+            </details>
+          } @empty {
+            <p>{{ t('noServices') }}</p>
+          }
+        </div>
+      </li>
+      <li>
+        <h3>{{ t('audit') }}</h3>
+        <a
+          routerLink="/admin/fundraiser/sponsors"
+          [queryParams]="{ sponsorshipId: path.contributionId, tab: 'audit' }"
+          >{{ t('openAudit') }}</a
+        >
+        <a routerLink="/admin/fundraiser/transparency">{{
+          t('openTransparency')
+        }}</a>
+        <details>
+          <summary>{{ t('sources') }}</summary>
+          <p>
+            <code>{{ path.contributionId }}</code>
+          </p>
+          <p>
+            {{ t('version') }} <code>{{ path.version }}</code>
+          </p>
+          @if (path.commitment; as agreement) {
+            <p>
+              <code>{{ agreement.id }}</code>
+            </p>
+          }
+          <ul>
+            @for (source of path.sources; track source.owner) {
+              <li>
+                {{ label('owners', source.owner) }} ·
+                {{ date(source.observedAt) }}
+              </li>
+            }
+          </ul>
+          @for (code of path.reasons; track code) {
+            <p>
+              {{ reason(code) }} <code>{{ code }}</code>
+            </p>
+          }
+        </details>
+      </li>
+    </ol>
+  } @else {
+    <p role="status" data-og7="golden-path-empty">
+      {{ label('observations', observation()?.status) }}
+    </p>
+  }
+</section>

@@ -408,6 +408,10 @@ test('campaigns show approved preparation first and upcoming promises without se
     false
   );
   await expect(hook(page, 'campaign-detail')).toContainText('Atelier livré');
+  await expect(hook(page, 'campaign-detail-golden-path')).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/engine-room?sponsorshipId=${deliveredId}`
+  );
   await openDetailDisclosure(page, 'campaign-proof-details');
   await expect(
     hook(page, 'campaign-detail').getByRole('link', {

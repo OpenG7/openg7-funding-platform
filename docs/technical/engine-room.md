@@ -6,10 +6,10 @@ Elle dépend de la branche de clarification de l’admin (PR #424).
 
 ## Capacités et sources
 
-| Capacité | Propriétaire | Observation | Limite |
-| --- | --- | --- | --- |
-| Publications des commanditaires | Funding | Réglage du worker, destinations, comptes, connexions, pauses, préparation et livraisons | Aucune mesure de présence du processus de publication; réglage activé distinct de fonctionnement confirmé |
-| Préparation Preflight | Preflight pour les propositions; Funding pour la décision métier | Activation du connecteur ou de la préparation locale, signal du relais Funding, attente et quarantaine | Le service Preflight distant n’est pas contacté par cette consultation; les compteurs concernent le tenant du connecteur globalement |
+| Capacité                        | Propriétaire                                                     | Observation                                                                                            | Limite                                                                                                                               |
+| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Publications des commanditaires | Funding                                                          | Réglage du worker, destinations, comptes, connexions, pauses, préparation et livraisons                | Aucune mesure de présence du processus de publication; réglage activé distinct de fonctionnement confirmé                            |
+| Préparation Preflight           | Preflight pour les propositions; Funding pour la décision métier | Activation du connecteur ou de la préparation locale, signal du relais Funding, attente et quarantaine | Le service Preflight distant n’est pas contacté par cette consultation; les compteurs concernent le tenant du connecteur globalement |
 
 Facebook et LinkedIn sont des dépendances du moteur de publications. Leur mode
 simulation/réel et leur état sont affichés séparément. Une pause ou une connexion
@@ -34,6 +34,53 @@ reste vertical. La scène décorative ne contient aucun contrôle : les turbines
 de vrais boutons, avec noms, focus et états textuels indépendants de la couleur.
 
 ## Contrat HTTP et droits
+
+### Cycle de reconnaissance par commandite
+
+Depuis **Prestations de services**, le détail d’une prestation ou un dossier
+déjà ciblé ouvre la salle avec `sponsorshipId`. Le panneau **Cycle de reconnaissance
+de la commandite** relie paiement, accord, examen, préparation, autorisation,
+exécution, preuves et audit pour cette contribution exacte. Les actions restent
+des liens vers leurs espaces propriétaires ; consulter ne prépare et ne publie rien.
+
+`EngineRoomSnapshot.goldenPath`, optionnel pour les anciens clients/serveurs,
+contient une observation `available`, `not_found`, `not_sponsorship` ou
+`unavailable`. Sans dossier exact, il vaut `null`. Une sélection `deliveryId`,
+y compris collective, présente les participants retournés par la lecture native ;
+l’administrateur choisit le dossier à observer. Le retour conserve `decisionId`.
+La présence d’un participant dans un lot ne prouve aucune livraison individuelle.
+
+Le service `sponsorship-golden-path.service.ts` compose les lectures propriétaires
+dans une transaction PostgreSQL `REPEATABLE READ READ ONLY` : bilan de
+responsabilités, parcours du paiement, accord, prestations et publications.
+Il n’effectue ni commande, ni appel fournisseur, ni mutation d’audit. La date
+`observedAt` marque le début de la lecture, pas un contrôle fournisseur récent.
+Cette transaction ne rend pas les autres observations de la salle atomiques.
+
+Les preuves exposées et compteurs viennent du bilan qualifié, jamais du simple
+rapprochement global `fulfilledWithEvidence`. Les dispenses restent distinctes.
+La préparation affichée est celle de Funding et de ses reçus d’examen. Ce panneau
+ne relit pas les missions ou propositions du service Preflight distant ; leur
+consultation et leur adoption restent dans l’Atelier propriétaire.
+Une exécution simulée ou incertaine ne devient pas une preuve. Les passages,
+formats, cibles, versions et observations de durée restent ceux des propriétaires.
+Les brouillons sans obligation exacte ne sont pas attribués à un passage.
+
+La préparation et le workflow utilisent la première page native, limitée à
+100 prestations ; une couverture manquante ou une page suivante donne `partial`.
+Les obligations et compteurs du bilan restent complets. Une absence d’observation
+de préparation n’est ni une absence d’engagement ni une réussite. Une erreur d’un
+propriétaire rend le cycle indisponible, sans masquer les observations indépendantes
+des moteurs. Le panneau est retiré pendant un rafraîchissement, un changement de
+contexte/session ou un échec, comme les autres données privées de la salle.
+
+Contrat : [sponsorship-golden-path.ts](../../packages/funding-core/src/sponsorship-golden-path.ts).
+Tests : [projection et échecs](../../tests/sponsorship-golden-path.test.mjs),
+[snapshot PostgreSQL](../../tests/integration/sponsorship-golden-path.integration.mjs),
+[qualification des preuves](../../tests/integration/admin-responsibility-balance.integration.mjs)
+et [navigation FR/EN](../../tests/playwright/admin-engine-room.spec.ts).
+
+### Lecture de la salle
 
 `GET /api/admin/engine-room` (alias `/admin/engine-room`) accepte uniquement
 `sponsorshipId` et `deliveryId`, UUID uniques. Les deux filtres se combinent par
@@ -80,6 +127,20 @@ données privées. La page réutilise le cadre et les thèmes admin; les parcour
 traduits en français et anglais, avec commandes natives accessibles au clavier.
 
 ## Recette et valeur à mesurer
+
+Qualification locale du cycle de reconnaissance le 25 novembre 2026, sous
+Node 22.23.5 : build TypeScript et build Angular de production avec 27 routes
+prérendues, types UI, 8 181 tests Node réussis et huit exclusions conditionnelles
+de la suite, neuf tests PostgreSQL ciblés réussis et 19 parcours navigateur
+réussis lors du passage isolé final. Les parcours incluent FR/EN, mobile/ordinateur,
+clavier, accessibilité automatisée, preuves distinctes des simulations et
+dispenses, sources partielles/absentes et retour au dossier exact.
+Le lint global n’a aucune erreur et conserve un avertissement préexistant dans
+`scripts/smoke-public.mjs`. Un passage navigateur concurrent de la suite Node
+avait dépassé le délai dans deux cas anglais ; le passage isolé final conserve
+les mêmes délais et passe sans omission. Les tests PostgreSQL utilisent une base
+jetable, les tests navigateur des API interceptées ; aucune opération de
+production, migration applicative nouvelle ou connexion fournisseur réelle.
 
 Les tests `tests/admin-engine-room.test.mjs` vérifient projection, périmètre,
 droits, absence de mutation HTTP, échecs partiels et interprétation des observations.
