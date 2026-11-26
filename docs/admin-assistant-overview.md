@@ -147,11 +147,33 @@ dans le [guide de l'Assistant contextuel](admin-ux-lot-3.md).
 
 ## Extension compatible du contrat de file
 
+La priorisation par exception réutilise cette même file dans l’Assistant et la
+Salle des moteurs. Les obligations et publications corrélées exposent
+`intervention` (état, responsabilité et motif propriétaires), ainsi que les
+identifiants exacts des dossiers et livraisons associés. La qualification des
+preuves et le workflow natif restent propriétaires de ces observations.
+
+Une livraison autorisée, planifiée, en exécution ou en attente de reprise normale
+est informative et ne compte pas comme intervention humaine. Une pause, un moteur
+désactivé, une erreur, une incertitude ou une échéance dépassée conserve une
+intervention humaine. Une couverture incomplète ne permet pas de conclure que la
+plateforme prend en charge le travail. Aucune nouvelle file persistée ni décision
+d’approbation n’est créée.
+
+L’aperçu de l’Assistant charge ce panneau à la demande. Les compteurs facultatifs
+`humanTotal` et `platformTotal` portent sur les éléments de file du périmètre,
+avant pagination et filtres de catégorie; plusieurs éléments peuvent concerner
+une même opération. Une source manquante produit une valeur inconnue, jamais un
+zéro de réussite. Les liens ouvrent les espaces propriétaires et l’élément exact
+de la file existante.
+
 Les anciens paramètres et réponses restent valides. Les ajouts sont facultatifs :
 
 | Paramètre       | Valeur                                                                      |
 | --------------- | --------------------------------------------------------------------------- |
 | `overview`      | `true` ou `false`; absent par défaut                                        |
+| `sponsorshipId` | UUID du dossier; limite le périmètre avant compteurs et pagination          |
+| `deliveryId`    | UUID de livraison; inclut les éléments collectifs corrélés exactement       |
 | `emailTemplate` | Identifiant de modèle de 1 à 100 caractères alphanumériques, `_` ou `-`     |
 | `emailError`    | `inconnue`, `authentification`, `destinataire_rejeté`, `connexion`, `autre` |
 

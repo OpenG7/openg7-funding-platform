@@ -96,6 +96,20 @@
         {{ 'admin.assistantOverview.fullQueue' | translate }}
       </a>
 
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="assistant-load-interventions"
+        [disabled]="state() === 'loading'"
+        (click)="loadInterventions()"
+      >
+        {{ 'admin.operationalQueue.load' | translate }}
+      </button>
+      <openg7-admin-operational-queue
+        [queue]="state() === 'ready' ? data() : null"
+        [loading]="state() === 'loading'"
+      />
+
       <openg7-admin-assistant-summary
         [summaryState]="summaryState()"
         [summary]="summary()"

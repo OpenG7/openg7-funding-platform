@@ -13,6 +13,7 @@ import {
 
 import type { AttentionDataset } from './attention.service.js';
 import { listSponsorshipMediaForAttention } from './attention/media.repository.js';
+import { attentionPublicationWorkflow } from './attention/workflows.js';
 
 /** Exact ID/public-reference lookup; no global queue or materialisation cap. */
 export const loadSponsorshipAssistantDataset = async (
@@ -85,6 +86,18 @@ export const loadSponsorshipAssistantDataset = async (
     )
     .digest('hex');
   const dataset: AttentionDataset = {
+    publicationWorkflows: [
+      {
+        contributionId: record.contributionId,
+        workflow: attentionPublicationWorkflow(
+          record,
+          consent,
+          publications,
+          qualifiedFulfilmentEvidenceIds,
+          now
+        )
+      }
+    ],
     now,
     sponsorships: [record],
     sponsorshipsTruncated: false,

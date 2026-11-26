@@ -4,6 +4,7 @@ import type {
   PublicationFeed
 } from './publication-automation.js';
 import type { SponsorshipGoldenPathObservation } from './sponsorship-golden-path.js';
+import type { AdminWorkQueueResponse } from './admin-work-queue.js';
 
 /** A read projection, never a command or evidence of provider delivery. */
 export type EngineRoomScope = Pick<
@@ -11,6 +12,8 @@ export type EngineRoomScope = Pick<
   'sponsorshipId' | 'deliveryId'
 >;
 export interface EngineRoomSnapshot {
+  /** Existing canonical attention queue; no separate decisions or mutations. */
+  readonly workQueue?: AdminWorkQueueResponse | null;
   /** Absent on older APIs; null outside an exact dossier scope. */
   readonly goldenPath?: SponsorshipGoldenPathObservation | null;
   readonly observedAt: string;

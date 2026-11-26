@@ -1,4 +1,5 @@
 import type { AdminAssistantMode } from './admin-assistant-context.js';
+import type { SponsorshipPublicationWorkflowStep } from './sponsorship-progress.js';
 
 // ============================================================================
 // Admin AI assistant (read-only operational copilot) — iteration 1.
@@ -50,6 +51,10 @@ export interface AdminAttentionSuggestedAction {
 export type AdminAttentionFactValue = string | number | boolean | null;
 
 export interface AdminAttentionItem {
+  /** Additive native observation, never an authorization or a second decision queue. */
+  readonly intervention?: SponsorshipPublicationWorkflowStep;
+  readonly relatedContributionIds?: readonly string[];
+  readonly relatedDeliveryIds?: readonly string[];
   readonly id: string;
   readonly type: AdminAttentionItemType;
   readonly severity: AdminAttentionSeverity;

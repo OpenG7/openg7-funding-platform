@@ -12,7 +12,6 @@ import {
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
 import { summarizeSponsorshipMedia } from '../sponsorship-media-policy.js';
-import { projectSponsorshipPublicationWorkflow } from '../sponsorship-progress-workflow.js';
 import {
   isUnfinishedPublicationDraft,
   resolveSponsorshipPublicationCoverage
@@ -22,6 +21,7 @@ import {
   missingFicheFields
 } from '../sponsorship-review-policy.js';
 
+import { attentionPublicationWorkflow } from './attention/workflows.js';
 import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
@@ -58,17 +58,12 @@ export const buildSponsorshipAssistantContext = (
       !source.media.some(
         (asset) => asset.kind === 'logo' && asset.reviewStatus === 'approved'
       ));
-  const publicationWorkflow = projectSponsorshipPublicationWorkflow(
-    record.commitment,
+  const publicationWorkflow = attentionPublicationWorkflow(
+    record,
+    source.consent,
     source.publications ?? [],
-    [
-      ...(!source.consent ? ['consent'] : []),
-      ...(record.reviewStatus !== 'approved' ? ['review'] : []),
-      ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
-      ...(record.refundStatus !== 'not_requested' ? ['refund'] : [])
-    ],
-    source.dataset.now,
-    source.qualifiedFulfilmentEvidenceIds ?? []
+    source.qualifiedFulfilmentEvidenceIds ?? [],
+    source.dataset.now
   );
   let nextStep: AdminAssistantNextStep;
   if (record.refundStatus !== 'not_requested') nextStep = 'check_refund';

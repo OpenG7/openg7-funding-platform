@@ -62,17 +62,29 @@ export const hasQualifiedSponsorshipFulfilment = (
 
 export async function loadSponsorshipEvidenceFacts(
   client: Pool | PoolClient,
-  contributionId: string,
+  contributionId: string | readonly string[],
   evaluatedAt: string | null = null
 ): Promise<readonly SponsorshipEvidenceFact[]> {
+  if (Array.isArray(contributionId) && contributionId.length === 0) return [];
+  const qualificationSql = dossierFulfilmentQualificationSql
+    .replaceAll(
+      '$1::timestamptz',
+      'COALESCE($1::timestamptz,transaction_timestamp())'
+    )
+    .replaceAll(
+      'e.contribution_id=$2::uuid',
+      typeof contributionId === 'string'
+        ? 'e.contribution_id=$2::uuid'
+        : 'e.contribution_id=ANY($2::uuid[])'
+    );
   const result = await client.query<SponsorshipEvidenceFact>(
-    `${dossierFulfilmentQualificationSql.replaceAll('$1::timestamptz', 'COALESCE($1::timestamptz,transaction_timestamp())')}
+    `${qualificationSql}
     SELECT proof.id,proof.obligation_id AS "obligationId",proof.contribution_id AS "contributionId",
       proof.obligation_version AS "obligationVersion",proof.channel,proof.target,proof.mode,proof.provenance,
       proof.delivered_at::text AS "deliveredAt",proof.external_post_url AS "externalPostUrl",
       COALESCE(cardinality(classified.findings)=0,FALSE) AS "qualifiedSnapshot"
     FROM sponsorship_fulfilment_evidence proof LEFT JOIN classified ON classified.id=proof.id
-    WHERE proof.contribution_id=$2::uuid ORDER BY proof.obligation_id,proof.id`,
+    WHERE ${typeof contributionId === 'string' ? 'proof.contribution_id=$2::uuid' : 'proof.contribution_id=ANY($2::uuid[])'} ORDER BY proof.obligation_id,proof.id`,
     [evaluatedAt, contributionId]
   );
   return result.rows;

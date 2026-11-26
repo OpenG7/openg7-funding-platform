@@ -913,6 +913,12 @@ export const createAdminHttpHandlers = ({
           connectorEnabled: preflightConfig?.enabled === true,
           localPreparationEnabled: !!publicationWorkshop,
           goldenPath: (id) => readSponsorshipGoldenPath(dbPool, id),
+          workQueue: (scope) =>
+            getAdminWorkQueue(dbPool, {
+              ...scope,
+              overview: true,
+              pageSize: 10
+            }),
           connector: async () => {
             if (!dbPool || !preflightConfig?.enabled)
               throw new Error('PREFLIGHT_UNAVAILABLE');

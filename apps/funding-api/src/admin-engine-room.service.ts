@@ -6,6 +6,9 @@ import type {
 } from '@openg7/funding-core';
 
 export interface EngineRoomReadPorts {
+  readonly workQueue?: (
+    scope: EngineRoomScope
+  ) => Promise<import('@openg7/funding-core').AdminWorkQueueResponse>;
   readonly goldenPath?: (
     id: string
   ) => Promise<SponsorshipGoldenPathObservation>;
@@ -36,15 +39,17 @@ export async function readEngineRoom(
       : {})
   };
   const observedAt = now().toISOString();
-  const [publication, connector, goldenPath] = await Promise.allSettled([
-    ports.publications
-      ? ports.publications(scope)
-      : Promise.reject(new Error('UNAVAILABLE')),
-    ports.connectorEnabled ? ports.connector() : Promise.resolve(null),
-    scope.sponsorshipId && !scope.deliveryId && ports.goldenPath
-      ? ports.goldenPath(scope.sponsorshipId)
-      : Promise.resolve(null)
-  ]);
+  const [publication, connector, goldenPath, workQueue] =
+    await Promise.allSettled([
+      ports.publications
+        ? ports.publications(scope)
+        : Promise.reject(new Error('UNAVAILABLE')),
+      ports.connectorEnabled ? ports.connector() : Promise.resolve(null),
+      scope.sponsorshipId && !scope.deliveryId && ports.goldenPath
+        ? ports.goldenPath(scope.sponsorshipId)
+        : Promise.resolve(null),
+      ports.workQueue ? ports.workQueue(scope) : Promise.resolve(null)
+    ]);
   const data = publication.status === 'fulfilled' ? publication.value : null;
   const scoped = !!(scope.sponsorshipId || scope.deliveryId);
   // Retain only records matching the explicit scope, even if an upstream read widens.
@@ -74,6 +79,7 @@ export async function readEngineRoom(
   return {
     observedAt,
     scope,
+    workQueue: workQueue.status === 'fulfilled' ? workQueue.value : null,
     goldenPath:
       goldenPath.status === 'fulfilled'
         ? goldenPath.value

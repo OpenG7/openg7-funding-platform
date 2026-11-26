@@ -8,6 +8,56 @@ import type {
 export const engineDeliveryId = '11111111-1111-4111-8111-111111111111';
 export const engineSponsorId = '22222222-2222-4222-8222-222222222222';
 
+export function operationalQueueFixture(): import('@openg7/funding-core').AdminWorkQueueResponse {
+  const manual: import('@openg7/funding-core').AdminAttentionItem = {
+    id: 'synthetic-human-exception',
+    type: 'sponsorship_needs_fulfilment',
+    severity: 'urgent',
+    title: 'Synthetic private title',
+    explanation: 'Synthetic private explanation',
+    contributionId: engineSponsorId,
+    detectedAt: new Date().toISOString(),
+    facts: { reason: 'publication_uncertain' },
+    suggestedActions: [],
+    intervention: {
+      state: 'uncertain',
+      responsibility: 'admin',
+      reason: 'publication_uncertain'
+    },
+    adminUrl: `/admin/fundraiser/publications/automation?deliveryId=${engineDeliveryId}`
+  };
+  const platform = {
+    ...manual,
+    id: 'synthetic-platform-work',
+    severity: 'informational' as const,
+    intervention: {
+      state: 'waiting' as const,
+      responsibility: 'platform' as const,
+      reason: 'publication_scheduled'
+    }
+  };
+  return {
+    available: true,
+    coverage: 'complete',
+    missingSources: [],
+    generatedAt: new Date().toISOString(),
+    timezone: 'America/Toronto',
+    total: 2,
+    filteredTotal: 2,
+    todayTotal: 1,
+    humanTotal: 1,
+    platformTotal: 1,
+    counts: { urgent: 1, today: 0, this_week: 0, informational: 1 },
+    typeCounts: {
+      sponsorship_needs_fulfilment: 2
+    } as import('@openg7/funding-core').AdminWorkQueueResponse['typeCounts'],
+    page: 1,
+    pageSize: 10,
+    items: [manual, platform],
+    overview: { recommendations: [manual], emailGroups: [] }
+  };
+}
+
 export function goldenPathObservation(): NonNullable<
   EngineRoomSnapshot['goldenPath']
 > {

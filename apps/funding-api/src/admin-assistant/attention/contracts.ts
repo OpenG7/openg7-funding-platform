@@ -7,6 +7,8 @@ import type {
 
 import type { SponsorshipAttentionRecord } from '../../fund-contributions.repository.js';
 
+import type { AttentionPublicationWorkflow } from './workflows.js';
+
 export interface FinancialTotalsInput {
   readonly grossPaid: number;
   readonly refunded: number;
@@ -31,6 +33,7 @@ export interface AttentionMediaRecord {
 
 /** Everything the pure detectors need, already loaded from the repositories. */
 export interface AttentionDataset {
+  readonly publicationWorkflows?: readonly AttentionPublicationWorkflow[];
   readonly now: Date;
   readonly sponsorships: readonly SponsorshipAttentionRecord[];
   readonly sponsorshipsTruncated: boolean;

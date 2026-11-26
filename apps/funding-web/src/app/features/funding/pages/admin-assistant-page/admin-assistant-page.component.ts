@@ -35,6 +35,7 @@ import { AdminAssistantContextComponent } from '../../components/admin-assistant
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminOperationalQueueComponent } from '../../components/admin-operational-queue/admin-operational-queue.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipGuideComponent } from '../../components/admin-sponsors/admin-sponsorship-guide.component.js';
 import enAssistance from '../../../../../assets/i18n/admin-dossier-assistance.en.json' with { type: 'json' };
@@ -68,6 +69,7 @@ import { AdminAssistantController } from './admin-assistant-controller.js';
     AdminAssistantSummaryComponent,
     AdminDrawerComponent,
     AdminLayoutComponent,
+    AdminOperationalQueueComponent,
     AdminSponsorshipProgressComponent,
     AdminSponsorshipGuideComponent
   ],
@@ -173,6 +175,19 @@ export class AdminAssistantPageComponent {
   readonly canPrepare = this.controller.canPrepare;
 
   constructor() {
+    let identityKey: string | null = null;
+    effect(() => {
+      const key = JSON.stringify([
+        this.admin.sessionGeneration(),
+        this.admin.identity()?.id,
+        this.admin.identity()?.role
+      ]);
+      untracked(() => {
+        if (identityKey !== null && identityKey !== key)
+          this.controller.resetIdentity();
+        identityKey = key;
+      });
+    });
     effect(() => {
       const language = this.i18n.currentLanguage();
       untracked(() =>
@@ -244,6 +259,11 @@ export class AdminAssistantPageComponent {
 
   load(): Promise<void> {
     return this.controller.load();
+  }
+
+  loadInterventions(): void {
+    this.controller.setOverview(this.query(), this.selectedId(), true);
+    void this.controller.load();
   }
 
   openDossierAction(action: 'edit-identity' | 'followup-access'): void {

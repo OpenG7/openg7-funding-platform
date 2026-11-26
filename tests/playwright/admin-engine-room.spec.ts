@@ -5,10 +5,61 @@ import {
   engineRoomFixture,
   engineSponsorId,
   engineDeliveryId,
-  goldenPathObservation
+  goldenPathObservation,
+  operationalQueueFixture
 } from './support/engine-room.js';
 
 const path = '/admin/fundraiser/engine-room';
+
+for (const language of ['fr-CA', 'en'])
+  test(`engine exception priorities preserve human and platform reasons in ${language}`, async ({
+    page
+  }) => {
+    const { options, writes } = await engineRoomFixture(page);
+    options.snapshot = {
+      ...options.snapshot,
+      workQueue: operationalQueueFixture()
+    };
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.goto(path);
+    const queue = page.locator('[data-og7="operational-queue"]');
+    await expect(
+      queue.locator('[data-og7="operational-human-count"]')
+    ).toHaveText('1');
+    await expect(
+      queue.locator('[data-og7="operational-platform-count"]')
+    ).toHaveText('1');
+    await expect(
+      queue.locator('[data-og7="operational-intervention"]')
+    ).toHaveCount(1);
+    await expect(
+      queue.locator('[data-og7="operational-platform-item"]')
+    ).toHaveCount(1);
+    await expect(
+      queue.locator('[data-og7="operational-intervention"]')
+    ).toContainText(language === 'en' ? 'uncertain' : 'incertain');
+    await expect(
+      queue.locator('[data-og7="operational-platform-item"]')
+    ).toContainText(language === 'en' ? 'scheduled' : 'programmée');
+    await expect(
+      queue.locator('[data-og7="operational-intervention"] a').last()
+    ).toHaveAttribute(
+      'href',
+      '/admin/fundraiser/attention?itemId=synthetic-human-exception'
+    );
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="operational-queue"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(writes).toEqual([]);
+  });
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1536]) {

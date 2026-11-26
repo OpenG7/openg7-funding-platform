@@ -119,6 +119,13 @@ export class AdminAssistantController {
     this.clearDraft();
   }
 
+  resetIdentity(): void {
+    if (this.disposed) return;
+    this.clearPrivateData('idle');
+    this.queueEnabled = false;
+    this.selectedId.set(null);
+  }
+
   async load(): Promise<void> {
     if (this.disposed || !this.overviewActive || !this.queueEnabled) return;
     const generation = ++this.generation;
