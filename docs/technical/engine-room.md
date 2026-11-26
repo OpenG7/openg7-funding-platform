@@ -274,6 +274,12 @@ natifs après perte de réponse. Le workflow périodique reste optionnel ; cette
 recette locale ne mesure pas la disponibilité de la production et n'ajoute pas
 de commande à la Salle.
 
+Le chantier 7 ajoute une première [préparation privée sous politique explicite](admin-automatic-runs.md#bounded-private-preparation)
+dans l'API : un dossier sélectionné, un budget de brouillons, une expiration,
+les droits de la session et les reçus natifs. Les arrêts et incertitudes restent
+dans le portefeuille. Les autorisations d'envoi restent des décisions séparées ;
+l'Assistant et la Salle conservent leurs contrôles actuels.
+
 Références propriétaires : [publications](../operations/admin-pilotage.md),
 [connecteur Preflight](preflight-connector.md),
 [règles de validation](../development/validation.md).

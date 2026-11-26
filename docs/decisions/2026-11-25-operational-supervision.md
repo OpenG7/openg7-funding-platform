@@ -1,8 +1,9 @@
 # Supervision et scalabilité opérationnelle
 
 Date : 25 novembre 2026. Statut : principes retenus pour guider les évolutions.
-La première tranche locale est décrite dans la [référence de supervision](../technical/engine-room.md) ;
-les tranches suivantes restent proposées, sans activation ni migration.
+Les premières implémentations locales et leurs limites sont décrites dans la
+[référence de supervision](../technical/engine-room.md). Cette décision n'atteste
+aucune activation ni migration de production.
 
 ## Contexte
 
@@ -57,6 +58,13 @@ mécanismes aux dix parcours administratifs et précise leurs limites.
 12. Mesurer avant de distribuer davantage l’architecture ou de matérialiser des
     projections. Préférer des lectures cohérentes et des optimisations ciblées
     qui conservent les gardes, plutôt que déplacer ou dupliquer le métier.
+
+La première capacité sous politique explicite est la
+[préparation privée bornée](../technical/admin-automatic-runs.md#bounded-private-preparation).
+Elle réutilise le portefeuille et ses reçus pour une exécution finie demandée
+par une session administrative autorisée. Son périmètre réduit permet de vérifier
+les budgets, l'expiration et la reprise sans ajouter un worker ou un registre
+d'exécution. Les interfaces de supervision n'en héritent pas d'un droit d'action.
 
 ## Conséquences et premier chantier
 

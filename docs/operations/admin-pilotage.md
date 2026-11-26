@@ -397,6 +397,13 @@ publication ou paiement de production.
 
 <a id="mode-automatique-de-rapprochement"></a>
 
+La [préparation privée bornée par API](../technical/admin-automatic-runs.md#bounded-private-preparation)
+est une capacité distincte et explicitement choisie : un dossier, une expiration
+et un plafond de brouillons, avec les droits et reçus du portefeuille. Elle ne
+démarre pas depuis le guide, ne remplace pas les accusés de lecture de ce mode
+et ne confère aucune autorisation de diffusion. Son arrêt et sa réconciliation
+réutilisent les commandes natives décrites ci-dessous.
+
 ### Préparation des dossiers par lot
 
 La commande **Vérifier un nouveau lot**, dans **Suivi du lot** de la préparation

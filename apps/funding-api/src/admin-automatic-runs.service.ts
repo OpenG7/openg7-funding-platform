@@ -9,6 +9,7 @@ import type {
   AdminAutomaticRunReport,
   AdminAutomaticRunStartRequest,
   AdminAutomaticRunState,
+  AdminPrivatePreparationPolicy,
   ResponsibilityBalance
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
@@ -27,6 +28,10 @@ import {
   loadPreparationPlan,
   parsePreparationSelection
 } from './admin-preparation-plan.js';
+import {
+  parsePrivatePreparationPolicy,
+  privatePreparationRequestId
+} from './admin-private-preparation-policy.js';
 
 export { AdminAutomaticRunError } from './admin-automatic-run-error.js';
 
@@ -58,6 +63,7 @@ interface RunRow {
   last_balance: ResponsibilityBalance | null;
   started_at: Date;
   updated_at: Date;
+  preparation_policy: AdminPrivatePreparationPolicy | null;
 }
 interface DossierRow {
   position: string;
@@ -271,6 +277,9 @@ export class AdminAutomaticRunsService {
     return {
       run: {
         id: row.id,
+        ...(row.preparation_policy
+          ? { preparationPolicy: row.preparation_policy }
+          : {}),
         version: row.version,
         // A browser returning during a lost command must inspect, never auto-replay it.
         status: row.in_flight_request_id ? 'uncertain' : row.status,
@@ -365,14 +374,24 @@ export class AdminAutomaticRunsService {
   async start(raw: unknown, actor: string): Promise<AdminAutomaticRunState> {
     const parsed = parse<AdminAutomaticRunStartRequest>(raw, [
       'requestId',
-      'preparationSelection'
+      'preparationSelection',
+      'preparationPolicy'
     ]);
     const preparationSelection = parsePreparationSelection(
       parsed.preparationSelection
     );
+    const preparationPolicy = parsePrivatePreparationPolicy(
+      parsed.preparationPolicy
+    );
+    check(
+      !preparationPolicy || preparationSelection?.length === 1,
+      'RUN_POLICY_SCOPE_REQUIRED',
+      400
+    );
     const input = {
       requestId: parsed.requestId,
-      ...(preparationSelection ? { preparationSelection } : {})
+      ...(preparationSelection ? { preparationSelection } : {}),
+      ...(preparationPolicy ? { preparationPolicy } : {})
     };
     const hash = digest({
       actor,
@@ -385,6 +404,16 @@ export class AdminAutomaticRunsService {
       ]);
       const prior = await this.prior(db, actor, input.requestId, hash);
       if (prior) return prior;
+      if (preparationPolicy) {
+        const now = (
+          await db.query<{ now: Date }>('SELECT clock_timestamp() AS now')
+        ).rows[0]!.now.getTime();
+        const remaining = Date.parse(preparationPolicy.expiresAt) - now;
+        check(
+          remaining > 0 && remaining <= 15 * 60 * 1000,
+          'RUN_POLICY_EXPIRED_OR_TOO_LONG'
+        );
+      }
       if (preparationSelection) {
         const plan = await loadPreparationPlan(
           db,
@@ -423,8 +452,12 @@ export class AdminAutomaticRunsService {
         503
       );
       await db.query(
-        "INSERT INTO admin_automatic_runs(id,actor,status) VALUES($1::uuid,$2,'running')",
-        [input.requestId, actor]
+        "INSERT INTO admin_automatic_runs(id,actor,status,preparation_policy) VALUES($1::uuid,$2,'running',$3::jsonb)",
+        [
+          input.requestId,
+          actor,
+          preparationPolicy ? JSON.stringify(preparationPolicy) : null
+        ]
       );
       await db.query(
         `INSERT INTO admin_automatic_run_dossiers(run_id,position,contribution_id,reference,contribution_type,amount_minor,currency,payment_status)
@@ -452,6 +485,7 @@ export class AdminAutomaticRunsService {
       );
       await audit(db, actor, 'started', input.requestId, {
         requestId: input.requestId,
+        ...(preparationPolicy ? { preparationPolicy } : {}),
         ...(preparationSelection ? { preparationSelection } : {})
       });
       const state = await this.stateOnClient(
@@ -748,6 +782,63 @@ export class AdminAutomaticRunsService {
   }
 
   async advance(raw: unknown, actor: string): Promise<AdminAutomaticRunState> {
+    return this.advanceOnPolicy(raw, actor, false);
+  }
+
+  /** Explicit, finite API opt-in. One dossier; native receipts remain the only execution authority. */
+  async prepareBounded(
+    raw: unknown,
+    actor: string
+  ): Promise<AdminAutomaticRunState> {
+    const value = raw as AdminAutomaticRunStartRequest | null;
+    check(
+      value && parsePrivatePreparationPolicy(value.preparationPolicy),
+      'RUN_POLICY_REQUIRED',
+      400
+    );
+    const started = await this.start(raw, actor);
+    check(started.run?.preparationPolicy, 'RUN_POLICY_REQUIRED', 400);
+    return this.advanceOnPolicy(
+      {
+        runId: started.run.id,
+        expectedVersion: started.run.version,
+        requestId: privatePreparationRequestId(started.run.id)
+      },
+      actor,
+      true
+    );
+  }
+
+  private async checkPreparationPolicy(
+    db: PoolClient,
+    row: RunRow
+  ): Promise<void> {
+    const policy = row.preparation_policy;
+    check(
+      policy && row.pass === 1 && integer(row.cursor) === 0,
+      'RUN_POLICY_SCOPE_REQUIRED'
+    );
+    const count = (
+      await db.query<{ total: string }>(
+        'SELECT count(*) AS total FROM admin_automatic_run_dossiers WHERE run_id=$1::uuid',
+        [row.id]
+      )
+    ).rows[0]!;
+    check(Number(count.total) === 1, 'RUN_POLICY_SCOPE_REQUIRED');
+    const active = (
+      await db.query<{ active: boolean }>(
+        'SELECT clock_timestamp() < $1::timestamptz AS active',
+        [policy.expiresAt]
+      )
+    ).rows[0]!.active;
+    check(active, 'RUN_POLICY_EXPIRED');
+  }
+
+  private async advanceOnPolicy(
+    raw: unknown,
+    actor: string,
+    bounded: boolean
+  ): Promise<AdminAutomaticRunState> {
     const input = parse<AdminAutomaticRunAdvanceRequest>(raw, [
       'requestId',
       'runId',
@@ -756,6 +847,7 @@ export class AdminAutomaticRunsService {
     const hash = digest({
       actor,
       kind: 'advance',
+      ...(bounded ? { execution: 'bounded-private-preparation' } : {}),
       input: {
         requestId: input.requestId,
         runId: input.runId,
@@ -772,6 +864,7 @@ export class AdminAutomaticRunsService {
         row.status === 'running',
         row.status === 'uncertain' ? 'RUN_UNCERTAIN' : 'RUN_NOT_RUNNING'
       );
+      if (bounded) await this.checkPreparationPolicy(db, row);
       await db.query(
         `INSERT INTO admin_automatic_run_commands(request_id,run_id,actor,kind,request_hash,status)
          VALUES($1::uuid,$2::uuid,$3,'advance',$4,'executing')`,
@@ -795,6 +888,7 @@ export class AdminAutomaticRunsService {
           );
           check(['running', 'paused'].includes(row.status), 'RUN_UNCERTAIN');
           if (row.status === 'running') {
+            if (bounded) await this.checkPreparationPolicy(db, row);
             const dossier = (
               await db.query<DossierRow>(
                 'SELECT * FROM admin_automatic_run_dossiers WHERE run_id=$1::uuid AND position>$2::bigint ORDER BY position LIMIT 1',
@@ -810,6 +904,14 @@ export class AdminAutomaticRunsService {
                 row.id,
                 actor
               );
+              if (bounded) {
+                check(
+                  actions.filter((action) => action.created).length <=
+                    row.preparation_policy!.maxDrafts,
+                  'RUN_POLICY_DRAFT_BUDGET'
+                );
+                await this.checkPreparationPolicy(db, row);
+              }
               const after = actions.length
                 ? await this.balance(db, dossier)
                 : before;
@@ -822,6 +924,14 @@ export class AdminAutomaticRunsService {
                   requestId: input.requestId,
                   contributionId: dossier.contribution_id,
                   pass: row.pass,
+                  ...(row.preparation_policy
+                    ? {
+                        preparationPolicy: row.preparation_policy,
+                        execution: bounded
+                          ? 'bounded-private-preparation'
+                          : 'manual'
+                      }
+                    : {}),
                   beforeVersion: before.version,
                   afterVersion: after.version,
                   balanceStatus: after.status,
@@ -868,6 +978,8 @@ export class AdminAutomaticRunsService {
             "UPDATE admin_automatic_run_commands SET status='completed',response=$2::jsonb,updated_at=clock_timestamp() WHERE request_id=$1::uuid",
             [input.requestId, JSON.stringify(state)]
           );
+          if (bounded && row.status === 'running')
+            await this.checkPreparationPolicy(db, row);
           return state;
         },
         { repeatableRead: true }

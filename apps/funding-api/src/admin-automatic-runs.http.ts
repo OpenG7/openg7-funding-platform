@@ -37,7 +37,9 @@ export interface AdminAutomaticRunsHttpDependencies {
         | 'preparation'
         | 'approvePreparation'
       > &
-        Partial<Pick<AdminAutomaticRunsService, 'preparationPlan'>>)
+        Partial<
+          Pick<AdminAutomaticRunsService, 'preparationPlan' | 'prepareBounded'>
+        >)
     | null;
   readonly dossierPreparations?:
     | (Pick<
@@ -81,6 +83,7 @@ export function createAdminAutomaticRunsHttpHandler(
       ![
         base,
         base + '/advance',
+        base + '/prepare-bounded',
         base + '/control',
         base + '/report',
         base + '/preparation',
@@ -196,13 +199,19 @@ export function createAdminAutomaticRunsHttpHandler(
           throw new AdminAutomaticRunError('RUN_INVALID_REQUEST', 400);
         }
         const state =
-          path === base
-            ? await deps.automaticRuns.start(input, actor)
-            : path === base + '/advance'
-              ? await deps.automaticRuns.advance(input, actor)
-              : path === base + '/preparation/approve'
-                ? await deps.automaticRuns.approvePreparation(input, actor)
-                : await deps.automaticRuns.control(input, actor);
+          path === base + '/prepare-bounded'
+            ? deps.automaticRuns.prepareBounded
+              ? await deps.automaticRuns.prepareBounded(input, actor)
+              : (() => {
+                  throw new AdminAutomaticRunError('RUN_UNAVAILABLE', 503);
+                })()
+            : path === base
+              ? await deps.automaticRuns.start(input, actor)
+              : path === base + '/advance'
+                ? await deps.automaticRuns.advance(input, actor)
+                : path === base + '/preparation/approve'
+                  ? await deps.automaticRuns.approvePreparation(input, actor)
+                  : await deps.automaticRuns.control(input, actor);
         deps.writeJson(request, response, 200, state);
       } else throw new AdminAutomaticRunError('METHOD_NOT_ALLOWED', 405);
     } catch (error) {

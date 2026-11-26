@@ -54,6 +54,14 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [073](../../apps/funding-api/migrations/073_admin_private_preparation_policy.sql)
+ajoute une politique nullable et immuable au portefeuille administratif. Les lots
+existants restent manuels, sans autorisation implicite. Appliquer avant la nouvelle
+API puis actualiser les grants du rôle applicatif avec le runner. Elle ne lance
+aucune préparation ni diffusion. Le contrat et la reprise sont décrits dans la
+[préparation privée bornée](../technical/admin-automatic-runs.md#bounded-private-preparation).
+Sa qualification locale porte uniquement sur des bases jetables.
+
 La migration [072](../../apps/funding-api/migrations/072_sponsorship_dual_publications.sql)
 étend les prestations et formats pour l'offre `sponsorship-v4`. Le minimum de
 participants vaut un pour les obligations existantes; les offres et empreintes
