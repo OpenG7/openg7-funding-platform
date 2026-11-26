@@ -30,6 +30,7 @@ export class AdminOperationalQueueComponent {
   readonly queue = input<AdminWorkQueueResponse | null>(null);
   readonly loading = input(false);
   readonly stale = input(false);
+  readonly compact = input(false);
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
   readonly recommendations = computed(() =>

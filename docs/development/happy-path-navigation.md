@@ -3,6 +3,7 @@
 Repères au 25 novembre 2026. Ce guide accompagne une navigation de la plateforme
 administrative avec ChatGPT : points de départ, actions successives, écrans
 attendus et résultat de chaque parcours. Il peut être partagé comme fichier joint.
+Consolidation après les sept chantiers, sur `632c6ac247dde08e6085bb5bbda09670afdcb548`.
 Les parcours publics, Checkout et suivi privé des contributeurs sont hors périmètre.
 Les contributions et dossiers nécessaires sont des préconditions déjà présentes.
 
@@ -14,6 +15,24 @@ Leur disponibilité dépend des droits, des données et des fournisseurs configu
 Ce guide ne constitue pas une recette exécutée ni une qualification de production.
 Les noms d’actions décrivent leur fonction ; les libellés entre guillemets sont
 repris des guides fonctionnels.
+
+## Texte à partager avec ChatGPT
+
+Joindre ce guide et utiliser ce texte pour commencer directement la navigation :
+
+> Accompagne-moi dans les dix happy paths de la plateforme administrative OpenG7
+> décrits dans le fichier joint. Commence au parcours 1, à `/admin/login`, sans
+> questionnaire préalable. Pour chaque étape, donne le point de départ, une seule
+> action concrète, ce qui devrait apparaître et la preuve de réussite à observer.
+> Attends « suivant » ou mon observation avant d'avancer. Si je nomme un parcours,
+> reprends directement celui-ci. Utilise les routes et fonctions du guide sans
+> inventer de bouton. Distingue observation, préparation, décision, exécution et
+> preuve métier. Si une source manque ou si l'écran diffère, décris le blocage et
+> le retour au parcours natif ; ne présente pas l'étape comme réussie. Reste dans
+> l'administration et dans un environnement synthétique pour les mutations.
+> Les outils de charge, les sondes et la préparation bornée par API ne sont pas
+> des commandes disponibles dans la Salle. Ne sollicite ni secret ni donnée
+> personnelle et ne déclenche aucune opération réelle.
 
 ## Repères de navigation
 
@@ -37,6 +56,28 @@ côté API selon le rôle du compte.
 Pour naviguer les mutations, utiliser un environnement de test avec données
 synthétiques et fournisseurs simulés. Ce guide n’autorise aucun remboursement,
 envoi, changement d’accès ou publication de production.
+
+## Ce que les sept chantiers apportent à la navigation
+
+Les dix parcours restent les références. Les chantiers améliorent leur suivi et
+leurs contrôles ; ils n'ajoutent pas sept nouvelles étapes obligatoires.
+
+| Chantier                       | Où l'observer                                                 | Résultat à vérifier et limite                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Corrélation de la commandite | Salle, avec le dossier exact sélectionné                      | Paiement, accord, prestations, préparation, autorisations et preuves reliés au même dossier ; consultation en lecture seule                           |
+| 2 Priorisation par exception   | Assistant et Salle, à périmètre comparable                    | Motifs propriétaires cohérents et responsabilité humaine ou plateforme explicite ; une exécution autorisée en attente n'est pas une nouvelle décision |
+| 3 Flux et mesure humaine       | Panneau de flux de la Salle                                   | Population, période, provenance et limites visibles ; mesure humaine volontaire et locale, sans gain de temps présumé                                 |
+| 4 Préparation répétitive       | Aperçu à la demande dans le portefeuille administratif        | Prochaines préparations privées manquantes, sélection versionnée, brouillons existants préservés ; examen et diffusion restent séparés                |
+| 5 Charge contrôlée             | Recette technique isolée, hors navigation Web                 | Latences, concurrence et pool mesurés ; les grandes files restent coûteuses, aucun volume journalier certifié                                         |
+| 6 Assurance opérationnelle     | Recette technique et CI optionnelle, hors navigation Web      | Épisodes et réconciliation synthétiques, ressources jetables nettoyées ; aucune mesure de disponibilité de production                                 |
+| 7 Autonomie encadrée           | Appel API explicitement choisi, hors parcours des boutons Web | Un dossier, plafond de brouillons, expiration et reçus natifs ; aucune décision de publication ou de remboursement                                    |
+
+Les contrats et preuves datées restent dans la
+[Salle et ses capacités](../technical/engine-room.md), les
+[mesures de charge](publication-performance.md#admin-controlled-load),
+l'[assurance isolée](../operations/admin-identity-and-alerts.md#isolated-operational-assurance)
+et la [préparation privée bornée](../technical/admin-automatic-runs.md#bounded-private-preparation).
+La présence du code ne prouve pas son activation dans l'environnement visité.
 
 ## 1 Ouvrir une session administrative
 
@@ -112,9 +153,51 @@ America/Toronto. Un collectif attend le nombre de dossiers requis.
 **En arrière-plan :** le moteur revalide l’admissibilité avant envoi. Les flux,
 le worker et le fournisseur doivent être activés pour le mode choisi.
 
-**Résultat :** livraison confirmée avec preuve qualifiée pour la prestation.
-Une préparation approuvée ou un statut social renseigné manuellement ne suffisent
-pas à établir cette livraison. Le mode simulé conserve sa nature simulée.
+**Résultat de navigation simulée :** tentative et résultat simulés retrouvés,
+sans prestation déclarée livrée réellement. La réussite métier exige une livraison
+confirmée avec une preuve qualifiée pour la prestation exacte ; cette qualification
+réelle reste hors de la navigation synthétique. Une préparation approuvée ou un
+statut social renseigné manuellement ne suffisent pas à établir cette livraison.
+
+### Lire ce même dossier dans la Salle
+
+1. Depuis **Prestations de services**, ouvrir le lien vers la Salle pour le
+   dossier choisi. Sa route est `/admin/fundraiser/engine-room` ; le lien conserve
+   `sponsorshipId`. Une ouverture globale sans sélection ne présente pas un cycle
+   individuel fictif.
+2. Lire **Cycle de reconnaissance de la commandite**. Vérifier que paiement,
+   accord, prestations et preuves se rapportent à cette même commandite. Pour
+   une livraison collective, sélectionner le participant exact à observer.
+3. Lire les motifs, la responsabilité et la prochaine action native. Un résultat
+   incertain reste à réconcilier ; une attente normale ne crée pas une nouvelle
+   autorisation à donner.
+4. Examiner les flux dans le même périmètre : obligations ouvertes, sorties
+   qualifiées, dispenses, période et sources. L'âge d'une obligation ne mesure
+   pas le temps de travail humain, et une absence d'échantillon n'est pas zéro.
+5. Suivre le lien d'intervention vers le propriétaire si nécessaire, puis revenir
+   au même dossier. La consultation de la Salle ne prépare ni n'approuve rien.
+
+Le [contrat du cycle](../technical/engine-room.md#cycle-de-reconnaissance-par-commandite)
+précise la couverture partielle et les preuves admissibles. Les missions distantes
+Preflight se consultent dans leur espace propriétaire ; ouvrir la Salle ne les
+interroge pas.
+
+### Variantes à parcourir sans inventer une réussite
+
+Ces variantes servent à revoir les angles du parcours 4 sur des fixtures
+synthétiques déjà préparées, sans altérer une donnée réelle pour provoquer un cas.
+
+| Variante                               | Ce qui doit rester visible                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Plusieurs passages du même canal       | Ordinal et obligation exacts ; un passage préparé ne solde pas les suivants                 |
+| Livraison collective                   | Participants exacts ; le résultat d'un autre participant n'est pas la preuve de ce dossier  |
+| Durée Web non attestée                 | Condition restante explicite ; visibilité courante distincte d'une durée prouvée            |
+| Dispense                               | Décompte séparé, sans la compter comme une livraison                                        |
+| Accord historique non qualifié         | Qualification inconnue, sans appliquer rétroactivement l'offre actuelle                     |
+| Simulation                             | Nature simulée conservée, sans preuve de réalisation réelle                                 |
+| Consentement retiré ou contenu modifié | Prérequis et version relus ; ancienne préparation ou autorisation insuffisante              |
+| Résultat incertain                     | Blocage et lien de réconciliation ; aucune relance automatique                              |
+| Source indisponible ou page suivante   | Donnée inconnue ou couverture partielle, sans réutiliser un ancien succès comme état actuel |
 
 ## 5 Consulter une facture et suivre son courriel
 
@@ -218,6 +301,20 @@ administrés chez le fournisseur d’identité.
 **Résultat :** décision ou opération retrouvée avec son contexte. La trace d’une
 préparation ou d’une tentative ne vaut pas confirmation d’un paiement ou d’une
 livraison externe.
+
+## Consigner une revue avec ChatGPT
+
+Après chaque parcours, conserver une note courte : numéro du parcours, étape
+atteinte, résultat observé, preuve ou trace admissible et blocage éventuel. Utiliser
+des alias de fixtures pour les dossiers ; ne copier ni coordonnées, ni texte
+privé, ni token. Une navigation terminée et une réussite métier restent deux
+constats distincts. Le temps humain est inconnu tant qu'il n'a pas été mesuré
+volontairement sur une référence comparable.
+
+La qualification locale des sept chantiers est documentée dans les références
+propriétaires, avec leurs révisions et leurs limites. La consolidation de ce guide
+est documentaire : elle ne réexécute pas ces recettes et ne certifie aucun
+fournisseur, accès OIDC déployé ou environnement de production.
 
 ## Références dans le dépôt
 

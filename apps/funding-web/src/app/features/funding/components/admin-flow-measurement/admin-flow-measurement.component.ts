@@ -17,6 +17,7 @@ import fr from '../../../../../assets/i18n/admin-flow-measurement.fr-CA.json' wi
 import en from '../../../../../assets/i18n/admin-flow-measurement.en.json' with { type: 'json' };
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
+import { readableDuration, aggregateWidth } from './flow-presentation.js';
 import {
   HumanWorkSample,
   workCategories,
@@ -76,6 +77,13 @@ export class AdminFlowMeasurementComponent {
       ? this.t('unknown')
       : String(value);
   }
+  duration(value: number | null | undefined): string {
+    return (
+      readableDuration(value, this.i18n.currentLanguage()) ??
+      this.t('notMeasured')
+    );
+  }
+  readonly barWidth = aggregateWidth;
   consentChanged(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
     if (!checked) this.clear(true);

@@ -1,10 +1,13 @@
 <section
   class="operational-queue"
+  [class.compact]="compact()"
   data-og7="operational-queue"
   [attr.aria-busy]="loading()"
 >
   <h2>{{ t('title') }}</h2>
-  <p>{{ t('intro') }}</p>
+  @if (!compact()) {
+    <p>{{ t('intro') }}</p>
+  }
   @if (loading()) {
     <p role="status">{{ t('loading') }}</p>
   } @else if (queue()?.available) {
@@ -25,16 +28,30 @@
         </dd>
       </div>
     </dl>
-    <h3>{{ t('human') }}</h3>
+    @if (!compact()) {
+      <h3>{{ t('human') }}</h3>
+    }
     <ul>
       @for (item of recommendations(); track item.id) {
         <li data-og7="operational-intervention" [attr.data-og7-id]="item.id">
-          <strong>{{ type(item) }}</strong>
-          <p>
-            {{ i18n.t('admin.attention.priority.' + item.severity) }} ·
-            {{ reason(item) }}
-          </p>
-          <span>{{ t('human') }}</span>
+          @if (compact()) {
+            <div class="item-heading">
+              <strong>{{ type(item) }}</strong
+              ><span class="priority" [attr.data-priority]="item.severity">{{
+                i18n.t('admin.attention.priority.' + item.severity)
+              }}</span>
+            </div>
+            <p>{{ reason(item) }}</p>
+          } @else {
+            <strong>{{ type(item) }}</strong>
+            <p>
+              {{ i18n.t('admin.attention.priority.' + item.severity) }} ·
+              {{ reason(item) }}
+            </p>
+          }
+          @if (!compact()) {
+            <span>{{ t('human') }}</span>
+          }
           <a [routerLink]="link(item)">{{ t('openNative') }}</a>
           <a
             routerLink="/admin/fundraiser/attention"
@@ -49,7 +66,9 @@
       }
     </ul>
     <h3>{{ t('platform') }}</h3>
-    <p>{{ t('platformHelp') }}</p>
+    @if (!compact()) {
+      <p>{{ t('platformHelp') }}</p>
+    }
     <ul>
       @for (item of platformItems(); track item.id) {
         <li data-og7="operational-platform-item" [attr.data-og7-id]="item.id">
@@ -66,7 +85,16 @@
         </li>
       }
     </ul>
-    <p class="scope">{{ t('scope') }}</p>
+    @if (compact()) {
+      <details>
+        <summary>{{ t('context') }}</summary>
+        <p>{{ t('intro') }}</p>
+        <p>{{ t('platformHelp') }}</p>
+        <p class="scope">{{ t('scope') }}</p>
+      </details>
+    } @else {
+      <p class="scope">{{ t('scope') }}</p>
+    }
   } @else {
     <p role="status" data-og7="operational-unavailable">
       {{ t('unavailable') }}

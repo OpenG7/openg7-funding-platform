@@ -2,50 +2,76 @@
   <h2>{{ t('title') }}</h2>
   @if (measurement(); as m) {
     @if (m.status === 'available' && m.totals; as totals) {
-      <p>
-        {{ t('window') }} <time>{{ m.window.from }}</time> →
-        <time>{{ m.window.to }}</time> (UTC)
-      </p>
-      <dl class="counts">
-        <div>
-          <dt>{{ t('entries') }}</dt>
-          <dd data-og7="flow-entries">{{ value(totals.entries) }}</dd>
+      <div class="flow-overview">
+        <div class="aggregate-chart" data-og7="flow-comparison">
+          <p class="chart-caption">{{ t('aggregateHelp') }}</p>
+          <div class="chart-row">
+            <span>{{ t('entries') }}</span
+            ><strong data-og7="flow-entries">{{
+              value(totals.entries)
+            }}</strong>
+            <div class="bar-track" aria-hidden="true">
+              <i
+                [style.width.%]="
+                  barWidth(totals.entries, totals.qualifiedExits)
+                "
+              ></i>
+            </div>
+          </div>
+          <div class="chart-row exits">
+            <span>{{ t('exits') }}</span
+            ><strong data-og7="flow-exits">{{
+              value(totals.qualifiedExits)
+            }}</strong>
+            <div class="bar-track" aria-hidden="true">
+              <i
+                [style.width.%]="
+                  barWidth(totals.qualifiedExits, totals.entries)
+                "
+              ></i>
+            </div>
+          </div>
         </div>
-        <div>
-          <dt>{{ t('exits') }}</dt>
-          <dd data-og7="flow-exits">{{ value(totals.qualifiedExits) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('open') }}</dt>
-          <dd data-og7="flow-open">{{ value(totals.open) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('overdue') }}</dt>
-          <dd>{{ value(totals.overdue) }}</dd>
-        </div>
-      </dl>
-      <p>
-        {{ t('population') }} {{ totals.population }} · {{ t('qualified') }}
-        {{ totals.qualified }} · {{ t('adjusted') }} {{ totals.adjusted }} ·
-        {{ t('excluded') }} {{ m.excludedDossiers }}
-      </p>
-      <p>
-        {{ t('age') }} {{ value(totals.medianAgeSeconds) }} /
-        {{ value(totals.p95AgeSeconds) }} · {{ t('seconds') }} · n={{
-          totals.ageSamples
-        }}
-        · {{ t('unknownAge') }} {{ totals.unknownAge }}
-      </p>
-      <p>
-        {{ t('oldest') }} {{ value(totals.oldestAgeSeconds) }} ·
-        {{ t('seconds') }} · {{ t('undated') }} {{ totals.undated }}
-      </p>
-      <p>
-        {{ t('cycle') }} {{ value(totals.medianCycleSeconds) }} /
-        {{ value(totals.p95CycleSeconds) }} · {{ t('seconds') }} · n={{
-          totals.cycleSamples
-        }}
-      </p>
+        <dl class="flow-metrics">
+          <div>
+            <dt>{{ t('age') }}</dt>
+            <dd data-og7="flow-age">
+              {{ duration(totals.medianAgeSeconds) }} /
+              {{ duration(totals.p95AgeSeconds)
+              }}<small>{{ t('ageSampleLabel') }} {{ totals.ageSamples }}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('oldest') }}</dt>
+            <dd>
+              {{ duration(totals.oldestAgeSeconds)
+              }}<small>{{ t('undated') }} {{ totals.undated }}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('population') }}</dt>
+            <dd>
+              {{ totals.population
+              }}<small
+                >{{ t('open') }}
+                <span data-og7="flow-open">{{ value(totals.open) }}</span>
+                &middot; {{ t('qualified') }} {{ totals.qualified }} &middot;
+                {{ t('adjusted') }} {{ totals.adjusted }}</small
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('cycle') }}</dt>
+            <dd>
+              {{ duration(totals.medianCycleSeconds) }} /
+              {{ duration(totals.p95CycleSeconds)
+              }}<small
+                >{{ t('cycleSampleLabel') }} {{ totals.cycleSamples }}</small
+              >
+            </dd>
+          </div>
+        </dl>
+      </div>
       <details>
         <summary>{{ t('cohorts') }}</summary>
         <div
@@ -89,10 +115,44 @@
           </table>
         </div>
       </details>
-      <p class="note">{{ t('definition') }}</p>
+
       <details>
         <summary>{{ t('sources') }}</summary>
+        <p class="note">{{ t('definition') }}</p>
         <p>{{ m.definition }} · {{ m.observedAt }}</p>
+        <p>{{ t('window') }} {{ m.window.from }} → {{ m.window.to }} (UTC)</p>
+        <dl class="source-values">
+          <div>
+            <dt>{{ t('age') }} · {{ t('seconds') }}</dt>
+            <dd>
+              {{ value(totals.medianAgeSeconds) }} /
+              {{ value(totals.p95AgeSeconds) }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('oldest') }} · {{ t('seconds') }}</dt>
+            <dd>{{ value(totals.oldestAgeSeconds) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('cycle') }} · {{ t('seconds') }}</dt>
+            <dd>
+              {{ value(totals.medianCycleSeconds) }} /
+              {{ value(totals.p95CycleSeconds) }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('unknownAge') }}</dt>
+            <dd>{{ totals.unknownAge }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('excluded') }}</dt>
+            <dd>{{ m.excludedDossiers }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('overdue') }}</dt>
+            <dd>{{ totals.overdue }}</dd>
+          </div>
+        </dl>
         <ul>
           @for (source of m.sources; track source) {
             <li>{{ source }}</li>

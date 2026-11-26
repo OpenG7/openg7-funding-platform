@@ -30,7 +30,10 @@
     "unknown": "Non observé",
     "mixed": "Plusieurs modes"
   },
-  "deadlines": { "dated": "Datée", "undated": "Sans date" },
+  "deadlines": {
+    "dated": "Datée",
+    "undated": "Sans date"
+  },
   "definition": "Une prestation compte une fois, même dans un envoi collectif. Les sorties reposent sur la preuve actuellement qualifiée, jamais sur une simulation ou une dispense. Cette photographie peut évoluer avec une correction des preuves. L’âge depuis création ne mesure ni l’attente d’une étape ni le travail humain. P95 : rang supérieur le plus proche; aucune valeur sans échantillon.",
   "sources": "Définition, sources et date de mesure",
   "unavailable": "Mesure des flux indisponible ou non fournie. Aucun zéro n’en est déduit.",
@@ -50,5 +53,9 @@
   "running": "Mesure volontaire en cours.",
   "paused": "Chronomètre arrêté.",
   "total": "Temps déclaré pour cette séance :",
-  "humanLimits": "Mesure locale sans enregistrement ni transmission. Elle disparaît à la fermeture, au changement de dossier ou de session. Ce temps déclaré ne prouve pas une attention continue; il ne donne ni taux d’autonomie, ni capacité humaine, ni gain mesuré. Les visites et sessions ne sont pas converties en temps de travail."
+  "humanLimits": "Mesure locale sans enregistrement ni transmission. Elle disparaît à la fermeture, au changement de dossier ou de session. Ce temps déclaré ne prouve pas une attention continue; il ne donne ni taux d’autonomie, ni capacité humaine, ni gain mesuré. Les visites et sessions ne sont pas converties en temps de travail.",
+  "aggregateHelp": "Entrées et sorties de la période · agrégats observés",
+  "notMeasured": "Non mesuré",
+  "ageSampleLabel": "Âges connus :",
+  "cycleSampleLabel": "Sorties avec durée connue :"
 }

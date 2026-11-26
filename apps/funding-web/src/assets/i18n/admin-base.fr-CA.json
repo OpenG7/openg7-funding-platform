@@ -40,7 +40,7 @@
       "destinationModule": "Module de diffusion",
       "title": "Salle des moteurs intelligents",
       "supervision": "Supervision",
-      "intro": "Comprendre ce qui prépare vos dossiers, ce qui attend une décision et ce qui bloque leur progression.",
+      "intro": "Piloter le cycle des prestations, comprendre ce qui prépare vos dossiers, ce qui attend une décision et ce qui bloque leur progression.",
       "refresh": "Actualiser l’état",
       "loading": "Lecture des états des moteurs…",
       "unavailable": "Les états ne peuvent pas être consultés. Vérifiez vos accès puis réessayez.",
@@ -94,6 +94,23 @@
         "recent": "Signal récent observé (45 secondes)",
         "stale": "Signal ancien · relais à vérifier",
         "unknown": "Aucun signal exploitable"
+      },
+      "period": "Fenêtre observée :",
+      "withoutDeadline": "Ouvertes sans échéance :",
+      "queueUnit": "Lignes de la file métier",
+      "periodUnit": "Sur la fenêtre observée",
+      "populationUnit": "Population actuellement observée",
+      "pathsTitle": "Happy Paths · Golden Paths · Autonomie supervisée",
+      "pathsHelp": "Relier les prestations, les décisions et les preuves. Chaque action reste dans son espace métier.",
+      "autonomyUnmeasured": "Capacité et taux d’autonomie : non mesurés",
+      "unknownValue": "Inconnu",
+      "kpis": {
+        "created": "Prestations créées",
+        "qualified": "Sorties avec preuve qualifiée",
+        "open": "Prestations ouvertes",
+        "overdue": "Prestations ouvertes en retard",
+        "human": "Interventions humaines requises",
+        "platform": "Traitements pris en charge par la plateforme"
       }
     },
     "serviceDemo": {
