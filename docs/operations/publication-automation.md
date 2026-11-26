@@ -4,6 +4,21 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
+The cockpit is labelled **Publishing operations** and retains cross-destination
+review, scheduling, exceptions, source queues, reliability and global worker
+controls. Normal destination links open
+`/admin/fundraiser/publications/destinations/:feedId`, a shared maintenance page
+for the four existing feed identities. The explicit legacy `?settings=feeds`
+entry remains compatible; normal navigation uses the dedicated page.
+The engine room passes the selected feed and dossier/decision context; returning
+restores that feed and rereads supervision. Reloading retains the destination URL.
+The maintenance page edits existing preparation settings with a typed form,
+checks connections separately and confirms pause/resume. Provider mode and
+credentials remain server-managed; unavailable observations stay explicit.
+Resuming may allow already authorized due deliveries to proceed under existing
+worker checks; it does not authorize content. Queue and diagnostic links reuse
+operations with `feedId` and `tab`; reliability diagnostics remain global.
+
 The administration is a work console: the administrator authorizes the exact
 publication, then the platform executes it and records its confirmed result.
 A complete sponsor dossier, a prepared draft, an authorized date and a fulfilled

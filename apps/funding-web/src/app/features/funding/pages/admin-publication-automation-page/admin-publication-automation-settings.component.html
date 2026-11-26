@@ -53,79 +53,103 @@
         }}</span>
       </button>
     </section>
-    <details
-      data-og7="publication-feed-settings"
-      [open]="feedSettingsExpanded()"
-    >
-      <summary>
-        {{ 'admin.publicationAutomation.feedSettings' | translate }}
-      </summary>
-      <section
-        class="feeds"
-        [attr.aria-label]="'admin.publicationAutomation.feeds' | translate"
+    @if (feedSettingsExpanded()) {
+      <details
+        data-og7="publication-feed-settings"
+        [open]="feedSettingsExpanded()"
       >
-        @for (feed of s.feeds; track feed.id) {
-          <article>
-            <header>
-              <h2>
-                {{ feed.id.split(':')[0].toUpperCase() }}
-                <span>{{
-                  feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'
+        <summary>
+          {{ 'admin.publicationAutomation.feedSettings' | translate }}
+        </summary>
+        <section
+          class="feeds"
+          [attr.aria-label]="'admin.publicationAutomation.feeds' | translate"
+        >
+          @for (feed of s.feeds; track feed.id) {
+            <article>
+              <header>
+                <h2>
+                  {{ feed.id.split(':')[0].toUpperCase() }}
+                  <span>{{
+                    feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'
+                  }}</span>
+                </h2>
+                <span class="badge">{{
+                  'admin.publicationAutomation.modes.' + feed.mode | translate
                 }}</span>
-              </h2>
-              <span class="badge">{{
-                'admin.publicationAutomation.modes.' + feed.mode | translate
-              }}</span>
-            </header>
-            <p>
-              {{
-                'admin.publicationAutomation.connection.' + feed.connection
-                  | translate
-              }}
-              ·
-              {{
-                (feed.paused
-                  ? 'admin.publicationAutomation.paused'
-                  : 'admin.publicationAutomation.active'
-                ) | translate
-              }}
-            </p>
-            <p class="detail">
-              {{
-                feed.accountId ||
-                  ('admin.publicationAutomation.unconfigured' | translate)
-              }}
-            </p>
-            @if (feed.expiresAt) {
+              </header>
               <p>
-                {{ 'admin.publicationAutomation.expires' | translate }}
-                {{ c.dateLabel(feed.expiresAt) }}
-              </p>
-            }
-            <div class="actions">
-              <button
-                class="admin-button"
-                [disabled]="c.busy() || !feed.configured"
-                (click)="c.pause(feed)"
-              >
+                {{
+                  'admin.publicationAutomation.connection.' + feed.connection
+                    | translate
+                }}
+                ·
                 {{
                   (feed.paused
-                    ? 'admin.publicationAutomation.resume'
-                    : 'admin.publicationAutomation.pause'
+                    ? 'admin.publicationAutomation.paused'
+                    : 'admin.publicationAutomation.active'
                   ) | translate
-                }}</button
-              ><button
-                class="admin-button"
-                [disabled]="c.busy()"
-                (click)="c.configure(feed)"
-              >
-                {{ 'admin.publicationAutomation.settings' | translate }}
-              </button>
-            </div>
-          </article>
+                }}
+              </p>
+              <p class="detail">
+                {{
+                  feed.accountId ||
+                    ('admin.publicationAutomation.unconfigured' | translate)
+                }}
+              </p>
+              @if (feed.expiresAt) {
+                <p>
+                  {{ 'admin.publicationAutomation.expires' | translate }}
+                  {{ c.dateLabel(feed.expiresAt) }}
+                </p>
+              }
+              <div class="actions">
+                <button
+                  class="admin-button"
+                  [disabled]="c.busy() || !feed.configured"
+                  (click)="c.pause(feed)"
+                >
+                  {{
+                    (feed.paused
+                      ? 'admin.publicationAutomation.resume'
+                      : 'admin.publicationAutomation.pause'
+                    ) | translate
+                  }}</button
+                ><button
+                  class="admin-button"
+                  [disabled]="c.busy()"
+                  (click)="c.configure(feed)"
+                >
+                  {{ 'admin.publicationAutomation.settings' | translate }}
+                </button>
+              </div>
+            </article>
+          }
+        </section>
+      </details>
+    } @else {
+      <section class="feeds" aria-labelledby="publication-destinations-title">
+        <h2 id="publication-destinations-title">
+          {{ 'admin.publicationAutomation.feedSettings' | translate }}
+        </h2>
+        @for (feed of s.feeds; track feed.id) {
+          <a
+            class="admin-button"
+            [routerLink]="[
+              '/admin/fundraiser/publications/destinations',
+              feed.id
+            ]"
+            data-og7="publication-destination-link"
+            [attr.data-og7-id]="feed.id"
+          >
+            {{ feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn' }} ·
+            {{ feed.id.split(':')[0].toUpperCase() }} ({{
+              'admin.publicationAutomation.modes.' + feed.mode | translate
+            }})
+          </a>
         }
       </section>
-    </details>
+    }
   }
   <openg7-admin-drawer
     [opened]="!!c.settings()"

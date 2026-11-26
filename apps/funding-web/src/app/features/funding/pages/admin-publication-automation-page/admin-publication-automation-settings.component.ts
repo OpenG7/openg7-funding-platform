@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -6,11 +7,11 @@ import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.com
 
 import type { PublicationAutomationSettingsController } from './publication-automation-settings.controller.js';
 
-/** Funding organism: destinations, configuration drawer and worker switch. */
+/** Funding organism: destination links and global worker switch. */
 @Component({
   selector: 'openg7-admin-publication-automation-settings',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, AdminDrawerComponent],
+  imports: [RouterLink, TranslatePipe, FormsModule, AdminDrawerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-publication-automation-settings.component.html',
   styleUrls: [

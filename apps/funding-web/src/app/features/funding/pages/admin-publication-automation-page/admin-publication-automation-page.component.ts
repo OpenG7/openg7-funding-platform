@@ -181,7 +181,7 @@ export class AdminPublicationAutomationPageComponent {
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
   );
   readonly tabs = computed(() => [
-    ...(this.sponsorshipId() || this.deliveryId() ? ['all'] : []),
+    'all',
     'review',
     'scheduled',
     'calendar',
@@ -247,7 +247,18 @@ export class AdminPublicationAutomationPageComponent {
           });
           this.delivery.close();
           this.tab.set(
-            this.sponsorshipId() || this.deliveryId() ? 'all' : 'review'
+            this.sponsorshipId() || this.deliveryId()
+              ? 'all'
+              : [
+                    'all',
+                    'review',
+                    'scheduled',
+                    'calendar',
+                    'exceptions',
+                    'history'
+                  ].includes(params.get('tab') ?? '')
+                ? params.get('tab')!
+                : 'review'
           );
           void this.load().then(async (loaded) => {
             if (!loaded || !this.readController.isCurrent(context)) return;
@@ -256,6 +267,13 @@ export class AdminPublicationAutomationPageComponent {
               (d) => d.id === deliveryId
             );
             if (delivery) this.delivery.open(delivery);
+            this.feedFilter.set(
+              this.state()?.feeds.some(
+                (feed) => feed.id === params.get('feedId')
+              )
+                ? params.get('feedId')!
+                : ''
+            );
             const batchId = params.get('batchId');
             const feedId = params.get('feedId') as PublicationFeedId | null;
             if (

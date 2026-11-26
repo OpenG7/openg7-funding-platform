@@ -1,4 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
+import type {
+  PublicationAutomationCommand,
+  PublicationAutomationState,
+  PublicationFeedId
+} from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import {
@@ -10,6 +16,271 @@ import {
 } from './support/engine-room.js';
 
 const path = '/admin/fundraiser/engine-room';
+
+async function destinationFixture(page: Page, reader = false) {
+  const fixture = await engineRoomFixture(page);
+  const base = fixture.options.snapshot.publications.feeds[0];
+  const feeds = (
+    [
+      'openg7:facebook',
+      'openg7:linkedin',
+      'openg20:facebook',
+      'openg20:linkedin'
+    ] as PublicationFeedId[]
+  ).map((id) => ({ ...base, id }));
+  fixture.options.snapshot.publications.feeds = feeds;
+  const state: PublicationAutomationState = {
+    feeds,
+    workerEnabled: false,
+    workerVersion: 1,
+    summary: {
+      awaitingApproval: 1,
+      scheduled: 0,
+      exceptions: 0,
+      publishedToday: 0
+    },
+    deliveries: fixture.options.snapshot.publications.deliveries
+  };
+  const commands: PublicationAutomationCommand[] = [];
+  const failures = { read: false, write: false };
+  await page.route('**/api/admin/auth/current', (route) =>
+    route.fulfill({
+      json: {
+        id: 'synthetic-operator',
+        sessionId: 'synthetic-session',
+        displayName: 'Synthetic operator',
+        role: reader ? 'reader' : 'operator',
+        expiresAt: '2099-01-01T00:00:00Z'
+      }
+    })
+  );
+  await page.route('**/api/admin/publication-automation', async (route) => {
+    if (route.request().method() === 'GET')
+      return route.fulfill(
+        failures.read ? { status: 503, json: {} } : { json: state }
+      );
+    const command = route
+      .request()
+      .postDataJSON() as PublicationAutomationCommand;
+    commands.push(command);
+    if (failures.write)
+      return route.fulfill({ status: 409, json: { code: 'VERSION_CONFLICT' } });
+    if (command.action === 'settings')
+      Object.assign(
+        feeds.find((feed) => feed.id === command.settings.id)!,
+        command.settings
+      );
+    return route.fulfill({ json: {} });
+  });
+  if (reader)
+    await page.addInitScript(() =>
+      sessionStorage.setItem(
+        'openg7-admin-session-token',
+        'openg7-admin-session.cookie'
+      )
+    );
+  return { ...fixture, state, commands, failures };
+}
+
+for (const locale of ['fr-CA', 'en']) {
+  for (const id of [
+    'openg7:facebook',
+    'openg7:linkedin',
+    'openg20:facebook',
+    'openg20:linkedin'
+  ]) {
+    test(`destination navigation retains ${id} in ${locale}`, async ({
+      page
+    }) => {
+      const { commands } = await destinationFixture(page);
+      await page.addInitScript(
+        (value) => localStorage.setItem('openg7.language', value),
+        locale
+      );
+      await page.setViewportSize({
+        width: locale === 'en' ? 390 : 1536,
+        height: 1000
+      });
+      await page.goto(path);
+      const module = page.locator(
+        `[data-og7="engine-feed"][data-og7-id="${id}"]`
+      );
+      await module.click();
+      await page.locator('[data-og7="engine-settings-link"]').click();
+      const root = page.locator('[data-og7="destination-settings"]');
+      const name = `${id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'} · ${id.split(':')[0].toUpperCase()}`;
+      await expect(root.getByRole('heading', { level: 1 })).toHaveText(name);
+      await page.goBack();
+      await expect(module).toHaveAttribute('aria-pressed', 'true');
+      await page.locator('[data-og7="engine-settings-link"]').click();
+      await page.reload();
+      await expect(root.getByRole('heading', { level: 1 })).toHaveText(name);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="destination-settings"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      if (id === 'openg20:facebook')
+        await page.screenshot({
+          path: test.info().outputPath('destination-settings.png'),
+          fullPage: true
+        });
+      await root.locator('footer a').click();
+      await expect(module).toHaveAttribute('aria-pressed', 'true');
+      expect(commands).toEqual([]);
+    });
+  }
+}
+
+test('destination settings preserve drafts after failure and separate check, save and resume', async ({
+  page
+}) => {
+  const { commands, failures } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const capacity = page.locator('[formControlName="capacity"]');
+  await expect(capacity).toHaveValue('3');
+  await capacity.fill('4');
+  await page.locator('[data-og7="destination-check"]').click();
+  await expect(capacity).toHaveValue('4');
+  expect(commands.map((command) => command.action)).toEqual(['check']);
+  failures.write = true;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(capacity).toHaveValue('4');
+  await expect(page.locator('[data-og7="destination-save"]')).toBeEnabled();
+  failures.write = false;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  expect(commands.map((command) => command.action)).toEqual([
+    'check',
+    'settings',
+    'settings'
+  ]);
+  const saved = commands.at(-1);
+  expect(saved).toEqual({
+    action: 'settings',
+    settings: expect.objectContaining({
+      id: 'openg7:facebook',
+      capacity: 4,
+      paused: true
+    })
+  });
+  await page.locator('[data-og7="destination-pause"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button').last().click();
+  await expect(page.locator('[data-og7="destination-pause"]')).toContainText(
+    'pause'
+  );
+  expect(commands.at(-1)).toEqual({
+    action: 'settings',
+    settings: expect.objectContaining({ paused: false })
+  });
+});
+
+test('destination settings reject invalid input and protect unsaved departure', async ({
+  page
+}) => {
+  await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook?sponsorshipId=synthetic&decisionId=synthetic-decision'
+  );
+  const capacity = page.locator('[formControlName="capacity"]');
+  await capacity.fill('11');
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  await page.locator('[data-og7="destination-settings"] footer a').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button').first().click();
+  await expect(capacity).toHaveValue('11');
+  await page
+    .locator('[data-og7="destination-settings"] footer button')
+    .first()
+    .click();
+  await expect(capacity).toHaveValue('3');
+  await page.locator('[data-og7="destination-settings"] footer a').click();
+  await expect(page).toHaveURL(
+    /sponsorshipId=synthetic.*decisionId=synthetic-decision.*feedId=openg7/
+  );
+});
+
+test('destination settings show unknown observations and a reader cannot mutate', async ({
+  page
+}) => {
+  const { commands } = await destinationFixture(page, true);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await expect(page.locator('[formControlName="capacity"]')).toBeDisabled();
+  await expect(page.locator('[data-og7="destination-check"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="destination-save"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="destination-settings"]')).toContainText(
+    'Non disponible'
+  );
+  expect(commands).toEqual([]);
+});
+
+test('destination missing and failed reads do not invent a state', async ({
+  page
+}) => {
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto('/admin/fundraiser/publications/destinations/invalid');
+  await expect(
+    page.getByRole('heading', { name: 'Destination introuvable' })
+  ).toBeVisible();
+  failures.read = true;
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.locator('[data-og7="destination-save"]')).toHaveCount(0);
+  expect(commands).toEqual([]);
+});
+
+test('destination execution and diagnostic links reuse filtered publishing operations', async ({
+  page
+}) => {
+  const { commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const root = page.locator('[data-og7="destination-settings"]');
+  await root
+    .getByRole('button', { name: 'File et exécutions', exact: true })
+    .click();
+  await root
+    .getByRole('link', { name: 'Ouvrir les opérations de cette destination' })
+    .click();
+  await expect(page.locator('h1')).toHaveText('Opérations de publication');
+  await expect(page.locator('.delivery-controls select')).toHaveValue(
+    'openg7:facebook'
+  );
+  await expect(page.locator('.job')).toHaveCount(1);
+  const link = page.locator(
+    '[data-og7="publication-destination-link"][data-og7-id="openg7:facebook"]'
+  );
+  await link.click();
+  await root
+    .getByRole('button', { name: 'Journal et diagnostics', exact: true })
+    .click();
+  await root
+    .getByRole('link', { name: 'Voir les exceptions de cette destination' })
+    .click();
+  await expect(page.locator('.delivery-controls select')).toHaveValue(
+    'openg7:facebook'
+  );
+  await expect(page.locator('.job')).toHaveCount(0);
+  expect(commands).toEqual([]);
+});
 
 for (const language of ['fr-CA', 'en'])
   test(`engine exception priorities preserve human and platform reasons in ${language}`, async ({

@@ -507,8 +507,18 @@
               @if (selected() === 'publications') {
                 @if (snapshot.publications.available) {
                   <a
-                    routerLink="/admin/fundraiser/publications/automation"
+                    [routerLink]="
+                      selectedFeedId()
+                        ? [
+                            '/admin/fundraiser/publications/destinations',
+                            selectedFeedId()
+                          ]
+                        : ['/admin/fundraiser/publications/automation']
+                    "
                     [queryParams]="{
+                      sponsorshipId: scope().sponsorshipId,
+                      deliveryId: scope().deliveryId,
+                      decisionId: decisionId(),
                       settings: 'feeds',
                       feedId: selectedFeedId()
                     }"

@@ -3107,8 +3107,8 @@
       "position": "{{start}}–{{end}} sur {{total}}"
     },
     "publicationAutomation": {
-      "title": "Pilotage des feeds",
-      "intro": "La machine prépare les textes, les lots et les dates selon les paiements et les consentements. Vous acceptez, modifiez ou refusez avant l’envoi.",
+      "title": "Opérations de publication",
+      "intro": "Examiner, programmer et suivre les publications de toutes les destinations.",
       "calendar": "Calendrier des lots",
       "pauseAll": "Tout mettre en pause",
       "refresh": "Actualiser",
@@ -4306,6 +4306,61 @@
           "SOURCE_CHANGED": "Les sources ou le début ont changé pendant le contrôle. Relisez le suivi et vérifiez l’observation de début."
         }
       }
+    },
+    "destinationSettings": {
+      "save": "Enregistrer les réglages",
+      "preparationHelp": "Prépare les lots à examiner, même lorsque les envois sont en pause. Cette préparation n’autorise aucune publication.",
+      "title": "Réglages de la destination",
+      "breadcrumb": "Navigation de la destination",
+      "back": "Retour à la Salle des moteurs",
+      "refresh": "Actualiser",
+      "loading": "Chargement de la destination…",
+      "selected": "Module sélectionné",
+      "mission": "Configuration et maintenance de cette destination de publication.",
+      "status": "État observé de la destination",
+      "provider": "Fournisseur",
+      "preparation": "Préparation de la destination",
+      "connection": "Connexion",
+      "checkedAt": "Dernière vérification",
+      "unknown": "Non disponible",
+      "sections": "Espaces de la destination",
+      "tabs": {
+        "configuration": "Configuration",
+        "access": "Clés et accès (API)",
+        "rules": "Règles de publication",
+        "executions": "File et exécutions",
+        "diagnostics": "Journal et diagnostics"
+      },
+      "identity": "Destination et identité",
+      "platform": "Plateforme",
+      "organization": "Organisation",
+      "destinationId": "Identifiant de la destination",
+      "accountId": "Identifiant de la ressource distante",
+      "immutable": "La plateforme et l’organisation constituent l’identité de cette destination.",
+      "access": "Clés et connexion",
+      "configuration": "Configuration serveur",
+      "configured": "Disponible",
+      "notConfigured": "Incomplète ou indisponible",
+      "expiresAt": "Expiration des autorisations",
+      "credentialsHelp": "Les secrets restent côté serveur. Cet état ne constitue pas un inventaire des clés ni une preuve de connexion valide.",
+      "rules": "Règles de publication",
+      "authorization": "Chaque publication exige son autorisation explicite. Enregistrer ces réglages ou vérifier la connexion ne publie aucun contenu.",
+      "mode": "Mode du fournisseur",
+      "modeHelp": "Le mode désactivé, simulé ou réel se configure côté serveur. Les formats et l’admissibilité restent vérifiés par les parcours de publication existants.",
+      "invalid": "Choisissez au moins un jour, une heure valide, un fuseau IANA valide, une capacité entière de 1 à 10 et un horizon entier de 1 à 28 jours.",
+      "executionsHelp": "Consultez les publications de cette destination dans l’espace d’opérations existant.",
+      "openOperations": "Ouvrir les opérations de cette destination",
+      "diagnosticsHelp": "Le dernier état de connexion est présenté ci-dessous. Les exceptions sont filtrées par destination dans les opérations ; les diagnostics de fiabilité y restent globaux.",
+      "openExceptions": "Voir les exceptions de cette destination",
+      "cancel": "Annuler les modifications",
+      "pause": "Mettre la destination en pause",
+      "resume": "Reprendre la destination",
+      "pauseConfirm": "Cette commande modifie la pause de la destination. Une reprise permet au moteur de traiter les publications déjà autorisées et arrivées à échéance, selon ses contrôles habituels. Elle n’autorise aucun nouveau contenu.",
+      "discard": "Quitter et abandonner les modifications non enregistrées ?",
+      "missing": "Destination introuvable",
+      "missingHelp": "Cette destination ne figure pas dans les données disponibles. Revenez à la Salle des moteurs pour sélectionner un module.",
+      "readError": "Impossible de charger les réglages. Aucun état opérationnel ne peut être confirmé.",
+      "commandError": "L’opération ou sa relecture de confirmation a échoué. Les modifications sont conservées ; vérifiez l’état avant de réessayer."
     }
   }
 }

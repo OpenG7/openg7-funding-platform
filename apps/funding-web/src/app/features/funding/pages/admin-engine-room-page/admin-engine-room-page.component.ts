@@ -11,7 +11,7 @@ import {
   untracked
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   EngineRoomScope,
   EngineRoomSnapshot,
@@ -52,6 +52,7 @@ export class AdminEngineRoomPageComponent {
   private readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   readonly params = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap
@@ -234,11 +235,23 @@ export class AdminEngineRoomPageComponent {
     this.selected.set(engine);
     this.selectedFeedId.set(null);
     this.inspectorView.set('overview');
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { feedId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
   selectFeed(feed: PublicationFeed): void {
     this.selected.set('publications');
     this.selectedFeedId.set(feed.id);
     this.inspectorView.set('overview');
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { feedId: feed.id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
   private request = 0;
   private destroyed = false;
@@ -265,7 +278,9 @@ export class AdminEngineRoomPageComponent {
       untracked(() => {
         ++this.request;
         this.data.set(null);
-        this.selectedFeedId.set(null);
+        this.selectedFeedId.set(
+          this.params().get('feedId') as PublicationFeedId | null
+        );
         this.loading.set(false);
         this.failed.set(false);
         if (this.browser && this.admin.hasValidAdminSession()) void this.load();
