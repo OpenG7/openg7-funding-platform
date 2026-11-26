@@ -1,5 +1,155 @@
 # Performance de publication sur un arriéré synthétique
 
+<a id="admin-controlled-load"></a>
+
+## Profils administratifs contrôlés — chantier 5
+
+Le lanceur [benchmark-admin-load.mjs](../../scripts/benchmark-admin-load.mjs)
+étend la fixture existante aux arriérés de 100, 1 000 et 10 000 dossiers. Le
+profil historique de 3 000 conserve ses volumes et ses assertions. Les nouveaux
+profils exercent les ports propriétaires de fiabilité, de flux, d’aperçu des
+préparations et de file administrative complète, puis quatre lectures de file
+concurrentes. Le scénario est **100 % commandites, deux obligations par dossier**,
+datées de trente jours : c’est un arriéré statique, pas une arrivée mesurée de
+100/1 000/10 000 contributions par jour.
+
+### Protocole et limites
+
+Avec Node 22, Docker local et l’image `postgres:16-alpine` déjà présente :
+
+```sh
+# Plan uniquement : aucun Docker, chargement de configuration ou accès DB.
+yarn benchmark:admin --plan
+yarn build
+yarn benchmark:admin --run
+# Exemple ciblé, paramètres bornés et explicites :
+yarn benchmark:admin --run --profiles=1000 --samples=3 --concurrency=4 --pool-size=2 --acquire-timeout-ms=10000
+```
+
+Sans `--run`, le lanceur affiche seulement son plan. Il n’accepte ni URL cible,
+ni clé, ni option fournisseur. Chaque profil crée sa propre base PostgreSQL 16
+locale sur disque mémoire, via le helper qui refuse un Docker distant et impose
+un port loopback. Aucun `.env` n’est chargé et aucune base existante n’est ciblée.
+Les lectures ne démarrent aucun worker ni appel fournisseur. Les faits synthétiques
+incluent des livraisons autorisées et incertaines, jamais envoyées par cette recette.
+
+Les valeurs par défaut sont trois échantillons séquentiels par lecture, quatre
+requêtes concurrentes, dix connexions mesurées et dix secondes d’acquisition.
+Ces deux dernières valeurs correspondent au code actuel de l’API (`database.ts`
+et valeur par défaut du pool `pg` installé). Le helper ordinaire conserve ses
+valeurs historiques de huit connexions et une seconde; le benchmark passe ses
+limites explicitement. Le plafond est de dix échantillons, huit requêtes
+concurrentes et seize connexions. Les statements du benchmark sont bornés à
+30 secondes et l’attente de verrou à cinq secondes; le plafond de statement
+paramétrable va de 1 à 60 secondes, celui d’acquisition de 1 à 30 secondes.
+Ces paramètres ne changent aucune configuration applicative ou de production.
+
+Un observateur séparé utilise **une connexion supplémentaire**, hors du pool
+mesuré, pour échantillonner les sessions actives, attentes de verrou et
+transactions inactives toutes les 50 ms. Le rapport indique échantillons réussis
+et manquants : zéro attente observée ne prouve pas l’absence de toute attente.
+Le pool mesure acquisitions, attentes réussies/échouées et pic de demandes en
+attente. Une demande de connexion n’est pas une intervention humaine.
+
+Les latences sont celles des ports Node, projection incluse, sans HTTP, TLS,
+SSR ou fournisseur distant. Médiane et P95 portent leur effectif; avec trois ou
+quatre observations, le P95 est le maximum au rang supérieur, sans valeur de SLO.
+Le débit publié est le nombre de lectures réussies divisé par le temps mural
+de la phase, drainage des lectures résiduelles inclus. Les temps SQL et attentes
+de pool sont cumulatifs; leur somme peut dépasser le temps mural en concurrence.
+Les durées de requête sont observées côté Node, transport et ordonnancement
+inclus; les plans isolent les temps PostgreSQL. Les phases ne représentent pas
+un chargement HTTP complet de la Salle, qui compose plusieurs lectures.
+Le CPU est celui de Node, pas PostgreSQL. Le RSS est un maximum observé toutes
+les 20 ms et en fin de phase, incluant les métadonnées de requêtes retenues par
+l’instrumentation. Il ne qualifie pas la mémoire d’un serveur de production.
+
+Les compteurs complets et obligations uniques sont vérifiés à chaque lecture;
+les audits, brouillons, livraisons, tentatives, preuves, réservations et lots
+restent identiques avant/après. Le scénario de préparation utilise des dossiers
+en attente de revue : son aperçu est vide et bloqué, ce qui mesure sa lecture,
+pas un débit d’écriture privée à 10 000 dossiers. Le benchmark historique de
+3 000 conserve la recette de préparation réelle, capacité et concurrence décrite
+plus bas. Les erreurs d’acquisition/statement ou de portée rendent le profil
+en échec et la commande sort avec un code non nul; elles ne sont pas omises.
+
+`test-results/admin-controlled-load.json`, ignoré par Git, conserve configuration,
+révision, état modifié du workspace, volumes, distributions, CPU, pool, observations
+DB et plans `EXPLAIN (ANALYZE, BUFFERS)` résumés. SQL, valeurs liées, dossiers,
+comptes, messages et identifiants de connexion restent exclus. Le rapport est
+réécrit après chaque profil; archiver le JSON avec sa révision pour conserver une
+comparaison. Une interruption signale un résultat incomplet, laisse les lectures
+bornées se terminer et ferme la base possédée, sans relance automatique.
+
+Le profileur partagé distingue désormais attente d’acquisition et temps de
+requête sur un client acquis. Les anciens rapports ne séparaient pas ces temps;
+leurs millisecondes ne constituent donc pas une comparaison avant/après exacte.
+Les mesures actuelles indiquent `profileVersion: 2` et séparent aussi le temps
+des requêtes échouées et celui des acquisitions échouées.
+
+### Référence locale du 25 novembre 2026
+
+Application `0a7a0698`, harness local non commité : Node 22.23.5, Windows x64,
+16 processeurs logiques visibles, PostgreSQL 16.15, JIT actif et deux workers
+parallèles par gather configurés. Le chargement et `ANALYZE` précèdent les
+lectures; les plans sont relevés ensuite. Ce n’est pas un cache disque froid.
+Les ressources allouées au moteur Docker ne sont pas qualifiées par le nombre
+de processeurs ou la mémoire visibles sur l’hôte.
+
+| Dossiers / obligations | File médiane / P95       | Flux médiane | Quatre files concurrentes médiane / P95 | Lectures concurrentes réussies/s |
+| ---------------------- | ------------------------ | ------------ | --------------------------------------- | -------------------------------- |
+| 100 / 200              | 90,48 / 137,37 ms        | 58,30 ms     | 143,79 / 165,79 ms                      | 21,81                            |
+| 1 000 / 2 000          | 516,87 / 542,87 ms       | 183,35 ms    | 854,01 / 1 000,79 ms                    | 3,91                             |
+| 10 000 / 20 000        | 13 735,07 / 15 109,07 ms | 5 068,67 ms  | 27 416,63 / 37 553,73 ms                | 0,11                             |
+
+Les trois profils conservent leurs invariants et réussissent leurs lectures applicatives sous ces bornes.
+**« Réussi » qualifie les invariants et limites de statement, pas une latence
+acceptable pour l’utilisateur ni une capacité journalière.** À 10 000, les trois
+lectures séquentielles de file consomment 23,73 s de CPU Node; le pic RSS observé
+en concurrence atteint environ 551 Mio. Les lectures utilisent 25 statements par
+requête de file dans ces profils : cela n’empêche pas un coût élevé des projections
+en mémoire. Le statement le plus coûteux de la file, expliqué après les mesures,
+prend 5,05 s dont 4,27 s de JIT; celui des flux 4,04 s dont 3,21 s de JIT.
+Ces observations motivent un profilage ciblé des projections et plans avant une
+qualification de production; aucun index, garde ou réglage JIT n’est modifié ici.
+
+Le profil de contention à **deux connexions**, avec le même délai d’acquisition
+de dix secondes, réussit les lectures isolées à 10 000 (file médiane 12,33 s),
+mais une seule des quatre lectures concurrentes aboutit; les trois autres
+signalent `POOL_ACQUIRE_TIMEOUT`, sans mutation ni perte de réserve. Son rapport
+local est `test-results/admin-controlled-load-pool-2.json`. Le premier essai avec
+le délai historique d’une seconde du helper échouait déjà en lecture isolée;
+il est conservé dans `test-results/admin-controlled-load-initial-1000ms.json`.
+Ces essais montrent des limites de ce scénario, sans extrapoler un résultat VPS
+ou des quotas de fournisseurs. Les mesures humaines et les gains restent inconnus.
+
+Sur le dernier profil de 10 000, l’observateur obtient 976 échantillons et en
+manque un : ce diagnostic est partiel. Il observe dix sessions actives au plus,
+une transaction inactive au plus et aucune attente de verrou pendant les
+échantillons reçus. Ces nombres ne constituent pas une preuve d’absence globale
+de blocage. Le premier passage avec dix connexions est aussi conservé localement
+dans `test-results/admin-controlled-load-native-initial.json`; le JSON principal
+et le tableau ci-dessus correspondent au dernier passage isolé.
+
+Les tests `tests/admin-controlled-load.test.mjs` vérifient bornes, quantités,
+percentiles, séparation des attentes et classification sûre des erreurs.
+`tests/integration/admin-controlled-load.integration.mjs` exerce les ports réels,
+la contention d’un pool d’une connexion, l’absence de mutation, les plans expurgés
+et l’interruption avant création de base. Le benchmark historique de 3 000 reste
+exécuté séparément pour vérifier sa compatibilité.
+
+Validation locale du chantier 5 : compilation TypeScript, 8 218 tests Node
+réussis avec huit exclusions conditionnelles, puis sept tests ciblés et trois
+scénarios PostgreSQL réussis sur le profileur final. Les trois profils de référence
+ont été exécutés seuls avec les valeurs par défaut; le profil de contention sort
+avec le code non nul attendu. Les nouveaux scripts et helpers passent les
+contrôles de syntaxe, format et lint; le lint global conserve seulement
+l’avertissement préexistant de `scripts/smoke-public.mjs`. Standards, contrôle
+documentaire et `git diff --check` validés. Aucun code Web ni configuration de
+production n’est modifié par ce chantier.
+
+## Benchmark historique de publication
+
 Le test [publication-backlog-performance.integration.mjs](../../tests/integration/publication-backlog-performance.integration.mjs)
 mesure les ports applicatifs réels sur PostgreSQL 16 jetable. Il crée uniquement
 des faits synthétiques déclarés, sans lire `.env` ou `DATABASE_URL`, appeler un

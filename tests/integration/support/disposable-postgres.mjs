@@ -44,7 +44,25 @@ export function observePostgresTransactions(pool) {
 
 // This helper never consumes DATABASE_URL or .env. Every invocation owns a
 // fresh container and an in-memory data directory, with only a loopback port.
-export const startDisposablePostgres = async ({ migrate = true } = {}) => {
+export const startDisposablePostgres = async ({
+  migrate = true,
+  maxConnections = 8,
+  connectionTimeoutMillis = 1000
+} = {}) => {
+  if (
+    !Number.isInteger(maxConnections) ||
+    maxConnections < 1 ||
+    maxConnections > 16
+  )
+    throw new Error('Disposable pool size must be an integer from 1 to 16.');
+  if (
+    !Number.isInteger(connectionTimeoutMillis) ||
+    connectionTimeoutMillis < 1000 ||
+    connectionTimeoutMillis > 30000
+  )
+    throw new Error(
+      'Disposable connection timeout must be 1000 to 30000 milliseconds.'
+    );
   const runDocker = async (args, env = process.env) => {
     const { stdout } = await execFileAsync('docker', args, {
       encoding: 'utf8',
@@ -135,8 +153,8 @@ export const startDisposablePostgres = async ({ migrate = true } = {}) => {
       ssl: false,
       options: '',
       application_name: 'og7-disposable-payment-tests',
-      connectionTimeoutMillis: 1_000,
-      max: 8
+      connectionTimeoutMillis,
+      max: maxConnections
     });
     const readyBy = Date.now() + 25_000;
     while (true) {

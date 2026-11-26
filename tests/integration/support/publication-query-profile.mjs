@@ -7,6 +7,14 @@ export function profilePublicationPool(pool) {
   const measurements = [];
   const queries = [];
   let phase = null;
+  const observePool = () => {
+    if (!phase) return;
+    phase.poolMaxWaiting = Math.max(
+      phase.poolMaxWaiting,
+      pool.waitingCount ?? 0
+    );
+    phase.poolMaxTotal = Math.max(phase.poolMaxTotal, pool.totalCount ?? 0);
+  };
   const wrap = (connection) => {
     let transactionStarted = null;
     const cursorReads = new Map();
@@ -62,16 +70,55 @@ export function profilePublicationPool(pool) {
           }
           return result;
         } catch (error) {
-          if (phase) phase.failedQueries++;
+          if (phase) {
+            phase.failedQueries++;
+            phase.failedQueryTimeMs += performance.now() - started;
+          }
           throw error;
         }
       },
-      release: () => connection.release()
+      release: () => {
+        connection.release();
+        observePool();
+      }
     };
   };
+  const acquire = async () => {
+    const started = performance.now();
+    const pending = pool.connect();
+    observePool();
+    let client;
+    try {
+      client = await pending;
+    } catch (error) {
+      if (phase) {
+        phase.poolFailedAcquisitions++;
+        phase.poolMaxFailedAcquireMs = Math.max(
+          phase.poolMaxFailedAcquireMs,
+          performance.now() - started
+        );
+      }
+      throw error;
+    }
+    if (phase) {
+      const elapsed = performance.now() - started;
+      phase.poolAcquisitions++;
+      phase.poolAcquireTimeMs += elapsed;
+      phase.poolMaxAcquireMs = Math.max(phase.poolMaxAcquireMs, elapsed);
+    }
+    observePool();
+    return wrap(client);
+  };
   const port = {
-    query: (...args) => wrap(pool).query(...args),
-    connect: async () => wrap(await pool.connect())
+    async query(...args) {
+      const client = await acquire();
+      try {
+        return await client.query(...args);
+      } finally {
+        client.release();
+      }
+    },
+    connect: acquire
   };
   return {
     port,
@@ -83,10 +130,19 @@ export function profilePublicationPool(pool) {
       const cpu = process.cpuUsage();
       phase = {
         name,
+        profileVersion: 2,
         queryCount: 0,
         queryTimeMs: 0,
         maxQueryMs: 0,
         failedQueries: 0,
+        failedQueryTimeMs: 0,
+        poolAcquisitions: 0,
+        poolFailedAcquisitions: 0,
+        poolMaxFailedAcquireMs: 0,
+        poolAcquireTimeMs: 0,
+        poolMaxAcquireMs: 0,
+        poolMaxWaiting: 0,
+        poolMaxTotal: 0,
         transactionDurationsMs: []
       };
       try {
@@ -97,8 +153,12 @@ export function profilePublicationPool(pool) {
           ...phase,
           elapsedMs: round(performance.now() - started),
           queryTimeMs: round(phase.queryTimeMs),
+          failedQueryTimeMs: round(phase.failedQueryTimeMs),
           maxQueryMs: round(phase.maxQueryMs),
-          nodeCpuMs: round((used.user + used.system) / 1000)
+          nodeCpuMs: round((used.user + used.system) / 1000),
+          poolAcquireTimeMs: round(phase.poolAcquireTimeMs),
+          poolMaxAcquireMs: round(phase.poolMaxAcquireMs),
+          poolMaxFailedAcquireMs: round(phase.poolMaxFailedAcquireMs)
         });
         phase = null;
       }

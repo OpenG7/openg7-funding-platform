@@ -2,17 +2,24 @@ import { createHash } from 'node:crypto';
 
 import { normalizeSponsorshipOfferSnapshot } from '../../../dist/packages/funding-core/src/index.js';
 
-export const BACKLOG_COUNTS = Object.freeze({
-  dossiers: 3000,
-  obligations: 6000,
-  deliveries: 2000,
-  batches: 150,
-  members: 750,
-  uncertain: 20
-});
+export function publicationBacklogCounts(dossiers = 3000) {
+  if (![100, 1000, 3000, 10000].includes(dossiers))
+    throw new Error('Unsupported synthetic backlog size.');
+  return Object.freeze({
+    dossiers,
+    obligations: dossiers * 2,
+    deliveries: Math.floor((dossiers * 2) / 3),
+    batches: dossiers / 20,
+    members: dossiers / 4,
+    uncertain: Math.max(1, Math.floor(dossiers / 150))
+  });
+}
+export const BACKLOG_COUNTS = publicationBacklogCounts();
 
 /** Bulk synthetic facts declared explicitly; no price-based historical inference. */
-export async function seedPublicationBacklog(source) {
+export async function seedPublicationBacklog(source, dossiers = 3000) {
+  const counts = publicationBacklogCounts(dossiers);
+  const sharedDeliveries = counts.deliveries - counts.uncertain;
   const pool = await source.connect();
   try {
     const offer = normalizeSponsorshipOfferSnapshot({
@@ -34,7 +41,7 @@ export async function seedPublicationBacklog(source) {
       .update(JSON.stringify(offer))
       .digest('hex');
     await pool.query(`CREATE TEMP TABLE backlog_dossiers(n integer PRIMARY KEY,id uuid NOT NULL,offer_id uuid NOT NULL,commitment_id uuid NOT NULL);
-    INSERT INTO backlog_dossiers SELECT n,gen_random_uuid(),gen_random_uuid(),gen_random_uuid() FROM generate_series(1,3000) n;
+    INSERT INTO backlog_dossiers SELECT n,gen_random_uuid(),gen_random_uuid(),gen_random_uuid() FROM generate_series(1,${counts.dossiers}) n;
     INSERT INTO fund_contributions(id,contribution_type,amount_cents,currency,status,paid_at,created_at,
       sponsor_company_name,sponsor_public_summary,sponsor_review_status,public_display_consent,public_reference)
     SELECT id,'sponsorship_interest',50000,'cad','paid',NOW()-INTERVAL '30 days',NOW()-INTERVAL '30 days',
@@ -53,7 +60,7 @@ export async function seedPublicationBacklog(source) {
     INSERT INTO sponsorship_obligation_timing(obligation_id,deadline_days,origin_at,origin_provenance,due_at)
     SELECT id,7,created_at,'owner_recorded',created_at+7*INTERVAL '24 hours' FROM sponsorship_obligations;
     CREATE TEMP TABLE backlog_batches(n integer PRIMARY KEY,id uuid NOT NULL,slot_id uuid NOT NULL);
-    INSERT INTO backlog_batches SELECT n,gen_random_uuid(),gen_random_uuid() FROM generate_series(1,150) n;
+    INSERT INTO backlog_batches SELECT n,gen_random_uuid(),gen_random_uuid() FROM generate_series(1,${counts.batches}) n;
     INSERT INTO publication_slots(id,feed_target,channel,starts_at,timezone,capacity,status)
     SELECT slot_id,'openg7','facebook',NOW()+INTERVAL '45 days'+n*INTERVAL '2 minutes','UTC',5,'open' FROM backlog_batches;
     INSERT INTO sponsor_publication_batches(id,channel,capacity,status,scheduled_at,slot_id,publication_format)
@@ -63,14 +70,14 @@ export async function seedPublicationBacklog(source) {
       NOW()+INTERVAL '45 days'+b.n*INTERVAL '2 minutes',c.created_at
     FROM backlog_dossiers f JOIN fund_contributions c ON c.id=f.id
     JOIN backlog_batches b ON b.n=((f.n-1)/5)+1
-    JOIN sponsorship_obligations o ON o.contribution_id=c.id AND o.channel='facebook' WHERE f.n<=750;
+    JOIN sponsorship_obligations o ON o.contribution_id=c.id AND o.channel='facebook' WHERE f.n<=${counts.members};
     CREATE TEMP TABLE backlog_deliveries(n integer PRIMARY KEY,id uuid NOT NULL);
-    INSERT INTO backlog_deliveries SELECT n,gen_random_uuid() FROM generate_series(1,2000) n;
+    INSERT INTO backlog_deliveries SELECT n,gen_random_uuid() FROM generate_series(1,${counts.deliveries}) n;
     INSERT INTO publication_deliveries(id,feed_id,kind,batch_id,message,scheduled_at,account_id,mode,status,approved_at,approved_by,obligation_snapshot)
     SELECT f.id,'openg7:facebook',CASE WHEN b.id IS NULL THEN 'news' ELSE 'sponsorship' END,b.id,
       'Synthetic approved publication.',NOW()+INTERVAL '45 days'+f.n*INTERVAL '2 minutes',
-      CASE WHEN f.n>1980 THEN 'SYNTHETIC_PRIVATE_ACCOUNT_'||f.n ELSE 'SYNTHETIC_PRIVATE_SHARED_ACCOUNT' END,
-      'live',CASE WHEN f.n>1980 THEN 'uncertain' ELSE 'approved' END,NOW(),'synthetic-fixture',
+      CASE WHEN f.n>${sharedDeliveries} THEN 'SYNTHETIC_PRIVATE_ACCOUNT_'||f.n ELSE 'SYNTHETIC_PRIVATE_SHARED_ACCOUNT' END,
+      'live',CASE WHEN f.n>${sharedDeliveries} THEN 'uncertain' ELSE 'approved' END,NOW(),'synthetic-fixture',
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.obligation_id::text,'version',1))
         FROM sponsor_publication_drafts d WHERE d.batch_id=b.id),'[]'::jsonb)
     FROM backlog_deliveries f LEFT JOIN backlog_batches b ON b.n=f.n;
@@ -79,12 +86,12 @@ export async function seedPublicationBacklog(source) {
     INSERT INTO publication_account_leases(provider,account_id,mode,delivery_id,delivery_version,lease_until,uncertain)
     SELECT 'facebook','SYNTHETIC_PRIVATE_SHARED_ACCOUNT','live',NULL,NULL,NULL,FALSE
     UNION ALL SELECT 'facebook','SYNTHETIC_PRIVATE_ACCOUNT_'||n,'live',id,1,NOW()+INTERVAL '5 minutes',TRUE
-      FROM backlog_deliveries WHERE n>1980;
+      FROM backlog_deliveries WHERE n>${sharedDeliveries};
     INSERT INTO publication_account_reservations(delivery_id,provider,account_id,mode,scheduled_at,approval_version,status)
     SELECT id,'facebook',account_id,mode,scheduled_at,1,CASE WHEN status='uncertain' THEN 'uncertain' ELSE 'reserved' END FROM publication_deliveries;
     UPDATE publication_feeds SET timezone='UTC',weekdays='{0,1,2,3,4,5,6}',local_time='12:00',capacity=10,horizon_days=2;
     ANALYZE;`);
-    return BACKLOG_COUNTS;
+    return counts;
   } finally {
     pool.release();
   }
