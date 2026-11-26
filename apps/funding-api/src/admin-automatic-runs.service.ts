@@ -451,14 +451,18 @@ export class AdminAutomaticRunsService {
         'RUN_INVALID_PAYMENT_FACTS',
         503
       );
-      await db.query(
-        "INSERT INTO admin_automatic_runs(id,actor,status,preparation_policy) VALUES($1::uuid,$2,'running',$3::jsonb)",
-        [
-          input.requestId,
-          actor,
-          preparationPolicy ? JSON.stringify(preparationPolicy) : null
-        ]
-      );
+      // Manual runs retain their pre-policy schema contract. A delegated run
+      // must still persist its policy; never fall back when migration 073 is absent.
+      if (preparationPolicy)
+        await db.query(
+          "INSERT INTO admin_automatic_runs(id,actor,status,preparation_policy) VALUES($1::uuid,$2,'running',$3::jsonb)",
+          [input.requestId, actor, JSON.stringify(preparationPolicy)]
+        );
+      else
+        await db.query(
+          "INSERT INTO admin_automatic_runs(id,actor,status) VALUES($1::uuid,$2,'running')",
+          [input.requestId, actor]
+        );
       await db.query(
         `INSERT INTO admin_automatic_run_dossiers(run_id,position,contribution_id,reference,contribution_type,amount_minor,currency,payment_status)
          SELECT $1::uuid,row_number() OVER(ORDER BY COALESCE(c.paid_at,c.created_at),c.id),c.id,
