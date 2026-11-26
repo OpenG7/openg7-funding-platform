@@ -158,7 +158,7 @@
       }
     },
     "mission": "I compare each confirmed payment with its promised benefits, prepare eligible private drafts and keep a report for your review before moving to the next dossier.",
-    "scope": "The batch covers confirmed payments recorded when it starts. Drafts stay private; publication, rejection, refunds and sending await your confirmation in their usual screens.",
+    "scope": "The batch covers only its frozen startup manifest: all confirmed payments or the explicit selection of dossiers needing preparation. Drafts stay private; publication, rejection, refunds and sending await your confirmation in their usual screens.",
     "start": "Check a new batch",
     "resume": "Resume checking this batch",
     "pause": "Pause immediately",
@@ -173,7 +173,7 @@
     "unknownCount": "Dossiers to clarify",
     "uncoveredCount": "Dossiers outside coverage",
     "uncheckedCount": "Dossiers still to check",
-    "newPayments": "{{count}} new payments are outside this batch. Check a new batch to include them.",
+    "newPayments": "{{count}} confirmed payments are outside this batch. They are excluded from its balance; another batch can cover them.",
     "amountReceived": "Recorded inputs: {{amount}}",
     "latest": "Last dossier checked: {{reference}}",
     "result": "Result:",

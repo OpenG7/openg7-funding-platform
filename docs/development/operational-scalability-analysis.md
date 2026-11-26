@@ -468,9 +468,9 @@ restent distincts. Aucun pourcentage avec dénominateur nul ou population incomp
 
 ## 11 Proposition d’évolution incrémentale
 
-Les tranches A à C possèdent désormais une première implémentation locale décrite dans
+Les tranches A à D possèdent désormais une première implémentation locale décrite dans
 la [référence de supervision](../technical/engine-room.md). Cette analyse conserve
-le diagnostic de la révision indiquée en ouverture ; les tranches D à G restent
+le diagnostic de la révision indiquée en ouverture ; les tranches E à G restent
 des propositions, sans déploiement implicite.
 
 | Tranche proposée                      | Livrable et résultat attendu                                                                 | Critère de réception et dépendance                                                                                                     |

@@ -1,4 +1,5 @@
 import type { ResponsibilityBalance } from './admin-responsibility-balance.js';
+import type { AdminPreparationSelection } from './admin-preparation-plan.js';
 
 export interface AdminAutomaticRunAction {
   readonly kind: 'draft_prepared';
@@ -42,6 +43,7 @@ export interface AdminAutomaticRun {
   readonly outstandingCount: number;
   readonly unknownCount: number;
   readonly uncoveredCount: number;
+  /** Confirmed payments outside this frozen manifest, including deliberately unselected dossiers. */
   readonly newPaymentCount: number;
   readonly currencyTotals: readonly {
     readonly currency: string;
@@ -65,6 +67,7 @@ export interface AdminAutomaticRunReport {
 
 export interface AdminAutomaticRunStartRequest {
   readonly requestId: string;
+  readonly preparationSelection?: readonly AdminPreparationSelection[];
 }
 
 export interface AdminAutomaticRunAdvanceRequest {

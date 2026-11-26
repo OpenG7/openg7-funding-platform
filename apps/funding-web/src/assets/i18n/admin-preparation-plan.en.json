@@ -1,0 +1,20 @@
+{
+  "title": "Prepare only dossiers with missing drafts",
+  "intro": "Review upcoming social passages needing preparation. Existing drafts, including your edits, are preserved.",
+  "load": "View selection and proposed text",
+  "loading": "Reading missing preparations…",
+  "unavailable": "Selection unavailable. Refresh before starting; an empty dossier list is not inferred.",
+  "observed": "Observed at",
+  "missing": "Passages needing preparation",
+  "preserved": "Passages with preserved drafts",
+  "blocked": "Passages requiring review",
+  "scope": "Dossiers proposed in this batch:",
+  "limits": "Maximum 20 dossiers per batch; counts cover upcoming open Facebook/LinkedIn passages, not all services.",
+  "passage": "Passage",
+  "preview": "View private prefilled content",
+  "empty": "No dossier needs preparation in this observation.",
+  "safety": "Starting opens the batch with its usual confirmations. This preview is advisory: sources are checked again at startup and each dossier before processing. Existing drafts are never replaced; no approval, media selection or publication is created.",
+  "measurement": "Preserved drafts avoid another creation but do not prove minutes saved. Human time and avoided corrections still need measurement on comparable cases.",
+  "more": "More dossiers need preparation. Read a fresh selection after completing this batch.",
+  "start": "Open this private preparation batch"
+}

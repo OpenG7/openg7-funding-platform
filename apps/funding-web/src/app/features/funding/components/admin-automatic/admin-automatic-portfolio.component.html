@@ -140,6 +140,9 @@
       </span>
     </summary>
     <div class="processing-body">
+      @if (view() === 'batch') {
+        <openg7-admin-preparation-plan />
+      }
       <ng-template #scope>
         <div
           class="reading-zone"

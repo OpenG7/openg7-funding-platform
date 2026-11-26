@@ -12,7 +12,8 @@ import {
 import { NavigationStart, Router } from '@angular/router';
 import type {
   AdminPaymentJourney,
-  AdminAutomaticRunState
+  AdminAutomaticRunState,
+  AdminPreparationSelection
 } from '@openg7/funding-core';
 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
@@ -60,7 +61,7 @@ export class AdminAutomaticPortfolioService {
   private readingOperation = 0;
   private readonly run = new AdminAutomaticPortfolioRun({
     read: (runId) => this.client.read(runId),
-    start: () => this.client.start(),
+    start: (selection) => this.client.start(selection),
     advance: (run) => this.client.advance(run),
     control: (run, action) => this.client.control(run, action),
     report: (runId, after) => this.client.report(runId, after),
@@ -164,11 +165,11 @@ export class AdminAutomaticPortfolioService {
     return loading;
   }
 
-  async start(): Promise<void> {
+  async start(selection?: readonly AdminPreparationSelection[]): Promise<void> {
     this.preparation.pause();
     const identity = this.identityKey();
     this.identity = identity;
-    await this.run.start();
+    await this.run.start(selection);
     if (identity === this.identityKey()) void this.admin.refreshWorkQueue();
   }
 

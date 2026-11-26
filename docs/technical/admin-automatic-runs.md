@@ -7,7 +7,8 @@ administrative session and origin policy before reading private input or using
 the database. Responses are private and `no-store`; `/admin` aliases are supported.
 
 - `POST /api/admin/automatic-runs`: `{requestId}` captures a frozen manifest of
-  confirmed payments, without the contribution-list limit.
+  confirmed payments, without the contribution-list limit. The optional
+  [preparation selection](#missing-private-preparations) narrows this manifest.
 - `POST /api/admin/automatic-runs/advance`: `{runId,requestId,expectedVersion}`
   checks one dossier, prepares eligible private publication drafts, rereads its
   facts and appends the report entry. No publication, email, refund or approval
@@ -63,7 +64,7 @@ have a separate count; they are not delivered
 benefits. Missing terms, missing obligations and unverifiable evidence remain
 unknown. Amounts are integer minor units, grouped by currency. `globalBalanced`
 describes each manifest dossier at its last dated observation, after a completed
-pass with no newly confirmed payments; it is not a guarantee of the platform's
+pass with no confirmed payments outside its manifest; it is not a guarantee of the platform's
 current state. Reports retain before/after balances, action outcomes, request,
 actor, timestamp and audit/evidence references.
 
@@ -75,6 +76,69 @@ Migration `055_admin_automatic_responsibility_runs.sql` is required. It adds onl
 private run bookkeeping; manifest inputs and report entries are immutable.
 User-facing operation and restart rules:
 [automatic mode](../operations/admin-pilotage.md#mode-automatique-de-rapprochement).
+
+<a id="missing-private-preparations"></a>
+
+## Missing private preparations — chantier 4
+
+`GET /api/admin/automatic-runs/preparation-plan` (also `/admin/...`) is an
+authenticated, private `no-store` read, with no query parameters or body. It
+uses a stable `REPEATABLE READ READ ONLY` snapshot and creates no run, draft,
+approval, provider mission or audit. It exposes only the next open recorded
+Facebook/LinkedIn passage for each benefit/destination of an active agreement.
+Missing eligible passages, preserved existing drafts and blocked passages have
+separate counts. Legacy drafts without an exact obligation are conservatively
+preserved. Refusals, uncertain outcomes, consent, payment, refund and current
+moderation prerequisites remain governed by their native owners.
+
+The advisory preview uses `createDefaultDraftText`, the portfolio's native
+prefill generator. Its candidate list is limited to 20 dossiers; counters cover
+the complete observed next-passage population and `hasMore` signals additional
+candidates. It does not select media, alter rights or call an AI provider.
+`minutesSaved` stays null: preserved drafts are not evidence of saved human time
+or avoided corrections. Establish a comparable human baseline before claiming gains.
+
+`POST /api/admin/automatic-runs` optionally accepts
+`{requestId,preparationSelection:[{contributionId,version}]}`. This selection
+contains 1–20 unique UUIDs and exact SHA-256 preview versions, fits the existing
+4 KiB request limit and is normalized before idempotency hashing. Unknown fields
+are refused. Without the option, the existing full confirmed-payment run is
+unchanged. With it, startup rereads eligibility and fingerprints, rejects a
+changed/ineligible dossier with `409 RUN_VERSION_STALE`, and freezes only the
+selected dossier identities. Invalid financial facts in the selected manifest
+still refuse startup; unselected payments remain outside its balance.
+
+The fingerprint is an optimistic preview check, not a content approval or a
+reservation. Sources can change after startup; the existing dossier reading
+checkpoint and native `advance` revalidate current facts under their usual locks.
+The frozen manifest describes dossiers, not irrevocably frozen draft text. A
+late draft or human edit is reused without replacement. A replay recovers its
+durable command response before rechecking the now changed preview. Recheck
+keeps the same frozen dossier manifest; it never widens the selected batch.
+
+The UI loads the preview on demand in the portfolio's batch view, shows each
+exact passage and its private prefill, then opens the existing driver and its
+separate scope/dossier/result acknowledgments. Reading the preview never starts
+work. Failed reads do not fall back to a full batch; identity changes invalidate
+late responses. `newPaymentCount` retains its existing calculation: confirmed
+payments outside the frozen manifest, including deliberately unselected dossiers.
+Its label says outside-batch payments rather than newly received payments.
+
+No migration, workflow engine or second execution ledger is added. Tests:
+`tests/admin-preparation-plan.test.mjs`,
+`tests/integration/admin-preparation-plan.integration.mjs`, and the preview
+scenarios in `tests/playwright/admin-automatic-portfolio.spec.ts`.
+
+Local qualification on 25 November 2026, Node 22.23.5: 8,211 Node tests passed
+with eight conditional exclusions, four test files at a time; 49 focused tests
+passed. Eleven disposable PostgreSQL tests passed, followed by a successful
+isolated rerun of the selected-plan scenario with additional exact-prefill and
+outside-manifest assertions. Fifty portfolio browser scenarios passed, including
+FR/EN, mobile/desktop, keyboard, accessibility, pauses and uncertain outcomes.
+TypeScript, UI types and Angular production build (27 prerendered routes) passed.
+Lint has no errors and retains the existing `scripts/smoke-public.mjs` warning;
+format, project standards, documentation checks and `git diff --check` passed.
+These fixtures do not measure production savings or qualify any real provider.
 
 ## Versioned preparation receipts
 

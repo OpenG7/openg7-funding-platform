@@ -3,7 +3,9 @@ import type {
   AdminAutomaticRunReport,
   AdminAutomaticRunState,
   AdminPreparationReceipt,
-  AdminPreparationApproveRequest
+  AdminPreparationApproveRequest,
+  AdminPreparationPlan,
+  AdminPreparationSelection
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -16,9 +18,16 @@ export class AdminAutomaticPortfolioClient {
     return this.request(runId ? '?' + new URLSearchParams({ runId }) : '');
   }
 
-  start(): Promise<AdminAutomaticRunState> {
+  preparationPlan(): Promise<AdminPreparationPlan> {
+    return this.request('/preparation-plan');
+  }
+
+  start(
+    preparationSelection?: readonly AdminPreparationSelection[]
+  ): Promise<AdminAutomaticRunState> {
     return this.request('', {
-      requestId: crypto.randomUUID()
+      requestId: crypto.randomUUID(),
+      ...(preparationSelection ? { preparationSelection } : {})
     });
   }
 

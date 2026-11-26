@@ -1,0 +1,45 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+section {
+  border: 1px solid var(--admin-border, #64889e);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  overflow-wrap: anywhere;
+}
+h3 {
+  font-size: 1.1rem;
+}
+dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+dd {
+  margin: 0.3rem 0;
+  font-weight: 700;
+}
+p {
+  margin: 0.6rem 0;
+  line-height: 1.6;
+}
+ul {
+  padding-left: 1.2rem;
+}
+li {
+  margin: 0.7rem 0;
+}
+.draft-text {
+  white-space: pre-wrap;
+}
+summary {
+  min-height: 44px;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 3px solid var(--admin-focus, #075080);
+  outline-offset: 3px;
+}

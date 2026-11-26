@@ -35,6 +35,7 @@ import {
 import { automaticAdminUrl } from './admin-automatic-run.js';
 import { AdminAutomaticPortfolioService } from './admin-automatic-portfolio.service.js';
 import { AdminPreparationCarouselComponent } from './admin-preparation-carousel.component.js';
+import { AdminPreparationPlanComponent } from './admin-preparation-plan.component.js';
 
 @Component({
   selector: 'openg7-admin-automatic-portfolio',
@@ -44,7 +45,8 @@ import { AdminPreparationCarouselComponent } from './admin-preparation-carousel.
     RouterLink,
     AdminBadgeComponent,
     AdminIconComponent,
-    AdminPreparationCarouselComponent
+    AdminPreparationCarouselComponent,
+    AdminPreparationPlanComponent
   ],
   templateUrl: './admin-automatic-portfolio.component.html',
   styleUrls: [

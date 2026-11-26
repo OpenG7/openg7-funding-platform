@@ -192,6 +192,14 @@ qualification à 10 000 contributions par jour.
 
 ## Recette et valeur à mesurer
 
+Le chantier 4 ajoute au portefeuille natif un
+[aperçu des préparations manquantes](admin-automatic-runs.md#missing-private-preparations),
+avec préremplissage commun au générateur existant et lot limité aux dossiers
+sélectionnés. Les brouillons présents, y compris les retouches humaines, restent
+conservés. Les sources et décisions sont revérifiées par leurs propriétaires;
+aucune approbation ni diffusion n’est ajoutée. Les minutes et corrections évitées
+restent à mesurer sur une référence comparable, sans gain inventé.
+
 Le chantier 2 ajoute la priorisation par exception dans un composant partagé
 avec l’Assistant. La salle lit `getAdminWorkQueue` avec son périmètre exact et
 son aperçu; elle ne crée pas une seconde file de décisions. Les motifs et la

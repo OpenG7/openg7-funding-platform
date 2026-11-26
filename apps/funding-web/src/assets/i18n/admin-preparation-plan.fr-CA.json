@@ -1,0 +1,20 @@
+{
+  "title": "Préparer uniquement les dossiers manquants",
+  "intro": "Consultez les prochains passages sociaux à préparer. Les brouillons déjà présents sont conservés, y compris vos retouches.",
+  "load": "Voir la sélection et les textes proposés",
+  "loading": "Lecture des préparations manquantes…",
+  "unavailable": "Sélection indisponible. Actualisez avant de démarrer; aucun dossier vide n’est déduit.",
+  "observed": "Observation du",
+  "missing": "Passages à préparer",
+  "preserved": "Passages avec brouillon conservé",
+  "blocked": "Passages nécessitant une revue",
+  "scope": "Dossiers proposés dans ce lot :",
+  "limits": "Maximum 20 dossiers par lot; les compteurs décrivent les prochains passages ouverts Facebook/LinkedIn, pas toutes les prestations.",
+  "passage": "Passage",
+  "preview": "Voir le préremplissage privé",
+  "empty": "Aucun dossier à préparer dans cette observation.",
+  "safety": "Lancer ouvre le lot et ses confirmations habituelles. L’aperçu est prévisionnel : les sources sont revérifiées au démarrage et chaque dossier avant traitement. Aucun brouillon existant n’est remplacé; aucune approbation, sélection de média ou publication n’est créée.",
+  "measurement": "Les brouillons conservés évitent une nouvelle création, sans prouver un gain en minutes. Le temps humain et les corrections évitées restent à mesurer sur des cas comparables.",
+  "more": "D’autres dossiers restent à préparer. Après ce lot, relisez la sélection pour continuer.",
+  "start": "Ouvrir ce lot de préparation privée"
+}
