@@ -1,0 +1,41 @@
+name: Isolated operational assurance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: operational-assurance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  synthetic:
+    if: github.event_name == 'workflow_dispatch' || vars.FUNDING_ASSURANCE_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - run: docker pull postgres:16-alpine
+      - name: Run bounded isolated cycles
+        run: yarn assurance:admin --run --cycles=2 --interval-ms=1000
+      - name: Preserve aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-operational-assurance
+          path: test-results/admin-operational-assurance.json
+          retention-days: 7

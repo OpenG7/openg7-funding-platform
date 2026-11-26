@@ -268,6 +268,12 @@ Les commandes unifiées, la supervision des missions distantes et l’élargisse
 aux courriels ne sont pas livrés ici. Leur ordre et leurs critères restent dans
 l’[analyse des travaux](../development/salle-des-moteurs-intelligents.md).
 
+Le chantier 6 ajoute une [assurance opérationnelle isolée](../operations/admin-identity-and-alerts.md#isolated-operational-assurance) :
+cycles bornés sur PostgreSQL jetable, épisodes synthétiques et reprise des ports
+natifs après perte de réponse. Le workflow périodique reste optionnel ; cette
+recette locale ne mesure pas la disponibilité de la production et n'ajoute pas
+de commande à la Salle.
+
 Références propriétaires : [publications](../operations/admin-pilotage.md),
 [connecteur Preflight](preflight-connector.md),
 [règles de validation](../development/validation.md).
