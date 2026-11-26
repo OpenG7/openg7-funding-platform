@@ -4,6 +4,7 @@
     "noEmit": true
   },
   "include": [
+    "playwright/admin-flow-measurement.spec.ts",
     "playwright/activity-hub-embedded.ui.spec.ts",
     "playwright/activity-hub-journal.ui.spec.ts",
     "playwright/activity-hub.ui.spec.ts",

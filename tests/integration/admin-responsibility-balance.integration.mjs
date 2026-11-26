@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFlowMeasurement } from '../../dist/apps/funding-api/src/admin-flow-measurement.repository.js';
 import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import sharp from 'sharp';
@@ -223,6 +224,15 @@ test(
         );
         const waiting = await loadResponsibilityBalance(pool, contributionId);
         assert.equal(waiting.fulfilled, 1);
+        const measured = await readFlowMeasurement(pool, {
+          sponsorshipId: contributionId
+        });
+        assert.equal(measured.status, 'available');
+        assert.equal(measured.totals.population, 1);
+        assert.equal(measured.totals.qualified, 1);
+        assert.equal(measured.totals.qualifiedExits, 1);
+        assert.equal(measured.totals.open, 0);
+        assert.equal(measured.totals.cycleSamples, 1);
         assert.equal(waiting.waived, 0);
         assert.equal(waiting.outstanding, 0);
         assert.equal(waiting.status, 'waiting');

@@ -1,3 +1,4 @@
+import { readFlowMeasurement } from '../admin-flow-measurement.repository.js';
 import { reconcileEmailDelivery } from '../email-delivery-reconciliation.repository.js';
 import { createAdminAccountingHttpHandler } from '../admin-accounting.http.js';
 import { createAdminModerationHttpHandler } from '../moderation/admin-http.js';
@@ -913,6 +914,7 @@ export const createAdminHttpHandlers = ({
           connectorEnabled: preflightConfig?.enabled === true,
           localPreparationEnabled: !!publicationWorkshop,
           goldenPath: (id) => readSponsorshipGoldenPath(dbPool, id),
+          flowMeasurement: (scope) => readFlowMeasurement(dbPool, scope),
           workQueue: (scope) =>
             getAdminWorkQueue(dbPool, {
               ...scope,

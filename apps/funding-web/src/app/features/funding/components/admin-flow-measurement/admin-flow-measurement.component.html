@@ -1,0 +1,167 @@
+<section class="flow" data-og7="flow-measurement">
+  <h2>{{ t('title') }}</h2>
+  @if (measurement(); as m) {
+    @if (m.status === 'available' && m.totals; as totals) {
+      <p>
+        {{ t('window') }} <time>{{ m.window.from }}</time> →
+        <time>{{ m.window.to }}</time> (UTC)
+      </p>
+      <dl class="counts">
+        <div>
+          <dt>{{ t('entries') }}</dt>
+          <dd data-og7="flow-entries">{{ value(totals.entries) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('exits') }}</dt>
+          <dd data-og7="flow-exits">{{ value(totals.qualifiedExits) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('open') }}</dt>
+          <dd data-og7="flow-open">{{ value(totals.open) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('overdue') }}</dt>
+          <dd>{{ value(totals.overdue) }}</dd>
+        </div>
+      </dl>
+      <p>
+        {{ t('population') }} {{ totals.population }} · {{ t('qualified') }}
+        {{ totals.qualified }} · {{ t('adjusted') }} {{ totals.adjusted }} ·
+        {{ t('excluded') }} {{ m.excludedDossiers }}
+      </p>
+      <p>
+        {{ t('age') }} {{ value(totals.medianAgeSeconds) }} /
+        {{ value(totals.p95AgeSeconds) }} · {{ t('seconds') }} · n={{
+          totals.ageSamples
+        }}
+        · {{ t('unknownAge') }} {{ totals.unknownAge }}
+      </p>
+      <p>
+        {{ t('oldest') }} {{ value(totals.oldestAgeSeconds) }} ·
+        {{ t('seconds') }} · {{ t('undated') }} {{ totals.undated }}
+      </p>
+      <p>
+        {{ t('cycle') }} {{ value(totals.medianCycleSeconds) }} /
+        {{ value(totals.p95CycleSeconds) }} · {{ t('seconds') }} · n={{
+          totals.cycleSamples
+        }}
+      </p>
+      <details>
+        <summary>{{ t('cohorts') }}</summary>
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          [attr.aria-label]="t('cohorts')"
+        >
+          <table>
+            <caption>
+              {{
+                t('cohortHelp')
+              }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ t('channel') }}</th>
+                <th scope="col">{{ t('target') }}</th>
+                <th scope="col">{{ t('format') }}</th>
+                <th scope="col">{{ t('mode') }}</th>
+                <th scope="col">{{ t('deadline') }}</th>
+                <th scope="col">{{ t('entries') }}</th>
+                <th scope="col">{{ t('exits') }}</th>
+                <th scope="col">{{ t('open') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of m.cohorts; track $index) {
+                <tr>
+                  <td>{{ c.channel }}</td>
+                  <td>{{ c.target }}</td>
+                  <td>{{ c.format }}</td>
+                  <td>{{ t('modes.' + c.mode) }}</td>
+                  <td>{{ t('deadlines.' + c.deadline) }}</td>
+                  <td>{{ c.entries }}</td>
+                  <td>{{ c.qualifiedExits }}</td>
+                  <td>{{ c.open }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <p class="note">{{ t('definition') }}</p>
+      <details>
+        <summary>{{ t('sources') }}</summary>
+        <p>{{ m.definition }} · {{ m.observedAt }}</p>
+        <ul>
+          @for (source of m.sources; track source) {
+            <li>{{ source }}</li>
+          }
+        </ul>
+      </details>
+    } @else {
+      <p role="status" data-og7="flow-unavailable">{{ t('unavailable') }}</p>
+    }
+  } @else {
+    <p role="status" data-og7="flow-unavailable">{{ t('unavailable') }}</p>
+  }
+  <details data-og7="human-work-sample">
+    <summary>{{ t('humanTitle') }}</summary>
+    <p>{{ t('humanHelp') }}</p>
+    <label
+      ><input
+        type="checkbox"
+        [checked]="consent()"
+        (change)="consentChanged($event)"
+        data-og7="human-consent"
+      />
+      {{ t('consent') }}</label
+    >
+    <label
+      >{{ t('category') }}
+      <select
+        [value]="category()"
+        (change)="categoryChanged($event)"
+        [disabled]="running()"
+        data-og7="human-category"
+      >
+        @for (c of categories; track c) {
+          <option [value]="c">{{ t('categories.' + c) }}</option>
+        }
+      </select></label
+    >
+    <div class="buttons">
+      <button
+        type="button"
+        (click)="start()"
+        [disabled]="!consent() || running()"
+        data-og7="human-start"
+      >
+        {{ t('start') }}</button
+      ><button
+        type="button"
+        (click)="pause()"
+        [disabled]="!running()"
+        data-og7="human-pause"
+      >
+        {{ t('pause') }}</button
+      ><button type="button" (click)="clear(true)" data-og7="human-clear">
+        {{ t('clear') }}
+      </button>
+    </div>
+    <p role="status">{{ t(running() ? 'running' : 'paused') }}</p>
+    <dl>
+      @for (c of categories; track c) {
+        <div>
+          <dt>{{ t('categories.' + c) }}</dt>
+          <dd>{{ samples()[c] }} {{ t('seconds') }}</dd>
+        </div>
+      }
+    </dl>
+    <p>
+      {{ t('total') }} <span data-og7="human-total">{{ total() }}</span>
+      {{ t('seconds') }}
+    </p>
+    <p class="note">{{ t('humanLimits') }}</p>
+  </details>
+</section>

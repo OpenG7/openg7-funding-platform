@@ -6,6 +6,9 @@ import type {
 } from '@openg7/funding-core';
 
 export interface EngineRoomReadPorts {
+  readonly flowMeasurement?: (
+    scope: EngineRoomScope
+  ) => Promise<import('@openg7/funding-core').AdminFlowMeasurement>;
   readonly workQueue?: (
     scope: EngineRoomScope
   ) => Promise<import('@openg7/funding-core').AdminWorkQueueResponse>;
@@ -39,7 +42,7 @@ export async function readEngineRoom(
       : {})
   };
   const observedAt = now().toISOString();
-  const [publication, connector, goldenPath, workQueue] =
+  const [publication, connector, goldenPath, workQueue, flowMeasurement] =
     await Promise.allSettled([
       ports.publications
         ? ports.publications(scope)
@@ -48,7 +51,10 @@ export async function readEngineRoom(
       scope.sponsorshipId && !scope.deliveryId && ports.goldenPath
         ? ports.goldenPath(scope.sponsorshipId)
         : Promise.resolve(null),
-      ports.workQueue ? ports.workQueue(scope) : Promise.resolve(null)
+      ports.workQueue ? ports.workQueue(scope) : Promise.resolve(null),
+      ports.flowMeasurement
+        ? ports.flowMeasurement(scope)
+        : Promise.resolve(null)
     ]);
   const data = publication.status === 'fulfilled' ? publication.value : null;
   const scoped = !!(scope.sponsorshipId || scope.deliveryId);
@@ -79,6 +85,8 @@ export async function readEngineRoom(
   return {
     observedAt,
     scope,
+    flowMeasurement:
+      flowMeasurement.status === 'fulfilled' ? flowMeasurement.value : null,
     workQueue: workQueue.status === 'fulfilled' ? workQueue.value : null,
     goldenPath:
       goldenPath.status === 'fulfilled'
