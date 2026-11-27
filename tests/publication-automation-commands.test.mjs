@@ -83,6 +83,23 @@ const fixture = ({
       }
       const response = await query(sql, parameters);
       if (response !== undefined) return response;
+      if (sql.startsWith('SELECT id,paused,auto_prepare'))
+        return {
+          rows: [
+            {
+              id: feedId,
+              paused: true,
+              autoPrepare: false,
+              timezone: 'America/Toronto',
+              weekdays: [1],
+              localTime: '09:00',
+              capacity: 3,
+              horizonDays: 7,
+              ...feed
+            }
+          ],
+          rowCount: 1
+        };
       const fulfilment = fulfilmentQueryFixture(
         accountState,
         sql.replace(/\s+/g, ' ').trim(),
@@ -1351,5 +1368,55 @@ test('settings and pause-all preserve the caller transaction and audit actor', a
         `publication_automation.${input.action === 'settings' ? 'settings' : 'pause_all'}`
       );
     });
+  }
+});
+
+test('settings reject divergent or malformed preconditions without an update or success audit', async () => {
+  const saved = {
+    id: feedId,
+    paused: true,
+    autoPrepare: false,
+    timezone: 'America/Toronto',
+    weekdays: [1],
+    localTime: '09:00',
+    capacity: 3,
+    horizonDays: 7
+  };
+  const f = fixture();
+  await assert.rejects(
+    command(
+      f.context,
+      {
+        action: 'settings',
+        settings: { ...saved, capacity: 4 },
+        expectedSettings: { ...saved, capacity: 2 }
+      },
+      'synthetic-stale-admin'
+    ),
+    (error) => error.code === 'SETTINGS_CONFLICT' && error.status === 409
+  );
+  assert.equal(
+    f
+      .queries()
+      .filter((call) => call.sql.startsWith('UPDATE publication_feeds')).length,
+    0
+  );
+  assert.equal(f.audits.length, 0);
+  assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'ROLLBACK', 'release']);
+  for (const expectedSettings of [
+    { ...saved, id: 'openg20:linkedin' },
+    { ...saved, weekdays: [] },
+    { ...saved, capacity: 1.5 }
+  ]) {
+    const malformed = fixture();
+    await assert.rejects(
+      command(
+        malformed.context,
+        { action: 'settings', settings: saved, expectedSettings },
+        'synthetic-invalid-admin'
+      ),
+      (error) => error.code === 'INVALID_SETTINGS' && error.status === 400
+    );
+    assert.deepEqual(malformed.calls, []);
   }
 });

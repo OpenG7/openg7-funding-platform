@@ -59,6 +59,23 @@ test('engine room reads real owner observations without mutating publication set
   );
   await page.locator('[data-og7="engine-room-refresh"]').click();
   expect((await refresh).status()).toBe(200);
+  const feedId = before.feeds[0].id;
+  await page
+    .locator(`[data-og7="engine-feed"][data-og7-id="${feedId}"]`)
+    .click();
+  await page.locator('[data-og7="engine-settings-link"]').click();
+  await expect(
+    page.locator('[data-og7="destination-settings"] h1')
+  ).toBeVisible();
+  const settingsNavigation = await page.reload();
+  expect(settingsNavigation?.status()).toBe(200);
+  await expect(
+    page.locator('[data-og7="destination-settings"] h1')
+  ).toBeVisible();
+  await page.locator('[data-og7="destination-settings"] footer a').click();
+  await expect(
+    page.locator(`[data-og7="engine-feed"][data-og7-id="${feedId}"]`)
+  ).toHaveAttribute('aria-pressed', 'true');
   const after = await read();
   expect(after.workerEnabled).toBe(before.workerEnabled);
   expect(after.feeds).toEqual(before.feeds);

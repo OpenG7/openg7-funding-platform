@@ -113,7 +113,7 @@ export const ADMIN_GUIDANCE_PAGES: readonly AdminGuidancePage[] = [
     'automation',
     '/publications/automation',
     'admin.publicationAutomation.title',
-    ['publication-automation', 'publication-feed-settings']
+    ['publication-automation', 'publication-destinations']
   ),
   page('expenses', '/expenses', 'admin.nav.expenses', [
     'allocation-filters',

@@ -8,8 +8,10 @@ The cockpit is labelled **Publishing operations** and retains cross-destination
 review, scheduling, exceptions, source queues, reliability and global worker
 controls. Normal destination links open
 `/admin/fundraiser/publications/destinations/:feedId`, a shared maintenance page
-for the four existing feed identities. The explicit legacy `?settings=feeds`
-entry remains compatible; normal navigation uses the dedicated page.
+for the four existing feed identities. Internal callers use this page or the
+global operations workspace. The legacy `?settings=feeds&feedId=<id>` entry
+redirects to the matching destination after validating it against loaded feeds;
+the unselected `?settings=feeds` entry remains compatible for existing bookmarks.
 The engine room passes the selected feed and dossier/decision context; returning
 restores that feed and rereads supervision. Reloading retains the destination URL.
 The maintenance page edits existing preparation settings with a typed form,
@@ -18,6 +20,49 @@ credentials remain server-managed; unavailable observations stay explicit.
 Resuming may allow already authorized due deliveries to proceed under existing
 worker checks; it does not authorize content. Queue and diagnostic links reuse
 operations with `feedId` and `tab`; reliability diagnostics remain global.
+
+Destination tabs are URL-backed. Their loaded publication list links to the native
+delivery drawer, with a fixed internal return preserving destination, tab and the
+original dossier/decision context. Operations explicitly distinguishes its filtered
+list/calendar from global summaries, source queues, reliability and worker controls.
+The destination diagnostic shows only incidents whose explicit delivery ID matches
+a loaded delivery for that feed. Global-only or uncorrelated incidents are never
+attributed to a feed; missing reliability and incomplete snapshots remain explicit.
+This is an observation list, not a complete incident inventory or an audit log.
+The page records when a server reread completed, separately from the provider's
+last check and the diagnostic's evaluation time. After three minutes it asks for
+refresh; unsaved edits block refresh, and failed reads establish no fresh state.
+
+## Conditional destination settings
+
+`settings` commands may include `expectedSettings`, the editable settings observed
+when the form opened. Both administrative editors send this precondition, including
+pause/resume. The API validates both snapshots, locks the feed row, then compares
+only editable fields (weekday order is immaterial). Divergent current settings
+return `409 SETTINGS_CONFLICT` without modification. An already identical target
+returns without another write or audit. A changed feed and its before/after audit
+are committed together, with `publication_feed` as the audit entity.
+Connection checks do not change this settings reference. A global pause does.
+This compares current values, not a monotonically increasing history version.
+
+For compatibility, callers omitting `expectedSettings` retain unconditional
+assignment semantics; they do not gain conflict protection. Migrate such clients
+to the conditional contract before relying on concurrent-edit protection.
+No database migration is required. Existing role and session checks still apply.
+
+The dedicated page retains the original precondition after failed saves and keeps
+the draft on conflict. Reloading saved settings explicitly discards the draft only
+after a successful read. A missing response or failed confirming read freezes the
+exact pending request and blocks another ordinary save. Reconciliation is read-only:
+matching target values are labelled as observed on the server, not proof of which
+request saved them. A reread matching the original reference permits an explicit
+retry of the same conditional request, never an automatic replay. A changed server
+state instead requires resolving the conflict. Session changes invalidate pending
+callbacks and clear local write state. An HTTP 401 also invalidates the client
+session; its sign-in link retains the destination URL for an authorized reread.
+Returning to supervision reads fresh engine
+observations; a settings confirmation never establishes a healthy provider or
+authorizes content.
 
 The administration is a work console: the administrator authorizes the exact
 publication, then the platform executes it and records its confirmed result.

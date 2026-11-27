@@ -3237,18 +3237,18 @@ for (const width of [390, 1512]) {
     );
     await shortcut.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/publications\/automation\?settings=feeds$/);
+    await expect(page).toHaveURL(/\/publications\/automation$/);
     await expect(
-      page.locator('[data-og7="publication-feed-settings"]')
-    ).toHaveAttribute('open', '');
+      page.locator('[data-og7="publication-destinations"]')
+    ).toBeVisible();
     await page.goBack();
     state.workerEnabled = true;
     await page.reload();
     await expect(shortcut).toContainText('Automatic processing active');
     await shortcut.click();
     await expect(
-      page.locator('[data-og7="publication-feed-settings"]')
-    ).toHaveAttribute('open', '');
+      page.locator('[data-og7="publication-destinations"]')
+    ).toBeVisible();
     expect(mutations).toEqual([]);
     expect(commands).toEqual([]);
   });

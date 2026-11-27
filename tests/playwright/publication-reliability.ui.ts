@@ -7,7 +7,7 @@ import type {
 
 import { test, expect } from './support/test.js';
 
-const reliabilityFixture = (): PublicationReliability => ({
+export const reliabilityFixture = (): PublicationReliability => ({
   scope: 'global',
   evaluatedAt: '2030-06-01T12:00:00Z',
   obligations: {

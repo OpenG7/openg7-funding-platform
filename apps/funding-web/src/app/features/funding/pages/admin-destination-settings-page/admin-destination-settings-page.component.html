@@ -12,18 +12,72 @@
     </nav>
     @if (error()) {
       <p role="alert">{{ error() | translate }}</p>
+    }
+    <p role="status">{{ notice() | translate }}</p>
+    <div class="observation-bar" data-og7="destination-observation">
+      <p role="status">
+        @if (readAt()) {
+          {{ t('readAt') }} {{ date(readAt()) }}
+          @if (stale()) {
+            <strong>{{ t('stale') }}</strong>
+          }
+        } @else {
+          {{ t('notRead') }}
+        }
+      </p>
       <button
         type="button"
         class="admin-button"
-        [disabled]="busy() || loading() || form.dirty"
+        data-og7="destination-refresh"
+        [disabled]="busy() || loading() || form.dirty || !!writePending()"
         (click)="load()"
       >
         {{ t('refresh') }}
       </button>
-    }
-    <p role="status">{{ notice() | translate }}</p>
+      @if (writePending()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="destination-reconcile"
+          [disabled]="busy()"
+          (click)="reconcileSettings()"
+        >
+          {{ t('reconcile') }}
+        </button>
+        @if (retryAllowed()) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="destination-retry"
+            [disabled]="busy()"
+            (click)="retrySettings()"
+          >
+            {{ t('retrySame') }}
+          </button>
+        }
+      }
+      @if (writeConflict()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="destination-reload-settings"
+          [disabled]="busy()"
+          (click)="reloadSettings()"
+        >
+          {{ t('reloadSettings') }}
+        </button>
+      }
+    </div>
     @if (loading()) {
       <p role="status">{{ t('loading') }}</p>
+    } @else if (sessionLost()) {
+      <h1>{{ t('sessionExpired') }}</h1>
+      <a
+        class="admin-button"
+        routerLink="/admin/login"
+        [queryParams]="{ returnUrl: loginReturnUrl() }"
+        >{{ t('signInAgain') }}</a
+      >
     } @else if (feed(); as feed) {
       <header class="destination-header">
         <div class="destination-identity">
@@ -73,7 +127,7 @@
           <button
             type="button"
             [attr.aria-current]="tab() === item ? 'page' : null"
-            (click)="tab.set(item)"
+            (click)="selectTab(item)"
           >
             {{ t('tabs.' + item) }}
           </button>
@@ -132,7 +186,7 @@
               <button
                 type="button"
                 class="admin-button"
-                [disabled]="busy()"
+                [disabled]="busy() || !!writePending()"
                 (click)="check()"
                 data-og7="destination-check"
               >
@@ -159,7 +213,7 @@
             <p class="help">
               {{ t('preparationHelp') }}
             </p>
-            <fieldset [disabled]="busy() || !canWrite()">
+            <fieldset [disabled]="busy() || !canWrite() || !!writePending()">
               <legend>
                 {{ 'admin.publicationAutomation.days' | translate }}
               </legend>
@@ -244,9 +298,39 @@
             <a
               class="admin-button"
               routerLink="/admin/fundraiser/publications/automation"
-              [queryParams]="{ feedId: feed.id, tab: 'all' }"
+              [queryParams]="operationsParams('all')"
               >{{ t('openOperations') }}</a
             >
+            <p class="help">{{ t('snapshotLimit') }}</p>
+            <ul class="execution-list" data-og7="destination-executions">
+              @for (delivery of executions(); track delivery.id) {
+                <li [attr.data-og7-id]="delivery.id">
+                  <strong>{{
+                    'admin.publicationAutomation.status.' + delivery.status
+                      | translate
+                  }}</strong>
+                  <span
+                    >{{ date(delivery.scheduledAt) }} ·
+                    {{
+                      'admin.publicationAutomation.modes.' + delivery.mode
+                        | translate
+                    }}</span
+                  >
+                  <p>{{ delivery.message }}</p>
+                  @if (delivery.errorCode) {
+                    <code>{{ delivery.errorCode }}</code>
+                  }
+                  <a
+                    class="admin-button"
+                    routerLink="/admin/fundraiser/publications/automation"
+                    [queryParams]="operationsParams('all', delivery.id)"
+                    >{{ t('examine') }}</a
+                  >
+                </li>
+              } @empty {
+                <li>{{ t('noExecutions') }}</li>
+              }
+            </ul>
           </section>
         }
         @if (tab() === 'diagnostics') {
@@ -267,9 +351,56 @@
             <a
               class="admin-button"
               routerLink="/admin/fundraiser/publications/automation"
-              [queryParams]="{ feedId: feed.id, tab: 'exceptions' }"
+              [queryParams]="operationsParams('exceptions')"
               >{{ t('openExceptions') }}</a
             >
+            @if (reliability(); as reliability) {
+              <p>
+                {{ t('diagnosticsAt') }} {{ date(reliability.evaluatedAt) }}
+              </p>
+              <p class="help">{{ t('correlationLimit') }}</p>
+              <ul class="execution-list" data-og7="destination-incidents">
+                @for (
+                  incident of incidents();
+                  track incident.code + ':' + incident.subjectId
+                ) {
+                  <li
+                    [attr.data-og7-id]="
+                      incident.code + ':' + incident.subjectId
+                    "
+                  >
+                    <strong>{{
+                      'admin.publicationReliability.codes.' + incident.code
+                        | translate
+                    }}</strong>
+                    <p>
+                      {{
+                        'admin.publicationReliability.reasons.' + incident.code
+                          | translate
+                      }}
+                    </p>
+                    <p>
+                      {{
+                        'admin.publicationReliability.actions.' + incident.code
+                          | translate
+                      }}
+                    </p>
+                    <a
+                      class="admin-button"
+                      routerLink="/admin/fundraiser/publications/automation"
+                      [queryParams]="
+                        operationsParams('all', incident.deliveryId)
+                      "
+                      >{{ t('examine') }}</a
+                    >
+                  </li>
+                } @empty {
+                  <li>{{ t('noIncidents') }}</li>
+                }
+              </ul>
+            } @else {
+              <p>{{ t('diagnosticsUnavailable') }}</p>
+            }
           </section>
         }
       </div>
@@ -284,7 +415,7 @@
           <button
             type="button"
             class="admin-button"
-            [disabled]="busy() || !form.dirty"
+            [disabled]="busy() || !form.dirty || !!writePending()"
             (click)="reset(); notice.set('')"
           >
             {{ t('cancel') }}
@@ -293,7 +424,13 @@
             type="submit"
             form="destination-form"
             class="admin-button primary"
-            [disabled]="busy() || !form.dirty || form.invalid"
+            [disabled]="
+              busy() ||
+              !form.dirty ||
+              form.invalid ||
+              !!writePending() ||
+              writeConflict()
+            "
             data-og7="destination-save"
           >
             {{ t('save') }}
@@ -303,6 +440,8 @@
             class="admin-button"
             [disabled]="
               busy() ||
+              !!writePending() ||
+              writeConflict() ||
               form.dirty ||
               !feed.configured ||
               feed.mode === 'disabled'

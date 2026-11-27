@@ -44,6 +44,30 @@ export interface PublicationFeed extends PublicationFeedSettings {
   connection: 'unchecked' | 'ready' | 'expired' | 'error';
   checkedAt: string | null;
 }
+/** Only editable settings participate; provider credentials and observations never do. */
+export function publicationFeedSettingsSnapshot(
+  feed: PublicationFeedSettings
+): PublicationFeedSettings {
+  return {
+    id: feed.id,
+    paused: feed.paused,
+    autoPrepare: feed.autoPrepare,
+    timezone: feed.timezone,
+    weekdays: [...feed.weekdays].sort((a, b) => a - b),
+    localTime: feed.localTime,
+    capacity: feed.capacity,
+    horizonDays: feed.horizonDays
+  };
+}
+export function samePublicationFeedSettings(
+  a: PublicationFeedSettings,
+  b: PublicationFeedSettings
+): boolean {
+  return (
+    JSON.stringify(publicationFeedSettingsSnapshot(a)) ===
+    JSON.stringify(publicationFeedSettingsSnapshot(b))
+  );
+}
 export interface PublicationDelivery {
   readonly publicationFormat?: SponsorshipPublicationFormat;
   readonly photoSelections?: readonly PublicationPhotoSelection[];
@@ -232,7 +256,11 @@ export type PublicationAutomationCommand =
       version: number;
       confirmation: 'enable-worker' | 'disable-worker';
     }
-  | { action: 'settings'; settings: PublicationFeedSettings }
+  | {
+      action: 'settings';
+      settings: PublicationFeedSettings;
+      expectedSettings?: PublicationFeedSettings;
+    }
   | { action: 'pause-all' }
   | { action: 'check'; feedId: PublicationFeedId }
   | { action: 'prepare'; feedId: PublicationFeedId }

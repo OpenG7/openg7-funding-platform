@@ -5,8 +5,10 @@ import type {
   PublicationAutomationState,
   PublicationFeedId
 } from '@openg7/funding-core';
+import { samePublicationFeedSettings } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { reliabilityFixture } from './publication-reliability.ui.js';
 import {
   engineRoomFixture,
   engineSponsorId,
@@ -45,7 +47,15 @@ async function destinationFixture(page: Page, reader = false) {
     deliveries: [...fixture.options.snapshot.publications.deliveries]
   };
   const commands: PublicationAutomationCommand[] = [];
-  const failures = { read: false, write: false };
+  const failures = {
+    read: false,
+    write: false,
+    reads: 0,
+    loseResponse: false,
+    failConfirm: false,
+    dropBeforeWrite: false,
+    expire: false
+  };
   await page.route('**/api/admin/auth/current', (route) =>
     route.fulfill({
       json: {
@@ -57,24 +67,62 @@ async function destinationFixture(page: Page, reader = false) {
       }
     })
   );
-  await page.route('**/api/admin/publication-automation', async (route) => {
-    if (route.request().method() === 'GET')
-      return route.fulfill(
-        failures.read ? { status: 503, json: {} } : { json: state }
-      );
-    const command = route
-      .request()
-      .postDataJSON() as PublicationAutomationCommand;
-    commands.push(command);
-    if (failures.write)
-      return route.fulfill({ status: 409, json: { code: 'VERSION_CONFLICT' } });
-    if (command.action === 'settings')
-      Object.assign(
-        feeds.find((feed) => feed.id === command.settings.id)!,
-        command.settings
-      );
-    return route.fulfill({ json: {} });
-  });
+  await page.route(
+    /\/api\/admin\/publication-automation(?:\?|$)/,
+    async (route) => {
+      if (route.request().method() === 'GET') {
+        failures.reads++;
+        const id = new URL(route.request().url()).searchParams.get(
+          'deliveryId'
+        );
+        return route.fulfill(
+          failures.read
+            ? { status: 503, json: {} }
+            : {
+                json: {
+                  ...state,
+                  deliveries: state.deliveries.filter(
+                    (delivery) => !id || delivery.id === id
+                  )
+                }
+              }
+        );
+      }
+      const command = route
+        .request()
+        .postDataJSON() as PublicationAutomationCommand;
+      commands.push(command);
+      if (failures.expire) return route.fulfill({ status: 401, json: {} });
+      if (failures.dropBeforeWrite) return route.abort('failed');
+      if (failures.write)
+        return route.fulfill({
+          status: 409,
+          json: { code: 'SETTINGS_CONFLICT' }
+        });
+      if (command.action === 'settings') {
+        const feed = feeds.find((feed) => feed.id === command.settings.id)!;
+        if (
+          command.expectedSettings &&
+          !samePublicationFeedSettings(feed, command.settings) &&
+          !samePublicationFeedSettings(feed, command.expectedSettings)
+        )
+          return route.fulfill({
+            status: 409,
+            json: { code: 'SETTINGS_CONFLICT' }
+          });
+        Object.assign(
+          feeds.find((feed) => feed.id === command.settings.id)!,
+          command.settings
+        );
+      }
+      if (failures.failConfirm) failures.read = true;
+      if (failures.loseResponse) return route.abort('failed');
+      return route.fulfill({ json: {} });
+    }
+  );
+  await page.route('**/api/admin/publication-automation/media*', (route) =>
+    route.fulfill({ json: [] })
+  );
   if (reader)
     await page.addInitScript(() =>
       sessionStorage.setItem(
@@ -159,8 +207,12 @@ test('destination settings preserve drafts after failure and separate check, sav
   await page.locator('[data-og7="destination-save"]').click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(capacity).toHaveValue('4');
-  await expect(page.locator('[data-og7="destination-save"]')).toBeEnabled();
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  await page.locator('[data-og7="destination-reload-settings"]').click();
+  await page.getByRole('dialog').getByRole('button').last().click();
+  await expect(capacity).toHaveValue('3');
   failures.write = false;
+  await capacity.fill('4');
   await page.locator('[data-og7="destination-save"]').click();
   await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
   expect(commands.map((command) => command.action)).toEqual([
@@ -171,6 +223,7 @@ test('destination settings preserve drafts after failure and separate check, sav
   const saved = commands.at(-1);
   expect(saved).toEqual({
     action: 'settings',
+    expectedSettings: expect.objectContaining({ capacity: 3, paused: true }),
     settings: expect.objectContaining({
       id: 'openg7:facebook',
       capacity: 4,
@@ -186,8 +239,144 @@ test('destination settings preserve drafts after failure and separate check, sav
   );
   expect(commands.at(-1)).toEqual({
     action: 'settings',
+    expectedSettings: expect.objectContaining({ capacity: 4, paused: true }),
     settings: expect.objectContaining({ paused: false })
   });
+});
+
+test('destination conflict retains entries and the original reference after another administrator changes settings', async ({
+  page
+}) => {
+  const { state, commands } = await destinationFixture(page);
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const capacity = page.locator('[formControlName="capacity"]');
+  await capacity.fill('4');
+  state.feeds[0].capacity = 6;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Les réglages ont changé'
+  );
+  await expect(capacity).toHaveValue('4');
+  expect(state.feeds[0].capacity).toBe(6);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('[data-og7="destination-settings"]')
+        .analyze()
+    ).violations
+  ).toEqual([]);
+  await page.screenshot({
+    path: test.info().outputPath('destination-conflict.png'),
+    fullPage: true
+  });
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  expect(commands[0]).toMatchObject({
+    action: 'settings',
+    expectedSettings: { capacity: 3 },
+    settings: { capacity: 4 }
+  });
+  await page.locator('[data-og7="destination-reload-settings"]').click();
+  await page.getByRole('dialog').getByRole('button').last().click();
+  await expect(capacity).toHaveValue('6');
+  await capacity.fill('7');
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  expect(commands[1]).toMatchObject({
+    expectedSettings: { capacity: 6 },
+    settings: { capacity: 7 }
+  });
+});
+
+test('destination lost responses are reconciled without replaying an already observed save', async ({
+  page
+}) => {
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await page.locator('[formControlName="capacity"]').fill('4');
+  failures.loseResponse = true;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(
+    page.locator('[data-og7="destination-settings"] > p[role="status"]')
+  ).toContainText('retrouvés côté serveur');
+  await expect(page.locator('[data-og7="destination-reconcile"]')).toHaveCount(
+    0
+  );
+  expect(commands).toHaveLength(1);
+});
+
+test('destination unconfirmed saves freeze the exact request until an explicit reread', async ({
+  page
+}) => {
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const capacity = page.locator('[formControlName="capacity"]');
+  await capacity.fill('4');
+  failures.failConfirm = true;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.getByRole('alert')).toContainText('n’est pas confirmé');
+  await expect(capacity).toHaveValue('4');
+  await expect(capacity).toBeDisabled();
+  await expect(page.locator('[data-og7="destination-retry"]')).toHaveCount(0);
+  failures.read = false;
+  await page.locator('[data-og7="destination-reconcile"]').click();
+  await expect(
+    page.locator('[data-og7="destination-settings"] > p[role="status"]')
+  ).toContainText('retrouvés côté serveur');
+  await expect(capacity).toBeEnabled();
+  expect(commands).toHaveLength(1);
+});
+
+test('destination retry reuses the same conditional request after a baseline reread', async ({
+  page
+}) => {
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await page.locator('[formControlName="capacity"]').fill('4');
+  failures.dropBeforeWrite = true;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.locator('[data-og7="destination-retry"]')).toBeEnabled();
+  await expect(page.locator('[data-og7="destination-save"]')).toBeDisabled();
+  failures.dropBeforeWrite = false;
+  await page.locator('[data-og7="destination-retry"]').click();
+  await expect(page.locator('[data-og7="destination-retry"]')).toHaveCount(0);
+  expect(commands).toHaveLength(2);
+  expect(commands[1]).toEqual(commands[0]);
+});
+
+test('destination session expiration clears pending state without a success notice', async ({
+  page
+}) => {
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await page.locator('[formControlName="capacity"]').fill('4');
+  failures.expire = true;
+  await page.locator('[data-og7="destination-save"]').click();
+  await expect(page.locator('[data-og7="destination-save"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="destination-reconcile"]')).toHaveCount(
+    0
+  );
+  await expect(page).toHaveURL(/\/admin\/login\?/);
+  expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  await expect(
+    page.getByRole('status').filter({ hasText: /session a expiré|révoquée/ })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Enregistré' })
+  ).toHaveCount(0);
+  expect(commands).toHaveLength(1);
 });
 
 test('destination settings reject invalid input and protect unsaved departure', async ({
@@ -282,6 +471,227 @@ test('destination execution and diagnostic links reuse filtered publishing opera
     'openg7:facebook'
   );
   await expect(page.locator('.job')).toHaveCount(0);
+  expect(commands).toEqual([]);
+});
+
+for (const locale of ['fr-CA', 'en']) {
+  test(`destination operational return preserves its tab and supervision context in ${locale}`, async ({
+    page
+  }) => {
+    const { commands, state } = await destinationFixture(page);
+    const originalDeliveryId = '44444444-4444-4444-8444-444444444444';
+    state.deliveries[0] = {
+      ...state.deliveries[0],
+      kind: 'news',
+      sponsors: []
+    };
+    await page.addInitScript(
+      (value) => localStorage.setItem('openg7.language', value),
+      locale
+    );
+    await page.setViewportSize({
+      width: locale === 'en' ? 390 : 1536,
+      height: 1000
+    });
+    await page.goto(
+      `/admin/fundraiser/publications/destinations/openg7:facebook?tab=executions&sponsorshipId=${engineSponsorId}&deliveryId=${originalDeliveryId}&decisionId=synthetic-decision`
+    );
+    const root = page.locator('[data-og7="destination-settings"]');
+    await expect(
+      root.locator('[data-og7="destination-executions"] li')
+    ).toHaveCount(1);
+    await root.locator('[data-og7="destination-executions"] a').click();
+    const dialog = page.getByRole('dialog', {
+      name: locale === 'en' ? 'Final publication' : 'Publication finale'
+    });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    const back = page.locator('[data-og7="publication-destination-return"] a');
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(root.locator('[aria-current="page"]')).toHaveText(
+      locale === 'en' ? 'Queue and executions' : 'File et exécutions'
+    );
+    await expect(root.locator('footer a')).toHaveAttribute(
+      'href',
+      new RegExp(
+        `sponsorshipId=${engineSponsorId}.*deliveryId=${originalDeliveryId}.*decisionId=synthetic-decision`
+      )
+    );
+    await page.reload();
+    await expect(
+      root.locator('[data-og7="destination-executions"]')
+    ).toBeVisible();
+    const motor = await root.locator('openg7-engine-motor').boundingBox();
+    expect(motor!.width).toBeGreaterThanOrEqual(64);
+    expect(motor!.height).toBeGreaterThanOrEqual(64);
+    await page.screenshot({
+      path: test.info().outputPath('destination-executions.png'),
+      fullPage: true
+    });
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="destination-settings"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(commands).toEqual([]);
+  });
+}
+
+test('destination diagnostics require exact delivery correlation and preserve global limits', async ({
+  page
+}) => {
+  const { state, commands } = await destinationFixture(page, true);
+  await page.setViewportSize({ width: 390, height: 1000 });
+  const otherId = '33333333-3333-4333-8333-333333333333';
+  state.deliveries.push({
+    ...state.deliveries[0],
+    id: otherId,
+    feedId: 'openg20:linkedin'
+  });
+  state.reliability = {
+    ...reliabilityFixture(),
+    incidents: [
+      {
+        code: 'ACCOUNT_RESULT_UNCERTAIN',
+        subjectType: 'delivery',
+        subjectId: engineDeliveryId,
+        deliveryId: engineDeliveryId
+      },
+      {
+        code: 'ACCOUNT_RESULT_UNCERTAIN',
+        subjectType: 'delivery',
+        subjectId: otherId,
+        deliveryId: otherId
+      },
+      {
+        code: 'ACCOUNT_LEASE_MISMATCH',
+        subjectType: 'delivery',
+        subjectId: 'synthetic-missing',
+        deliveryId: 'synthetic-missing'
+      },
+      {
+        code: 'SLOT_CAPACITY_EXCEEDED',
+        subjectType: 'slot',
+        subjectId: 'synthetic-global'
+      }
+    ]
+  };
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook?tab=diagnostics'
+  );
+  const incidents = page.locator('[data-og7="destination-incidents"]');
+  await expect(incidents.locator('li')).toHaveCount(1);
+  await expect(incidents.locator('li')).toHaveAttribute(
+    'data-og7-id',
+    'ACCOUNT_RESULT_UNCERTAIN:' + engineDeliveryId
+  );
+  await expect(page.locator('[data-og7="destination-settings"]')).toContainText(
+    'cette liste n’est pas exhaustive'
+  );
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('[data-og7="destination-settings"]')
+        .analyze()
+    ).violations
+  ).toEqual([]);
+  await page.screenshot({
+    path: test.info().outputPath('destination-diagnostics.png'),
+    fullPage: true
+  });
+  await incidents.getByRole('link').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.locator('[data-og7="publication-destination-return"] a').click();
+  await expect(incidents).toBeVisible();
+  state.reliability = undefined;
+  await page.locator('[data-og7="destination-refresh"]').click();
+  await expect(incidents).toHaveCount(0);
+  await expect(page.locator('[data-og7="destination-settings"]')).toContainText(
+    'Le diagnostic de fiabilité n’est pas disponible'
+  );
+  expect(commands).toEqual([]);
+});
+
+test('destination observation age and refresh never overwrite a draft or imply a provider check', async ({
+  page
+}) => {
+  await page.clock.install();
+  const { failures, commands, state } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const observation = page.locator('[data-og7="destination-observation"]');
+  await expect(observation).toContainText('Données relues à');
+  await page.clock.fastForward(210000);
+  await expect(observation).toContainText('Observation ancienne');
+  const capacity = page.locator('[formControlName="capacity"]');
+  await capacity.fill('4');
+  await expect(page.locator('[data-og7="destination-refresh"]')).toBeDisabled();
+  expect(failures.reads).toBe(1);
+  await page
+    .locator('[data-og7="destination-settings"] footer button')
+    .first()
+    .click();
+  state.feeds[0].connection = 'ready';
+  await page.locator('[data-og7="destination-refresh"]').click();
+  await expect(observation).not.toContainText('Observation ancienne');
+  expect(state.feeds[0].checkedAt).toBeNull();
+  failures.read = true;
+  await page.locator('[data-og7="destination-refresh"]').click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(observation).toContainText('Aucune relecture confirmée');
+  await expect(page.locator('[data-og7="destination-executions"]')).toHaveCount(
+    0
+  );
+  expect(commands).toEqual([]);
+});
+
+test('a failed confirming reread does not advertise a fresh destination or successful check', async ({
+  page
+}) => {
+  await page.clock.install();
+  const { failures, commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/destinations/openg7:facebook'
+  );
+  const observation = page.locator('[data-og7="destination-observation"]');
+  await expect(observation).toContainText('Données relues à');
+  const previous = await observation.textContent();
+  await page.clock.fastForward(60000);
+  failures.read = true;
+  await page.locator('[data-og7="destination-check"]').click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(observation).toHaveText(previous!);
+  await expect(
+    page.locator('[data-og7="destination-settings"] > p[role="status"]')
+  ).toHaveText('');
+  expect(commands.map((command) => command.action)).toEqual(['check']);
+});
+
+test('legacy destination settings redirect safely and invalid return identities do not create links', async ({
+  page
+}) => {
+  const { commands } = await destinationFixture(page);
+  await page.goto(
+    '/admin/fundraiser/publications/automation?settings=feeds&feedId=openg7:facebook&decisionId=synthetic'
+  );
+  await expect(page).toHaveURL(
+    /\/destinations\/openg7:facebook\?decisionId=synthetic$/
+  );
+  await expect(page.locator('h1')).toHaveText('Facebook · OPENG7');
+  await page.goto(
+    '/admin/fundraiser/publications/automation?returnFeedId=https://example.invalid&returnTab=invalid'
+  );
+  await expect(
+    page.locator('[data-og7="publication-destination-link"]')
+  ).toHaveCount(4);
+  await expect(
+    page.locator('[data-og7="publication-destination-return"]')
+  ).toHaveCount(0);
   expect(commands).toEqual([]);
 });
 

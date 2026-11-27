@@ -6,6 +6,11 @@ import type {
   PublicationFeed
 } from '@openg7/funding-core';
 
+import {
+  publicationFeedSettingsSnapshot,
+  samePublicationFeedSettings,
+  type PublicationFeedSettings
+} from '../../../../packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { enqueueSponsorshipObligationNotification } from '../sponsorship-commitments.repository.js';
 import {
@@ -113,7 +118,25 @@ async function executeCommand(
   if (input.action === 'settings') {
     validateSettings(input.settings);
     const s = input.settings;
+    if (input.expectedSettings !== undefined) {
+      validateSettings(input.expectedSettings);
+      assert(input.expectedSettings.id === s.id, 'INVALID_SETTINGS', 400);
+    }
     await run(async (db) => {
+      const current = (
+        await db.query<PublicationFeedSettings>(
+          `SELECT id,paused,auto_prepare AS "autoPrepare",timezone,weekdays,to_char(local_time,'HH24:MI') AS "localTime",capacity,horizon_days AS "horizonDays" FROM publication_feeds WHERE id=$1 FOR UPDATE`,
+          [s.id]
+        )
+      ).rows[0];
+      assert(current, 'FEED_NOT_FOUND', 404);
+      // An identical replay has no second write or audit, including a lost response.
+      if (samePublicationFeedSettings(current, s)) return;
+      assert(
+        !input.expectedSettings ||
+          samePublicationFeedSettings(current, input.expectedSettings),
+        'SETTINGS_CONFLICT'
+      );
       await db.query(
         `UPDATE publication_feeds SET paused=$2,auto_prepare=$3,timezone=$4,weekdays=$5,local_time=$6,capacity=$7,horizon_days=$8,updated_at=NOW() WHERE id=$1`,
         [
@@ -127,7 +150,18 @@ async function executeCommand(
           s.horizonDays
         ]
       );
-      await audit(db, actor, 'settings', s.id);
+      await audit(
+        db,
+        actor,
+        'settings',
+        s.id,
+        {
+          previous: publicationFeedSettingsSnapshot(current),
+          settings: publicationFeedSettingsSnapshot(s),
+          conditional: input.expectedSettings !== undefined
+        },
+        'publication_feed'
+      );
     });
     return {};
   }
