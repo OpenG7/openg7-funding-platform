@@ -546,22 +546,29 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expectAdminPageFits(page);
       await page.keyboard.press('Escape');
       await expect(job).toBeFocused();
-      const settingsDisclosure = root.locator(
-        '[data-og7="publication-feed-settings"]'
-      );
-      await settingsDisclosure.locator('summary').click();
-      const settingsButton = settingsDisclosure
-        .getByRole('button', {
-          name: language === 'en' ? 'Settings' : 'Réglages',
-          exact: true
-        })
+      const settingsLink = root
+        .locator('[data-og7="publication-destination-link"]')
         .first();
-      await settingsButton.focus();
+      await settingsLink.focus();
       await page.keyboard.press('Enter');
-      const settings = page.getByRole('dialog');
-      const capacity = settings.locator('input[name="capacity"]');
+      const settings = page.locator('[data-og7="destination-settings"]');
+      const capacity = settings.locator('[formControlName="capacity"]');
       await expect(capacity).toBeVisible();
       expect((await capacity.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(
+        await settings.evaluate((root) =>
+          Array.from(root.querySelectorAll('*'))
+            .filter(
+              (element) =>
+                element.getBoundingClientRect().right > innerWidth + 1
+            )
+            .map((element) => ({
+              tag: element.tagName,
+              text: element.textContent?.slice(0, 60),
+              right: element.getBoundingClientRect().right
+            }))
+        )
+      ).toEqual([]);
       await expectAdminPageFits(page);
       if (language === 'en') {
         await captureAdminDesign(
@@ -570,8 +577,6 @@ for (const language of ['fr-CA', 'en'] as const) {
           `publication-settings-text-200-${width}`
         );
       }
-      await page.keyboard.press('Escape');
-      await expect(settingsButton).toBeFocused();
       expect(commands).toEqual([]);
       expect(writes).toEqual([]);
     });
@@ -1881,10 +1886,13 @@ test('approves the exact destination and version only after an explicit decision
   const commands = await fixtures(page);
   await page.goto('/admin/fundraiser/publications/automation');
   await expect(
-    page.getByRole('heading', { name: 'Pilotage des feeds', exact: true })
+    page.getByRole('heading', {
+      name: 'Opérations de publication',
+      exact: true
+    })
   ).toBeVisible();
   await expect(
-    page.locator('[data-og7="publication-automation"] article')
+    page.locator('[data-og7="publication-destination-link"]')
   ).toHaveCount(4);
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
@@ -2891,7 +2899,10 @@ test('mobile keyboard flow, contrast and focus restoration', async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin/fundraiser/publications/automation');
   await expect(
-    page.getByRole('heading', { name: 'Pilotage des feeds', exact: true })
+    page.getByRole('heading', {
+      name: 'Opérations de publication',
+      exact: true
+    })
   ).toBeVisible();
   expect(
     await page.evaluate(

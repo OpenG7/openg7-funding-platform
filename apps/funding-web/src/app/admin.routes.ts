@@ -78,6 +78,17 @@ function protectWorkspaceNavigation(
 
 export const adminRoutes: Routes = protectWorkspaceNavigation([
   {
+    path: 'fundraiser/publications/destinations/:feedId',
+    canMatch: [adminSessionRequired],
+    canDeactivate: [
+      (component: { canLeave(): Promise<boolean> }) => component.canLeave()
+    ],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-destination-settings-page/admin-destination-settings-page.component.js').then(
+        (m) => m.AdminDestinationSettingsPageComponent
+      )
+  },
+  {
     path: 'fundraiser/engine-room',
     canMatch: [adminSessionRequired],
     loadComponent: () =>

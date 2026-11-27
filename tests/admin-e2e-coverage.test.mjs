@@ -130,7 +130,10 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 25);
+  assert.equal(discovered.length, 26);
+  assert.ok(
+    discovered.includes('/admin/fundraiser/publications/destinations/:feedId')
+  );
   assert.ok(discovered.includes('/admin/fundraiser/engine-room'));
   assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
   assert.ok(discovered.includes('/admin/fundraiser/preflight'));
@@ -154,9 +157,19 @@ test('admin route coverage follows declarations and the publication matcher spac
     .find((line) => line.trimStart().startsWith('/^\\/(?:admin\\/'));
   assert.ok(uiRoute, 'UI direct-entry routes must remain explicit');
   const uiExpression = new RegExp(uiRoute.trim().slice(1, -'/.test('.length));
-  for (const route of discovered.filter(
-    (route) => route !== '/admin/oidc-setup'
-  )) {
+  const concreteRoutes = discovered
+    .filter((route) => route !== '/admin/oidc-setup')
+    .flatMap((route) =>
+      route.includes(':feedId')
+        ? [
+            'openg7:facebook',
+            'openg7:linkedin',
+            'openg20:facebook',
+            'openg20:linkedin'
+          ].map((id) => route.replace(':feedId', id))
+        : [route]
+    );
+  for (const route of concreteRoutes) {
     for (const [name, matcher] of [
       ['Nginx', expression],
       ['UI server', uiExpression]

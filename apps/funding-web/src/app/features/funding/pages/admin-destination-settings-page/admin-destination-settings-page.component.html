@@ -1,0 +1,322 @@
+<openg7-admin-layout>
+  <section
+    class="destination-settings"
+    data-og7="destination-settings"
+    [attr.aria-busy]="loading() || busy()"
+  >
+    <nav class="destination-breadcrumb" [attr.aria-label]="t('breadcrumb')">
+      <a routerLink="/admin/fundraiser/engine-room" [queryParams]="context()">{{
+        t('back')
+      }}</a>
+      <span aria-hidden="true"> / </span><span>{{ name() }}</span>
+    </nav>
+    @if (error()) {
+      <p role="alert">{{ error() | translate }}</p>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="busy() || loading() || form.dirty"
+        (click)="load()"
+      >
+        {{ t('refresh') }}
+      </button>
+    }
+    <p role="status">{{ notice() | translate }}</p>
+    @if (loading()) {
+      <p role="status">{{ t('loading') }}</p>
+    } @else if (feed(); as feed) {
+      <header class="destination-header">
+        <div class="destination-identity">
+          <openg7-engine-motor
+            [symbol]="feed.id.endsWith('facebook') ? 'f' : 'in'"
+            [state]="feed.mode === 'disabled' ? 'off' : 'unknown'"
+          />
+          <div>
+            <p class="eyebrow">{{ t('selected') }}</p>
+            <h1>{{ name() }}</h1>
+            <p>
+              {{ 'admin.publicationAutomation.modes.' + feed.mode | translate }}
+            </p>
+            <p>{{ t('mission') }}</p>
+          </div>
+        </div>
+        <section class="destination-status" [attr.aria-label]="t('status')">
+          <h2>{{ t('status') }}</h2>
+          <dl>
+            <dt>{{ t('provider') }}</dt>
+            <dd>
+              {{ 'admin.publicationAutomation.modes.' + feed.mode | translate }}
+            </dd>
+            <dt>{{ t('preparation') }}</dt>
+            <dd>
+              {{
+                (feed.paused
+                  ? 'admin.publicationAutomation.paused'
+                  : 'admin.publicationAutomation.active'
+                ) | translate
+              }}
+            </dd>
+            <dt>{{ t('connection') }}</dt>
+            <dd>
+              {{
+                'admin.publicationAutomation.connection.' + feed.connection
+                  | translate
+              }}
+            </dd>
+            <dt>{{ t('checkedAt') }}</dt>
+            <dd>{{ date(feed.checkedAt) }}</dd>
+          </dl>
+        </section>
+      </header>
+      <nav class="destination-tabs" [attr.aria-label]="t('sections')">
+        @for (item of tabs; track item) {
+          <button
+            type="button"
+            [attr.aria-current]="tab() === item ? 'page' : null"
+            (click)="tab.set(item)"
+          >
+            {{ t('tabs.' + item) }}
+          </button>
+        }
+      </nav>
+      <div class="destination-content" id="destination-content">
+        <form
+          id="destination-form"
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          [class.configuration-grid]="tab() === 'configuration'"
+        >
+          <section class="panel" [hidden]="tab() !== 'configuration'">
+            <h2>{{ t('identity') }}</h2>
+            <dl>
+              <dt>{{ t('platform') }}</dt>
+              <dd>
+                {{ feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn' }}
+              </dd>
+              <dt>{{ t('organization') }}</dt>
+              <dd>{{ feed.id.split(':')[0].toUpperCase() }}</dd>
+              <dt>{{ t('destinationId') }}</dt>
+              <dd>{{ feed.id }}</dd>
+              <dt>{{ t('accountId') }}</dt>
+              <dd>{{ feed.accountId ?? t('unknown') }}</dd>
+            </dl>
+            <p class="help">{{ t('immutable') }}</p>
+          </section>
+          <section
+            class="panel"
+            [hidden]="tab() !== 'configuration' && tab() !== 'access'"
+          >
+            <h2>{{ t('access') }}</h2>
+            <dl>
+              <dt>{{ t('connection') }}</dt>
+              <dd>
+                {{
+                  'admin.publicationAutomation.connection.' + feed.connection
+                    | translate
+                }}
+              </dd>
+              <dt>{{ t('configuration') }}</dt>
+              <dd>{{ t(feed.configured ? 'configured' : 'notConfigured') }}</dd>
+              <dt>{{ t('accountId') }}</dt>
+              <dd>{{ feed.accountId ?? t('unknown') }}</dd>
+              <dt>{{ t('expiresAt') }}</dt>
+              <dd>{{ date(feed.expiresAt) }}</dd>
+              <dt>{{ t('checkedAt') }}</dt>
+              <dd>{{ date(feed.checkedAt) }}</dd>
+            </dl>
+            <p class="help">
+              {{ 'admin.publicationAutomation.connectionHelp' | translate }}
+            </p>
+            <p class="help">{{ t('credentialsHelp') }}</p>
+            @if (canWrite()) {
+              <button
+                type="button"
+                class="admin-button"
+                [disabled]="busy()"
+                (click)="check()"
+                data-og7="destination-check"
+              >
+                {{ 'admin.publicationAutomation.check' | translate }}
+              </button>
+            }
+          </section>
+          <section
+            class="panel"
+            [hidden]="tab() !== 'configuration' && tab() !== 'rules'"
+          >
+            <h2>{{ t('rules') }}</h2>
+            <p class="help">{{ t('authorization') }}</p>
+            <p>
+              {{ t('mode') }} :
+              {{ 'admin.publicationAutomation.modes.' + feed.mode | translate }}
+            </p>
+            <p class="help">{{ t('modeHelp') }}</p>
+            <label class="check"
+              ><input type="checkbox" formControlName="autoPrepare" />{{
+                'admin.publicationAutomation.autoPrepare' | translate
+              }}</label
+            >
+            <p class="help">
+              {{ t('preparationHelp') }}
+            </p>
+            <fieldset [disabled]="busy() || !canWrite()">
+              <legend>
+                {{ 'admin.publicationAutomation.days' | translate }}
+              </legend>
+              <div class="days">
+                @for (day of days; track day) {
+                  <label class="check"
+                    ><input
+                      type="checkbox"
+                      [checked]="form.controls.weekdays.value.includes(day)"
+                      (change)="toggleDay(day)"
+                      aria-describedby="destination-validation"
+                    />{{
+                      'admin.publicationAutomation.weekdays.' + day | translate
+                    }}</label
+                  >
+                }
+              </div>
+            </fieldset>
+            <div class="fields">
+              <label
+                >{{ 'admin.publicationAutomation.time' | translate
+                }}<input
+                  type="time"
+                  formControlName="localTime"
+                  required
+                  aria-describedby="destination-validation"
+              /></label>
+              <label
+                >{{ 'admin.publicationAutomation.timezone' | translate
+                }}<input
+                  formControlName="timezone"
+                  required
+                  aria-describedby="destination-validation"
+              /></label>
+              <label
+                >{{ 'admin.publicationAutomation.capacity' | translate
+                }}<input
+                  type="number"
+                  formControlName="capacity"
+                  min="1"
+                  max="10"
+                  step="1"
+                  required
+                  aria-describedby="destination-validation"
+              /></label>
+              <label
+                >{{ 'admin.publicationAutomation.horizon' | translate
+                }}<input
+                  type="number"
+                  formControlName="horizonDays"
+                  min="1"
+                  max="28"
+                  step="1"
+                  required
+                  aria-describedby="destination-validation"
+              /></label>
+            </div>
+            <p class="help">
+              {{
+                'admin.publicationAutomation.settingsPanel.capacityHelp'
+                  | translate
+              }}
+              {{
+                'admin.publicationAutomation.settingsPanel.horizonHelp'
+                  | translate
+              }}
+            </p>
+            <p
+              id="destination-validation"
+              [attr.role]="form.invalid && form.touched ? 'alert' : null"
+            >
+              @if (form.invalid && form.touched) {
+                {{ t('invalid') }}
+              }
+            </p>
+          </section>
+        </form>
+        @if (tab() === 'executions') {
+          <section class="panel">
+            <h2>{{ t('tabs.executions') }}</h2>
+            <p>{{ t('executionsHelp') }}</p>
+            <a
+              class="admin-button"
+              routerLink="/admin/fundraiser/publications/automation"
+              [queryParams]="{ feedId: feed.id, tab: 'all' }"
+              >{{ t('openOperations') }}</a
+            >
+          </section>
+        }
+        @if (tab() === 'diagnostics') {
+          <section class="panel">
+            <h2>{{ t('tabs.diagnostics') }}</h2>
+            <p>{{ t('diagnosticsHelp') }}</p>
+            <dl>
+              <dt>{{ t('connection') }}</dt>
+              <dd>
+                {{
+                  'admin.publicationAutomation.connection.' + feed.connection
+                    | translate
+                }}
+              </dd>
+              <dt>{{ t('checkedAt') }}</dt>
+              <dd>{{ date(feed.checkedAt) }}</dd>
+            </dl>
+            <a
+              class="admin-button"
+              routerLink="/admin/fundraiser/publications/automation"
+              [queryParams]="{ feedId: feed.id, tab: 'exceptions' }"
+              >{{ t('openExceptions') }}</a
+            >
+          </section>
+        }
+      </div>
+      <footer class="destination-actions">
+        <a
+          class="admin-button"
+          routerLink="/admin/fundraiser/engine-room"
+          [queryParams]="context()"
+          >{{ t('back') }}</a
+        >
+        @if (canWrite()) {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="busy() || !form.dirty"
+            (click)="reset(); notice.set('')"
+          >
+            {{ t('cancel') }}
+          </button>
+          <button
+            type="submit"
+            form="destination-form"
+            class="admin-button primary"
+            [disabled]="busy() || !form.dirty || form.invalid"
+            data-og7="destination-save"
+          >
+            {{ t('save') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="
+              busy() ||
+              form.dirty ||
+              !feed.configured ||
+              feed.mode === 'disabled'
+            "
+            (click)="togglePause()"
+            data-og7="destination-pause"
+          >
+            {{ t(feed.paused ? 'resume' : 'pause') }}
+          </button>
+        }
+      </footer>
+    } @else if (!error()) {
+      <h1>{{ t('missing') }}</h1>
+      <p>{{ t('missingHelp') }}</p>
+    }
+  </section>
+</openg7-admin-layout>

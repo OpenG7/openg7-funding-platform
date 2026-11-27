@@ -1,0 +1,217 @@
+:host {
+  display: block;
+}
+.destination-settings {
+  color: #e2edf5;
+  background: #071522;
+  border: 1px solid #286079;
+  border-radius: 1rem;
+  padding: clamp(1rem, 2vw, 2rem);
+}
+.destination-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  color: #a9dcef;
+}
+.destination-breadcrumb a {
+  color: #a9dcef;
+}
+.destination-header {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+.destination-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+.destination-identity > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+openg7-engine-motor {
+  flex: 0 0 9rem;
+  --motor-width: 9rem;
+  --motor-height: 7rem;
+}
+h1 {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+h2 {
+  font-size: 1.12rem;
+  font-weight: 650;
+  margin-bottom: 1rem;
+}
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: #a9dcef;
+}
+.destination-status,
+.panel {
+  border: 1px solid #286079;
+  border-radius: 0.75rem;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #102b3d, #0a1b29);
+  min-width: 0;
+}
+.destination-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  border-block: 1px solid #286079;
+  margin-bottom: 1.5rem;
+}
+.destination-tabs button {
+  color: inherit;
+  background: transparent;
+  padding: 0.8rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+}
+.destination-tabs button[aria-current] {
+  border-color: #d2ad62;
+  background: #3a3526;
+  color: #ffe1a5;
+}
+.configuration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.destination-status dl {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.65rem 1rem;
+}
+.destination-status dd {
+  margin: 0;
+}
+.panel fieldset {
+  border: 1px solid #57859c;
+  border-radius: 0.4rem;
+  padding: 0.6rem;
+}
+dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 1rem;
+}
+dt,
+.help {
+  color: #b5cbd9;
+  font-size: 0.875rem;
+}
+dd {
+  margin: 0 0 0.7rem;
+  overflow-wrap: anywhere;
+}
+p {
+  margin-bottom: 0.7rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+.fields label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+}
+.fields input {
+  min-height: 44px;
+  min-width: 0;
+  width: 100%;
+  color: #edf7ff;
+  background: #071522;
+  border: 1px solid #57859c;
+  border-radius: 0.4rem;
+  padding: 0.6rem;
+}
+.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+}
+.destination-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  border-top: 1px solid #286079;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.destination-actions a {
+  margin-right: auto;
+}
+.destination-settings .admin-button {
+  color: #e2edf5;
+  border: 1px solid #57859c;
+  background: #132e40;
+}
+.destination-settings .primary {
+  color: #201708;
+  background: #e5c075;
+  border-color: #ffe1a5;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+:is(button, a, input):focus-visible {
+  outline: 3px solid #ffd175;
+  outline-offset: 3px;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 1100px) {
+  .configuration-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .destination-header {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .destination-identity {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .destination-status dl {
+    grid-template-columns: 1fr;
+  }
+  .destination-status dd {
+    margin-bottom: 0.7rem;
+  }
+  openg7-engine-motor {
+    flex-basis: 5rem;
+    --motor-width: 5rem;
+    --motor-height: 4.5rem;
+  }
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .destination-actions > * {
+    width: 100%;
+    text-align: center;
+  }
+}

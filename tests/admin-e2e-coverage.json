@@ -18,6 +18,7 @@
     "/admin/fundraiser/publications/automation",
     "/admin/fundraiser/publications/batches",
     "/admin/fundraiser/publications/calendar",
+    "/admin/fundraiser/publications/destinations/:feedId",
     "/admin/fundraiser/publications/drafts",
     "/admin/fundraiser/publications/programme",
     "/admin/fundraiser/setup",
@@ -146,7 +147,8 @@
       "routes": [
         "/admin/fundraiser/pilotage",
         "/admin/fundraiser/sponsors",
-        "/admin/fundraiser/engine-room"
+        "/admin/fundraiser/engine-room",
+        "/admin/fundraiser/publications/destinations/:feedId"
       ],
       "roles": ["owner"],
       "states": [

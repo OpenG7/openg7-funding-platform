@@ -3111,8 +3111,8 @@
       "position": "{{start}}–{{end}} of {{total}}"
     },
     "publicationAutomation": {
-      "title": "Feed management",
-      "intro": "The system prepares copy, batches and dates from payments and consent. You accept, edit or reject before sending.",
+      "title": "Publishing operations",
+      "intro": "Review, schedule and track publications across destinations.",
       "calendar": "Batch calendar",
       "pauseAll": "Pause all feeds",
       "refresh": "Refresh",
@@ -4310,6 +4310,61 @@
           "SOURCE_CHANGED": "Sources or the start changed during the check. Reload timing and verify its start observation."
         }
       }
+    },
+    "destinationSettings": {
+      "save": "Save settings",
+      "preparationHelp": "Prepares batches for review, even while deliveries are paused. Preparation does not authorize publication.",
+      "title": "Destination settings",
+      "breadcrumb": "Destination navigation",
+      "back": "Back to the engine room",
+      "refresh": "Refresh",
+      "loading": "Loading destination…",
+      "selected": "Selected module",
+      "mission": "Configuration and maintenance for this publishing destination.",
+      "status": "Observed destination status",
+      "provider": "Provider",
+      "preparation": "Destination preparation",
+      "connection": "Connection",
+      "checkedAt": "Last check",
+      "unknown": "Unavailable",
+      "sections": "Destination sections",
+      "tabs": {
+        "configuration": "Configuration",
+        "access": "Keys and access (API)",
+        "rules": "Publishing rules",
+        "executions": "Queue and executions",
+        "diagnostics": "Log and diagnostics"
+      },
+      "identity": "Destination and identity",
+      "platform": "Platform",
+      "organization": "Organization",
+      "destinationId": "Destination identifier",
+      "accountId": "Remote resource identifier",
+      "immutable": "The platform and organization define this destination’s identity.",
+      "access": "Keys and connection",
+      "configuration": "Server configuration",
+      "configured": "Available",
+      "notConfigured": "Incomplete or unavailable",
+      "expiresAt": "Authorization expiry",
+      "credentialsHelp": "Secrets stay on the server. This status is neither a key inventory nor proof of a valid connection.",
+      "rules": "Publishing rules",
+      "authorization": "Every publication requires explicit authorization. Saving these settings or checking the connection does not publish content.",
+      "mode": "Provider mode",
+      "modeHelp": "Disabled, simulated or live mode is configured on the server. Formats and eligibility remain checked by the existing publishing workflows.",
+      "invalid": "Choose at least one day, a valid time, a valid IANA timezone, an integer capacity from 1 to 10 and an integer horizon from 1 to 28 days.",
+      "executionsHelp": "View this destination’s publications in the existing operations workspace.",
+      "openOperations": "Open operations for this destination",
+      "diagnosticsHelp": "The latest connection status is shown below. Operations filters exceptions by destination; its reliability diagnostics remain global.",
+      "openExceptions": "View exceptions for this destination",
+      "cancel": "Cancel changes",
+      "pause": "Pause destination",
+      "resume": "Resume destination",
+      "pauseConfirm": "This command changes the destination pause. Resuming allows the engine to process already authorized publications when due, subject to its usual checks. It does not authorize new content.",
+      "discard": "Leave and discard unsaved changes?",
+      "missing": "Destination not found",
+      "missingHelp": "This destination is absent from the available data. Return to the engine room to select a module.",
+      "readError": "Unable to load settings. No operational state can be confirmed.",
+      "commandError": "The operation or its confirming read failed. Changes are retained; verify the state before retrying."
     }
   }
 }

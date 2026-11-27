@@ -102,7 +102,7 @@ const adminPages: {
   },
   {
     path: '/admin/fundraiser/publications/automation',
-    title: { 'fr-CA': 'Pilotage des feeds', en: 'Feed management' }
+    title: { 'fr-CA': 'Opérations de publication', en: 'Publishing operations' }
   },
   {
     path: '/admin/login',
