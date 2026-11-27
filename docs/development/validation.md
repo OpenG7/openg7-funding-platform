@@ -61,9 +61,9 @@ identité, récupération et Keycloak. Runners et artefacts isolés; par pile Do
 un worker et un seed complet.
 
 Ubuntu 24.04 : la [préparation APT](../../.github/actions/prepare-ubuntu-apt/action.yml)
-écarte Azure/EC2 pour l’archive HTTPS, conserve signatures/dépôts tiers
-et borne délais/reprises. Installations : paquets 10 min, Playwright/dépendances
-15 min. Blocage ou index indisponible : échec explicite; aucun test sauté.
+remplace Azure/EC2 par l’archive HTTPS et exclut le dépôt Microsoft inutilisé du
+runner. Autres sources et signatures conservées. Délais/reprises bornés : paquets
+10 min, Playwright/dépendances 15 min. Index indisponible : échec, aucun test sauté.
 
 Docker : N0 sur contenu persisté; N4 exige une seconde identité OIDC
 signée locale, distincte de l’auteur. API OIDC et token partagent base/médias

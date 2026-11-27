@@ -10,6 +10,7 @@ import {
   expect,
   type BrowserContext,
   type Page,
+  type Request,
   type PlaywrightWorkerArgs
 } from '@playwright/test';
 import type { AdminEmailTestRequest } from '@openg7/funding-core';
@@ -35,11 +36,41 @@ async function signIn(
   contexts.push(context);
   const page = context.pages()[0]!;
   page.setDefaultTimeout(10000);
+  let interruptedScript = false;
+  const scriptFailure = (request: Request) => {
+    if (
+      request.resourceType() === 'script' &&
+      request.method() === 'GET' &&
+      new URL(request.url()).origin === origin &&
+      request.failure()?.errorText === 'net::ERR_NETWORK_CHANGED'
+    )
+      interruptedScript = true;
+  };
+  page.on('requestfailed', scriptFailure);
   await page.goto('/admin/login?returnUrl=%2Fadmin%2Ffundraiser%2Fsetup');
   await page.locator('[data-og7="identity-sign-in"]').click();
   await page.getByLabel('Compte de test').selectOption(role);
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page).toHaveURL(/\/admin\/fundraiser/);
+  try {
+    if (role === 'owner') {
+      try {
+        await expect(page.locator('[data-og7="admin-setup"]')).toBeVisible();
+      } catch (error) {
+        // Chromium can lose the read-only callback document's main script when
+        // a disposable Docker network changes. Recover only this observed case.
+        if (
+          !interruptedScript ||
+          page.url() !== origin + '/admin/fundraiser/setup'
+        )
+          throw error;
+        await page.reload();
+        await expect(page.locator('[data-og7="admin-setup"]')).toBeVisible();
+      }
+    }
+  } finally {
+    page.off('requestfailed', scriptFailure);
+  }
   return page;
 }
 

@@ -103,6 +103,7 @@
     "test": "yarn build && node --test \"tests/**/*.test.mjs\"",
     "test:integration": "yarn build && node --test tests/integration/*.integration.mjs",
     "benchmark:admin": "node scripts/benchmark-admin-load.mjs",
+    "assurance:admin": "node scripts/operational-assurance.mjs",
     "test:sponsorship": "yarn build && node --test tests/funding-sponsorship-e2e-coverage.test.mjs",
     "test:e2e:seed": "node scripts/e2e-seed.mjs",
     "test:e2e:seed:cleanup": "node scripts/e2e-seed.mjs --cleanup",

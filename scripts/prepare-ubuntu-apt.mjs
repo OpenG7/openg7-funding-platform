@@ -124,7 +124,8 @@ function writeAtomically(path, contents) {
 export function prepareUbuntuApt({
   root = '/',
   platform = process.platform,
-  apply = false
+  apply = false,
+  excludeRunnerMicrosoft = false
 } = {}) {
   if (platform !== 'linux') throw new Error('APT preparation requires Linux.');
   const release = readFileSync(join(root, 'etc/os-release'), 'utf8');
@@ -144,7 +145,16 @@ export function prepareUbuntuApt({
     }
     requireRegular(path);
     const original = readFileSync(path, 'utf8');
-    const result = rewriteAptSource(original, format, mirrors);
+    // This optional hosted-runner feed supplies no browser/backup dependency.
+    // Retain its signed entry for inspection; other repositories are unchanged.
+    const source =
+      excludeRunnerMicrosoft && format === 'list'
+        ? original.replace(
+            /^([ \t]*deb(?:-src)?[ \t]+(?:\[[^\]\r\n]*\][ \t]+)?https:\/\/packages\.microsoft\.com\/ubuntu\/24\.04\/prod\/?[ \t]+noble(?:[ \t]+[^\r\n]*)?)(\r?)$/gm,
+            '# OpenG7 CI: unused runner Microsoft feed disabled: $1$2'
+          )
+        : original;
+    const result = rewriteAptSource(source, format, mirrors);
     knownRepositories += result.knownRepositories;
     if (result.contents !== original) changes.set(path, result.contents);
   };
@@ -185,12 +195,21 @@ if (
   try {
     const args = process.argv.slice(2);
     if (
-      args.length > 1 ||
-      args.some((arg) => !['--apply', '--dry-run'].includes(arg))
+      args.length !== new Set(args).size ||
+      (args.includes('--apply') && args.includes('--dry-run')) ||
+      args.some(
+        (arg) =>
+          !['--apply', '--dry-run', '--exclude-runner-microsoft'].includes(arg)
+      )
     )
-      throw new Error('Usage: prepare-ubuntu-apt.mjs [--apply|--dry-run]');
+      throw new Error(
+        'Usage: prepare-ubuntu-apt.mjs [--apply|--dry-run] [--exclude-runner-microsoft]'
+      );
     const apply = process.argv.includes('--apply');
-    const changed = prepareUbuntuApt({ apply });
+    const changed = prepareUbuntuApt({
+      apply,
+      excludeRunnerMicrosoft: args.includes('--exclude-runner-microsoft')
+    });
     console.log(
       `${apply ? 'Prepared' : 'Would prepare'} Ubuntu APT: ${changed.length} file(s).`
     );

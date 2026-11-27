@@ -110,3 +110,10 @@ methods 405 and content types 415. Missing runs return 404. Disabled launch,
 idempotency conflicts and capacity/audit limits return 409. Storage or unexpected
 service failures return safe 503 responses. Remote execution failures normally
 remain visible in `run.error`, with no secret or provider response body exposed.
+
+The [isolated operational assurance](../operations/admin-identity-and-alerts.md#isolated-operational-assurance)
+also exercises this native service with an injected synthetic client and a
+temporary journal: acceptance followed by a lost response, restart, unavailable
+observation, and confirmed absence. It retains mission/event IDs and only resubmits
+after a confirmed 404. This zero-cost local exercise does not qualify a remote
+Preflight service, an HTTP authorization boundary, or business approval.

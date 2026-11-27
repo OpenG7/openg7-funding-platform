@@ -427,3 +427,91 @@ puis le courriel en échec, en français sur ordinateur et en anglais à 390 px.
 Le rapport des alertes est conservé dans `test-results/acceptance/`, avec les
 traces navigateur en cas d'échec.
 Ce test qualifie le contrat et la reprise locale, sans envoi vers un canal externe.
+
+<a id="isolated-operational-assurance"></a>
+
+## Assurance opérationnelle isolée
+
+Le chantier 6 ajoute `yarn assurance:admin`. Sans `--run`, la commande affiche
+seulement son plan. L'exécution demande Node 22, le build TypeScript et Docker
+avec `postgres:16-alpine` disponible :
+
+```sh
+yarn build
+yarn assurance:admin --plan
+yarn assurance:admin --run --cycles=3 --interval-ms=1000
+```
+
+Chaque cycle possède une base PostgreSQL neuve, un récepteur HTTP lié uniquement
+à la boucle locale et un journal Preflight temporaire. La commande n'utilise
+ni `.env`, ni URL de base configurée, ni destinataire externe. Les six contrôles
+fixes vérifient les épisodes natifs d'alerte, les lectures administratives, la
+préparation privée idempotente, la réconciliation Preflight, le maintien d'une
+publication incertaine et le nettoyage. Les paiements et publications présents
+dans ces fixtures sont des faits synthétiques de test ; aucun worker de diffusion
+ni fournisseur financier ou modèle payant n'est appelé.
+
+Les cycles sont séquentiels : l'intervalle commence après la fin du précédent.
+Les bornes sont 1 à 12 cycles et 1 à 60 secondes entre cycles. Une interruption
+arrête les nouveaux cycles, laisse terminer le contrôle et le nettoyage en cours,
+puis rend un statut incomplet. Un nettoyage non confirmé arrête les cycles suivants.
+Le répertoire temporaire est vérifié avant sa suppression ; le conteneur est
+celui possédé par la recette.
+
+Trois observations restent distinctes : incidents réels du worker d'alertes,
+recette native Preflight et santé des contrôles synthétiques. Le suivi synthétique
+ouvre un épisode par contrôle défaillant ou indisponible, conserve son identité
+pendant la panne et le ferme seulement après une observation saine. Une lecture
+absente ne prouve jamais une reprise. Cet historique couvre une invocation de la
+commande ; il n'est pas un stockage durable partagé entre jobs CI et n'envoie
+aucune notification externe.
+
+La recette des alertes utilise les vrais services et leurs épisodes PostgreSQL.
+Le récepteur de test accepte durablement un événement, perd volontairement son
+acquittement, puis la fixture vérifie cette acceptation avant de rendre une reprise
+éligible. Deux tentatives donnent une notification logique grâce au même ID et au
+dédoublage SQL du récepteur. La résolution puis la récidive produisent un nouvel
+épisode. L'avancement de l'échéance appartient exclusivement à cette base jetable :
+le backoff natif reste inchangé. Cela ne rajoute pas de lecture distante de reçu au
+worker réel, qui conserve son contrat de livraison au moins une fois.
+
+Pour Preflight, le service natif retrouve son journal après redémarrage. Si
+l'observation distante est indisponible, il conserve l'incertitude sans soumettre
+une seconde mission. Une absence confirmée par 404 autorise seule la reprise avec
+les mêmes IDs de mission et d'événement. L'état `waiting_input` reste bloqué et
+n'autorise aucune décision métier ; voir la [recette propriétaire](../technical/preflight-rehearsals.md).
+Pour une opération réelle, relire le serveur et réconcilier la même opération
+avant toute reprise, avec ses droits, version et autorisation native ; les
+[conditions de réception](sponsorship-delivery-adoption.md#réception-avant-mise-en-service)
+restent applicables. La recette ne libère jamais un compte de publication incertain.
+
+Un exercice explicite reproduit deux observations indisponibles puis une reprise :
+
+```sh
+yarn assurance:admin --run --cycles=3 --interval-ms=1000 --exercise=failure-recovery
+```
+
+Sa sortie attendue est non nulle, même après résolution : les échecs précédents ne
+disparaissent pas. Le rapport agrégé `test-results/admin-operational-assurance.json`
+est ignoré par Git et remplacé à chaque invocation ; l'archiver avant une autre
+exécution si nécessaire. Il contient statuts, durées et compteurs, sans corps
+privés, clés ni coordonnées de connexion. `recoveryDurationMs` reste `null` : une
+échéance avancée dans une fixture ne mesure pas le temps réel de rétablissement.
+
+Le workflow `.github/workflows/operational-assurance.yml` prépare deux cycles et
+conserve uniquement ce rapport pendant sept jours. Sa programmation à la minute
+17 toutes les six heures UTC exige la variable de dépôt non secrète
+`FUNDING_ASSURANCE_SCHEDULE_ENABLED=true` ; sans elle, le job programmé est ignoré.
+Le lancement manuel reste explicite. Les permissions GitHub sont en lecture seule.
+Aucune activation de variable ni exécution distante n'accompagne ce chantier.
+Cette CI dépend de sa propre disponibilité et de ses délais de programmation :
+elle ne constitue ni une sonde de production ni un engagement de disponibilité.
+
+Qualification locale le 25 novembre 2026 sous Node 22.23.5 : trois cycles sains,
+puis exercice panne/panne/reprise avec un seul épisode ouvert et résolu ; six tests
+unitaires et sept tests PostgreSQL ciblés réussis, dont les quatre scénarios
+existants des alertes. Build TypeScript et suite complète : 8 224 tests Node
+réussis, huit exclusions conditionnelles, aucun échec. Chaque cycle a confirmé
+son nettoyage. Les clients
+Preflight sont injectés et le récepteur d'alerte est local ; aucune connexion à
+un fournisseur réel n'est qualifiée.
