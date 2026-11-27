@@ -22,6 +22,7 @@ import type {
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminGoldenPathComponent } from '../../components/admin-golden-path/admin-golden-path.component.js';
 import { AdminOperationalQueueComponent } from '../../components/admin-operational-queue/admin-operational-queue.component.js';
+import { AdminFlowMeasurementComponent } from '../../components/admin-flow-measurement/admin-flow-measurement.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -38,6 +39,7 @@ import { EngineMotorComponent } from './engine-motor.component.js';
     RouterLink,
     AdminGoldenPathComponent,
     AdminOperationalQueueComponent,
+    AdminFlowMeasurementComponent,
     AdminLayoutComponent,
     AdminIconComponent,
     EngineMotorComponent
@@ -64,6 +66,14 @@ export class AdminEngineRoomPageComponent {
   }));
   readonly contextual = computed(
     () => !!(this.scope().sponsorshipId || this.scope().deliveryId)
+  );
+  readonly measurementContext = computed(() =>
+    JSON.stringify([
+      this.scope(),
+      this.admin.sessionGeneration(),
+      this.admin.identity()?.id,
+      this.admin.identity()?.role
+    ])
   );
   readonly decisionId = computed(() => this.params().get('decisionId'));
   readonly selected = signal<'publications' | 'preflight'>('publications');
@@ -181,14 +191,6 @@ export class AdminEngineRoomPageComponent {
   }
   private request = 0;
   private destroyed = false;
-  private readonly context = computed(() =>
-    JSON.stringify([
-      this.scope(),
-      this.admin.sessionGeneration(),
-      this.admin.identity()?.id,
-      this.admin.identity()?.role
-    ])
-  );
   readonly attention = computed(
     () =>
       this.data()?.publications.feeds.filter(
@@ -208,7 +210,7 @@ export class AdminEngineRoomPageComponent {
   };
   constructor() {
     effect(() => {
-      this.context();
+      this.measurementContext();
       untracked(() => {
         ++this.request;
         this.data.set(null);

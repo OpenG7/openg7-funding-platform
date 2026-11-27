@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.flow {
+  color: var(--admin-text, #182f43);
+  background: var(--admin-panel, #f1f7fa);
+  border: 1px solid var(--admin-border, #64889e);
+  border-radius: 0.8rem;
+  padding: 1.1rem;
+  margin: 1rem 0;
+  overflow-wrap: anywhere;
+}
+h2 {
+  font-size: 1.25rem;
+  margin: 0.5rem 0;
+}
+p {
+  margin: 0.6rem 0;
+  line-height: 1.6;
+}
+.counts {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+dd {
+  margin: 0.3rem 0;
+  font-weight: 700;
+}
+details {
+  margin: 1rem 0;
+}
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0.5rem 0;
+}
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+table {
+  border-collapse: collapse;
+  min-width: 640px;
+  width: 100%;
+}
+th,
+td {
+  padding: 0.6rem;
+  border: 1px solid var(--admin-border, #64889e);
+  text-align: left;
+}
+label {
+  display: block;
+  margin: 0.7rem 0;
+}
+select,
+button {
+  color: inherit;
+  background: var(--admin-panel, #f1f7fa);
+  border: 1px solid var(--admin-control-border, #64889e);
+  border-radius: 0.3rem;
+  padding: 0.6rem;
+  min-height: 44px;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+:focus-visible {
+  outline: 3px solid var(--admin-focus, #075080);
+  outline-offset: 3px;
+}
+.note {
+  font-size: 0.9rem;
+}

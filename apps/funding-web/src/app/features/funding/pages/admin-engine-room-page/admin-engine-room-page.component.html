@@ -67,6 +67,10 @@
     @if (failed()) {
       <p class="room-feedback alert" role="alert">{{ t('unavailable') }}</p>
     }
+    <openg7-admin-flow-measurement
+      [measurement]="data()?.flowMeasurement ?? null"
+      [context]="measurementContext()"
+    />
     @if (data(); as snapshot) {
       <nav class="mobile-engine-switch" [attr.aria-label]="t('chooseEngine')">
         <button

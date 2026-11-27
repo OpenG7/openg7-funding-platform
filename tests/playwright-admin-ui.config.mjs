@@ -6,6 +6,7 @@ export default defineBuiltWebSuite({
   testMatch: [
     'admin-decision-focus.spec.ts',
     'admin-engine-room.spec.ts',
+    'admin-flow-measurement.spec.ts',
     'activity-hub-embedded.ui.spec.ts',
     'service-demo.ui.spec.ts',
     'admin-audit-ui.spec.ts',

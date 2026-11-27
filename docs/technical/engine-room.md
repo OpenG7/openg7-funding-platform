@@ -126,6 +126,70 @@ de rôle ou destruction de page. Un rafraîchissement en échec retire les ancie
 données privées. La page réutilise le cadre et les thèmes admin; les parcours sont
 traduits en français et anglais, avec commandes natives accessibles au clavier.
 
+## Flux et référence de charge humaine — chantier 3
+
+La réponse privée ajoute `flowMeasurement`, facultatif pour compatibilité avec
+les anciennes API. Le service lit les engagements, dates, publications et preuves
+dans une transaction `REPEATABLE READ READ ONLY`. Les lectures sont groupées;
+aucun fournisseur, worker ou écriture d’audit n’est déclenché. Les droits restent
+ceux de l’endpoint de la salle. Une source en échec rend les mesures inconnues,
+sans effacer les autres observations de la salle.
+
+Définition `sponsorship-obligation-flow/v1` : photographie actuelle des obligations
+des accords actifs avec offre qualifiée. Le périmètre est global, un dossier,
+une livraison, ou l’intersection des deux. Une livraison collective sélectionne
+uniquement ses passages exacts, sans inclure les autres prestations des participants.
+Les dossiers sans accord qualifié sont exclus et dénombrés. Aucune somme monétaire.
+
+| Mesure             | Définition et limites                                                                                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entrées            | Obligations uniques créées dans les sept jours glissants `[t0,t1)`, UTC; création technique, pas date du paiement ni d’une étape de traitement                                                                                           |
+| Sorties qualifiées | Obligations avec preuve actuellement qualifiée par le service propriétaire et `delivered_at` dans `[t0,t1)`; simulations, déclarations sans preuve et dispenses exclues                                                                  |
+| Population         | Partition actuelle en ouvertes, qualifiées et dispensées; les sorties ne se rajoutent pas à cette population                                                                                                                             |
+| Âge                | Depuis `sponsorship_obligations.created_at`, sur les seules ouvertes; médiane (moyenne des valeurs centrales si effectif pair), P95 au rang supérieur le plus proche, maximum et effectif; dates inconnues/futures exclues et dénombrées |
+| Cycle              | Création → preuve des seules sorties de la fenêtre avec dates cohérentes; médiane/P95 et effectif, jamais durée d’une session humaine                                                                                                    |
+| Échéances          | Ouvertes avec échéance dépassée ou sans échéance; l’heure d’évaluation n’est pas un début d’incident                                                                                                                                     |
+| Cohortes           | Canal, cible, format, mode actuellement observé et présence d’échéance; mode inconnu ou multiple explicite, aucun score global                                                                                                           |
+
+Les qualificatifs proviennent de `qualifiedSponsorshipEvidenceIds`, y compris les
+exigences de durée. Cette photographie peut être révisée après correction des
+preuves ou de l’accord; elle ne reconstruit pas un historique immuable des flux.
+Les modes des cohortes décrivent l’état observé actuel, pas le mode au moment de
+création. Le nombre de sorties distinctes fournit un effectif sur sept jours,
+sans taux d’autonomie. Sans échantillon, les durées restent `null`. La durée
+d’attente d’une étape, les épisodes d’incident et la capacité humaine ne sont pas
+déduits de l’âge ou de la navigation.
+
+Le panneau propose une mesure humaine volontaire par activité : diagnostic,
+revue/autorisation, préparation ou résolution d’incident. Elle exige une case
+d’accord et un démarrage explicite, utilise une horloge monotone, se met en pause
+à la perte de visibilité/focus et reprend uniquement sur demande. Elle ne garde
+ni identité, ni visite, ni contenu de dossier et ne transmet rien. Changer de
+périmètre/session, quitter la page ou retirer son accord efface les échantillons.
+L’actualisation des observations conserve la mesure locale. Les secondes sont
+arrondies à l’entier inférieur par activité. Il s’agit de temps déclaré, pas de
+preuve d’attention continue. `humanActiveSeconds` et `autonomyRate` restent
+inconnus côté API : les sessions existantes ne deviennent pas un indicateur de
+travail. Aucune comparaison avant/après ni promesse de gain sans référence réelle.
+
+Les tests dédiés sont `tests/admin-flow-measurement.test.mjs`,
+`tests/integration/admin-flow-measurement.integration.mjs` et
+`tests/playwright/admin-flow-measurement.spec.ts`. La recette de bilan de
+responsabilité vérifie aussi qu’une vraie preuve Web qualifiée alimente les sorties.
+
+Qualification locale du chantier 3 le 25 novembre 2026 sous Node 22.23.5 :
+8 205 tests Node réussis et huit exclusions conditionnelles au passage isolé,
+avec quatre fichiers en parallèle; 20 tests ciblés réussis après précision de la
+médiane sur effectif pair. Le premier passage concurrent du lint avait deux
+délais de démarrage d’API; le passage isolé conserve les mêmes délais et passe.
+Neuf tests PostgreSQL jetables et 25 parcours navigateur FR/EN réussis, avec
+mobile/ordinateur, accessibilité, accord volontaire, pause et effacement.
+Build Angular de production (27 routes prérendues), types UI et contrôles
+documentaires réussis. Lint global sans erreur avec l’avertissement préexistant
+de `scripts/smoke-public.mjs`; lint des fichiers TypeScript modifiés sans erreur.
+Ces recettes ne constituent ni une référence de charge de production ni une
+qualification à 10 000 contributions par jour.
+
 ## Recette et valeur à mesurer
 
 Le chantier 2 ajoute la priorisation par exception dans un composant partagé
