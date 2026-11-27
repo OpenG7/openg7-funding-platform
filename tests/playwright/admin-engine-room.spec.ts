@@ -254,7 +254,7 @@ for (const language of ['fr-CA', 'en'])
         .boundingBox();
       const inspector = page.locator('[data-og7="engine-detail"]');
       const inspectionBox = await inspector.boundingBox();
-      if (width === 1536)
+      if (width >= 768)
         expect(inspectionBox!.x).toBeGreaterThanOrEqual(
           scene!.x + scene!.width
         );

@@ -3,17 +3,9 @@
   min-width: 0;
 }
 .flow {
-  color: var(--admin-text, #182f43);
-  background: var(--admin-panel, #f1f7fa);
   border: 1px solid var(--admin-border, #64889e);
   border-radius: 0.8rem;
-  padding: 1.1rem;
-  margin: 1rem 0;
   overflow-wrap: anywhere;
-}
-h2 {
-  font-size: 1.25rem;
-  margin: 0.5rem 0;
 }
 p {
   margin: 0.6rem 0;
@@ -27,9 +19,6 @@ p {
 dd {
   margin: 0.3rem 0;
   font-weight: 700;
-}
-details {
-  margin: 1rem 0;
 }
 summary {
   cursor: pointer;
@@ -82,4 +71,121 @@ button:disabled {
 }
 .note {
   font-size: 0.9rem;
+}
+
+.flow {
+  margin: 0;
+  padding: 0.9rem;
+  background: linear-gradient(120deg, #102b3b, #081a27);
+  border-color: #527c90;
+  color: #eef7ff;
+}
+h2 {
+  margin: 0 0 0.7rem;
+  font-size: 1rem;
+}
+.flow-overview {
+  display: grid;
+  gap: 1rem;
+}
+.chart-caption {
+  color: #bbcede;
+  font-size: 0.8rem;
+  margin: 0 0 0.7rem;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.chart-row strong {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.bar-track {
+  grid-column: 1 / -1;
+  height: 0.55rem;
+  border-radius: 1rem;
+  background: #294353;
+  overflow: hidden;
+}
+.bar-track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #1788a8, #8ce5ff);
+}
+.exits .bar-track i {
+  background: linear-gradient(90deg, #b0852e, #ffd27a);
+}
+.flow-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+.flow-metrics > div {
+  border: 1px solid #3b6074;
+  border-radius: 0.6rem;
+  background: #17354588;
+  padding: 0.7rem;
+  min-width: 0;
+}
+.flow-metrics dt {
+  color: #c3d8e6;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.flow-metrics dd {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.flow-metrics small {
+  display: block;
+  color: #bbcede;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+details {
+  margin: 0.5rem 0 0;
+  border-top: 1px solid #38586c;
+}
+summary {
+  color: #a4eaff;
+  font-size: 0.8rem;
+}
+.source-values {
+  font-size: 0.85rem;
+}
+select,
+button {
+  background: #153448;
+  color: #eef7ff;
+  border-color: #6890a4;
+}
+.table-scroll {
+  font-size: 0.8rem;
+}
+@media (min-width: 1280px) {
+  .flow-overview {
+    grid-template-columns: 0.9fr 1.4fr;
+  }
+}
+@media (max-width: 390px) {
+  .flow-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1280px) {
+  .flow > details {
+    display: inline-block;
+    vertical-align: top;
+    margin-right: 1rem;
+  }
+  .flow > details[open] {
+    display: block;
+  }
 }

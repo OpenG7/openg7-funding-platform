@@ -30,7 +30,10 @@
     "unknown": "Not observed",
     "mixed": "Multiple modes"
   },
-  "deadlines": { "dated": "Dated", "undated": "Undated" },
+  "deadlines": {
+    "dated": "Dated",
+    "undated": "Undated"
+  },
   "definition": "Each service counts once, including collective deliveries. Exits use currently qualified evidence, never simulations or waivers. This snapshot can change when evidence is corrected. Age since creation measures neither stage waiting time nor human work. P95 uses the nearest upper rank; no value without a sample.",
   "sources": "Definition, sources and measurement time",
   "unavailable": "Flow measurement unavailable or not provided. No zero is inferred.",
@@ -50,5 +53,9 @@
   "running": "Voluntary measurement in progress.",
   "paused": "Timer stopped.",
   "total": "Self-reported time for this session:",
-  "humanLimits": "Local measurement with no storage or transmission. Cleared when leaving the page or changing dossier or session. Self-reported time does not prove continuous attention or establish autonomy, human capacity or measured gains. Visits and sessions are not converted into working time."
+  "humanLimits": "Local measurement with no storage or transmission. Cleared when leaving the page or changing dossier or session. Self-reported time does not prove continuous attention or establish autonomy, human capacity or measured gains. Visits and sessions are not converted into working time.",
+  "aggregateHelp": "Period entries and exits · observed aggregates",
+  "notMeasured": "Not measured",
+  "ageSampleLabel": "Known ages:",
+  "cycleSampleLabel": "Exits with known duration:"
 }

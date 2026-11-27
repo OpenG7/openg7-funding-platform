@@ -25,5 +25,6 @@
     "duration_restart_required": "A new period start needs to be observed.",
     "duration_awaiting_observation": "The promised period start needs to be observed.",
     "duration_unsupported": "The promised duration requires a review of its support."
-  }
+  },
+  "context": "Scope and provenance"
 }

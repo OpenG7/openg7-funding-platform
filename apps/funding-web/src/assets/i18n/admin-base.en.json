@@ -40,7 +40,7 @@
       "destinationModule": "Delivery module",
       "title": "Intelligent engine room",
       "supervision": "Supervision",
-      "intro": "Understand what prepares your dossiers, what awaits a decision and what prevents progress.",
+      "intro": "Supervise the service cycle: see what prepares dossiers, what needs a decision and what is blocking progress.",
       "refresh": "Refresh status",
       "loading": "Reading engine observations…",
       "unavailable": "Engine observations are unavailable. Check your access and try again.",
@@ -94,6 +94,23 @@
         "recent": "Recent signal observed (45 seconds)",
         "stale": "Old signal · check the relay",
         "unknown": "No usable signal"
+      },
+      "unknownValue": "Unknown",
+      "period": "Observation window:",
+      "withoutDeadline": "Open without a deadline:",
+      "queueUnit": "Business queue items",
+      "periodUnit": "Within the observation window",
+      "populationUnit": "Currently observed population",
+      "pathsTitle": "Happy Paths · Golden Paths · Supervised autonomy",
+      "pathsHelp": "Connect services, decisions and evidence. Each action stays in its native workspace.",
+      "autonomyUnmeasured": "Capacity and autonomy rate: not measured",
+      "kpis": {
+        "created": "Services created",
+        "qualified": "Exits with qualified evidence",
+        "open": "Open services",
+        "overdue": "Overdue open services",
+        "human": "Human interventions required",
+        "platform": "Platform-managed processing"
       }
     },
     "serviceDemo": {

@@ -33,6 +33,52 @@ un sélecteur montre un moteur principal à la fois avec ses modules; le diagnos
 reste vertical. La scène décorative ne contient aucun contrôle : les turbines sont
 de vrais boutons, avec noms, focus et états textuels indépendants de la couleur.
 
+## Composition du cockpit
+
+La refonte de présentation compose six KPI : prestations créées, sorties avec
+preuve qualifiée, ouvertes, ouvertes en retard, interventions humaines et travail
+pris en charge par la plateforme. Les quatre premiers lisent les agrégats de flux ;
+les deux derniers lisent les totaux de la file native. Les lignes de cette file
+ne sont pas des dossiers uniques ni des prestations. Une source absente ou un
+total inconnu affiche « Inconnu », jamais zéro. Les retards restent accompagnés du
+nombre de prestations sans échéance, sans conclure à une bonne santé à partir
+d'un compteur nul.
+
+Sur grand écran, scène, inspecteur et interventions se consultent côte à côte.
+Les flux et les destinations occupent la rangée suivante. La grille se réorganise
+en deux colonnes sur tablette puis en une colonne sur petit écran. Le mode compact
+de la file est explicitement activé pour la Salle ; la présentation de l'Assistant
+reste inchangée. Le panneau du moteur reste à proximité sans navigation lors
+d'une sélection. Funding, Preflight et les modules Facebook/LinkedIn conservent
+leurs relations ; Assistant, Audit et Transparence ne deviennent pas des moteurs.
+
+Les flux comparent les deux agrégats d'entrées et sorties avec des barres, sans
+série quotidienne ni tendance inventée. Les âges et cycles sont affichés en
+jours/heures ou minutes/secondes ; une durée non mesurée reste distincte de zéro.
+Les dates principales sont localisées. Cohortes, définitions, sources, secondes
+exactes et dates UTC restent accessibles dans les détails ; l'observation exacte
+du relevé est aussi dépliable dans Diagnostic. La mesure humaine volontaire reste
+locale, avec accord, pause et effacement ; un rafraîchissement ne la redémarre pas.
+
+Le bandeau Happy Paths / Golden Paths rappelle la finalité sans progression
+fictive. Capacité productive et taux d'autonomie restent non mesurés : aucun
+pourcentage n'est calculé à partir des lignes humaines et plateforme. La scène
+reste statique, sans affirmer une activité de traitement ou une santé fournisseur.
+Cette refonte ne change aucun endpoint, calcul, droit ou appel API.
+
+Qualification locale de cette refonte le 25 novembre 2026 sous Node 22.23.5 :
+build TypeScript, types des recettes UI et build Angular de production réussis
+(27 routes prérendues). Les 39 tests unitaires ciblés couvrent la présentation
+des durées, les agrégats, les projections et leurs limites. Les 32 parcours
+navigateur Salle/flux passent, ainsi que deux contrôles de non-régression de la
+file partagée dans l'Assistant. Les recettes FR/EN couvrent notamment 390, 768,
+1 280, 1 440 et 1 920 px, le clavier, les contrastes automatisés, les états inconnus,
+le retrait des données après échec et l'absence d'écriture API à la consultation.
+Les captures desktop et mobile ont été examinées. Le lint ne conserve que
+l'avertissement préexistant de `scripts/smoke-public.mjs`. Ces tests utilisent
+des API interceptées et des fixtures synthétiques ; ils ne qualifient aucun
+fournisseur ou environnement de production.
+
 ## Contrat HTTP et droits
 
 ### Cycle de reconnaissance par commandite

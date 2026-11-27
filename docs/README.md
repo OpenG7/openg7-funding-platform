@@ -13,12 +13,12 @@ fondatrice, distincte des fonctions et contrats; lecture selon la tâche.
 
 ## Guides fonctionnels actuels
 
-Partir du [socle agent](../AGENTS.md), puis lire les règles du chemin et du domaine.
+Lire le [socle](../AGENTS.md), puis les règles locales.
+[Happy paths admin](development/happy-path-navigation.md) avec ChatGPT.
 [Validation](development/validation.md) : commandes et garanties.
 Architecture en [français](ARCHITECTURE.md) **ou** [anglais](ARCHITECTURE.en.md).
 
-La [consolidation](development/application-consolidation.md) recense règles
-partagées, propriétaires et vérifications.
+La [consolidation](development/application-consolidation.md) relie règles et propriétaires.
 
 Blueprints : [pages de la plateforme](development/platform-functional-visual-blueprint.md)
 et [démo des prestations](development/service-demo-blueprint/README.md).

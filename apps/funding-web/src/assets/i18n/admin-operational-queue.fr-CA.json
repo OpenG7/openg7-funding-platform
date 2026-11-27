@@ -25,5 +25,6 @@
     "duration_restart_required": "Un nouveau début de période doit être constaté.",
     "duration_awaiting_observation": "Le début de la période promise doit être constaté.",
     "duration_unsupported": "La durée promise nécessite une revue de sa prise en charge."
-  }
+  },
+  "context": "Périmètre et provenance"
 }

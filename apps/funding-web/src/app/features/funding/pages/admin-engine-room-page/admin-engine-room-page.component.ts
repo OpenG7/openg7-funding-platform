@@ -86,6 +86,57 @@ export class AdminEngineRoomPageComponent {
       ) ?? null
   );
   readonly data = signal<EngineRoomSnapshot | null>(null);
+  readonly flowTotals = computed(() => {
+    const flow = this.data()?.flowMeasurement;
+    return flow?.status === 'available' ? flow.totals : null;
+  });
+  readonly kpis = computed(() => {
+    const totals = this.flowTotals();
+    const queue = this.data()?.workQueue;
+    return [
+      {
+        key: 'created',
+        icon: 'publications' as const,
+        value: totals?.entries,
+        tone: 'cyan'
+      },
+      {
+        key: 'qualified',
+        icon: 'check' as const,
+        value: totals?.qualifiedExits,
+        tone: 'green'
+      },
+      {
+        key: 'open',
+        icon: 'transparency' as const,
+        value: totals?.open,
+        tone: 'gold'
+      },
+      {
+        key: 'overdue',
+        icon: 'clock' as const,
+        value: totals?.overdue,
+        tone: totals?.overdue ? 'alert' : 'amber'
+      },
+      {
+        key: 'human',
+        icon: 'sponsors' as const,
+        value: queue?.available ? queue.humanTotal : null,
+        tone: 'human'
+      },
+      {
+        key: 'platform',
+        icon: 'settings' as const,
+        value: queue?.available ? queue.platformTotal : null,
+        tone: 'cyan'
+      }
+    ];
+  });
+  number(value: number | null | undefined): string {
+    return value == null
+      ? this.t('unknownValue')
+      : new Intl.NumberFormat(this.i18n.currentLanguage()).format(value);
+  }
   readonly loading = signal(false);
   readonly failed = signal(false);
   readonly clock = signal(Date.now());

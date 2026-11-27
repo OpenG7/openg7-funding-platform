@@ -56,3 +56,101 @@ a:focus-visible {
 .scope {
   font-size: 0.9rem;
 }
+
+/* Opt-in cockpit density; the Assistant retains its existing presentation. */
+.compact {
+  margin: 0;
+  padding: 0.9rem;
+  background: linear-gradient(135deg, #112e3f, #081925);
+  color: #eef7ff;
+  border-color: #527c90;
+}
+.compact h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.6rem;
+}
+.compact h3 {
+  font-size: 0.9rem;
+  border-top: 1px solid #3e6074;
+  padding-top: 0.7rem;
+}
+.compact .counts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid #3e6074;
+  margin: 0;
+}
+.compact dt {
+  font-size: 0.75rem;
+  color: #c3d8e6;
+}
+.compact dd {
+  font-size: 1.6rem;
+}
+.compact ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.compact li {
+  border-bottom: 1px solid #3e6074;
+  padding: 0.65rem 0;
+  margin: 0;
+}
+.compact li strong {
+  font-size: 0.875rem;
+}
+.compact p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.compact a {
+  color: #a4eaff;
+  padding: 0.6rem 0;
+  margin-right: 0.7rem;
+  font-size: 0.8rem;
+}
+.compact > a {
+  display: block;
+  border: 1px solid #59859c;
+  background: #15394c;
+  border-radius: 0.45rem;
+  text-align: center;
+  padding: 0.7rem;
+  margin: 0.7rem 0 0;
+}
+.compact details {
+  border-top: 1px solid #3e6074;
+  margin-top: 0.7rem;
+}
+.compact summary {
+  color: #a4eaff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.7rem 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.compact .item-heading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.compact .priority {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  border: 1px solid #857248;
+  border-radius: 1rem;
+  padding: 0.15rem 0.45rem;
+  color: #ffe3a8;
+  background: #302b20;
+}
+.compact .priority[data-priority='urgent'] {
+  border-color: #ac6b70;
+  color: #ffd1cf;
+  background: #3e222d;
+}
