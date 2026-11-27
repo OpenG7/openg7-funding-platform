@@ -140,6 +140,97 @@ Lint has no errors and retains the existing `scripts/smoke-public.mjs` warning;
 format, project standards, documentation checks and `git diff --check` passed.
 These fixtures do not measure production savings or qualify any real provider.
 
+<a id="bounded-private-preparation"></a>
+
+## Bounded private preparation — chantier 7
+
+`POST /api/admin/automatic-runs/prepare-bounded` (also `/admin/...`) opts into
+one finite server-side private preparation. It requires a current operator or
+owner session and the existing origin policy. Readers cannot launch it. It is
+not called by the Assistant or by loading an admin page; the existing browser
+reading checkpoints and manual endpoints keep their behavior. No new UI button,
+background worker, machine credential or recurring schedule is introduced.
+
+Read the preparation plan first. The JSON request contains `requestId`, exactly
+one `{contributionId,version}` in `preparationSelection`, and this explicit policy:
+
+```json
+{
+  "capability": "private_preparation",
+  "confirmed": true,
+  "maxDossiers": 1,
+  "maxDrafts": 4,
+  "maxProviderCalls": 0,
+  "maxCostMinor": 0,
+  "costCurrency": "CAD",
+  "expiresAt": "2026-11-25T20:15:00.000Z"
+}
+```
+
+The date is illustrative: a new policy must expire after current PostgreSQL time
+and within fifteen minutes. Use canonical UTC milliseconds. `maxDrafts` is an
+integer from one to four; all other policy fields have the exact values above.
+Unknown fields, missing confirmation and broader capabilities are refused. The
+existing 4 KiB body limit applies. The same policy can be captured with native
+`POST /automatic-runs` before explicitly calling the bounded endpoint.
+
+The actor-owned run freezes the selected dossier using its exact preview version.
+Its policy is immutable and returned as optional `run.preparationPolicy`; old
+runs omit this field and never acquire delegated authority. Native preparation
+revalidates current consent, payment, moderation and obligations, and preserves
+late human edits. It prepares only the next eligible passage per benefit and
+destination. A changed prerequisite can produce a completed check with no draft;
+`completed` is not a delivered benefit, preparation approval or balanced dossier.
+
+Execution reuses native `start` and `advance`, their transactions, audit and
+durable command records. The advance UUID is derived deterministically from the
+start UUID. Both the mode and policy participate in the appropriate request
+digests; changing a captured policy with the same key returns a conflict.
+Repeated or concurrent calls reconcile those records, rather than submitting a
+new logical preparation. A completed response can be recovered after expiry
+without renewing the grant. The start and dossier audit record the policy; the
+dossier-check audit identifies `bounded-private-preparation` versus a later `manual`
+action. No second workflow, execution ledger or provider mission is created.
+
+PostgreSQL time, the initial pass and the one-dossier scope are checked before
+execution, after draft preparation and immediately before returning for commit.
+The draft budget counts newly created drafts, not preserved ones. Exceeding the
+budget or expiring during execution rolls back drafts, dossier report and their
+audit together. The separately committed native intent then remains uncertain;
+inspect it and use explicit native reconciliation. An absent acknowledgment is
+not permission to replay an uncertain command. A concurrent attempt may return
+`RUN_IN_PROGRESS`; inspect the run before deciding whether to recover a receipt.
+
+Native `control: pause` fences any unstarted delegated continuation through the
+run version. A finite transaction already holding the run lock can finish; pause
+does not undo private text. Resume changes the version again and never renews
+the old delegated command. After a failure, first inspect the native report,
+then explicitly reconcile when required and resume separately. An operator can
+use a new ordinary `advance` command under their own manual rights to finish an
+expired or stopped run. That is a separately audited human action, outside the
+automation grant, not an automatic budget extension. New policy terms require
+a new request and a fresh eligible preview.
+
+`RUN_POLICY_REQUIRED`, `RUN_POLICY_INVALID` and invalid selection shape return 400. A stale scope, active run, conflicting request, expired/overlong grant or
+budget exhaustion returns 409 with a specific `RUN_*` code. Unavailable storage
+remains 503. No policy approves content, calls a paid model, publishes, sends
+mail, refunds or changes public visibility.
+
+Migration `073_admin_private_preparation_policy.sql` adds the nullable policy
+column, shape constraint and immutability trigger. Apply it before this API using
+the [migration procedure](../operations/database-migrations.md); existing manual
+runs and their financial inputs are retained. Local tests use disposable bases;
+no migration or bounded command has been executed against a business environment.
+
+Local qualification on 25 November 2026, Node 22.23.5: TypeScript build,
+8,228 Node tests passed with eight conditional exclusions, 12 focused HTTP/policy
+tests and 22 disposable PostgreSQL tests passed. Cases cover upgrades preserving
+manual runs, restricted runtime grants and real HTTP role/origin checks, duplicate
+requests, actor conflicts, changed consent, preserved edits, pause fencing, budget
+rollback and expiry both during intent acquisition and immediately before commit.
+These tests establish local contracts and recovery behavior, not measured human
+time savings or provider/production qualification.
+
 ## Versioned preparation receipts
 
 `GET /api/admin/sponsorships/preparation?sponsorshipId=<uuid>` reads the current

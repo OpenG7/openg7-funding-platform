@@ -21,6 +21,8 @@ import {
 } from '../../scripts/lib/database-migrations.mjs';
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 const origin = 'https://synthetic-admin.invalid';
 const migrations = readMigrations('apps/funding-api/migrations');
@@ -171,6 +173,16 @@ test(
     ]) {
       assert.equal(
         (
+          await http.request('/prepare-bounded', {
+            role: account,
+            requestOrigin,
+            body: { requestId: randomUUID() }
+          })
+        ).status,
+        expected
+      );
+      assert.equal(
+        (
           await http.request('', {
             role: account,
             requestOrigin,
@@ -181,6 +193,14 @@ test(
       );
     }
     assert.equal((await http.request('', { role: 'reader' })).body.run, null);
+    assert.equal(
+      (
+        await http.request('/prepare-bounded', {
+          body: { requestId: randomUUID() }
+        })
+      ).status,
+      400
+    );
     const startCommand = { requestId: randomUUID() };
     let state = await http.request('', { body: startCommand });
     assert.equal(state.status, 200);
@@ -340,6 +360,76 @@ test(
           'SELECT count(*)::int AS count FROM sponsor_publication_drafts'
         )
       ).rows[0].count,
+      0
+    );
+
+    // The new opt-in crosses the same HTTP authorization and restricted runtime role.
+    const boundedId = (
+      await database.pool
+        .query(`INSERT INTO fund_contributions(contribution_type,amount_cents,currency,status,paid_at,sponsor_company_name,
+      sponsor_public_summary,sponsor_contact_email,sponsor_review_status,sponsor_details_submitted_at,public_display_consent,sponsor_site_visibility_held)
+      VALUES('sponsorship_interest',1500,'CAD','paid',NOW(),'Synthetic HTTP policy','Synthetic summary','synthetic@example.invalid','approved',NOW(),TRUE,TRUE) RETURNING id`)
+    ).rows[0].id;
+    await recordFixtureSponsorshipAgreement(database.pool, boundedId, {
+      channel: 'facebook',
+      quantity: 2
+    });
+    await approveFixtureSubject(database.pool, {
+      type: 'sponsorship',
+      id: boundedId
+    });
+    const candidate = (
+      await http.request('/preparation-plan', { role: 'owner' })
+    ).body.items.find((item) => item.contributionId === boundedId);
+    const boundedRequest = {
+      requestId: randomUUID(),
+      preparationSelection: [
+        { contributionId: candidate.contributionId, version: candidate.version }
+      ],
+      preparationPolicy: {
+        capability: 'private_preparation',
+        confirmed: true,
+        maxDossiers: 1,
+        maxDrafts: 1,
+        maxProviderCalls: 0,
+        maxCostMinor: 0,
+        costCurrency: 'CAD',
+        expiresAt: new Date(Date.now() + 60000).toISOString()
+      }
+    };
+    const bounded = await http.request('/prepare-bounded', {
+      role: 'owner',
+      body: boundedRequest
+    });
+    assert.equal(bounded.status, 200);
+    assert.equal(bounded.body.run.status, 'completed');
+    assert.equal(bounded.body.run.processedCount, 1);
+    assert.equal(bounded.body.run.latestEntry.actions[0].created, true);
+    assert.deepEqual(
+      (
+        await http.request('/prepare-bounded', {
+          role: 'owner',
+          body: boundedRequest,
+          prefix: ''
+        })
+      ).body,
+      bounded.body
+    );
+    assert.equal(
+      (
+        await runtime.query(
+          'SELECT count(*)::int n FROM sponsor_publication_drafts WHERE contribution_id=$1',
+          [boundedId]
+        )
+      ).rows[0].n,
+      1
+    );
+    assert.equal(
+      (
+        await runtime.query(
+          'SELECT count(*)::int n FROM publication_deliveries'
+        )
+      ).rows[0].n,
       0
     );
   }

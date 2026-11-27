@@ -11,6 +11,7 @@ const operatorActions = new Set([
   '/admin/pilotage/variant',
   '/admin/automatic-runs',
   '/admin/automatic-runs/advance',
+  '/admin/automatic-runs/prepare-bounded',
   '/admin/automatic-runs/control',
   '/admin/automatic-runs/preparation/approve',
   '/admin/sponsorships/preparation/approve',

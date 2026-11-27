@@ -51,6 +51,7 @@ function fixture({ denied = false, unavailable = false, failure } = {}) {
           state: port('state', state),
           start: port('start', state),
           advance: port('advance', state),
+          prepareBounded: port('prepareBounded', state),
           control: port('control', state),
           report: port('report', { entries: [], nextCursor: null }),
           preparation: port('preparation', { position: 3 }),
@@ -89,6 +90,7 @@ test('automatic runs authorize every alias before body, actor, filters and servi
     for (const suffix of [
       '',
       '/advance',
+      '/prepare-bounded',
       '/control',
       '/report',
       '/preparation',
@@ -171,6 +173,11 @@ test('automatic run commands dispatch only exact bodies under a bounded JSON rea
   for (const [suffix, method, input] of [
     ['', 'start', { requestId: id }],
     ['/advance', 'advance', { runId: id, requestId: id, expectedVersion: 1 }],
+    [
+      '/prepare-bounded',
+      'prepareBounded',
+      { requestId: id, preparationPolicy: { confirmed: true } }
+    ],
     [
       '/control',
       'control',

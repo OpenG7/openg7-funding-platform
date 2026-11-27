@@ -1,6 +1,18 @@
 import type { ResponsibilityBalance } from './admin-responsibility-balance.js';
 import type { AdminPreparationSelection } from './admin-preparation-plan.js';
 
+/** One finite private preparation, never a provider or business approval grant. */
+export interface AdminPrivatePreparationPolicy {
+  readonly capability: 'private_preparation';
+  readonly confirmed: true;
+  readonly maxDossiers: 1;
+  readonly maxDrafts: number;
+  readonly maxProviderCalls: 0;
+  readonly maxCostMinor: 0;
+  readonly costCurrency: 'CAD';
+  readonly expiresAt: string;
+}
+
 export interface AdminAutomaticRunAction {
   readonly kind: 'draft_prepared';
   readonly targetId: string;
@@ -30,6 +42,7 @@ export interface AdminAutomaticRunEntry {
 
 export interface AdminAutomaticRun {
   readonly id: string;
+  readonly preparationPolicy?: AdminPrivatePreparationPolicy;
   readonly version: number;
   readonly status: 'running' | 'paused' | 'completed' | 'uncertain';
   readonly startedAt: string;
@@ -68,6 +81,7 @@ export interface AdminAutomaticRunReport {
 export interface AdminAutomaticRunStartRequest {
   readonly requestId: string;
   readonly preparationSelection?: readonly AdminPreparationSelection[];
+  readonly preparationPolicy?: AdminPrivatePreparationPolicy;
 }
 
 export interface AdminAutomaticRunAdvanceRequest {
