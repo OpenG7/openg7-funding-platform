@@ -28,7 +28,10 @@ async function destinationFixture(page: Page, reader = false) {
       'openg20:linkedin'
     ] as PublicationFeedId[]
   ).map((id) => ({ ...base, id }));
-  fixture.options.snapshot.publications.feeds = feeds;
+  fixture.options.snapshot = {
+    ...fixture.options.snapshot,
+    publications: { ...fixture.options.snapshot.publications, feeds }
+  };
   const state: PublicationAutomationState = {
     feeds,
     workerEnabled: false,
@@ -39,7 +42,7 @@ async function destinationFixture(page: Page, reader = false) {
       exceptions: 0,
       publishedToday: 0
     },
-    deliveries: fixture.options.snapshot.publications.deliveries
+    deliveries: [...fixture.options.snapshot.publications.deliveries]
   };
   const commands: PublicationAutomationCommand[] = [];
   const failures = { read: false, write: false };
