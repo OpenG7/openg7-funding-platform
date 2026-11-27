@@ -52,10 +52,18 @@ interface StripeRefundRow extends SponsorshipRefundFact {
 /** Exact dossier publication facts shared by progress and the read-only assistant. */
 export async function loadSponsorshipProgressPublications(
   client: Pool | PoolClient,
-  id: string
-): Promise<readonly SponsorshipProgressPublication[]> {
-  const result = await client.query<SponsorshipProgressPublication>(
-    `SELECT d.id, d.obligation_id AS "obligationId", d.channel, d.feed_target AS target, d.status,
+  id: string | readonly string[]
+): Promise<
+  readonly (SponsorshipProgressPublication & {
+    readonly contributionId?: string;
+  })[]
+> {
+  if (Array.isArray(id) && id.length === 0) return [];
+  const multiple = typeof id !== 'string';
+  const result = await client.query<
+    SponsorshipProgressPublication & { readonly contributionId?: string }
+  >(
+    `SELECT ${multiple ? 'd.contribution_id::text AS "contributionId",' : ''}d.id, d.obligation_id AS "obligationId", d.channel, d.feed_target AS target, d.status,
     b.status AS "batchStatus", s.status AS "slotStatus",
     CASE WHEN a.id IS NOT NULL THEN a.status ELSE j.status END AS "deliveryStatus",
     CASE WHEN a.id IS NOT NULL THEN a.mode ELSE j.mode END AS "deliveryMode",
@@ -72,7 +80,7 @@ export async function loadSponsorshipProgressPublications(
       ORDER BY (status = 'published' AND mode = 'live') DESC,
       (status NOT IN ('cancelled', 'rejected')) DESC, updated_at DESC, id LIMIT 1) a ON true
     LEFT JOIN publication_feeds f ON f.id = d.feed_target || ':' || d.channel
-    WHERE d.contribution_id = $1::uuid ORDER BY d.channel, d.feed_target, d.id`,
+    WHERE ${multiple ? 'd.contribution_id = ANY($1::uuid[])' : 'd.contribution_id = $1::uuid'} ORDER BY d.channel, d.feed_target, d.id`,
     [id, process.env.SOCIAL_PUBLICATION_WORKER_ENABLED === 'true']
   );
   return result.rows;

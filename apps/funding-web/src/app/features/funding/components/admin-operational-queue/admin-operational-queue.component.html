@@ -1,0 +1,76 @@
+<section
+  class="operational-queue"
+  data-og7="operational-queue"
+  [attr.aria-busy]="loading()"
+>
+  <h2>{{ t('title') }}</h2>
+  <p>{{ t('intro') }}</p>
+  @if (loading()) {
+    <p role="status">{{ t('loading') }}</p>
+  } @else if (queue()?.available) {
+    @if (stale()) {
+      <p role="status">{{ t('stale') }}</p>
+    }
+    <dl class="counts">
+      <div>
+        <dt>{{ t('human') }}</dt>
+        <dd data-og7="operational-human-count">
+          {{ queue()?.humanTotal ?? t('unknown') }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ t('platform') }}</dt>
+        <dd data-og7="operational-platform-count">
+          {{ queue()?.platformTotal ?? t('unknown') }}
+        </dd>
+      </div>
+    </dl>
+    <h3>{{ t('human') }}</h3>
+    <ul>
+      @for (item of recommendations(); track item.id) {
+        <li data-og7="operational-intervention" [attr.data-og7-id]="item.id">
+          <strong>{{ type(item) }}</strong>
+          <p>
+            {{ i18n.t('admin.attention.priority.' + item.severity) }} ·
+            {{ reason(item) }}
+          </p>
+          <span>{{ t('human') }}</span>
+          <a [routerLink]="link(item)">{{ t('openNative') }}</a>
+          <a
+            routerLink="/admin/fundraiser/attention"
+            [queryParams]="{ itemId: item.id }"
+            >{{ t('openItem') }}</a
+          >
+        </li>
+      } @empty {
+        <li>
+          {{ queue()?.humanTotal === 0 ? t('noHuman') : t('humanNotObserved') }}
+        </li>
+      }
+    </ul>
+    <h3>{{ t('platform') }}</h3>
+    <p>{{ t('platformHelp') }}</p>
+    <ul>
+      @for (item of platformItems(); track item.id) {
+        <li data-og7="operational-platform-item" [attr.data-og7-id]="item.id">
+          <p>{{ reason(item) }}</p>
+          <a [routerLink]="link(item)">{{ t('observe') }}</a>
+        </li>
+      } @empty {
+        <li>
+          {{
+            queue()?.platformTotal === 0
+              ? t('noPlatform')
+              : t('platformNotOnPage')
+          }}
+        </li>
+      }
+    </ul>
+    <p class="scope">{{ t('scope') }}</p>
+  } @else {
+    <p role="status" data-og7="operational-unavailable">
+      {{ t('unavailable') }}
+    </p>
+  }
+  <a routerLink="/admin/fundraiser/attention">{{ t('fullQueue') }}</a>
+</section>

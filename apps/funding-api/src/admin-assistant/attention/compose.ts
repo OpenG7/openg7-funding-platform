@@ -15,6 +15,7 @@ import {
 import { detectFailedEmailItems } from './email.detectors.js';
 import { detectFinancialWarningItems } from './financial.detectors.js';
 import { detectSponsorshipObligationItems } from './obligation.detectors.js';
+import { prioritizeOperationalItems } from './operational-priority.js';
 
 const sortAttentionItems = (
   items: readonly AdminAttentionItem[]
@@ -33,14 +34,19 @@ const sortAttentionItems = (
 export const buildAttentionItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
-  sortAttentionItems([
-    ...detectSponsorshipInfoItems(dataset),
-    ...detectSponsorshipReviewItems(dataset),
-    ...detectSponsorshipMediaReviewItems(dataset),
-    ...detectSponsorshipCommitmentItems(dataset),
-    ...detectSponsorshipObligationItems(dataset),
-    ...detectPublicationPreparationItems(dataset),
-    ...detectLatePublicationItems(dataset),
-    ...detectFailedEmailItems(dataset),
-    ...detectFinancialWarningItems(dataset)
-  ]);
+  sortAttentionItems(
+    prioritizeOperationalItems(
+      [
+        ...detectSponsorshipInfoItems(dataset),
+        ...detectSponsorshipReviewItems(dataset),
+        ...detectSponsorshipMediaReviewItems(dataset),
+        ...detectSponsorshipCommitmentItems(dataset),
+        ...detectSponsorshipObligationItems(dataset),
+        ...detectPublicationPreparationItems(dataset),
+        ...detectLatePublicationItems(dataset),
+        ...detectFailedEmailItems(dataset),
+        ...detectFinancialWarningItems(dataset)
+      ],
+      dataset
+    )
+  );

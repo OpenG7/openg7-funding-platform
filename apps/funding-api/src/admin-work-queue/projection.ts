@@ -11,6 +11,7 @@ import {
 import { sponsorshipAdminUrl } from '../sponsorship-admin-presentation.js';
 import { isUnfinishedPublicationDraft } from '../sponsorship-publication-coverage.js';
 import { publicationSlotExecution } from '../admin-assistant/attention/publication-execution.js';
+import { prioritizeOperationalItems } from '../admin-assistant/attention/operational-priority.js';
 
 import {
   DAY,
@@ -263,7 +264,12 @@ export const buildWorkQueueItems = (
       }
     );
   }
-  return [
-    ...new Map([...items, ...followups].map((item) => [item.id, item])).values()
-  ].sort(compareAdminWorkQueueItems);
+  return prioritizeOperationalItems(
+    [
+      ...new Map(
+        [...items, ...followups].map((item) => [item.id, item])
+      ).values()
+    ],
+    dataset
+  ).sort(compareAdminWorkQueueItems);
 };

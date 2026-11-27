@@ -20,6 +20,32 @@ export const paginateWorkQueue = (
   missingSources: readonly string[] = [],
   pendingDossierCount: number | null = null
 ): AdminWorkQueueResponse => {
+  const inScope = items.filter(
+    (item) =>
+      (!query.sponsorshipId ||
+        item.contributionId === query.sponsorshipId ||
+        item.sponsorshipId === query.sponsorshipId ||
+        item.relatedContributionIds?.includes(query.sponsorshipId)) &&
+      (!query.deliveryId ||
+        item.publicationId === query.deliveryId ||
+        item.relatedDeliveryIds?.includes(query.deliveryId))
+  );
+  items = inScope;
+  if (query.sponsorshipId || query.deliveryId) {
+    const dossiers = new Set(
+      items
+        .filter((item) => item.severity !== 'informational')
+        .flatMap(
+          (item) =>
+            item.relatedContributionIds ??
+            [item.contributionId ?? item.sponsorshipId].filter(
+              (id): id is string => !!id
+            )
+        )
+        .filter((id) => !query.sponsorshipId || id === query.sponsorshipId)
+    );
+    pendingDossierCount = missingSources.length ? null : dossiers.size;
+  }
   const counts = Object.fromEntries(
     WORK_QUEUE_PRIORITIES.map((priority) => [
       priority,
@@ -34,9 +60,10 @@ export const paginateWorkQueue = (
   ) as Record<AdminAttentionItemType, number>;
   const today = localDay(now.toISOString());
   const todayItem = (item: AdminAttentionItem): boolean =>
-    item.severity === 'urgent' ||
-    item.severity === 'today' ||
-    Boolean(item.dueAt && localDay(item.dueAt) <= today);
+    item.intervention?.responsibility !== 'platform' &&
+    (item.severity === 'urgent' ||
+      item.severity === 'today' ||
+      Boolean(item.dueAt && localDay(item.dueAt) <= today));
   const filtered = items.filter((item) => {
     if (query.itemId && item.id !== query.itemId) return false;
     if (query.type && item.type !== query.type) return false;
@@ -108,6 +135,17 @@ export const paginateWorkQueue = (
     generatedAt: now.toISOString(),
     timezone: 'America/Toronto',
     total: items.length,
+    humanTotal: missingSources.length
+      ? null
+      : items.filter(
+          (item) =>
+            item.severity !== 'informational' &&
+            item.intervention?.responsibility !== 'platform'
+        ).length,
+    platformTotal: missingSources.length
+      ? null
+      : items.filter((item) => item.intervention?.responsibility === 'platform')
+          .length,
     filteredTotal: filtered.length,
     todayTotal: items.filter(todayItem).length,
     counts,

@@ -75,9 +75,16 @@ export const detectSponsorshipObligationItems = (
     if (record.commitment?.state !== 'active' || !record.commitment.offer)
       return items;
     for (const obligation of record.commitment.obligations) {
+      const native = dataset.publicationWorkflows
+        ?.find((item) => item.contributionId === record.contributionId)
+        ?.workflow.obligations.find(
+          (item) => item.obligationId === obligation.id
+        );
       if (
         obligation.state === 'adjusted' ||
-        (obligation.state === 'fulfilled' && obligation.fulfilmentEvidenceId)
+        (obligation.state === 'fulfilled' &&
+          obligation.fulfilmentEvidenceId &&
+          (!native || native.state === 'complete'))
       )
         continue;
       // Preparation, authorization, publication and proof are separate. In particular,
@@ -90,7 +97,8 @@ export const detectSponsorshipObligationItems = (
         add(
           'sponsorship_needs_fulfilment',
           obligation.id,
-          obligation.state === 'fulfilled' ||
+          native?.reason ??
+            (obligation.state === 'fulfilled' ||
             dataset.drafts.some(
               (draft) =>
                 draft.contribution_id === record.contributionId &&
@@ -99,17 +107,17 @@ export const detectSponsorshipObligationItems = (
                 draft.status === 'published' &&
                 (!draft.obligation_id || draft.obligation_id === obligation.id)
             )
-            ? 'fulfilment_evidence_missing'
-            : record.refundStatus !== 'not_requested'
-              ? 'refund_requires_review'
-              : record.paymentStatus !== 'paid'
-                ? 'payment_requires_review'
-                : record.reviewStatus !== 'approved'
-                  ? 'review_required'
-                  : (obligation.blockedReason ??
-                    (obligation.channel === 'website'
-                      ? 'website_fulfilment_required'
-                      : 'social_fulfilment_required')),
+              ? 'fulfilment_evidence_missing'
+              : record.refundStatus !== 'not_requested'
+                ? 'refund_requires_review'
+                : record.paymentStatus !== 'paid'
+                  ? 'payment_requires_review'
+                  : record.reviewStatus !== 'approved'
+                    ? 'review_required'
+                    : (obligation.blockedReason ??
+                      (obligation.channel === 'website'
+                        ? 'website_fulfilment_required'
+                        : 'social_fulfilment_required'))),
           obligation
         );
       const timing = obligation.timing;

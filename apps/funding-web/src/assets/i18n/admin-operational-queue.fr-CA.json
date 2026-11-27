@@ -1,0 +1,29 @@
+{
+  "title": "Interventions et traitements en cours",
+  "intro": "La même file métier alimente l’Assistant et la Salle des moteurs. Les priorités humaines restent distinctes du travail pris en charge par la plateforme.",
+  "loading": "Lecture des interventions…",
+  "stale": "Observation ancienne. Actualisez avant d’intervenir.",
+  "human": "Interventions humaines requises",
+  "platform": "Traitements pris en charge par la plateforme",
+  "unknown": "Non mesuré",
+  "unavailable": "Interventions non observées ou source indisponible. Aucun compteur nul n’est déduit.",
+  "noHuman": "Aucune intervention humaine requise dans le périmètre observé.",
+  "humanNotObserved": "Les recommandations ne sont pas disponibles sur cette réponse. Consultez la file complète.",
+  "noPlatform": "Aucun traitement plateforme identifié dans ce périmètre.",
+  "platformNotOnPage": "Les traitements plateforme ne figurent pas sur cette page de la file.",
+  "platformHelp": "Un envoi autorisé en attente normale ne demande ni une nouvelle préparation ni une déclaration de livraison humaine. Les blocages et résultats incertains restent à examiner.",
+  "openNative": "Ouvrir l’espace métier",
+  "openItem": "Retrouver dans À traiter",
+  "observe": "Consulter le traitement",
+  "fullQueue": "Consulter toute la file À traiter",
+  "scope": "Compteurs de lignes de la file avant pagination dans le périmètre demandé ; recommandations limitées. Plusieurs lignes peuvent concerner un même traitement. Ces nombres ne mesurent pas les prestations livrées.",
+  "reasonUnknown": "Motif non observé. Consultez l’espace métier.",
+  "load": "Voir les interventions prioritaires",
+  "reasons": {
+    "deadline_exceeded": "L’échéance promise est dépassée ; une intervention reste nécessaire.",
+    "deadline_origin_unknown": "L’origine de l’échéance doit être documentée.",
+    "duration_restart_required": "Un nouveau début de période doit être constaté.",
+    "duration_awaiting_observation": "Le début de la période promise doit être constaté.",
+    "duration_unsupported": "La durée promise nécessite une revue de sa prise en charge."
+  }
+}

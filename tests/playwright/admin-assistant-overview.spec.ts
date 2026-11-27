@@ -6,12 +6,51 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { operationalQueueFixture } from './support/engine-room.js';
 import {
   expectAdminPageFits,
   prepareAdminDesignReview
 } from './support/admin-design-review.js';
 
 const base = '/admin/fundraiser/assistant';
+
+for (const language of ['fr-CA', 'en'])
+  test(`Assistant loads the same operational exception reasons on demand in ${language}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.route('**/api/admin/attention?*', async (route) =>
+      route.fulfill({ json: operationalQueueFixture() })
+    );
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.goto(base);
+    await expect(
+      page.locator('[data-og7="operational-human-count"]')
+    ).toHaveCount(0);
+    await page.locator('[data-og7="assistant-load-interventions"]').click();
+    const queue = page.locator('[data-og7="operational-queue"]');
+    await expect(
+      queue.locator('[data-og7="operational-human-count"]')
+    ).toHaveText('1');
+    await expect(
+      queue.locator('[data-og7="operational-intervention"]')
+    ).toHaveAttribute('data-og7-id', 'synthetic-human-exception');
+    await expect(
+      queue.locator('[data-og7="operational-platform-item"]')
+    ).toHaveAttribute('data-og7-id', 'synthetic-platform-work');
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="operational-queue"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(calls.filter((call) => call.method !== 'GET')).toEqual([]);
+  });
 const at = '2026-09-21T14:00:00Z';
 const sponsorshipId = '10000000-0000-4000-8000-000000000301';
 const sponsorship: AdminAttentionItem = {

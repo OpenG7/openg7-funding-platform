@@ -1,0 +1,29 @@
+{
+  "title": "Interventions and ongoing processing",
+  "intro": "The same business queue feeds the Assistant and the engine room. Human priorities remain separate from work handled by the platform.",
+  "loading": "Reading interventions…",
+  "stale": "Old observation. Refresh before intervening.",
+  "human": "Human interventions required",
+  "platform": "Processing handled by the platform",
+  "unknown": "Not measured",
+  "unavailable": "Interventions not observed or source unavailable. No zero count is inferred.",
+  "noHuman": "No human intervention required in the observed scope.",
+  "humanNotObserved": "Recommendations are unavailable in this response. Consult the complete queue.",
+  "noPlatform": "No platform processing identified in this scope.",
+  "platformNotOnPage": "Platform processing is not on this queue page.",
+  "platformHelp": "An authorized dispatch waiting normally needs neither new preparation nor a human delivery declaration. Blockages and uncertain results still require review.",
+  "openNative": "Open business workspace",
+  "openItem": "Find in Needs attention",
+  "observe": "View processing",
+  "fullQueue": "View the complete Needs attention queue",
+  "scope": "Queue item counts before pagination within the requested scope; recommendations are limited. Multiple items may concern the same operation. These numbers do not measure delivered services.",
+  "reasonUnknown": "Reason not observed. Consult the business workspace.",
+  "load": "View priority interventions",
+  "reasons": {
+    "deadline_exceeded": "The promised deadline has passed; intervention remains necessary.",
+    "deadline_origin_unknown": "The deadline origin needs documentation.",
+    "duration_restart_required": "A new period start needs to be observed.",
+    "duration_awaiting_observation": "The promised period start needs to be observed.",
+    "duration_unsupported": "The promised duration requires a review of its support."
+  }
+}

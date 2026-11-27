@@ -480,6 +480,10 @@
           </section>
         </aside>
       </div>
+      <openg7-admin-operational-queue
+        [queue]="snapshot.workQueue || null"
+        [stale]="stale()"
+      />
       @if (scope().sponsorshipId && !scope().deliveryId) {
         <openg7-admin-golden-path
           [observation]="snapshot.goldenPath || null"

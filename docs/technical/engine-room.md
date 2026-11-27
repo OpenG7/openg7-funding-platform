@@ -128,6 +128,32 @@ traduits en français et anglais, avec commandes natives accessibles au clavier.
 
 ## Recette et valeur à mesurer
 
+Le chantier 2 ajoute la priorisation par exception dans un composant partagé
+avec l’Assistant. La salle lit `getAdminWorkQueue` avec son périmètre exact et
+son aperçu; elle ne crée pas une seconde file de décisions. Les motifs et la
+responsabilité humain/plateforme proviennent du workflow natif, relu en lot avec
+les preuves qualifiées. Un résultat incertain reste urgent; une attente normale
+d’exécution autorisée reste informative. Les règles et limites des compteurs sont
+décrites dans le [contrat de file](../admin-assistant-overview.md#extension-compatible-du-contrat-de-file).
+Une lecture indisponible affiche une observation inconnue. La consultation ne
+déclenche aucun envoi, reprise ou changement d’autorisation.
+
+Les tests `tests/operational-priority.test.mjs` couvrent responsabilités, motifs,
+échéances, preuves insuffisantes et corrélation collective conservatrice. La
+recette `tests/integration/operational-priority.integration.mjs` compare Assistant
+et Salle sur PostgreSQL jetable et vérifie l’absence de tentative d’envoi et de
+mutation d’audit. Les parcours navigateur correspondants utilisent des fixtures
+FR/EN et vérifient liens exacts, mobile et accessibilité automatisée.
+
+Qualification locale du chantier 2 le 25 novembre 2026 sous Node 22.23.5 :
+8 196 tests Node réussis (huit exclusions conditionnelles), puis 17 tests ciblés
+réussis après ajout des cas de source indisponible; quatre tests PostgreSQL
+ciblés et 31 parcours navigateur réussis. Build Angular de production : 27 routes
+prérendues; types UI, format et contrôles documentaires réussis. Le lint conserve
+uniquement l’avertissement préexistant de `scripts/smoke-public.mjs`. La recette
+navigateur a détecté puis confirmé la correction du contraste des liens du
+nouveau panneau en thème sombre. Aucune livraison fournisseur réelle n’est qualifiée.
+
 Qualification locale du cycle de reconnaissance le 25 novembre 2026, sous
 Node 22.23.5 : build TypeScript et build Angular de production avec 27 routes
 prérendues, types UI, 8 181 tests Node réussis et huit exclusions conditionnelles

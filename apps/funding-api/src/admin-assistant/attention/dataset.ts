@@ -14,6 +14,7 @@ import {
 import type { AttentionDataset } from './contracts.js';
 import { loadPublicationSlotExecutions } from './publication-execution.js';
 import { listSponsorshipMediaForAttention } from './media.repository.js';
+import { loadAttentionPublicationWorkflows } from './workflows.js';
 
 async function disputedTotals(
   pool: Pool | null
@@ -36,6 +37,7 @@ async function disputedTotals(
 }
 
 export interface AttentionDatasetReaders {
+  readonly loadAttentionPublicationWorkflows?: typeof loadAttentionPublicationWorkflows;
   readonly listSponsorshipMediaForAttention?: typeof listSponsorshipMediaForAttention;
   readonly loadPublicationSlotExecutions?: typeof loadPublicationSlotExecutions;
   readonly listSponsorshipsForAttention: typeof listSponsorshipsForAttention;
@@ -77,7 +79,15 @@ export const createAttentionDatasetLoader =
       readers.listSponsorshipMediaForAttention?.(pool)
     ]);
 
+    const publicationWorkflows =
+      await readers.loadAttentionPublicationWorkflows?.(
+        pool,
+        sponsorships.items,
+        now
+      );
+
     return {
+      ...(publicationWorkflows ? { publicationWorkflows } : {}),
       now,
       sponsorships: sponsorships.items,
       sponsorshipsTruncated: sponsorships.truncated,
@@ -100,6 +110,7 @@ export const createAttentionDatasetLoader =
   };
 
 export const loadAttentionDataset = createAttentionDatasetLoader({
+  loadAttentionPublicationWorkflows,
   listSponsorshipMediaForAttention,
   loadPublicationSlotExecutions,
   listSponsorshipsForAttention,

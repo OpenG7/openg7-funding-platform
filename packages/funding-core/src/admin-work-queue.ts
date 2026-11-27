@@ -29,6 +29,8 @@ export type AdminAttentionDueFilter =
   'all' | 'today' | 'overdue' | 'this_week' | 'undated';
 
 export interface AdminWorkQueueQuery {
+  readonly sponsorshipId?: string;
+  readonly deliveryId?: string;
   readonly page?: number;
   readonly pageSize?: number;
   readonly type?: AdminAttentionItemType;
@@ -60,6 +62,9 @@ export interface AdminWorkQueueResponse {
   readonly total: number;
   readonly filteredTotal: number;
   readonly todayTotal: number;
+  /** Complete selected scope before pagination; not a count of delivered obligations. */
+  readonly humanTotal?: number | null;
+  readonly platformTotal?: number | null;
   /** Distinct dossiers with a required action before filters/pages; absent or null means unknown. */
   readonly pendingDossierCount?: number | null;
   readonly counts: Readonly<Record<AdminAttentionSeverity, number>>;

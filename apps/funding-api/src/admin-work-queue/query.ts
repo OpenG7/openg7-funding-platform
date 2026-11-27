@@ -23,6 +23,17 @@ export const parseWorkQueueQuery = (
   const emailTemplate = params.get('emailTemplate') || undefined;
   const emailError = params.get('emailError') || undefined;
   const overview = params.get('overview');
+  const sponsorshipId = params.get('sponsorshipId');
+  const deliveryId = params.get('deliveryId');
+  for (const key of ['sponsorshipId', 'deliveryId']) {
+    const id = params.get(key);
+    if (
+      id !== null &&
+      (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id) ||
+        params.getAll(key).length !== 1)
+    )
+      throw new Error('Invalid queue query');
+  }
   if (
     (type && !WORK_QUEUE_TYPES.includes(type as AdminAttentionItemType)) ||
     (priority &&
@@ -43,6 +54,8 @@ export const parseWorkQueueQuery = (
     throw new Error('Invalid queue query');
   }
   return {
+    ...(sponsorshipId ? { sponsorshipId: sponsorshipId.toLowerCase() } : {}),
+    ...(deliveryId ? { deliveryId: deliveryId.toLowerCase() } : {}),
     page: integer('page', 1, 1000000),
     pageSize: integer('pageSize', 25, 100),
     type: type as AdminWorkQueueQuery['type'],
