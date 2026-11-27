@@ -192,6 +192,11 @@ qualification à 10 000 contributions par jour.
 
 ## Recette et valeur à mesurer
 
+Le chantier 5 fournit les [profils de charge administratifs contrôlés](../development/publication-performance.md#admin-controlled-load)
+sur 100, 1 000 et 10 000 dossiers synthétiques, avec latences, débit des lectures,
+pool SQL, réservations et limites explicites. La file reste coûteuse à 10 000;
+ces mesures locales ne qualifient ni le VPS ni un débit de contributions/jour.
+
 Le chantier 4 ajoute au portefeuille natif un
 [aperçu des préparations manquantes](admin-automatic-runs.md#missing-private-preparations),
 avec préremplissage commun au générateur existant et lot limité aux dossiers
