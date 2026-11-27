@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -124,7 +125,11 @@ test('a rejected confirming snapshot cannot announce a saved settings result', a
     return false;
   };
   assert.equal(
-    await f.workflow.run({ action: 'settings', settings: feedSettings() }),
+    await f.workflow.run({
+      action: 'settings',
+      expectedSettings: publicationFeedSettingsSnapshot(feedSettings()),
+      settings: feedSettings()
+    }),
     false
   );
   assert.equal(f.state.notice(), '');
@@ -320,7 +325,11 @@ test('settings drafts are committed through their owner only after the server re
     f.calls.confirmed.push({ command, result, next: value, open });
     settingsDraft = value.feeds.find((feed) => feed.id === command.settings.id);
   };
-  const pending = f.workflow.run({ action: 'settings', settings });
+  const pending = f.workflow.run({
+    action: 'settings',
+    expectedSettings: publicationFeedSettingsSnapshot(settings),
+    settings
+  });
   await Promise.resolve();
   assert.equal(settingsDraft, settings);
   assert.deepEqual(f.calls.confirmed, []);
@@ -336,7 +345,11 @@ test('recovery after settings failure does not replace an editable draft through
     throw new Error('SETTINGS_UNAVAILABLE');
   };
   f.ports.api.read = async () => serverState({ feeds: [feed()] });
-  await f.workflow.run({ action: 'settings', settings });
+  await f.workflow.run({
+    action: 'settings',
+    expectedSettings: publicationFeedSettingsSnapshot(settings),
+    settings
+  });
   assert.equal(f.calls.applied[0].feeds[0].capacity, 2);
   assert.deepEqual(f.calls.confirmed, []);
   assert.equal(f.state.notice(), '');

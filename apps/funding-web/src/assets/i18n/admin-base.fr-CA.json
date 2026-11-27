@@ -3369,7 +3369,8 @@
         "MEDIA_RECONCILIATION_REQUIRED": "Une vérification de l’image sur le réseau social est nécessaire. Cet envoi reste bloqué pour éviter un doublon.",
         "COLLECTION_REQUIRES_MULTIPLE_SPONSORS": "Une collection LinkedIn exige de 2 à 10 commanditaires, avec une photo autorisée par commanditaire.",
         "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
-        "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."
+        "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire.",
+        "SETTINGS_PRECONDITION_REQUIRED": "Actualisez l’application et relisez les réglages avant de réessayer : la référence de concurrence est obligatoire."
       },
       "editSourceDrafts": "Modifier les brouillons sources",
       "sourceContentUncertain": "Cet envoi peut déjà avoir créé une publication, mais son contenu ne permet pas de confirmer tous les commanditaires. Consultez les références conservées dans l’audit et vérifiez l’historique du compte réel sur le réseau social. Si la publication existe, conservez l’état incertain : ne confirmez jamais son absence et ne renvoyez pas cet envoi. L’édition et la recomposition sont indisponibles dans cet état.",
@@ -4381,7 +4382,14 @@
       "missing": "Destination introuvable",
       "missingHelp": "Cette destination ne figure pas dans les données disponibles. Revenez à la Salle des moteurs pour sélectionner un module.",
       "readError": "Impossible de charger les réglages. Aucun état opérationnel ne peut être confirmé.",
-      "commandError": "L’opération ou sa relecture de confirmation a échoué. Les modifications sont conservées ; vérifiez l’état avant de réessayer."
+      "commandError": "L’opération ou sa relecture de confirmation a échoué. Les modifications sont conservées ; vérifiez l’état avant de réessayer.",
+      "serverAuthentication": "L’authentification est configurée côté serveur. La connexion OAuth et le renouvellement des accès ne sont pas disponibles sur cette page.",
+      "facebookCheckScope": "Facebook : le contrôle implémenté compare l’identité renvoyée par le jeton de page avec l’identifiant de page configuré.",
+      "linkedinCheckScope": "LinkedIn : le contrôle implémenté recherche un rôle approuvé d’administrateur ou d’administrateur de contenu pour l’organisation configurée.",
+      "permissionCheckLimit": "Un contrôle réussi ne vérifie pas toutes les permissions nécessaires à la publication. Il n’active pas la destination et n’autorise aucune publication.",
+      "expirySource": "La date d’expiration provient de la configuration serveur. Une date indisponible ne signifie pas que l’autorisation est illimitée.",
+      "simulatedConnection": "Simulation : ce contrôle ne prouve aucun accès à une page Facebook ou à une organisation LinkedIn réelle.",
+      "disabledConnection": "La publication est désactivée. Configurez le mode du fournisseur côté serveur avant de vérifier sa connexion."
     }
   }
 }

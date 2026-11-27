@@ -19,6 +19,50 @@ import {
 
 const path = '/admin/fundraiser/engine-room';
 
+for (const locale of ['fr-CA', 'en']) {
+  for (const mode of ['mock', 'disabled', 'live'] as const) {
+    test(`destination connection qualification distinguishes ${mode} in ${locale}`, async ({
+      page
+    }) => {
+      const { state, commands } = await destinationFixture(page);
+      state.feeds.forEach((feed) => {
+        feed.mode = mode;
+      });
+      await page.addInitScript(
+        (value) => localStorage.setItem('openg7.language', value),
+        locale
+      );
+      await page.setViewportSize({
+        width: locale === 'en' ? 390 : 1536,
+        height: 1000
+      });
+      for (const channel of ['facebook', 'linkedin']) {
+        await page.goto(
+          `/admin/fundraiser/publications/destinations/openg7:${channel}?tab=access`
+        );
+        const scope = page.locator('[data-og7="destination-connection-scope"]');
+        await expect(scope).toContainText(
+          channel === 'facebook' ? 'Facebook' : 'LinkedIn'
+        );
+        await expect(scope).toContainText('OAuth');
+        await expect(scope).toContainText(
+          locale === 'en'
+            ? 'does not verify every permission'
+            : 'ne vérifie pas toutes les permissions'
+        );
+        if (mode === 'mock')
+          await expect(scope.getByRole('status')).toContainText('Simulation');
+        else if (mode === 'disabled')
+          await expect(
+            page.locator('[data-og7="destination-check"]')
+          ).toBeDisabled();
+        else await expect(scope.getByRole('status')).toHaveCount(0);
+      }
+      expect(commands).toEqual([]);
+    });
+  }
+}
+
 async function destinationFixture(page: Page, reader = false) {
   const fixture = await engineRoomFixture(page);
   const base = fixture.options.snapshot.publications.feeds[0];
@@ -62,7 +106,7 @@ async function destinationFixture(page: Page, reader = false) {
         id: 'synthetic-operator',
         sessionId: 'synthetic-session',
         displayName: 'Synthetic operator',
-        role: reader ? 'reader' : 'operator',
+        role: reader ? 'reader' : 'owner',
         expiresAt: '2099-01-01T00:00:00Z'
       }
     })
@@ -100,9 +144,13 @@ async function destinationFixture(page: Page, reader = false) {
           json: { code: 'SETTINGS_CONFLICT' }
         });
       if (command.action === 'settings') {
+        if (!command.expectedSettings)
+          return route.fulfill({
+            status: 428,
+            json: { code: 'SETTINGS_PRECONDITION_REQUIRED' }
+          });
         const feed = feeds.find((feed) => feed.id === command.settings.id)!;
         if (
-          command.expectedSettings &&
           !samePublicationFeedSettings(feed, command.settings) &&
           !samePublicationFeedSettings(feed, command.expectedSettings)
         )

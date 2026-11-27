@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash, randomUUID } from 'node:crypto';
@@ -317,7 +318,11 @@ test(
       await s.command({ action: 'check', feedId }, 'tester');
       const feed = (await s.state()).feeds.find((f) => f.id === feedId);
       await s.command(
-        { action: 'settings', settings: { ...feed, paused: false } },
+        {
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
+          settings: { ...feed, paused: false }
+        },
         'tester'
       );
     }
@@ -1274,6 +1279,7 @@ test(
         await service.command(
           {
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(feed),
             settings: {
               ...feed,
               capacity: 2,
@@ -2034,7 +2040,11 @@ test(
             (f) => f.id === destination
           );
           await service.command(
-            { action: 'settings', settings: { ...feed, paused: false } },
+            {
+              action: 'settings',
+              expectedSettings: publicationFeedSettingsSnapshot(feed),
+              settings: { ...feed, paused: false }
+            },
             'tester'
           );
           await service.prepare(destination, 'planner');

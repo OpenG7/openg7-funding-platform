@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -133,7 +134,11 @@ test(
     async function resume() {
       const feed = (await service.feeds()).find((item) => item.id === feedId);
       await service.command(
-        { action: 'settings', settings: { ...feed, paused: false } },
+        {
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
+          settings: { ...feed, paused: false }
+        },
         actor
       );
     }

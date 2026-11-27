@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import type {
   AdminAuditLogResponse,
   AdminPublicationBatchMutationResult,
@@ -139,11 +140,15 @@ for (const cause of ['rejection', 'destination'] as const)
         for (const feed of initial.feeds.filter((f) => f.id !== feedId)) {
           await command({
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(feed),
             settings: { ...feed, autoPrepare: false }
           });
         }
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(
+            (await state()).feeds.find((f) => f.id === initialFeed.id)!
+          ),
           settings: {
             ...initialFeed,
             paused: true,
@@ -489,6 +494,9 @@ for (const cause of ['rejection', 'destination'] as const)
           const due = new Date((await delivery()).scheduledAt);
           await command({
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(
+              (await state()).feeds.find((f) => f.id === initialFeed.id)!
+            ),
             settings: {
               ...initialFeed,
               paused: false,
@@ -575,7 +583,13 @@ for (const cause of ['rejection', 'destination'] as const)
           await restoreCandidates?.();
         } finally {
           for (const feed of initial.feeds) {
-            await command({ action: 'settings', settings: feed });
+            await command({
+              action: 'settings',
+              expectedSettings: publicationFeedSettingsSnapshot(
+                (await state()).feeds.find((f) => f.id === feed.id)!
+              ),
+              settings: feed
+            });
           }
           await worker(initial.workerEnabled);
         }

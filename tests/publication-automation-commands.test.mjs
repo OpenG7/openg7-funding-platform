@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -1335,6 +1336,16 @@ test('settings and pause-all preserve the caller transaction and audit actor', a
   for (const input of [
     {
       action: 'settings',
+      expectedSettings: publicationFeedSettingsSnapshot({
+        id: feedId,
+        paused: true,
+        autoPrepare: false,
+        timezone: 'America/Toronto',
+        weekdays: [1],
+        localTime: '09:00',
+        capacity: 3,
+        horizonDays: 7
+      }),
       settings: {
         id: feedId,
         paused: true,
@@ -1419,4 +1430,41 @@ test('settings reject divergent or malformed preconditions without an update or 
     );
     assert.deepEqual(malformed.calls, []);
   }
+});
+
+test('settings require a reference before any database access, including an identical target', async () => {
+  const settings = {
+    id: feedId,
+    paused: true,
+    autoPrepare: false,
+    timezone: 'America/Toronto',
+    weekdays: [1],
+    localTime: '09:00',
+    capacity: 3,
+    horizonDays: 7
+  };
+  for (const capacity of [3, 4]) {
+    const f = fixture();
+    await assert.rejects(
+      command(
+        f.context,
+        { action: 'settings', settings: { ...settings, capacity } },
+        'synthetic-legacy-client'
+      ),
+      (error) =>
+        error.code === 'SETTINGS_PRECONDITION_REQUIRED' && error.status === 428
+    );
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.audits, []);
+  }
+  const malformed = fixture();
+  await assert.rejects(
+    command(
+      malformed.context,
+      { action: 'settings', settings, expectedSettings: null },
+      'synthetic-invalid-client'
+    ),
+    (error) => error.code === 'INVALID_SETTINGS' && error.status === 400
+  );
+  assert.deepEqual(malformed.calls, []);
 });

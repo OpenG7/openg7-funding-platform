@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -90,7 +91,11 @@ test(
         (item) => item.id === 'openg20:facebook'
       );
       await service.command(
-        { action: 'settings', settings: { ...feed, paused: false } },
+        {
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
+          settings: { ...feed, paused: false }
+        },
         'reconciliation-tester'
       );
       lookups = 0;

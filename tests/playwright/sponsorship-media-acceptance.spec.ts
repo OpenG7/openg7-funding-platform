@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import sharp from 'sharp';
 import type {
   AdminAuditLogResponse,
@@ -198,12 +199,16 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
           settings: { ...feed, autoPrepare: false }
         });
       }
       for (const id of feeds) {
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(
+            (await state()).feeds.find((f) => f.id === id)!
+          ),
           settings: {
             id,
             paused: true,
@@ -759,6 +764,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           const feed = (await state()).feeds.find((f) => f.id === feedId)!;
           await command({
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(feed),
             settings: { ...feed, paused: false }
           });
         }
@@ -890,7 +896,13 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
     } finally {
       await setWorker(false);
       for (const feed of initial.feeds) {
-        await command({ action: 'settings', settings: { ...feed } });
+        await command({
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(
+            (await state()).feeds.find((f) => f.id === feed.id)!
+          ),
+          settings: { ...feed }
+        });
       }
       if (!company.isClosed()) await company.close();
     }

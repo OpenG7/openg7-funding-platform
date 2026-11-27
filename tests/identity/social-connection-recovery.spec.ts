@@ -2,6 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import { AxeBuilder } from '@axe-core/playwright';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import type {
@@ -290,6 +291,7 @@ test('social connections: missing access, wrong account, expiry and provider den
         const feed = (await state()).feeds.find((f) => f.id === feedId)!;
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
           settings: { ...feed, paused: false }
         });
       }

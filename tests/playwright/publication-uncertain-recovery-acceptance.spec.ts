@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import sharp from 'sharp';
 import type {
   AdminAuditLogResponse,
@@ -179,12 +180,16 @@ test('lost social responses survive restart and recover through verified reconci
     for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(feed),
         settings: { ...feed, autoPrepare: false }
       });
     }
     for (const id of feeds) {
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(
+          (await state()).feeds.find((f) => f.id === id)!
+        ),
         settings: {
           id,
           paused: true,
@@ -382,6 +387,7 @@ test('lost social responses survive restart and recover through verified reconci
         const feed = (await state()).feeds.find((f) => f.id === id)!;
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
           settings: { ...feed, paused: false }
         });
       }
@@ -902,6 +908,9 @@ test('lost social responses survive restart and recover through verified reconci
       } = initial.feeds.find((f) => f.id === id)!;
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(
+          (await state()).feeds.find((f) => f.id === id)!
+        ),
         settings: {
           id,
           paused,

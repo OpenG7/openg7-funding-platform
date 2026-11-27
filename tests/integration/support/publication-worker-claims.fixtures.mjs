@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -171,7 +172,11 @@ export async function createPublicationWorkerClaimsFixture(t) {
     const feed = (await service.feeds()).find((f) => f.id === feedId);
     assert.equal(feed.connection, 'ready');
     await service.command(
-      { action: 'settings', settings: { ...feed, paused: false } },
+      {
+        action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(feed),
+        settings: { ...feed, paused: false }
+      },
       'claim-tester'
     );
   }

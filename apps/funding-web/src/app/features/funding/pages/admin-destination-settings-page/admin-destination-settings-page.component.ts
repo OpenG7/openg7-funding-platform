@@ -119,7 +119,7 @@ export class AdminDestinationSettingsPageComponent {
   readonly canWrite = computed(
     () =>
       this.admin.hasValidAdminSession() &&
-      ['owner', 'operator'].includes(this.admin.identity()?.role ?? 'owner')
+      (this.admin.identity()?.role ?? 'owner') === 'owner'
   );
   readonly form = new FormGroup({
     autoPrepare: new FormControl(false, { nonNullable: true }),
@@ -477,6 +477,7 @@ export class AdminDestinationSettingsPageComponent {
         if (
           [
             'SETTINGS_CONFLICT',
+            'SETTINGS_PRECONDITION_REQUIRED',
             'INVALID_SETTINGS',
             'INVALID_TIMEZONE',
             'FEED_NOT_FOUND'
@@ -491,7 +492,9 @@ export class AdminDestinationSettingsPageComponent {
         this.error.set(
           rejected === 'SETTINGS_CONFLICT'
             ? 'admin.destinationSettings.conflict'
-            : 'admin.destinationSettings.commandError'
+            : rejected === 'SETTINGS_PRECONDITION_REQUIRED'
+              ? 'admin.publicationAutomation.errors.SETTINGS_PRECONDITION_REQUIRED'
+              : 'admin.destinationSettings.commandError'
         );
         // Preserve both the draft and its original precondition on a conflict.
         try {
