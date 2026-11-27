@@ -1,9 +1,160 @@
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
-import { engineRoomFixture, engineSponsorId } from './support/engine-room.js';
+import {
+  engineRoomFixture,
+  engineSponsorId,
+  engineDeliveryId,
+  goldenPathObservation
+} from './support/engine-room.js';
 
 const path = '/admin/fundraiser/engine-room';
+
+for (const language of ['fr-CA', 'en']) {
+  for (const width of [390, 1536]) {
+    test(`GP1 retains qualified proof, a simulated next passage and native links in ${language} at ${width}`, async ({
+      page
+    }, info) => {
+      const { options, writes } = await engineRoomFixture(page);
+      options.snapshot = {
+        ...options.snapshot,
+        goldenPath: goldenPathObservation()
+      };
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(path + '?sponsorshipId=' + engineSponsorId);
+      const cycle = page.locator('[data-og7="sponsorship-golden-path"]');
+      await expect(cycle.getByRole('heading', { level: 2 })).toHaveText(
+        language === 'en'
+          ? 'Sponsorship recognition cycle'
+          : 'Cycle de reconnaissance de la commandite'
+      );
+      await expect(cycle).toContainText('SYNTHETIC-GP1');
+      await expect(
+        cycle.locator('[data-og7="golden-path-service"]')
+      ).toHaveCount(2);
+      const next = cycle.locator('[data-og7="golden-path-next"]');
+      await expect(next).toContainText(
+        language === 'en'
+          ? 'Platform processing'
+          : 'Traitement par la plateforme'
+      );
+      await expect(next.getByRole('link')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/publications/automation?deliveryId=${engineDeliveryId}`
+      );
+      const services = cycle.locator('[data-og7="golden-path-service"]');
+      await services.first().locator('summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(
+        cycle.locator('[data-og7="golden-path-proof"]')
+      ).toContainText('2026');
+      await services.nth(1).locator('summary').click();
+      await expect(services.nth(1)).toContainText('Simulation');
+      await expect(services.nth(1)).toContainText(
+        language === 'en' ? 'No qualified evidence' : 'Aucune preuve qualifiée'
+      );
+      await expect(cycle.locator('[data-og7="golden-path-proof"]')).toHaveCount(
+        1
+      );
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="sponsorship-golden-path"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      await page.screenshot({
+        path: info.outputPath('sponsorship-golden-path.png'),
+        fullPage: true
+      });
+      expect(writes).toEqual([]);
+    });
+  }
+}
+
+test('GP1 source failures, older APIs and partial coverage never become a successful empty cycle', async ({
+  page
+}) => {
+  const { options, writes } = await engineRoomFixture(page);
+  options.snapshot = {
+    ...options.snapshot,
+    goldenPath: goldenPathObservation()
+  };
+  options.snapshot = {
+    ...options.snapshot,
+    goldenPath: {
+      status: 'available',
+      path: { ...options.snapshot.goldenPath!.path!, partial: true }
+    }
+  };
+  await page.goto(path + '?sponsorshipId=' + engineSponsorId);
+  await expect(page.locator('[data-og7="golden-path-partial"]')).toBeVisible();
+  options.snapshot = {
+    ...options.snapshot,
+    goldenPath: { status: 'unavailable', path: null }
+  };
+  await page.locator('[data-og7="engine-room-refresh"]').click();
+  await expect(page.locator('[data-og7="golden-path-empty"]')).toContainText(
+    'indisponible'
+  );
+  await expect(page.locator('[data-og7="golden-path-counts"]')).toHaveCount(0);
+  options.snapshot = { ...options.snapshot, goldenPath: undefined };
+  await page.locator('[data-og7="engine-room-refresh"]').click();
+  await expect(page.locator('[data-og7="golden-path-empty"]')).toContainText(
+    'Non observé'
+  );
+  options.fail = true;
+  await page.locator('[data-og7="engine-room-refresh"]').click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(
+    page.locator('[data-og7="sponsorship-golden-path"]')
+  ).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+test('a collective opens the chosen participant cycle and retains decision return context', async ({
+  page
+}) => {
+  const { options, reads, writes } = await engineRoomFixture(page);
+  options.snapshot = {
+    ...options.snapshot,
+    goldenPath: goldenPathObservation()
+  };
+  await page.goto(
+    path +
+      '?deliveryId=' +
+      engineDeliveryId +
+      '&decisionId=publication:synthetic'
+  );
+  await expect(
+    page.locator('[data-og7="sponsorship-golden-path"]')
+  ).toHaveCount(0);
+  const participant = page
+    .locator('[data-og7="golden-path-participants"] a')
+    .first();
+  await expect(participant).toContainText('Entreprise synthétique');
+  await participant.click();
+  await expect(
+    page.locator('[data-og7="sponsorship-golden-path"]')
+  ).toContainText('SYNTHETIC-GP1');
+  expect(reads.at(-1)).toBe('?sponsorshipId=' + engineSponsorId);
+  await expect(
+    page.locator('[data-og7="engine-room-scope"] a').first()
+  ).toHaveAttribute(
+    'href',
+    '/admin/fundraiser/pilotage?decisionId=publication:synthetic'
+  );
+  expect(writes).toEqual([]);
+});
 for (const language of ['fr-CA', 'en'])
   for (const width of [390, 1024, 1536]) {
     test(`engine room distinguishes settings, destinations and relay evidence in ${language} at ${width}`, async ({

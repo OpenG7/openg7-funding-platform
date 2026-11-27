@@ -1,0 +1,93 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.golden-path {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #64889e;
+  border-radius: 1rem;
+  background: #102436;
+  color: #eef7ff;
+  overflow-wrap: anywhere;
+}
+h2,
+h3,
+h4 {
+  color: #eef7ff;
+  margin: 0.8rem 0 0.4rem;
+}
+h2 {
+  font-size: 1.35rem;
+}
+h3 {
+  font-size: 1.1rem;
+}
+h4 {
+  font-size: 1rem;
+}
+p {
+  line-height: 1.6;
+  margin: 0.4rem 0;
+}
+a {
+  display: inline-block;
+  color: #8ce5ff;
+  padding: 0.65rem 0.25rem;
+  margin-right: 0.8rem;
+  text-decoration: underline;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #ffd27a;
+  outline-offset: 3px;
+}
+.reference {
+  font-weight: 700;
+}
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.counts div {
+  min-width: 5rem;
+}
+dd {
+  margin: 0.25rem 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.next {
+  border-left: 3px solid #ffd27a;
+  padding: 0.25rem 1rem;
+}
+.stages {
+  padding-left: 1.5rem;
+}
+.stages > li {
+  padding: 0.25rem 0 0.75rem;
+}
+details {
+  border: 1px solid #64889e;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+}
+summary {
+  cursor: pointer;
+  min-height: 2rem;
+  line-height: 1.6;
+}
+code {
+  color: #c7dfef;
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  .golden-path {
+    padding: 0.8rem;
+  }
+  .counts {
+    gap: 0.8rem;
+  }
+}

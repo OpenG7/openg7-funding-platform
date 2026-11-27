@@ -5,10 +5,10 @@
 Référence française · [English](ARCHITECTURE.en.md). Lire une seule version;
 maintenir les deux traductions synchronisées.
 
-Ce document décrit les frontières durables et leurs raisons. Les consignes
-d'exécution sont dans [AGENTS.md](../AGENTS.md); les contrats actuels et preuves
-sont dans l'[index documentaire](README.md) et l'[état de la plateforme](platform-status.md).
-Les frontières cibles ne prouvent ni une implémentation ni une activation en production.
+Frontières durables ; [consignes](../AGENTS.md), [contrats](README.md) et
+[état livré](platform-status.md). Les cibles ne prouvent aucun déploiement.
+La [supervision opérationnelle](decisions/2026-11-25-operational-supervision.md)
+guide l’autonomie progressive et la réutilisation des capacités métier.
 
 ## Produit et autorités
 

@@ -1,0 +1,164 @@
+{
+  "title": "Sponsorship recognition cycle",
+  "intro": "One sponsorship, from payment to evidence for its promised services. This observation does not prepare, authorize or send anything.",
+  "stale": "Old observation: refresh before making a decision in the business workspace.",
+  "observedAt": "Dossier read at:",
+  "partial": "Preparation and workflow are partially observed. Counts come from the complete responsibility balance; an absent row does not mean a delivered service.",
+  "expected": "Promised services",
+  "fulfilled": "Delivered with qualified evidence",
+  "waived": "Waived",
+  "outstanding": "Still to fulfil",
+  "unverified": "Discrepancies or unverified facts",
+  "next": "Next intervention",
+  "openNative": "Open the step in its workspace",
+  "payment": "Payment",
+  "agreement": "Agreement and services",
+  "review": "Content, consent and media",
+  "preparation": "Private preparation",
+  "authorization": "Current authorization and responsibility",
+  "execution": "Observed execution",
+  "proof": "Confirmation and evidence per service",
+  "audit": "Transparency and audit",
+  "preparationHelp": "Preparation and review decisions appear in each service detail below. An approved preparation does not authorize dispatch.",
+  "authorizationHelp": "Each service’s native workflow identifies who needs to act. Scheduling or review does not replace the exact publication authorization.",
+  "executionHelp": "Attempts show their execution mode. A simulation or uncertain result never counts as a real delivery.",
+  "proofHelp": "Only evidence qualified by the owner’s responsibility balance is shown as a delivery. Current visibility remains a separate observation.",
+  "agreementMissing": "Agreement unavailable or requiring qualification.",
+  "version": "Version",
+  "passage": "Passage",
+  "format": "Format",
+  "duration": "Promised duration in days and tracking state",
+  "qualified": "Qualified evidence",
+  "waiverNotDelivery": "This service is waived. A waiver is not a delivery.",
+  "proofMissing": "No qualified evidence for this service.",
+  "executionUnknown": "No linked execution observed. Preparation does not imply dispatch.",
+  "noServices": "No services recorded in this balance. Consult the agreement and unverified facts.",
+  "scheduledAt": "Recorded schedule:",
+  "openPayment": "View contribution",
+  "openDelivery": "View delivery",
+  "openService": "View exact service",
+  "openAudit": "View dossier audit",
+  "openTransparency": "View administrative transparency",
+  "sources": "Sources and references for this observation",
+  "reasonDetail": "Verification needed in the business workspace.",
+  "unknown": "Not observed or unverified",
+  "reasons": {
+    "publication_done": "Tracking for this passage is complete. Consult its evidence and qualification.",
+    "obligation_adjusted": "This service was explicitly waived; no delivery is claimed."
+  },
+  "observations": {
+    "not_found": "Dossier not found.",
+    "not_sponsorship": "This contribution is not a sponsorship.",
+    "unavailable": "This sponsorship cycle is unavailable. Engine observations remain independent."
+  },
+  "balance": {
+    "balanced": "Responsibilities balanced",
+    "action_required": "Action required",
+    "waiting": "Waiting",
+    "blocked": "Blocked",
+    "unknown": "Incomplete qualification"
+  },
+  "responsibility": {
+    "admin": "Human intervention",
+    "platform": "Platform processing",
+    "none": "No intervention required"
+  },
+  "paymentStates": {
+    "paid": "Payment confirmed",
+    "refunded": "Payment refunded",
+    "disputed": "Payment disputed",
+    "pending": "Payment pending",
+    "failed": "Payment failed",
+    "cancelled": "Payment cancelled",
+    "expired": "Payment expired"
+  },
+  "agreementStates": {
+    "active": "Active recorded agreement",
+    "needs_confirmation": "Agreement needs qualification"
+  },
+  "steps": {
+    "identity": "Identity and consent",
+    "media": "Media",
+    "review": "Editorial review"
+  },
+  "progress": {
+    "complete": "Step confirmed",
+    "pending": "Waiting",
+    "blocked": "Blocked",
+    "error": "Incident",
+    "partial": "Partial",
+    "cancelled": "Cancelled",
+    "not_required": "Not required"
+  },
+  "channels": {
+    "website": "Website",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
+  "obligationStates": {
+    "pending": "To fulfil",
+    "blocked": "Blocked",
+    "fulfilled": "Settlement recorded",
+    "adjusted": "Waived"
+  },
+  "formats": {
+    "collective_text": "Collective text",
+    "individual_text": "Individual text",
+    "individual_portrait": "Individual portrait",
+    "collective_composite": "Collective visual",
+    "image_collection": "Image collection"
+  },
+  "preparationStates": {
+    "ready": "Ready for review",
+    "incomplete": "Incomplete",
+    "approved": "Preparation approved",
+    "review_required": "New review required"
+  },
+  "decisions": {
+    "approved": "Review approved",
+    "correction_requested": "Correction requested",
+    "rejected": "Review rejected"
+  },
+  "workflowStates": {
+    "waiting": "Waiting",
+    "action_required": "Action required",
+    "blocked": "Blocked",
+    "error": "Incident",
+    "uncertain": "Uncertain result",
+    "complete": "Workflow complete"
+  },
+  "modes": { "disabled": "Disabled", "mock": "Simulation", "live": "Live" },
+  "deliveryStates": {
+    "draft": "Draft",
+    "approved": "Dispatch authorized",
+    "publishing": "Executing",
+    "published": "Published result recorded",
+    "failed": "Failed",
+    "uncertain": "Uncertain result",
+    "cancelled": "Cancelled",
+    "rejected": "Rejected",
+    "pending": "Waiting",
+    "queued": "Queued",
+    "processing": "Processing",
+    "succeeded": "Attempt succeeded"
+  },
+  "provenance": {
+    "provider_acknowledged": "Qualified provider acknowledgement",
+    "provider_verified": "Qualified provider verification",
+    "website_verified": "Qualified website evidence"
+  },
+  "durations": {
+    "not_required": "Duration not required",
+    "awaiting_observation": "Start observation needed",
+    "awaiting_review": "Attestation pending",
+    "attested": "Continuity attested",
+    "restart_required": "New start required",
+    "unsupported": "Duration unsupported"
+  },
+  "owners": {
+    "responsibilities": "Responsibility balance and evidence qualification",
+    "payment_journey": "Payment and dossier journey",
+    "campaigns": "Service preparation and workflow",
+    "publications": "Native publication observations"
+  }
+}

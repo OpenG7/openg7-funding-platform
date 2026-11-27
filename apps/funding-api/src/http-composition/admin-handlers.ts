@@ -36,6 +36,7 @@ import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminEngineRoomHttpHandler } from '../admin-engine-room.http.js';
 import { readEngineRoom } from '../admin-engine-room.service.js';
+import { readSponsorshipGoldenPath } from '../sponsorship-golden-path.service.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { AdminPreparationService } from '../admin-preparation.service.js';
@@ -911,6 +912,7 @@ export const createAdminHttpHandlers = ({
             : null,
           connectorEnabled: preflightConfig?.enabled === true,
           localPreparationEnabled: !!publicationWorkshop,
+          goldenPath: (id) => readSponsorshipGoldenPath(dbPool, id),
           connector: async () => {
             if (!dbPool || !preflightConfig?.enabled)
               throw new Error('PREFLIGHT_UNAVAILABLE');

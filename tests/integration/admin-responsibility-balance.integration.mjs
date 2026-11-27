@@ -4,6 +4,7 @@ import test from 'node:test';
 import sharp from 'sharp';
 
 import { loadResponsibilityBalance } from '../../dist/apps/funding-api/src/admin-responsibility-balance.service.js';
+import { readSponsorshipGoldenPath } from '../../dist/apps/funding-api/src/sponsorship-golden-path.service.js';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { projectPreparation } from '../../dist/apps/funding-api/src/admin-preparation.projection.js';
@@ -225,6 +226,13 @@ test(
         assert.equal(waiting.waived, 0);
         assert.equal(waiting.outstanding, 0);
         assert.equal(waiting.status, 'waiting');
+        const golden = await readSponsorshipGoldenPath(pool, contributionId);
+        assert.equal(golden.status, 'available');
+        assert.equal(golden.path.counts.fulfilled, 1);
+        assert.equal(
+          golden.path.services[0].obligation.evidence.id,
+          waiting.obligations[0].evidence.id
+        );
         assert.equal(
           waiting.obligations[0].evidence.contributionId,
           contributionId
@@ -314,6 +322,12 @@ test(
         assert.equal(balance.outstanding, 0);
         assert.equal(balance.unknown, 0);
         assert.equal(balance.obligations[0].evidence, undefined);
+        const golden = await readSponsorshipGoldenPath(pool, id);
+        assert.equal(golden.status, 'available');
+        assert.equal(golden.path.state, balance.status);
+        assert.equal(golden.path.counts.fulfilled, 0);
+        assert.equal(golden.path.counts.waived, 1);
+        assert.equal(golden.path.services[0].obligation.evidence, undefined);
         assert.notEqual(
           balance.status,
           'balanced',
@@ -365,6 +379,11 @@ test(
         assert.equal(balance.outstanding, 1);
         assert.ok(balance.reasons.includes('fulfilment_snapshot_unqualified'));
         assert.equal(balance.obligations[0].evidence, undefined);
+        const golden = await readSponsorshipGoldenPath(pool, id);
+        assert.equal(golden.status, 'available');
+        assert.equal(golden.path.state, 'unknown');
+        assert.equal(golden.path.counts.fulfilled, 0);
+        assert.equal(golden.path.services[0].obligation.evidence, undefined);
         const dossier = (await getSponsorshipProgress(pool, id)).dossier;
         assert.deepEqual(dossier.qualifiedFulfilmentEvidenceIds, []);
         assert.equal(dossier.publicationCompletion.done, 0);

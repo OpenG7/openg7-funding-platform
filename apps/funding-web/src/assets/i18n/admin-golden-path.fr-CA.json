@@ -1,0 +1,164 @@
+{
+  "title": "Cycle de reconnaissance de la commandite",
+  "intro": "Une même commandite, de son paiement aux preuves de ses prestations. Cette observation ne prépare, n’autorise et n’envoie rien.",
+  "stale": "Observation ancienne : actualisez avant de décider dans l’espace métier.",
+  "observedAt": "Lecture du dossier :",
+  "partial": "Préparation et suivi partiellement observés. Les compteurs proviennent du bilan complet ; une ligne absente ne signifie pas une prestation livrée.",
+  "expected": "Prestations promises",
+  "fulfilled": "Livrées avec preuve qualifiée",
+  "waived": "Dispensées",
+  "outstanding": "Restant à honorer",
+  "unverified": "Anomalies ou faits non vérifiés",
+  "next": "Prochaine intervention",
+  "openNative": "Ouvrir l’étape dans son espace",
+  "payment": "Paiement",
+  "agreement": "Accord et prestations",
+  "review": "Contenu, consentements et médias",
+  "preparation": "Préparation privée",
+  "authorization": "Autorisation et responsabilité actuelles",
+  "execution": "Exécution observée",
+  "proof": "Confirmation et preuves par prestation",
+  "audit": "Transparence et audit",
+  "preparationHelp": "Les préparations et décisions d’examen figurent dans le détail de chaque prestation ci-dessous. Une préparation approuvée n’autorise pas l’envoi.",
+  "authorizationHelp": "Le suivi natif de chaque prestation indique qui doit intervenir. Une programmation ou un examen ne remplace pas l’autorisation exacte de publication.",
+  "executionHelp": "Les tentatives sont présentées avec leur mode. Une simulation ou un résultat incertain n’est jamais compté comme une livraison réelle.",
+  "proofHelp": "Seules les preuves qualifiées par le bilan propriétaire sont présentées comme des livraisons. La visibilité actuelle reste une observation distincte.",
+  "agreementMissing": "Accord non disponible ou à qualifier.",
+  "version": "Version",
+  "passage": "Passage",
+  "format": "Format",
+  "duration": "Durée promise en jours et état de suivi",
+  "qualified": "Preuve qualifiée",
+  "waiverNotDelivery": "Cette prestation est dispensée. Une dispense ne constitue pas une livraison.",
+  "proofMissing": "Aucune preuve qualifiée pour cette prestation.",
+  "executionUnknown": "Aucune exécution liée observée. Aucun envoi n’est déduit de la préparation.",
+  "noServices": "Aucune prestation enregistrée dans ce bilan. Consultez l’accord et les faits non vérifiés.",
+  "scheduledAt": "Horaire enregistré :",
+  "openPayment": "Consulter la contribution",
+  "openDelivery": "Consulter la livraison",
+  "openService": "Consulter la prestation exacte",
+  "openAudit": "Consulter l’audit du dossier",
+  "openTransparency": "Consulter la transparence administrative",
+  "sources": "Sources et références de cette observation",
+  "reasonDetail": "Vérification nécessaire dans l’espace métier.",
+  "unknown": "Non observé ou non vérifié",
+  "reasons": {
+    "publication_done": "Le suivi de ce passage est terminé. Consultez sa preuve et sa qualification.",
+    "obligation_adjusted": "Cette prestation a été explicitement dispensée ; aucune livraison n’est déclarée."
+  },
+  "observations": {
+    "not_found": "Dossier introuvable.",
+    "not_sponsorship": "Cette contribution n’est pas une commandite.",
+    "unavailable": "Le cycle de cette commandite est indisponible. Les observations des moteurs restent indépendantes."
+  },
+  "balance": {
+    "balanced": "Bilan de responsabilités équilibré",
+    "action_required": "Intervention nécessaire",
+    "waiting": "En attente",
+    "blocked": "Bloqué",
+    "unknown": "Qualification incomplète"
+  },
+  "responsibility": {
+    "admin": "Intervention humaine",
+    "platform": "Traitement par la plateforme",
+    "none": "Aucune intervention requise"
+  },
+  "paymentStates": {
+    "paid": "Paiement confirmé",
+    "refunded": "Paiement remboursé",
+    "disputed": "Paiement contesté",
+    "pending": "Paiement en attente",
+    "failed": "Paiement échoué",
+    "cancelled": "Paiement annulé",
+    "expired": "Paiement expiré"
+  },
+  "agreementStates": {
+    "active": "Accord enregistré actif",
+    "needs_confirmation": "Accord à qualifier"
+  },
+  "steps": {
+    "identity": "Identité et consentements",
+    "media": "Médias",
+    "review": "Revue éditoriale"
+  },
+  "progress": {
+    "complete": "Étape confirmée",
+    "pending": "En attente",
+    "blocked": "Bloqué",
+    "error": "Incident",
+    "partial": "Partiel",
+    "cancelled": "Annulé",
+    "not_required": "Non requis"
+  },
+  "channels": {
+    "website": "Site Web",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
+  "obligationStates": {
+    "pending": "À honorer",
+    "blocked": "Bloquée",
+    "fulfilled": "Solde enregistré",
+    "adjusted": "Dispensée"
+  },
+  "formats": {
+    "collective_text": "Texte collectif",
+    "individual_text": "Texte individuel",
+    "individual_portrait": "Portrait individuel",
+    "collective_composite": "Visuel collectif",
+    "image_collection": "Collection d’images"
+  },
+  "preparationStates": {
+    "ready": "Prête à examiner",
+    "incomplete": "Incomplète",
+    "approved": "Préparation approuvée",
+    "review_required": "Nouvel examen requis"
+  },
+  "decisions": {
+    "approved": "Examen approuvé",
+    "correction_requested": "Correction demandée",
+    "rejected": "Examen refusé"
+  },
+  "workflowStates": {
+    "waiting": "En attente",
+    "action_required": "Intervention nécessaire",
+    "blocked": "Bloqué",
+    "error": "Incident",
+    "uncertain": "Résultat incertain",
+    "complete": "Suivi terminé"
+  },
+  "modes": { "disabled": "Désactivé", "mock": "Simulation", "live": "Réel" },
+  "deliveryStates": {
+    "draft": "Brouillon",
+    "approved": "Envoi autorisé",
+    "publishing": "Exécution en cours",
+    "published": "Résultat publié enregistré",
+    "failed": "Échec",
+    "uncertain": "Résultat incertain",
+    "cancelled": "Annulé",
+    "rejected": "Refusé",
+    "pending": "En attente",
+    "queued": "En file",
+    "processing": "Traitement en cours",
+    "succeeded": "Tentative réussie"
+  },
+  "provenance": {
+    "provider_acknowledged": "Acquittement fournisseur qualifié",
+    "provider_verified": "Vérification fournisseur qualifiée",
+    "website_verified": "Preuve Web qualifiée"
+  },
+  "durations": {
+    "not_required": "Durée non requise",
+    "awaiting_observation": "Début à constater",
+    "awaiting_review": "Attestation en attente",
+    "attested": "Continuité attestée",
+    "restart_required": "Nouveau début requis",
+    "unsupported": "Durée non prise en charge"
+  },
+  "owners": {
+    "responsibilities": "Bilan des responsabilités et qualification des preuves",
+    "payment_journey": "Parcours du paiement et du dossier",
+    "campaigns": "Préparation et suivi des prestations",
+    "publications": "Observations natives des publications"
+  }
+}

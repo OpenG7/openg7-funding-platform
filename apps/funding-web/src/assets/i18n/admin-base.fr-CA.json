@@ -1,6 +1,7 @@
 {
   "admin": {
     "engineRoom": {
+      "goldenPathLink": "Observer le cycle de reconnaissance",
       "platformScope": "Périmètre : plateforme",
       "collectiveScope": "Périmètre : publication sélectionnée",
       "publicationsShort": "Publications",

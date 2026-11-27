@@ -3,10 +3,10 @@
 [Français](ARCHITECTURE.md) · English translation. Read one language only.
 Update both versions together; neither language may acquire separate requirements.
 
-This document describes durable boundaries and their rationale. Execution rules
-belong in [AGENTS.md](../AGENTS.md); current contracts and evidence belong in the
-[documentation index](README.md) and [platform status](platform-status.md).
-Target boundaries do not establish implementation or production activation.
+Durable boundaries; [instructions](../AGENTS.md), [contracts](README.md) and
+[delivered status](platform-status.md). Targets do not establish deployment.
+[Operational supervision](decisions/2026-11-25-operational-supervision.md)
+guides progressive autonomy and reuse of business capabilities.
 
 ## Product and authorities
 

@@ -39,6 +39,12 @@
       </div>
     } @else {
       @if (c.query().sponsorshipId) {
+        <a
+          routerLink="/admin/fundraiser/engine-room"
+          [queryParams]="{ sponsorshipId: c.query().sponsorshipId }"
+          data-og7="campaigns-golden-path-link"
+          >{{ i18n.t('admin.engineRoom.goldenPathLink') }}</a
+        >
         <div
           class="scope-note destination-note"
           data-og7="campaigns-destination"
@@ -783,6 +789,12 @@
             </details>
           </div>
           <footer class="detail-footer">
+            <a
+              routerLink="/admin/fundraiser/engine-room"
+              [queryParams]="{ sponsorshipId: c.selected()?.contributionId }"
+              data-og7="campaign-detail-golden-path"
+              >{{ i18n.t('admin.engineRoom.goldenPathLink') }}</a
+            >
             <a [routerLink]="ownerUrl(row)" data-og7="campaign-open-owner">{{
               t('detail.openDossier')
             }}</a>

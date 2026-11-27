@@ -1,10 +1,14 @@
 import type {
   EngineRoomScope,
   EngineRoomSnapshot,
+  SponsorshipGoldenPathObservation,
   PublicationAutomationState
 } from '@openg7/funding-core';
 
 export interface EngineRoomReadPorts {
+  readonly goldenPath?: (
+    id: string
+  ) => Promise<SponsorshipGoldenPathObservation>;
   readonly publications:
     ((scope: EngineRoomScope) => Promise<PublicationAutomationState>) | null;
   readonly connectorEnabled: boolean;
@@ -32,11 +36,14 @@ export async function readEngineRoom(
       : {})
   };
   const observedAt = now().toISOString();
-  const [publication, connector] = await Promise.allSettled([
+  const [publication, connector, goldenPath] = await Promise.allSettled([
     ports.publications
       ? ports.publications(scope)
       : Promise.reject(new Error('UNAVAILABLE')),
-    ports.connectorEnabled ? ports.connector() : Promise.resolve(null)
+    ports.connectorEnabled ? ports.connector() : Promise.resolve(null),
+    scope.sponsorshipId && !scope.deliveryId && ports.goldenPath
+      ? ports.goldenPath(scope.sponsorshipId)
+      : Promise.resolve(null)
   ]);
   const data = publication.status === 'fulfilled' ? publication.value : null;
   const scoped = !!(scope.sponsorshipId || scope.deliveryId);
@@ -67,6 +74,10 @@ export async function readEngineRoom(
   return {
     observedAt,
     scope,
+    goldenPath:
+      goldenPath.status === 'fulfilled'
+        ? goldenPath.value
+        : { status: 'unavailable', path: null },
     publications: {
       available: data !== null,
       workerEnabled: data?.workerEnabled ?? null,

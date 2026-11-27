@@ -20,6 +20,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminGoldenPathComponent } from '../../components/admin-golden-path/admin-golden-path.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -34,6 +35,7 @@ import { EngineMotorComponent } from './engine-motor.component.js';
   standalone: true,
   imports: [
     RouterLink,
+    AdminGoldenPathComponent,
     AdminLayoutComponent,
     AdminIconComponent,
     EngineMotorComponent
