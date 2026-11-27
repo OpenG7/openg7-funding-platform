@@ -47,6 +47,50 @@ function fixture(t, files = {}) {
   };
 }
 
+test('runner Microsoft feed exclusion is opt-in, dry-run safe, narrowly scoped and idempotent', (t) => {
+  const path = 'etc/apt/sources.list.d/microsoft-prod.list';
+  const entry =
+    'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main';
+  const other = [
+    'deb https://packages.microsoft.com.example.test/ubuntu/24.04/prod noble main',
+    'deb https://packages.microsoft.com/ubuntu/22.04/prod jammy main',
+    'deb https://packages.example.test/ubuntu noble main'
+  ].join('\n');
+  const original = entry + '\n' + other + '\n';
+  const f = fixture(t, { [path]: original });
+  f.prepare(true);
+  assert.equal(
+    f.read(path),
+    original,
+    'Default preparation preserves vendor feeds.'
+  );
+  const options = {
+    root: f.root,
+    platform: 'linux',
+    excludeRunnerMicrosoft: true
+  };
+  assert.deepEqual(prepareUbuntuApt(options), [join(f.root, path)]);
+  assert.equal(f.read(path), original, 'Dry run does not change sources.');
+  prepareUbuntuApt({ ...options, apply: true });
+  assert.equal(
+    f.read(path),
+    '# OpenG7 CI: unused runner Microsoft feed disabled: ' +
+      entry +
+      '\n' +
+      other +
+      '\n'
+  );
+  assert.deepEqual(prepareUbuntuApt({ ...options, apply: true }), []);
+  assert.equal(
+    f.read('etc/apt/apt.conf.d/99-openg7-ci-downloads'),
+    aptDownloadLimits
+  );
+  assert.match(
+    f.read('etc/apt/sources.list'),
+    /https:\/\/archive\.ubuntu\.com/
+  );
+});
+
 test('deb822 updates only Ubuntu archive URI tokens and preserves signing keys, options and third-party sources', () => {
   const original = [
     '# Preserve this source comment: ' + azure,
