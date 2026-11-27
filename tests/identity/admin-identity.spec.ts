@@ -11,17 +11,13 @@ import {
 } from '../playwright/support/moderation.js';
 
 import { startIdentityStack } from './stack.mjs';
+import { signInAdminIdentity } from './support/admin-browser.js';
 
 const login = async (
   page: Page,
   subject: string,
   returnUrl = '/admin/fundraiser/sponsors'
-) => {
-  await page.goto('/admin/login?returnUrl=' + encodeURIComponent(returnUrl));
-  await page.locator('[data-og7="identity-sign-in"]').click();
-  await page.getByLabel('Compte de test').selectOption(subject);
-  await page.getByRole('button', { name: 'Continuer' }).click();
-};
+) => signInAdminIdentity(page, returnUrl, subject);
 const current = async (page: Page) =>
   (await page.request.get('/api/admin/auth/current')).json();
 const saveAccount = async (
