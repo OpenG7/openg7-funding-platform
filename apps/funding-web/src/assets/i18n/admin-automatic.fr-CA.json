@@ -158,7 +158,7 @@
       }
     },
     "mission": "Je compare chaque paiement confirmé aux avantages promis, prépare les brouillons privés admissibles et conserve un rapport pour ta relecture avant de passer au dossier suivant.",
-    "scope": "Le lot couvre les paiements confirmés recensés au démarrage. Les brouillons restent privés ; publications, refus, remboursements et envois attendent ta confirmation dans leurs écrans.",
+    "scope": "Le lot couvre uniquement son manifeste figé au démarrage : tous les paiements confirmés ou la sélection explicite de dossiers à préparer. Les brouillons restent privés ; publications, refus, remboursements et envois attendent ta confirmation dans leurs écrans.",
     "start": "Vérifier un nouveau lot",
     "resume": "Reprendre la vérification de ce lot",
     "pause": "Pause immédiate",
@@ -173,7 +173,7 @@
     "unknownCount": "Dossiers à clarifier",
     "uncoveredCount": "Dossiers hors couverture",
     "uncheckedCount": "Dossiers restant à vérifier",
-    "newPayments": "{{count}} nouveaux paiements sont hors de ce lot. Vérifie un nouveau lot pour les inclure.",
+    "newPayments": "{{count}} paiements confirmés sont hors de ce lot. Ils ne sont pas inclus dans son bilan; un autre lot peut les couvrir.",
     "amountReceived": "Intrants recensés : {{amount}}",
     "latest": "Dernier dossier vérifié : {{reference}}",
     "result": "Résultat :",

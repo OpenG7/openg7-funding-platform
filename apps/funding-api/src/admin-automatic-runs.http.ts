@@ -26,16 +26,19 @@ export interface AdminAutomaticRunsHttpDependencies {
     maxBytes?: number
   ) => Promise<string>;
   readonly writeJson: ReturnType<typeof createHttpTransport>['writeJson'];
-  readonly automaticRuns: Pick<
-    AdminAutomaticRunsService,
-    | 'state'
-    | 'start'
-    | 'advance'
-    | 'control'
-    | 'report'
-    | 'preparation'
-    | 'approvePreparation'
-  > | null;
+  readonly automaticRuns:
+    | (Pick<
+        AdminAutomaticRunsService,
+        | 'state'
+        | 'start'
+        | 'advance'
+        | 'control'
+        | 'report'
+        | 'preparation'
+        | 'approvePreparation'
+      > &
+        Partial<Pick<AdminAutomaticRunsService, 'preparationPlan'>>)
+    | null;
   readonly dossierPreparations?:
     | (Pick<
         AdminPreparationService,
@@ -81,6 +84,7 @@ export function createAdminAutomaticRunsHttpHandler(
         base + '/control',
         base + '/report',
         base + '/preparation',
+        base + '/preparation-plan',
         base + '/preparation/approve'
       ].includes(path)
     )
@@ -137,6 +141,18 @@ export function createAdminAutomaticRunsHttpHandler(
           url.searchParams.get('runId') ?? undefined
         );
         deps.writeJson(request, response, 200, state);
+      } else if (
+        request.method === 'GET' &&
+        path === base + '/preparation-plan'
+      ) {
+        if (!deps.automaticRuns.preparationPlan)
+          throw new AdminAutomaticRunError('RUN_UNAVAILABLE', 503);
+        deps.writeJson(
+          request,
+          response,
+          200,
+          await deps.automaticRuns.preparationPlan()
+        );
       } else if (request.method === 'GET' && path === base + '/preparation') {
         const receipt = await deps.automaticRuns.preparation(
           actor,
@@ -161,7 +177,11 @@ export function createAdminAutomaticRunsHttpHandler(
         deps.writeJson(request, response, 200, report);
       } else if (
         request.method === 'POST' &&
-        ![base + '/report', base + '/preparation'].includes(path)
+        ![
+          base + '/report',
+          base + '/preparation',
+          base + '/preparation-plan'
+        ].includes(path)
       ) {
         if (
           !isJsonContentType(

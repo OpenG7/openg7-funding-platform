@@ -268,6 +268,14 @@ async function fixture(page: Page, language = 'fr-CA') {
             json: { code: 'RUN_INVALID_PAYMENT_FACTS' }
           });
         f.state = runState();
+        if (Array.isArray(body['preparationSelection']) && f.state.run)
+          f.state = {
+            ...f.state,
+            run: {
+              ...f.state.run,
+              dossierCount: body['preparationSelection'].length
+            }
+          };
         f.entries = [];
         return route.fulfill({ json: f.state });
       }
@@ -412,6 +420,111 @@ async function expandProcessing(page: Page) {
     await processing.locator(':scope > summary').click();
   await expect(processing).toHaveJSProperty('open', true);
 }
+
+for (const language of ['fr-CA', 'en']) {
+  test(`missing preparation preview remains read-only and starts only its exact selection in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    let reads = 0;
+    await page.route(
+      '**/api/admin/automatic-runs/preparation-plan',
+      async (route) => {
+        reads++;
+        await route.fulfill({
+          json: {
+            definition: 'missing-private-preparations/v1',
+            observedAt: now,
+            limit: 20,
+            candidateDossiers: 1,
+            missingPassages: 1,
+            preservedPassages: 2,
+            blockedPassages: 1,
+            hasMore: false,
+            minutesSaved: null,
+            items: [
+              {
+                contributionId: paymentIds[0],
+                reference: 'SYNTHETIC-PLAN',
+                version: 'a'.repeat(64),
+                drafts: [
+                  {
+                    obligationId: paymentIds[0],
+                    ordinal: 1,
+                    channel: 'facebook',
+                    target: 'openg7',
+                    title: 'Synthetic native title',
+                    body: 'Synthetic native prefill',
+                    disclosureText: 'Synthetic disclosure'
+                  }
+                ]
+              }
+            ]
+          }
+        });
+      }
+    );
+    await page.setViewportSize({
+      width: language === 'en' ? 390 : 1440,
+      height: 1000
+    });
+    await open(page);
+    expect(reads).toBe(0);
+    expect(f.writes).toEqual([]);
+    const panel = page.locator('[data-og7="preparation-plan"]');
+    await panel.locator('[data-og7="preparation-plan-load"]').focus();
+    await page.keyboard.press('Enter');
+    await expect(
+      panel.locator('[data-og7="preparation-plan-count"]')
+    ).toHaveText('1');
+    await expect(
+      panel.locator('[data-og7="preparation-plan-item"]')
+    ).toHaveAttribute('data-og7-id', paymentIds[0]);
+    await panel.locator('summary').click();
+    await expect(panel).toContainText('Synthetic native prefill');
+    expect(f.writes).toEqual([]);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="preparation-plan"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    await panel.locator('[data-og7="preparation-plan-start"]').click();
+    await expectReading(page, 'scope');
+    const writes = f.writes.filter(
+      (w) => w.pathname === '/api/admin/automatic-runs'
+    );
+    expect(writes).toHaveLength(1);
+    expect(writes[0].body['preparationSelection']).toEqual([
+      { contributionId: paymentIds[0], version: 'a'.repeat(64) }
+    ]);
+    expect(
+      f.writes.some(
+        (w) =>
+          w.pathname.endsWith('/advance') || w.pathname.includes('/approve')
+      )
+    ).toBe(false);
+    await hook(page, 'pause').click();
+  });
+}
+test('an unavailable preparation preview never starts a replacement full batch', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  await page.route('**/api/admin/automatic-runs/preparation-plan', (route) =>
+    route.fulfill({ status: 503, json: { code: 'RUN_UNAVAILABLE' } })
+  );
+  await open(page);
+  await page.locator('[data-og7="preparation-plan-load"]').click();
+  await expect(
+    page.locator('[data-og7="preparation-plan-unavailable"]')
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="preparation-plan-start"]')).toHaveCount(
+    0
+  );
+  expect(f.writes).toEqual([]);
+});
 
 for (const language of ['fr-CA', 'en']) {
   test(`preparation opens its records without starting a batch in ${language}`, async ({

@@ -1,0 +1,86 @@
+<section data-og7="preparation-plan" [attr.aria-busy]="loading()">
+  <h3>{{ t('title') }}</h3>
+  <p>{{ t('intro') }}</p>
+  <button
+    class="admin-button"
+    type="button"
+    (click)="load()"
+    [disabled]="loading()"
+    data-og7="preparation-plan-load"
+  >
+    {{ t('load') }}
+  </button>
+  @if (loading()) {
+    <p role="status">{{ t('loading') }}</p>
+  }
+  @if (failed()) {
+    <p role="alert" data-og7="preparation-plan-unavailable">
+      {{ t('unavailable') }}
+    </p>
+  }
+  @if (data(); as plan) {
+    <p>
+      {{ t('observed') }} <time>{{ plan.observedAt }}</time>
+    </p>
+    <dl>
+      <div>
+        <dt>{{ t('missing') }}</dt>
+        <dd data-og7="preparation-plan-missing">{{ plan.missingPassages }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('preserved') }}</dt>
+        <dd>{{ plan.preservedPassages }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('blocked') }}</dt>
+        <dd>{{ plan.blockedPassages }}</dd>
+      </div>
+    </dl>
+    <p>
+      {{ t('scope') }}
+      <span data-og7="preparation-plan-count">{{ plan.items.length }}</span> /
+      {{ plan.candidateDossiers }}. {{ t('limits') }}
+    </p>
+    <ul>
+      @for (item of plan.items; track item.contributionId) {
+        <li
+          data-og7="preparation-plan-item"
+          [attr.data-og7-id]="item.contributionId"
+        >
+          <strong>{{ item.reference }}</strong>
+          <ul>
+            @for (draft of item.drafts; track draft.obligationId) {
+              <li>
+                {{ draft.channel === 'linkedin' ? 'LinkedIn' : 'Facebook' }} ·
+                {{ draft.target === 'openg20' ? 'OpenG20' : 'OpenG7' }} ·
+                {{ t('passage') }} {{ draft.ordinal }}
+                <details>
+                  <summary>{{ t('preview') }}</summary>
+                  <h4>{{ draft.title }}</h4>
+                  <p class="draft-text">{{ draft.body }}</p>
+                  <p>{{ draft.disclosureText }}</p>
+                </details>
+              </li>
+            }
+          </ul>
+        </li>
+      } @empty {
+        <li data-og7="preparation-plan-empty">{{ t('empty') }}</li>
+      }
+    </ul>
+    <p>{{ t('safety') }}</p>
+    <p>{{ t('measurement') }}</p>
+    @if (plan.hasMore) {
+      <p>{{ t('more') }}</p>
+    }
+    <button
+      class="admin-button admin-button--primary"
+      type="button"
+      (click)="start()"
+      [disabled]="!canStart()"
+      data-og7="preparation-plan-start"
+    >
+      {{ t('start') }} ({{ plan.items.length }})
+    </button>
+  }
+</section>

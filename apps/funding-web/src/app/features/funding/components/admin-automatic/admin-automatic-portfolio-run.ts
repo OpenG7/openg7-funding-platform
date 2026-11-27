@@ -2,7 +2,8 @@ import type {
   AdminAutomaticRun,
   AdminAutomaticRunEntry,
   AdminAutomaticRunReport,
-  AdminAutomaticRunState
+  AdminAutomaticRunState,
+  AdminPreparationSelection
 } from '@openg7/funding-core';
 
 export type AutomaticPortfolioPhase =
@@ -43,7 +44,9 @@ export interface AutomaticPortfolioSnapshot {
 
 export interface AutomaticPortfolioPorts {
   read(runId?: string): Promise<AdminAutomaticRunState>;
-  start(): Promise<AdminAutomaticRunState>;
+  start(
+    selection?: readonly AdminPreparationSelection[]
+  ): Promise<AdminAutomaticRunState>;
   advance(run: AdminAutomaticRun): Promise<AdminAutomaticRunState>;
   control(
     run: AdminAutomaticRun,
@@ -110,7 +113,7 @@ export class AdminAutomaticPortfolioRun {
     });
   }
 
-  async start(): Promise<void> {
+  async start(selection?: readonly AdminPreparationSelection[]): Promise<void> {
     if (this.busy || this.continuing || !this.ports.canContinue()) return;
     this.continuing = true;
     await this.perform(async (epoch) => {
@@ -118,7 +121,7 @@ export class AdminAutomaticPortfolioRun {
         phase: 'loading',
         error: null
       });
-      const state = await this.ports.start();
+      const state = await this.ports.start(selection);
       if (!this.current(epoch)) return;
       this.update({ state, entries: [], nextCursor: null });
       await this.drive(epoch);

@@ -23,6 +23,10 @@ import { moderationApprovedSql } from './moderation/policy.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { AdminPreparationService } from './admin-preparation.service.js';
 import { AdminAutomaticRunError } from './admin-automatic-run-error.js';
+import {
+  loadPreparationPlan,
+  parsePreparationSelection
+} from './admin-preparation-plan.js';
 
 export { AdminAutomaticRunError } from './admin-automatic-run-error.js';
 
@@ -359,11 +363,21 @@ export class AdminAutomaticRunsService {
   }
 
   async start(raw: unknown, actor: string): Promise<AdminAutomaticRunState> {
-    const input = parse<AdminAutomaticRunStartRequest>(raw, ['requestId']);
+    const parsed = parse<AdminAutomaticRunStartRequest>(raw, [
+      'requestId',
+      'preparationSelection'
+    ]);
+    const preparationSelection = parsePreparationSelection(
+      parsed.preparationSelection
+    );
+    const input = {
+      requestId: parsed.requestId,
+      ...(preparationSelection ? { preparationSelection } : {})
+    };
     const hash = digest({
       actor,
       kind: 'start',
-      input: { requestId: input.requestId }
+      input
     });
     return withPostgresTransaction(this.pool, async (db) => {
       await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
@@ -371,6 +385,22 @@ export class AdminAutomaticRunsService {
       ]);
       const prior = await this.prior(db, actor, input.requestId, hash);
       if (prior) return prior;
+      if (preparationSelection) {
+        const plan = await loadPreparationPlan(
+          db,
+          preparationSelection.map((item) => item.contributionId)
+        );
+        check(
+          preparationSelection.every((item) =>
+            plan.items.some(
+              (candidate) =>
+                candidate.contributionId === item.contributionId &&
+                candidate.version === item.version
+            )
+          ),
+          'RUN_VERSION_STALE'
+        );
+      }
       check(
         !(
           await db.query(
@@ -384,7 +414,9 @@ export class AdminAutomaticRunsService {
         !(
           await db.query(
             `SELECT 1 FROM fund_contributions c WHERE ${confirmed}
-           AND (c.amount_cents<=0 OR upper(c.currency)!~'^[A-Z]{3}$') LIMIT 1`
+           AND ($1::uuid[] IS NULL OR c.id=ANY($1::uuid[]))
+           AND (c.amount_cents<=0 OR upper(c.currency)!~'^[A-Z]{3}$') LIMIT 1`,
+            [preparationSelection?.map((item) => item.contributionId) ?? null]
           )
         ).rows[0],
         'RUN_INVALID_PAYMENT_FACTS',
@@ -398,15 +430,29 @@ export class AdminAutomaticRunsService {
         `INSERT INTO admin_automatic_run_dossiers(run_id,position,contribution_id,reference,contribution_type,amount_minor,currency,payment_status)
          SELECT $1::uuid,row_number() OVER(ORDER BY COALESCE(c.paid_at,c.created_at),c.id),c.id,
            COALESCE(c.public_reference,c.id::text),c.contribution_type,c.amount_cents,upper(c.currency),c.status
-         FROM fund_contributions c WHERE ${confirmed}`,
-        [input.requestId]
+         FROM fund_contributions c WHERE ${confirmed} AND ($2::uuid[] IS NULL OR c.id=ANY($2::uuid[]))`,
+        [
+          input.requestId,
+          preparationSelection?.map((item) => item.contributionId) ?? null
+        ]
       );
+      if (preparationSelection) {
+        const frozen = await db.query<{ count: string }>(
+          'SELECT count(*) AS count FROM admin_automatic_run_dossiers WHERE run_id=$1::uuid',
+          [input.requestId]
+        );
+        check(
+          Number(frozen.rows[0]?.count) === preparationSelection.length,
+          'RUN_VERSION_STALE'
+        );
+      }
       await db.query(
         "UPDATE admin_automatic_runs SET status='completed' WHERE id=$1::uuid AND NOT EXISTS(SELECT 1 FROM admin_automatic_run_dossiers WHERE run_id=$1::uuid)",
         [input.requestId]
       );
       await audit(db, actor, 'started', input.requestId, {
-        requestId: input.requestId
+        requestId: input.requestId,
+        ...(preparationSelection ? { preparationSelection } : {})
       });
       const state = await this.stateOnClient(
         db,
@@ -421,6 +467,12 @@ export class AdminAutomaticRunsService {
         state
       );
       return state;
+    });
+  }
+
+  preparationPlan() {
+    return withPostgresTransaction(this.pool, (db) => loadPreparationPlan(db), {
+      readOnlySnapshot: true
     });
   }
 
