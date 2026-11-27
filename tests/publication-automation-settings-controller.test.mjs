@@ -199,6 +199,9 @@ test('confirmation from another feed, a closed drawer or a non-settings command 
   f.controller.acceptConfirmedSettings({ action: 'check', feedId: draft.id });
   f.controller.acceptConfirmedSettings({
     action: 'settings',
+    expectedSettings: publicationFeedSettingsSnapshot(
+      feed({ id: 'openg20:linkedin' })
+    ),
     settings: feed({ id: 'openg20:linkedin' })
   });
   assert.equal(f.controller.settings(), draft);
@@ -206,6 +209,7 @@ test('confirmation from another feed, a closed drawer or a non-settings command 
   f.controller.closeSettings();
   f.controller.acceptConfirmedSettings({
     action: 'settings',
+    expectedSettings: publicationFeedSettingsSnapshot(feed()),
     settings: feed()
   });
   assert.equal(f.controller.settings(), null);

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import sharp from 'sharp';
 import type {
   AdminAuditLogResponse,
@@ -147,12 +148,16 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
     for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(feed),
         settings: { ...feed, autoPrepare: false }
       });
     }
     for (const id of feeds) {
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(
+          (await state()).feeds.find((f) => f.id === id)!
+        ),
         settings: {
           id,
           paused: true,
@@ -468,6 +473,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         const feed = (await state()).feeds.find((f) => f.id === id)!;
         await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
           settings: { ...feed, paused: false }
         });
       }
@@ -737,6 +743,9 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
       } = initial.feeds.find((f) => f.id === id)!;
       await command({
         action: 'settings',
+        expectedSettings: publicationFeedSettingsSnapshot(
+          (await state()).feeds.find((f) => f.id === id)!
+        ),
         settings: {
           id,
           paused,

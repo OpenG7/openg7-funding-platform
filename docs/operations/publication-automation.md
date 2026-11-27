@@ -35,7 +35,7 @@ refresh; unsaved edits block refresh, and failed reads establish no fresh state.
 
 ## Conditional destination settings
 
-`settings` commands may include `expectedSettings`, the editable settings observed
+`settings` commands require `expectedSettings`, the editable settings observed
 when the form opened. Both administrative editors send this precondition, including
 pause/resume. The API validates both snapshots, locks the feed row, then compares
 only editable fields (weekday order is immaterial). Divergent current settings
@@ -45,10 +45,21 @@ are committed together, with `publication_feed` as the audit entity.
 Connection checks do not change this settings reference. A global pause does.
 This compares current values, not a monotonically increasing history version.
 
-For compatibility, callers omitting `expectedSettings` retain unconditional
-assignment semantics; they do not gain conflict protection. Migrate such clients
-to the conditional contract before relying on concurrent-edit protection.
-No database migration is required. Existing role and session checks still apply.
+Omitting `expectedSettings` returns `428 SETTINGS_PRECONDITION_REQUIRED` before
+reading or writing the feed, even if the target is already present. A supplied
+but malformed reference returns `400 INVALID_SETTINGS`. Unconditional assignment
+is no longer supported. The public command type, both administrative editors and
+the integration/acceptance setup and restoration callers use this contract.
+Clients must read `/admin/publication-automation`, retain the selected feed's
+editable snapshot before editing, then send it alongside the desired settings.
+Do not attach a newly fetched reference to an old draft automatically: a conflict
+requires a new review. Upgrade stale clients on 428 without automatically replaying
+their request. Publish API and consumers as one tested release; this document does
+not authorize deployment. External clients are responsible for adopting the same
+contract; they cannot bypass it by omitting the reference.
+No database migration is required. Existing role and session checks still apply:
+the automation write endpoint is owner-only. The destination page presents
+operators and readers with read-only settings; it does not expand API privileges.
 
 The dedicated page retains the original precondition after failed saves and keeps
 the draft on conflict. Reloading saved settings explicitly discards the draft only
@@ -536,6 +547,27 @@ the saved connection check. Expired credentials block authorization/delivery.
 There is no OAuth enrollment or automatic token refresh: credential renewal is a
 server operation. Live permission verification and a controlled real post remain
 necessary before operational activation. No real provider calls are made by tests.
+
+### Destination connection qualification
+
+The destination access panel describes the implemented server authentication,
+the check's scope and its limits. A simulation result is explicitly labelled and
+does not establish real provider access; disabled mode cannot run a page check.
+Expiry comes from server configuration, not token introspection. The current
+public feed contract has no remote display name, scope inventory or detailed
+connection failure code, so the panel does not invent those observations.
+
+| Provider | Implemented read-only check                                                                                       | Still requires external qualification                                             |
+| -------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Facebook | `/me?fields=id` matches the configured page ID                                                                    | Actual publishing permissions, provider application access and credential renewal |
+| LinkedIn | `organizationAcls` contains the configured organization with an approved administrator/content administrator role | Actual publishing permissions, provider application access and credential renewal |
+
+Before live use, the owner must separately qualify each destination and its
+server-managed credentials against the provider. Record the target, date and
+non-secret outcome in the operational record. Do not record tokens or treat an
+unavailable expiry as unlimited validity. A real publication requires a separate
+explicit authorization; this local audit and its tests authorize no provider call,
+credential change, activation or publication.
 
 Simulation deliveries are visibly labelled and do not mark sponsorship batches or
 drafts as genuinely published. After switching to live, preparing the same batch

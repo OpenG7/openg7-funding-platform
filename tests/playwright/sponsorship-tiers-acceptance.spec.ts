@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import sharp from 'sharp';
 import type {
   AdminAuditLogResponse,
@@ -239,6 +240,7 @@ for (const amount of [5, 10, 15]) {
         for (const feed of initial.feeds)
           await command({
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(feed),
             settings: {
               ...feed,
               paused: true,
@@ -997,6 +999,7 @@ for (const amount of [5, 10, 15]) {
             )!;
             await command({
               action: 'settings',
+              expectedSettings: publicationFeedSettingsSnapshot(feed),
               settings: { ...feed, paused: false }
             });
             await worker(true);
@@ -1211,7 +1214,13 @@ for (const amount of [5, 10, 15]) {
         await worker(false);
         await company.close();
         for (const feed of initial.feeds)
-          await command({ action: 'settings', settings: feed });
+          await command({
+            action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(
+              (await state()).feeds.find((f) => f.id === feed.id)!
+            ),
+            settings: feed
+          });
         await worker(initial.workerEnabled);
       }
     });

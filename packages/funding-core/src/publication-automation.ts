@@ -259,7 +259,7 @@ export type PublicationAutomationCommand =
   | {
       action: 'settings';
       settings: PublicationFeedSettings;
-      expectedSettings?: PublicationFeedSettings;
+      expectedSettings: PublicationFeedSettings;
     }
   | { action: 'pause-all' }
   | { action: 'check'; feedId: PublicationFeedId }

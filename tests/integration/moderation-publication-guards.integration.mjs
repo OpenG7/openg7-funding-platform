@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -77,7 +78,11 @@ test(
       await service.command({ action: 'check', feedId }, actor);
       const feed = (await service.feeds()).find((entry) => entry.id === feedId);
       await service.command(
-        { action: 'settings', settings: { ...feed, paused: false } },
+        {
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
+          settings: { ...feed, paused: false }
+        },
         actor
       );
     }

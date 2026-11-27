@@ -19,6 +19,24 @@ test(
         )
       ).rows[0];
     const baseline = await read();
+    await assert.rejects(
+      command(
+        context,
+        { action: 'settings', settings: baseline },
+        'synthetic-legacy-client'
+      ),
+      (error) =>
+        error.code === 'SETTINGS_PRECONDITION_REQUIRED' && error.status === 428
+    );
+    assert.ok(samePublicationFeedSettings(await read(), baseline));
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS total FROM admin_audit_log WHERE action='publication_automation.settings'"
+        )
+      ).rows[0].total,
+      0
+    );
     const targets = [1, 2, 3]
       .filter((value) => value !== baseline.capacity)
       .slice(0, 2);

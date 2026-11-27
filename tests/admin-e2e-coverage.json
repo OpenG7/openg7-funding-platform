@@ -150,7 +150,7 @@
         "/admin/fundraiser/engine-room",
         "/admin/fundraiser/publications/destinations/:feedId"
       ],
-      "roles": ["owner"],
+      "roles": ["owner", "operator", "reader", "anonymous"],
       "states": [
         "401",
         "403",
@@ -159,7 +159,10 @@
         "503",
         "late response",
         "reload current content",
-        "read-only engine observations and native publication settings preserved"
+        "read-only engine observations and native publication settings preserved",
+        "mandatory settings reference (428)",
+        "concurrent destination editors",
+        "lost response reconciliation"
       ],
       "evidence": [
         {
@@ -171,6 +174,11 @@
           "level": "e2e",
           "file": "tests/playwright/admin-engine-room-acceptance.spec.ts",
           "title": "engine room reads real owner observations without mutating publication settings"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/identity/destination-settings-journey.spec.ts",
+          "title": "destination settings: mandatory references, concurrent editors, lost response and revoked OIDC session preserve confirmed state"
         }
       ]
     },

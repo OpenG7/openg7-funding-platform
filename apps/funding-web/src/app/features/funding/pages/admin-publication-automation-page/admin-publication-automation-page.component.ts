@@ -387,6 +387,7 @@ export class AdminPublicationAutomationPageComponent {
     }
     const key = [
       'VERSION_CONFLICT',
+      'SETTINGS_PRECONDITION_REQUIRED',
       'WORKER_VERSION_CONFLICT',
       'SOURCE_CHANGED',
       'SOURCE_CONTENT_MISSING',

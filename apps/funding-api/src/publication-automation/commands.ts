@@ -116,12 +116,15 @@ async function executeCommand(
     return {};
   }
   if (input.action === 'settings') {
+    assert(
+      input.expectedSettings !== undefined,
+      'SETTINGS_PRECONDITION_REQUIRED',
+      428
+    );
     validateSettings(input.settings);
     const s = input.settings;
-    if (input.expectedSettings !== undefined) {
-      validateSettings(input.expectedSettings);
-      assert(input.expectedSettings.id === s.id, 'INVALID_SETTINGS', 400);
-    }
+    validateSettings(input.expectedSettings);
+    assert(input.expectedSettings.id === s.id, 'INVALID_SETTINGS', 400);
     await run(async (db) => {
       const current = (
         await db.query<PublicationFeedSettings>(
@@ -133,8 +136,7 @@ async function executeCommand(
       // An identical replay has no second write or audit, including a lost response.
       if (samePublicationFeedSettings(current, s)) return;
       assert(
-        !input.expectedSettings ||
-          samePublicationFeedSettings(current, input.expectedSettings),
+        samePublicationFeedSettings(current, input.expectedSettings),
         'SETTINGS_CONFLICT'
       );
       await db.query(
@@ -158,7 +160,7 @@ async function executeCommand(
         {
           previous: publicationFeedSettingsSnapshot(current),
           settings: publicationFeedSettingsSnapshot(s),
-          conditional: input.expectedSettings !== undefined
+          conditional: true
         },
         'publication_feed'
       );

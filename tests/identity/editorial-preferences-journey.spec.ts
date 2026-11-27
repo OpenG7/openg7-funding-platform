@@ -3,6 +3,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import { AxeBuilder } from '@axe-core/playwright';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import type {
@@ -549,6 +550,9 @@ test('editorial variants: exact review, distinct observations and explicit prefe
     };
     await mutate({
       action: 'settings',
+      expectedSettings: publicationFeedSettingsSnapshot(
+        (await state()).feeds.find((f) => f.id === feedId)!
+      ),
       settings: {
         id: feedId,
         paused: true,

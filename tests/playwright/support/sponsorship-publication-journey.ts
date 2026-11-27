@@ -3,6 +3,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import type {
   APIRequestContext,
   BrowserContext,
@@ -541,6 +542,7 @@ export async function sponsorshipPublicationJourney(
       if (feed.autoPrepare) {
         const response = await command({
           action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(feed),
           settings: { ...feed, autoPrepare: false }
         });
         expect(response.ok(), await response.text()).toBe(true);
@@ -1058,6 +1060,9 @@ export async function sponsorshipPublicationJourney(
         (
           await command({
             action: 'settings',
+            expectedSettings: publicationFeedSettingsSnapshot(
+              (await state()).feeds.find((f) => f.id === id)!
+            ),
             settings: {
               id,
               paused,

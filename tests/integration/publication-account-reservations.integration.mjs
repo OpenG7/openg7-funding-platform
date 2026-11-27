@@ -1,3 +1,4 @@
+import { publicationFeedSettingsSnapshot } from '../../dist/packages/funding-core/src/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -106,7 +107,11 @@ test(
       );
       assert.equal(settings.connection, 'ready');
       await activeService.command(
-        { action: 'settings', settings: { ...settings, paused: false } },
+        {
+          action: 'settings',
+          expectedSettings: publicationFeedSettingsSnapshot(settings),
+          settings: { ...settings, paused: false }
+        },
         'reservation-tester'
       );
     }

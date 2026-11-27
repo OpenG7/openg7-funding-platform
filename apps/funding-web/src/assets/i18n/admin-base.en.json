@@ -3373,7 +3373,8 @@
         "MEDIA_RECONCILIATION_REQUIRED": "The image needs verification on the social network. Delivery remains blocked to prevent a duplicate.",
         "COLLECTION_REQUIRES_MULTIPLE_SPONSORS": "A LinkedIn collection requires 2 to 10 sponsors, each with an authorized photo.",
         "SPONSOR_APPROVAL_REQUIRED": "Review the pending sponsors and confirm their approval with this publication.",
-        "SPONSOR_MEDIA_REQUIRED": "Each new sponsor requires an approved presentation photo."
+        "SPONSOR_MEDIA_REQUIRED": "Each new sponsor requires an approved presentation photo.",
+        "SETTINGS_PRECONDITION_REQUIRED": "Refresh the application and reread the settings before retrying: the concurrency reference is required."
       },
       "editSourceDrafts": "Edit source drafts",
       "sourceContentUncertain": "This delivery may already have created a publication, but its content does not allow every sponsor to be confirmed. Inspect the references retained in the audit and check the actual account’s history on the social network. If the publication exists, keep the uncertain status: never attest its absence or resend this delivery. Editing and recomposition are unavailable in this state.",
@@ -4385,7 +4386,14 @@
       "missing": "Destination not found",
       "missingHelp": "This destination is absent from the available data. Return to the engine room to select a module.",
       "readError": "Unable to load settings. No operational state can be confirmed.",
-      "commandError": "The operation or its confirming read failed. Changes are retained; verify the state before retrying."
+      "commandError": "The operation or its confirming read failed. Changes are retained; verify the state before retrying.",
+      "serverAuthentication": "Authentication is configured on the server. Connecting through OAuth and renewing credentials are not available on this page.",
+      "facebookCheckScope": "Facebook: the implemented check compares the identity returned by the page token with the configured page ID.",
+      "linkedinCheckScope": "LinkedIn: the implemented check looks for an approved administrator or content administrator role for the configured organization.",
+      "permissionCheckLimit": "A successful check does not verify every permission required to publish. It neither activates the destination nor authorizes a publication.",
+      "expirySource": "The expiry date is supplied by the server configuration. An unavailable date does not mean the authorization never expires.",
+      "simulatedConnection": "Simulation: this check does not establish access to a real Facebook page or LinkedIn organization.",
+      "disabledConnection": "Publication is disabled. Configure the provider mode on the server before checking its connection."
     }
   }
 }

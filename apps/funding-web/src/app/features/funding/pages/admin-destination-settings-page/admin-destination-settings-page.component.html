@@ -182,11 +182,32 @@
               {{ 'admin.publicationAutomation.connectionHelp' | translate }}
             </p>
             <p class="help">{{ t('credentialsHelp') }}</p>
+            <div data-og7="destination-connection-scope">
+              <p class="help">{{ t('serverAuthentication') }}</p>
+              <p class="help">
+                {{
+                  t(
+                    feed.id.endsWith(':facebook')
+                      ? 'facebookCheckScope'
+                      : 'linkedinCheckScope'
+                  )
+                }}
+              </p>
+              <p class="help">{{ t('permissionCheckLimit') }}</p>
+              <p class="help">{{ t('expirySource') }}</p>
+              @if (feed.mode === 'mock') {
+                <p role="status">{{ t('simulatedConnection') }}</p>
+              } @else if (feed.mode === 'disabled') {
+                <p role="status">{{ t('disabledConnection') }}</p>
+              }
+            </div>
             @if (canWrite()) {
               <button
                 type="button"
                 class="admin-button"
-                [disabled]="busy() || !!writePending()"
+                [disabled]="
+                  busy() || !!writePending() || feed.mode === 'disabled'
+                "
                 (click)="check()"
                 data-og7="destination-check"
               >

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { publicationFeedSettingsSnapshot } from '@openg7/funding-core';
 import type {
   PublicationAutomationCommand,
   PublicationAutomationState
@@ -62,6 +63,7 @@ test('oversized recognition stays visible and correction returns the same source
   const future = new Date(Date.now() + 5 * 60000);
   await command({
     action: 'settings',
+    expectedSettings: publicationFeedSettingsSnapshot(feed),
     settings: {
       ...feed,
       paused: true,
@@ -281,6 +283,12 @@ test('oversized recognition stays visible and correction returns the same source
       }
     }
   } finally {
-    await command({ action: 'settings', settings: feed });
+    await command({
+      action: 'settings',
+      expectedSettings: publicationFeedSettingsSnapshot(
+        (await state()).feeds.find((f) => f.id === feed.id)!
+      ),
+      settings: feed
+    });
   }
 });
