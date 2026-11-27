@@ -9,8 +9,8 @@ import {
 } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   PublicationAutomationCommand,
@@ -68,6 +68,30 @@ export class AdminPublicationAutomationPageComponent {
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly moderation = inject(FundingModerationService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly query = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap
+  });
+  readonly returnFeed = computed(
+    () =>
+      this.state()?.feeds.find(
+        (feed) => feed.id === this.query().get('returnFeedId')
+      ) ?? null
+  );
+  readonly returnQuery = computed(() => ({
+    tab: [
+      'configuration',
+      'access',
+      'rules',
+      'executions',
+      'diagnostics'
+    ].includes(this.query().get('returnTab') ?? '')
+      ? this.query().get('returnTab')
+      : 'configuration',
+    sponsorshipId: this.query().get('returnSponsorshipId'),
+    deliveryId: this.query().get('returnDeliveryId'),
+    decisionId: this.query().get('returnDecisionId')
+  }));
   private readonly document = inject(DOCUMENT);
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';
@@ -160,7 +184,7 @@ export class AdminPublicationAutomationPageComponent {
           );
           if (job) this.delivery.open(job);
         }
-        this.settingsController.acceptConfirmedSettings(command);
+        return this.settingsController.acceptConfirmedSettings(command);
       }
     });
   readonly visible = computed(() =>
@@ -262,6 +286,27 @@ export class AdminPublicationAutomationPageComponent {
           );
           void this.load().then(async (loaded) => {
             if (!loaded || !this.readController.isCurrent(context)) return;
+            const legacyFeed = this.state()?.feeds.find(
+              (feed) => feed.id === params.get('feedId')
+            );
+            if (
+              params.get('settings') === 'feeds' &&
+              legacyFeed &&
+              !params.has('batchId')
+            ) {
+              await this.router.navigate(
+                ['/admin/fundraiser/publications/destinations', legacyFeed.id],
+                {
+                  queryParams: {
+                    sponsorshipId: params.get('sponsorshipId'),
+                    deliveryId: params.get('deliveryId'),
+                    decisionId: params.get('decisionId')
+                  },
+                  replaceUrl: true
+                }
+              );
+              return;
+            }
             const deliveryId = params.get('deliveryId');
             const delivery = this.state()?.deliveries.find(
               (d) => d.id === deliveryId

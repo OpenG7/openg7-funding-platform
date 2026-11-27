@@ -1378,6 +1378,11 @@ for (const [language, width] of [
     expect(commands).toEqual([
       {
         action: 'settings',
+        expectedSettings: expect.objectContaining({
+          id: 'openg7:facebook',
+          capacity: 5,
+          paused: true
+        }),
         settings: expect.objectContaining({
           id: 'openg7:facebook',
           paused: true,

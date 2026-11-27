@@ -36,7 +36,8 @@ export class AdminPublicationAutomationCommandWorkflow implements PublicationAut
       const next = await this.ports.api.read(context.filter);
       if (!this.ports.isCurrent(context)) return false;
       this.ports.applyState(next);
-      this.ports.confirmed(command, result, next, open);
+      if (this.ports.confirmed(command, result, next, open) === false)
+        return false;
       state.notice.set(
         command.action === 'prepare'
           ? 'admin.publicationAutomation.settingsPanel.prepared'

@@ -45,5 +45,5 @@ export interface PublicationAutomationCommandPorts {
     result: PublicationAutomationCommandResult,
     next: PublicationAutomationState,
     open: boolean
-  ): void;
+  ): boolean | void;
 }

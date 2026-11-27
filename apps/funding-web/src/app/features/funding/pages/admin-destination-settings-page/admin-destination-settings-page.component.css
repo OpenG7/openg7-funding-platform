@@ -1,6 +1,39 @@
 :host {
   display: block;
 }
+.observation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block: 1rem;
+  font-size: 0.875rem;
+}
+.observation-bar p {
+  margin: 0;
+}
+.observation-bar strong {
+  color: #ffe1a5;
+  margin-inline-start: 0.5rem;
+}
+.execution-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+.execution-list li {
+  border-top: 1px solid #286079;
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+  overflow-wrap: anywhere;
+}
+.execution-list .admin-button {
+  justify-self: start;
+}
 .destination-settings {
   color: #e2edf5;
   background: #071522;
@@ -203,7 +236,8 @@ button:disabled {
     margin-bottom: 0.7rem;
   }
   openg7-engine-motor {
-    flex-basis: 5rem;
+    flex: none;
+    width: 5rem;
     --motor-width: 5rem;
     --motor-height: 4.5rem;
   }

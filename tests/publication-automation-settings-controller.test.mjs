@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { signal } from '@angular/core';
+import { publicationFeedSettingsSnapshot } from '../dist/packages/funding-core/src/index.js';
 
 import { PublicationAutomationSettingsController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-automation-settings.controller.js';
 
@@ -134,7 +135,15 @@ test('save sends a snapshot and keeps local edits until authoritative reread rec
   draft.timezone = 'Europe/Paris';
   draft.capacity = 5;
   f.controller.saveSettings();
-  assert.deepEqual(f.commands, [{ action: 'settings', settings: draft }]);
+  assert.deepEqual(f.commands, [
+    {
+      action: 'settings',
+      settings: draft,
+      expectedSettings: publicationFeedSettingsSnapshot(
+        f.ports.state().feeds[0]
+      )
+    }
+  ]);
   assert.notEqual(f.commands[0].settings, draft);
   assert.notEqual(f.commands[0].settings.weekdays, draft.weekdays);
   assert.equal(f.controller.settings(), draft);
@@ -167,6 +176,21 @@ test('failed command or reread retains the same unsaved draft and feedback', () 
   );
 });
 
+test('a later read cannot silently rebase a legacy settings draft or confirm different saved values', () => {
+  const f = fixture();
+  f.controller.configure(f.ports.state().feeds[0]);
+  f.controller.settings().capacity = 5;
+  f.ports.state.update((state) => ({
+    ...state,
+    feeds: [feed({ capacity: 6 })]
+  }));
+  f.controller.saveSettings();
+  assert.equal(f.commands[0].expectedSettings.capacity, 3);
+  assert.equal(f.controller.acceptConfirmedSettings(f.commands[0]), false);
+  assert.equal(f.controller.settings().capacity, 5);
+  assert.equal(f.ports.error(), 'admin.destinationSettings.conflict');
+});
+
 test('confirmation from another feed, a closed drawer or a non-settings command preserves current drafts', () => {
   const f = fixture();
   f.controller.configure(f.ports.state().feeds[0]);
@@ -192,7 +216,11 @@ test('destination pause preserves recurrence and uses the existing settings payl
   const saved = f.ports.state().feeds[0];
   f.controller.pause(saved);
   assert.deepEqual(f.commands, [
-    { action: 'settings', settings: { ...saved, paused: false } }
+    {
+      action: 'settings',
+      settings: { ...saved, paused: false },
+      expectedSettings: publicationFeedSettingsSnapshot(saved)
+    }
   ]);
   assert.equal(saved.paused, true);
   assert.notEqual(f.commands[0].settings.weekdays, saved.weekdays);

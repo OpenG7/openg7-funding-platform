@@ -26,6 +26,26 @@
         </button>
       </div>
     </header>
+    @if (returnFeed(); as feed) {
+      <section class="worker-control" data-og7="publication-destination-return">
+        <div>
+          <h2>
+            {{ feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn' }} ·
+            {{ feed.id.split(':')[0].toUpperCase() }}
+          </h2>
+          <p>{{ 'admin.destinationSettings.operationsScope' | translate }}</p>
+        </div>
+        <a
+          class="admin-button"
+          [routerLink]="[
+            '/admin/fundraiser/publications/destinations',
+            feed.id
+          ]"
+          [queryParams]="returnQuery()"
+          >{{ 'admin.destinationSettings.returnSettings' | translate }}</a
+        >
+      </section>
+    }
     @if (error() && !delivery.selected() && !delivery.composing()) {
       <p role="alert" class="alert">
         {{ error() | translate }}
@@ -61,6 +81,11 @@
       </p>
     }
     @if (state(); as s) {
+      @if (feedFilter()) {
+        <p data-og7="publication-global-scope">
+          {{ 'admin.destinationSettings.globalScope' | translate }}
+        </p>
+      }
       <div
         class="summary"
         data-og7="publication-automation-summary"

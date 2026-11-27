@@ -117,6 +117,21 @@ const fixture = () => {
   };
 };
 
+test('a rejected confirming snapshot cannot announce a saved settings result', async () => {
+  const f = fixture();
+  f.ports.confirmed = () => {
+    f.state.error.set('admin.destinationSettings.conflict');
+    return false;
+  };
+  assert.equal(
+    await f.workflow.run({ action: 'settings', settings: feedSettings() }),
+    false
+  );
+  assert.equal(f.state.notice(), '');
+  assert.equal(f.state.error(), 'admin.destinationSettings.conflict');
+  assert.equal(f.state.busy(), false);
+});
+
 test('approval preserves exact delivery and sponsor versions and waits for the filtered server read before feedback', async () => {
   const f = fixture();
   const read = deferred();

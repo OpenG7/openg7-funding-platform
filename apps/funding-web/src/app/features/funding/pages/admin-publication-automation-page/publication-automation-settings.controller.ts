@@ -12,6 +12,10 @@ import type {
   PublicationFeedSettings
 } from '@openg7/funding-core';
 
+import {
+  publicationFeedSettingsSnapshot,
+  samePublicationFeedSettings
+} from '../../../../../../../../packages/funding-core/src/index.js';
 import type { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
 import type { PublicationAutomationCommandRunner } from '../../components/admin-publications/publication-automation.ports.js';
@@ -20,7 +24,7 @@ export interface PublicationAutomationSettingsPorts {
   readonly state: Signal<PublicationAutomationState | null>;
   readonly busy: Signal<boolean>;
   readonly canManageWorker: Signal<boolean>;
-  readonly error: Signal<string>;
+  readonly error: WritableSignal<string>;
   readonly notice: WritableSignal<string>;
   readonly commands: PublicationAutomationCommandRunner;
   readonly i18n: Pick<FundingI18nService, 't' | 'currentLanguage'>;
@@ -32,6 +36,7 @@ export interface PublicationAutomationSettingsPorts {
 export class PublicationAutomationSettingsController {
   private disposed = false;
   readonly settings = signal<PublicationFeedSettings | null>(null);
+  private readonly reference = signal<PublicationFeedSettings | null>(null);
   readonly workerChanging = signal(false);
   readonly weekdays = [1, 2, 3, 4, 5, 6, 0];
   readonly settingsFeed = computed(() =>
@@ -55,6 +60,7 @@ export class PublicationAutomationSettingsController {
     if (this.busy()) return;
     this.ports.clearFeedback();
     this.settings.set({ ...feed, weekdays: [...feed.weekdays] });
+    this.reference.set(publicationFeedSettingsSnapshot(feed));
   }
 
   closeSettings(): void {
@@ -96,15 +102,18 @@ export class PublicationAutomationSettingsController {
     if (this.busy()) return;
     void this.ports.commands.run({
       action: 'settings',
+      expectedSettings: publicationFeedSettingsSnapshot(feed),
       settings: { ...feed, weekdays: [...feed.weekdays], paused: !feed.paused }
     });
   }
 
   saveSettings(): void {
     const draft = this.settings();
-    if (!draft || this.busy()) return;
+    const expectedSettings = this.reference();
+    if (!draft || !expectedSettings || this.busy()) return;
     void this.ports.commands.run({
       action: 'settings',
+      expectedSettings,
       settings: { ...draft, weekdays: [...draft.weekdays] }
     });
   }
@@ -119,17 +128,23 @@ export class PublicationAutomationSettingsController {
   }
 
   /** Called only after the command and its authoritative server reread succeed. */
-  acceptConfirmedSettings(command: PublicationAutomationCommand): void {
-    if (
-      command.action !== 'settings' ||
-      this.settings()?.id !== command.settings.id
-    )
-      return;
+  acceptConfirmedSettings(command: PublicationAutomationCommand): boolean {
+    if (command.action !== 'settings') return true;
     const confirmed = this.state()?.feeds.find(
       (feed) => feed.id === command.settings.id
     );
-    if (confirmed)
+    if (
+      !confirmed ||
+      !samePublicationFeedSettings(confirmed, command.settings)
+    ) {
+      this.error.set('admin.destinationSettings.conflict');
+      return false;
+    }
+    if (this.settings()?.id === command.settings.id) {
+      this.reference.set(publicationFeedSettingsSnapshot(confirmed));
       this.settings.set({ ...confirmed, weekdays: [...confirmed.weekdays] });
+    }
+    return true;
   }
 
   async toggleWorker(): Promise<void> {
