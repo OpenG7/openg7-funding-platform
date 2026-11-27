@@ -262,8 +262,8 @@ test.describe('Docker admin publication batches', () => {
     const settings = page.locator('[data-og7="destination-settings"]');
     await settings.locator('[data-og7="destination-check"]').click();
     await expect(
-      settings.getByRole('status').filter({ hasText: 'Connexion vérifiée' })
-    ).toHaveText('Connexion vérifiée');
+      settings.getByRole('status').filter({ hasText: 'Vérification terminée' })
+    ).toHaveText('Vérification terminée. L’état de connexion a été actualisé.');
     await page.goto(
       '/admin/fundraiser/publications/automation?deliveryId=' +
         encodeURIComponent(deliveryId)
