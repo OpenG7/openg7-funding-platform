@@ -622,17 +622,42 @@ test('OIDC refuses missing MFA, invalid signature, unknown member and provider o
     });
     const page = context.pages()[0] ?? (await context.newPage());
     // These two are members: their denial must come from MFA/signature checks.
+    let interruptedScript = false;
+    page.on('requestfailed', (request) => {
+      if (
+        request.resourceType() === 'script' &&
+        request.method() === 'GET' &&
+        new URL(request.url()).origin === stack.origin &&
+        request.failure()?.errorText === 'net::ERR_NETWORK_CHANGED'
+      )
+        interruptedScript = true;
+    });
     for (const subject of ['no-mfa', 'bad-signature'])
       await stack.pool.query(
         "INSERT INTO admin_accounts(issuer,subject,display_name,role) VALUES($1,$2,$2,'reader')",
         [stack.provider.issuer + '/', `fixture-${subject}`]
       );
     for (const subject of ['no-mfa', 'bad-signature', 'unknown']) {
+      interruptedScript = false;
       await login(page, subject);
       await expect(page).toHaveURL(/identityError=1/);
-      await expect(page.getByRole('alert')).toContainText(
-        'Connexion impossible'
-      );
+      const denial = page.getByRole('alert');
+      try {
+        await expect(denial).toContainText('Connexion impossible');
+      } catch (error) {
+        const url = new URL(page.url());
+        // Reload only the failed, read-only login document. Never repeat the
+        // OIDC callback or relax the session and MFA rejection assertions.
+        if (
+          !interruptedScript ||
+          url.origin !== stack.origin ||
+          url.pathname !== '/admin/login' ||
+          url.searchParams.get('identityError') !== '1'
+        )
+          throw error;
+        await page.reload();
+        await expect(denial).toContainText('Connexion impossible');
+      }
       expect((await page.request.get('/api/admin/auth/current')).status()).toBe(
         401
       );
