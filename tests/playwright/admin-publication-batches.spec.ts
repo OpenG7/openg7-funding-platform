@@ -256,24 +256,19 @@ test.describe('Docker admin publication batches', () => {
     await expect(preview).toBeVisible();
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();
     await expect(preview).not.toBeVisible();
-    await page
-      .locator('[data-og7="publication-feed-settings"] summary')
-      .click();
-    const feed = page
-      .locator('[data-og7="publication-automation"] article')
-      .filter({ hasText: 'OPENG7' })
-      .filter({ hasText: 'Facebook' });
-    await feed.getByRole('button', { name: 'Réglages', exact: true }).click();
-    const settings = page.getByRole('dialog', { name: 'Réglages' });
-    await settings
-      .getByRole('button', { name: 'Vérifier la connexion', exact: true })
-      .click();
+    await page.goto(
+      '/admin/fundraiser/publications/destinations/openg7:facebook'
+    );
+    const settings = page.locator('[data-og7="destination-settings"]');
+    await settings.locator('[data-og7="destination-check"]').click();
     await expect(
       settings.getByRole('status').filter({ hasText: 'Connexion vérifiée' })
     ).toHaveText('Connexion vérifiée');
-    await settings.getByRole('button').filter({ hasText: 'Fermer' }).click();
-    await expect(settings).not.toBeVisible();
-    await deliveryCard.click();
+    await page.goto(
+      '/admin/fundraiser/publications/automation?deliveryId=' +
+        encodeURIComponent(deliveryId)
+    );
+    await expect(preview).toBeVisible();
     await preview.getByRole('checkbox', { name: /J’approuve/ }).check();
     await preview
       .getByRole('button', { name: 'Accepter et programmer' })
