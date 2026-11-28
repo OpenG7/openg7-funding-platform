@@ -569,6 +569,26 @@ unavailable expiry as unlimited validity. A real publication requires a separate
 explicit authorization; this local audit and its tests authorize no provider call,
 credential change, activation or publication.
 
+Prepare a sanitized report locally after `yarn build`:
+
+```sh
+node scripts/qualify-destination-connections.mjs --env /private/destinations.env
+```
+
+The default is a plan with no network access. Only the named file is read; shell
+credentials and an implicit `.env` are not merged. `--feed openg7:facebook` selects
+one of the four destinations. Running the same command with `--check` explicitly
+requests the existing read-only provider account checks. It accepts only the
+official HTTPS provider hosts and refuses expired/invalid expiry, missing
+configuration and custom endpoints. Mock mode remains `simulation`, never verified.
+No database state, activation or publication is changed; no token, account ID,
+provider response or private path is printed. `check_failed` is inconclusive about
+the underlying cause: use the provider's private diagnostics separately.
+Unknown expiry remains unknown even after a successful account-access check.
+The report lists permissions, application access and renewal as unverified.
+Exit codes: 0 for a plan or all requested live checks verified, 1 for any blocked,
+simulated or failed requested check, 2 for invalid invocation or unreadable input.
+
 Simulation deliveries are visibly labelled and do not mark sponsorship batches or
 drafts as genuinely published. After switching to live, preparing the same batch
 archives its completed simulation and requires a fresh content approval.
